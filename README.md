@@ -10,6 +10,104 @@ See `cash-grab-prd.md` for the full spec.
 
 ---
 
+## Beginner's Guide: Getting Started (Step-by-Step)
+
+### What You Need
+
+1. **Node.js** — This is free software that lets your computer run the game server. 
+   - Download from https://nodejs.org/ (get the "LTS" version, the green button)
+   - Install it like any other program
+   - When done, you'll have `npm` (a tool to download game code libraries)
+
+2. **The game code** — You already have this folder!
+
+3. **A terminal** — This is how you give your computer instructions. It looks scary but it's just text.
+   - **Windows:** Press `Win + R`, type `cmd`, press Enter
+   - **Mac:** Open Spotlight (Cmd + Space), type `terminal`, press Enter
+   - **Linux:** Open your applications and search for "Terminal"
+
+### What You'll See
+
+When you open the terminal, you'll see a blank screen with a blinking cursor. This is normal! You type commands here and press Enter.
+
+### Actually Running the Game
+
+**Step 1: Get into the game folder**
+
+Copy this text, paste it in the terminal, and press Enter:
+```
+cd path/to/SAP_Game
+```
+(Replace `path/to/SAP_Game` with wherever you saved this folder. Example: On Windows it might be `C:\Users\YourName\Desktop\SAP_Game`)
+
+The terminal should show you're now in the right place (it'll say "SAP_Game" or similar).
+
+**Step 2: Download all the game libraries** (one-time, takes ~2 minutes)
+
+Copy, paste, and press Enter:
+```
+npm run install:all
+```
+
+You'll see a bunch of text downloading. Let it finish — don't close the terminal.
+
+**Step 3: Start the game server**
+
+Copy, paste, and press Enter:
+```
+npm run play
+```
+
+The terminal will print:
+```
+Cash Grab server running on port 2567
+```
+
+**Congratulations!** The game is now running on your computer.
+
+### Playing the Game
+
+1. **Open your browser** (Chrome, Firefox, Safari, Edge — any will work)
+2. **Go to:** `http://localhost:2567`
+3. **Type your name** and click "Create Room"
+4. **You'll get a 4-letter code** (like `AEKF`) — write it down!
+5. **Open a new browser tab** 3 more times and do the same thing, but click "Join" and paste the code
+6. **Once you have 4 players**, the game starts automatically
+
+### Getting Friends to Play
+
+#### **If they're on the same WiFi (home/office):**
+
+1. Find your computer's IP address (this is like a phone number for your computer on WiFi):
+   - **Windows:** In the terminal, type `ipconfig` and press Enter. Look for a number like `192.168.1.23`
+   - **Mac:** In the terminal, type `ipconfig getifaddr en0` and press Enter
+   - **Linux:** In the terminal, type `hostname -I` and press Enter
+
+2. Tell your friends: "Open `http://[your-number]:2567` in their browser" (example: `http://192.168.1.23:2567`)
+
+3. They type their name, enter your room code, and click "Join"
+
+#### **If they're far away (different WiFi):**
+
+You need to create a tunnel (think of it like a secret door to your computer through the internet):
+
+1. **Download Cloudflare Tunnel** (it's free): https://developers.cloudflare.com/cloudflare-one/connections/connect-networks/downloads/
+2. **Open a second terminal window** (don't close your game one!)
+3. Copy and paste this, then press Enter:
+   ```
+   cloudflared tunnel --url http://localhost:2567
+   ```
+4. You'll see a long URL like: `https://random-words.trycloudflare.com`
+5. **Copy that URL and send it to your friends** — they paste it in their browser, type their name, enter your room code, and click "Join"
+
+### Troubleshooting
+
+- **"Can't find npm"** → You didn't install Node.js. Go download it and restart your terminal.
+- **"Port 2567 already in use"** → Close any other copies of the game, wait 10 seconds, try again.
+- **Friends can't connect** → Make sure the URL is correct and your computer isn't in sleep mode.
+
+---
+
 ## Play with your friends (the easy way)
 
 The game server can also serve the game page, so **everyone uses one single link** —
