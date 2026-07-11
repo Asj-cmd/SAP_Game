@@ -10,11 +10,12 @@ new Phaser.Game({
   width: 960,
   height: 540,
   parent: "app",
+  backgroundColor: "#000000",
+  dom: { createContainer: true },
   scale: {
     mode: Phaser.Scale.FIT,
     autoCenter: Phaser.Scale.CENTER_BOTH,
   },
-  backgroundColor: "#000000",
   physics: {
     default: "arcade",
     arcade: { gravity: { x: 0, y: GRAVITY }, debug: false },
