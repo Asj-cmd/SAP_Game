@@ -1,0 +1,50 @@
+import Phaser from "phaser";
+import { COLORS } from "../constants";
+
+export type Team = "A" | "B";
+
+export interface PlayerVisualState {
+  isCarryingCash: boolean;
+  isJailed: boolean;
+}
+
+export class Player extends Phaser.GameObjects.Container {
+  private cashIndicator: Phaser.GameObjects.Rectangle;
+  private nameText: Phaser.GameObjects.Text;
+  private promptText: Phaser.GameObjects.Text;
+
+  constructor(scene: Phaser.Scene, x: number, y: number, team: Team, name: string) {
+    super(scene, x, y);
+
+    const color = team === "B" ? COLORS.teamB : COLORS.teamA;
+
+    const legLeft = scene.add.line(0, 0, -4, 25, -4, 40, color).setLineWidth(2);
+    const legRight = scene.add.line(0, 0, 4, 25, 4, 40, color).setLineWidth(2);
+    const body = scene.add.rectangle(0, 14, 12, 22, color);
+    const head = scene.add.circle(0, -8, 14, color);
+
+    this.cashIndicator = scene.add.rectangle(0, -34, 14, 10, COLORS.cash).setVisible(false);
+
+    this.nameText = scene.add
+      .text(0, -50, name, { fontSize: "10px", color: "#ffffff", stroke: "#000000", strokeThickness: 2 })
+      .setOrigin(0.5);
+
+    this.promptText = scene.add
+      .text(0, -66, "", { fontSize: "11px", color: "#ffff00", stroke: "#000000", strokeThickness: 3 })
+      .setOrigin(0.5)
+      .setVisible(false);
+
+    this.add([legLeft, legRight, body, head, this.cashIndicator, this.nameText, this.promptText]);
+    scene.add.existing(this);
+  }
+
+  setVisualState(state: PlayerVisualState) {
+    this.cashIndicator.setVisible(state.isCarryingCash);
+    this.setAlpha(state.isJailed ? 0.5 : 1);
+  }
+
+  setPrompt(text: string) {
+    if (text) this.promptText.setText(text).setVisible(true);
+    else this.promptText.setVisible(false);
+  }
+}

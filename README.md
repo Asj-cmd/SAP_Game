@@ -1,2 +1,4 @@
-# SAP_Game
-This is the repo for THE game.
+node_modules/
+dist/
+.DS_Store
+*.log

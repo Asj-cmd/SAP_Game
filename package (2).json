@@ -1,0 +1,13 @@
+import Phaser from "phaser";
+
+export class BootScene extends Phaser.Scene {
+  constructor() {
+    super("BootScene");
+  }
+
+  create() {
+    // Phase 1 has no sprite art / audio to preload (players are drawn with
+    // primitives, zones are colored rectangles) — nothing to load yet.
+    this.scene.start("LobbyScene");
+  }
+}

@@ -1,0 +1,40 @@
+# Cash Grab
+
+A 2v2 multiplayer side-scrolling browser game. Two families of 2 players each compete to steal cash bundles from each other's master bedroom.
+
+Built with Phaser 3 (client) + Colyseus (server) + TypeScript + Vite.
+
+## Install
+
+```bash
+cd server && npm install
+cd ../client && npm install
+```
+
+## Run
+
+```bash
+# Terminal 1 — server
+cd server && npm run dev
+# Server starts at ws://localhost:2567
+
+# Terminal 2 — client
+cd client && npm run dev
+# Client starts at http://localhost:5173
+```
+
+Open `http://localhost:5173` in a browser tab, enter a name, and click **Create Room** to get a 4-character room code. Open 3 more tabs (or have friends on the same network open the URL) and use **Join Room** with that code. The match starts automatically once 4 players have joined.
+
+## Playing with friends over the internet
+
+Running `npm run dev` only serves the game on your own machine — friends on other networks can't reach `localhost`. To actually share a link, the **server** needs to be deployed somewhere public (e.g. a free tier on Render or Railway), and the client's `ColyseusClient.ts` needs to point at that public server URL instead of `localhost:2567`. This repo currently runs locally only.
+
+## Controls
+
+- **A/D** or arrow keys — move
+- **W** or up arrow — jump
+- **SPACE** — context action (pick up cash, lock an enemy, rescue a teammate, steal a scored bundle)
+
+## Status
+
+Phase 1 MVP — see `../cash-grab-prd.md` for the full spec. Stick-figure players, colored-rectangle zones, no sound/art yet (by design for this phase).
