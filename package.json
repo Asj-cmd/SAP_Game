@@ -1,0 +1,13 @@
+{
+  "name": "cash-grab",
+  "version": "1.0.0",
+  "private": true,
+  "description": "Cash Grab - 2v2 multiplayer browser game (Phaser 3 + Colyseus)",
+  "scripts": {
+    "install:all": "npm --prefix server install && npm --prefix client install",
+    "build:client": "npm --prefix client run build",
+    "play": "npm run build:client && npm --prefix server run dev",
+    "dev:server": "npm --prefix server run dev",
+    "dev:client": "npm --prefix client run dev"
+  }
+}

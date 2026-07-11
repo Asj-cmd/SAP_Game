@@ -1,19 +1,25 @@
 import { Client, Room } from "colyseus.js";
 
 // Resolves which server to talk to, in priority order:
-// 1. ?server=host[:port] query param (share a link that points at a deployed/tunnelled server)
-// 2. VITE_SERVER_URL build-time env var (set this when deploying the client to point at your server)
-// 3. same hostname the page was loaded from, port 2567 (works out of the box on localhost
-//    and for friends on the same LAN when the client dev server is started with --host)
+// 1. ?server=host[:port] query param (share a link that points at a specific server)
+// 2. VITE_SERVER_URL build-time env var (for a separately deployed client)
+// 3. Vite dev mode -> same hostname on port 2567 (client on :5173, server on :2567;
+//    also works for friends on the same LAN opening http://<your-lan-ip>:5173)
+// 4. Production (client served BY the game server) -> the exact same origin the page
+//    was loaded from. This is what makes single-URL play + tunnels "just work".
 function resolveServerHost(): string {
+  const strip = (s: string) => s.replace(/^wss?:\/\//, "").replace(/^https?:\/\//, "").replace(/\/$/, "");
+
   const params = new URLSearchParams(window.location.search);
   const fromQuery = params.get("server");
-  if (fromQuery) return fromQuery.replace(/^wss?:\/\//, "").replace(/^https?:\/\//, "");
+  if (fromQuery) return strip(fromQuery);
 
   const fromEnv = import.meta.env.VITE_SERVER_URL as string | undefined;
-  if (fromEnv) return fromEnv.replace(/^wss?:\/\//, "").replace(/^https?:\/\//, "");
+  if (fromEnv) return strip(fromEnv);
 
-  return `${window.location.hostname}:2567`;
+  if (import.meta.env.DEV) return `${window.location.hostname}:2567`;
+
+  return window.location.host; // same origin (includes port) as the server that served this page
 }
 
 const isSecure = window.location.protocol === "https:";
