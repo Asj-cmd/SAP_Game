@@ -79,7 +79,7 @@ export class LobbyScene extends Phaser.Scene {
           <div id="statusText" style="font-size:13px;color:#c62828;min-height:18px;text-align:center;"></div>
         </div>
         <div style="margin-top:14px;padding-top:12px;border-top:1px solid #eee;font-size:12px;color:#555;line-height:1.5;">
-          <b>How to play:</b> Move with A/D (or arrows), jump with W/↑. Sneak into the enemy
+          <b>How to play:</b> Move with WASD or arrow keys (any direction). Sneak into the enemy
           bedroom, grab cash and carry it home (it banks automatically). Catch intruders in
           your house with <b>SPACE</b> to jail them. First to bank the target cash (set above)
           wins the round — best of 3.

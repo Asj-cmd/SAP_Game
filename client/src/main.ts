@@ -3,7 +3,6 @@ import { BootScene } from "./scenes/BootScene";
 import { LobbyScene } from "./scenes/LobbyScene";
 import { GameScene } from "./scenes/GameScene";
 import { UIScene } from "./scenes/UIScene";
-import { GRAVITY } from "./constants";
 
 new Phaser.Game({
   type: Phaser.AUTO,
@@ -17,8 +16,9 @@ new Phaser.Game({
     autoCenter: Phaser.Scale.CENTER_BOTH,
   },
   physics: {
+    // Top-down view: no gravity, movement is free in all 4 directions.
     default: "arcade",
-    arcade: { gravity: { x: 0, y: GRAVITY }, debug: false },
+    arcade: { gravity: { x: 0, y: 0 }, debug: false },
   },
   scene: [BootScene, LobbyScene, GameScene, UIScene],
 });

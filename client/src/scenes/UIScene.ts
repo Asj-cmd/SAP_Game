@@ -1,23 +1,22 @@
 import Phaser from "phaser";
 import { colyseusClient } from "../network/ColyseusClient";
-import { COLORS, WORLD_WIDTH, WORLD_HEIGHT, GROUND_Y } from "../constants";
+import { COLORS, WORLD_WIDTH, WORLD_HEIGHT } from "../constants";
 import { Team } from "../objects/Zone";
 
 function toHex(color: number): string {
   return "#" + color.toString(16).padStart(6, "0");
 }
 
-// Minimap zone rectangles (world coords) - purposely does NOT show cash, so the
-// "look at the bedrooms to read the score" mechanic is preserved.
+// Minimap zone rectangles (world coords, mirrors objects/Zone.ts) - purposely does
+// NOT show cash, so the "look at the bedrooms to read the score" mechanic stays.
 const MINIMAP_ZONES = [
-  { xMin: 60, xMax: 500, yMin: 0, yMax: GROUND_Y, color: COLORS.bedroom },
-  { xMin: 500, xMax: 980, yMin: 0, yMax: GROUND_Y, color: COLORS.livingRoom },
-  { xMin: 980, xMax: 2220, yMin: 0, yMax: GROUND_Y, color: COLORS.garden },
-  { xMin: 2220, xMax: 2700, yMin: 0, yMax: GROUND_Y, color: COLORS.livingRoom },
-  { xMin: 2700, xMax: 3140, yMin: 0, yMax: GROUND_Y, color: COLORS.bedroom },
-  { xMin: 60, xMax: 980, yMin: GROUND_Y, yMax: WORLD_HEIGHT, color: COLORS.basement },
-  { xMin: 980, xMax: 2220, yMin: GROUND_Y, yMax: WORLD_HEIGHT, color: COLORS.dirt },
-  { xMin: 2220, xMax: 3140, yMin: GROUND_Y, yMax: WORLD_HEIGHT, color: COLORS.basement },
+  { xMin: 0, xMax: 300, yMin: 0, yMax: 180, color: COLORS.bedroom },
+  { xMin: 0, xMax: 300, yMin: 180, yMax: 620, color: COLORS.livingRoom },
+  { xMin: 0, xMax: 300, yMin: 620, yMax: 900, color: COLORS.basement },
+  { xMin: 300, xMax: 1100, yMin: 0, yMax: 900, color: COLORS.garden },
+  { xMin: 1100, xMax: 1400, yMin: 180, yMax: 620, color: COLORS.livingRoom },
+  { xMin: 1100, xMax: 1400, yMin: 0, yMax: 180, color: COLORS.bedroom },
+  { xMin: 1100, xMax: 1400, yMin: 620, yMax: 900, color: COLORS.basement },
 ];
 
 const MINIMAP_W = 300;
@@ -68,7 +67,7 @@ export class UIScene extends Phaser.Scene {
       .setScrollFactor(0);
 
     this.controlsText = this.add
-      .text(0, 0, "A/D or ←/→ : Move    W or ↑ : Jump    SPACE : Action    (cash deposits automatically at home)", {
+      .text(0, 0, "WASD or Arrow Keys : Move    SPACE : Action    (cash deposits automatically at home)", {
         fontSize: "13px",
         color: "#ffffff",
         stroke: "#000000",

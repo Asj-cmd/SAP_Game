@@ -1,6 +1,6 @@
 # Cash Grab
 
-A multiplayer side-scrolling browser game. Two families compete to steal cash
+A multiplayer top-down browser game. Two families compete to steal cash
 bundles from each other's master bedroom, jail the intruders they catch at home,
 and rescue jailed teammates.
 
@@ -182,8 +182,7 @@ The game auto-starts the moment the room is full (**4 players** for 2v2, **6** f
 
 ## Controls
 
-- **A/D** or **←/→** — move
-- **W** or **↑** — jump
+- **WASD** or **arrow keys** — move (top-down, any direction)
 - **SPACE** — context action: pick up cash, **lock** an enemy caught in your house,
   rescue a jailed teammate, or steal an already-scored bundle. A prompt appears
   above your character whenever SPACE will do something.

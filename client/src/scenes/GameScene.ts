@@ -16,7 +16,6 @@ import {
   WORLD_HEIGHT,
   PLAYER_SPEED,
   CARRY_SPEED,
-  JUMP_VELOCITY,
   MOVE_SEND_INTERVAL_MS,
   REMOTE_LERP,
   ACTION_RANGE,
@@ -43,6 +42,7 @@ export class GameScene extends Phaser.Scene {
   private keyA!: Phaser.Input.Keyboard.Key;
   private keyD!: Phaser.Input.Keyboard.Key;
   private keyW!: Phaser.Input.Keyboard.Key;
+  private keyS!: Phaser.Input.Keyboard.Key;
   private spaceKey!: Phaser.Input.Keyboard.Key;
 
   private remoteSprites = new Map<string, Player>();
@@ -83,8 +83,7 @@ export class GameScene extends Phaser.Scene {
     );
     this.physics.add.existing(this.localPlayer);
     const body = this.localPlayer.body as Phaser.Physics.Arcade.Body;
-    body.setSize(28, 66);
-    body.setOffset(-14, -26);
+    body.setCircle(16, -16, -16);
     body.setCollideWorldBounds(true);
     this.physics.add.collider(this.localPlayer, this.wallGroup);
 
@@ -95,6 +94,7 @@ export class GameScene extends Phaser.Scene {
     this.keyA = this.input.keyboard!.addKey("A");
     this.keyD = this.input.keyboard!.addKey("D");
     this.keyW = this.input.keyboard!.addKey("W");
+    this.keyS = this.input.keyboard!.addKey("S");
     this.spaceKey = this.input.keyboard!.addKey(Phaser.Input.Keyboard.KeyCodes.SPACE);
   }
 
@@ -138,12 +138,17 @@ export class GameScene extends Phaser.Scene {
     const left = this.cursors.left.isDown || this.keyA.isDown;
     const right = this.cursors.right.isDown || this.keyD.isDown;
     const up = this.cursors.up.isDown || this.keyW.isDown;
+    const down = this.cursors.down.isDown || this.keyS.isDown;
 
-    if (left) body.setVelocityX(-speed);
-    else if (right) body.setVelocityX(speed);
-    else body.setVelocityX(0);
-
-    if (up && body.blocked.down) body.setVelocityY(JUMP_VELOCITY);
+    const dx = (right ? 1 : 0) - (left ? 1 : 0);
+    const dy = (down ? 1 : 0) - (up ? 1 : 0);
+    if (dx !== 0 || dy !== 0) {
+      const len = Math.hypot(dx, dy);
+      body.setVelocity((dx / len) * speed, (dy / len) * speed);
+      this.localPlayer.setFacing(dx, dy);
+    } else {
+      body.setVelocity(0, 0);
+    }
 
     this.moveAccumulator += delta;
     if (this.moveAccumulator >= MOVE_SEND_INTERVAL_MS) {
@@ -183,6 +188,7 @@ export class GameScene extends Phaser.Scene {
       sprite.setCarrying(p.isCarryingCash);
       sprite.setJailed(p.isJailed);
       sprite.setDisplayName(p.name);
+      if (!p.isJailed) sprite.setFacing(p.vx, p.vy);
     });
 
     for (const [id, sprite] of this.remoteSprites) {
