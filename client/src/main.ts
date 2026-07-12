@@ -10,7 +10,7 @@ new Phaser.Game({
   width: 960,
   height: 540,
   parent: "app",
-  backgroundColor: "#000000",
+  backgroundColor: "#0d1926",
   dom: { createContainer: true },
   scale: {
     mode: Phaser.Scale.FIT,

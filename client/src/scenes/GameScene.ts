@@ -70,7 +70,7 @@ export class GameScene extends Phaser.Scene {
     this.physics.world.setBounds(0, 0, WORLD_WIDTH, WORLD_HEIGHT);
     this.cameras.main.setBounds(0, 0, WORLD_WIDTH, WORLD_HEIGHT);
 
-    drawZones(this);
+    drawZones(this, this.localTeam);
     this.wallGroup = createWallColliders(this, this.localTeam);
 
     this.localPlayer = new Player(
@@ -116,12 +116,17 @@ export class GameScene extends Phaser.Scene {
     if (!selfState) return;
 
     const body = this.localPlayer.body as Phaser.Physics.Arcade.Body;
+    const playing = room.state.phase === "playing";
 
-    if (selfState.isJailed) {
-      body.setVelocity(0, 0);
-      this.localPlayer.setPosition(selfState.x, selfState.y);
-      this.localPlayer.setJailed(true);
-      this.localPlayer.setCarrying(false);
+    // Outside the "playing" phase (countdown, round end, match end) OR while jailed,
+    // the server is fully authoritative over position. Pin the local player to the
+    // server position so round resets / jail teleports show up immediately and the
+    // player can't drift or fall through the world while frozen.
+    if (!playing || selfState.isJailed) {
+      body.reset(selfState.x, selfState.y);
+      this.localPlayer.setJailed(selfState.isJailed);
+      this.localPlayer.setCarrying(selfState.isCarryingCash);
+      this.depositSent = false;
       return;
     }
     this.localPlayer.setJailed(false);
@@ -218,7 +223,7 @@ export class GameScene extends Phaser.Scene {
 
   private updateAction(room: NonNullable<typeof colyseusClient.room>) {
     const selfState = room.state.players.get(this.localId);
-    if (!selfState || selfState.isJailed) {
+    if (!selfState || selfState.isJailed || room.state.phase !== "playing") {
       this.currentAction = null;
       this.localPlayer.setPrompt("");
       return;
@@ -310,12 +315,17 @@ export class GameScene extends Phaser.Scene {
 
   private maybeAutoDeposit(room: NonNullable<typeof colyseusClient.room>) {
     const selfState = room.state.players.get(this.localId);
-    if (!selfState || !selfState.isCarryingCash) {
+    if (!selfState || room.state.phase !== "playing" || !selfState.isCarryingCash) {
+      this.depositSent = false;
+      return;
+    }
+    // Reset the guard whenever we're not at home, so re-entering home retries the
+    // deposit (avoids getting stuck carrying cash if one attempt was mistimed).
+    if (!isOwnHome(this.localTeam, this.localPlayer.x, this.localPlayer.y)) {
       this.depositSent = false;
       return;
     }
     if (this.depositSent) return;
-    if (!isOwnHome(this.localTeam, this.localPlayer.x, this.localPlayer.y)) return;
 
     let carriedId: string | null = null;
     room.state.cashBundles.forEach((b: any, id: string) => {
@@ -323,6 +333,15 @@ export class GameScene extends Phaser.Scene {
     });
     if (!carriedId) return;
 
+    // Push our latest position first so the server validates the deposit against
+    // where we actually are (move messages are throttled to 20/s otherwise).
+    const body = this.localPlayer.body as Phaser.Physics.Arcade.Body;
+    colyseusClient.send("move", {
+      x: this.localPlayer.x,
+      y: this.localPlayer.y,
+      vx: body.velocity.x,
+      vy: body.velocity.y,
+    });
     this.depositSent = true;
     colyseusClient.send("depositCash", { bundleId: carriedId });
   }

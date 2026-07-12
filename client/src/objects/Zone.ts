@@ -128,20 +128,60 @@ const FLOOR_HEIGHT = 8;
 // Note: the gaps are shifted away from x=750/x=2450 (Team B/A's 2nd/1st spawn
 // points) so players don't fall straight into the basement the instant they spawn.
 const FLOOR_SEGMENTS: FloorSeg[] = [
-  { xMin: 60, xMax: 820 },
-  { xMin: 870, xMax: 1450 },
-  { xMin: 1750, xMax: 2270 },
-  { xMin: 2320, xMax: 3140 },
+  { xMin: 60, xMax: 790 },
+  { xMin: 975, xMax: 1450 },
+  { xMin: 1750, xMax: 2225 },
+  { xMin: 2410, xMax: 3140 },
 ];
 
 const STAIR_MARKERS = [
-  { xMin: 820, xMax: 870 },
+  { xMin: 790, xMax: 975 },
   { xMin: 1450, xMax: 1750 },
-  { xMin: 2270, xMax: 2320 },
+  { xMin: 2225, xMax: 2410 },
 ];
 
-export function drawZones(scene: Phaser.Scene) {
+// The basement on a team's own side (Basement B is under Team B's house, Basement A
+// under Team A's). A team is blocked from its OWN basement so it can't camp the
+// entrance the enemy uses to rescue captured teammates; the enemy can still drop in.
+// The gap indices line up with STAIR_MARKERS above.
+const OWN_BASEMENT_GAP: Record<Team, { xMin: number; xMax: number }> = {
+  B: STAIR_MARKERS[0], // gap 790-975
+  A: STAIR_MARKERS[2], // gap 2225-2410
+};
+
+// Climb-out ledges inside each floor gap, so anyone who ends up underground - a
+// teammate who dropped in to rescue, a player auto-released from jail, or someone
+// who simply fell into the garden pit - can jump back up to the ground floor.
+// Each ledge is within one jump (~169px rise) of the surface below it, and the
+// top ledge is set back from the exit edge so there is horizontal runway to clear
+// onto the floor rather than pinning against its edge. A max jump covers ~90px
+// horizontally by the time it has risen ~146px, and much less rise needs even less
+// run, which is what sizes these.
+//
+// The two basements each have a sealed side wall (x=980 for B, x=2220 for A), so
+// B climbs out to the LEFT (into Living Room B) and A climbs out to the RIGHT
+// (into Living Room A); the open garden pit climbs out to the right onto the lawn.
+const STAIR_STEP_H = 16;
+interface StairStep {
+  xMin: number;
+  xMax: number;
+  yTop: number;
+}
+const STAIRCASES: StairStep[] = [
+  // Basement B (gap 790-975) -> exit LEFT onto floor[60,790].
+  { xMin: 900, xMax: 975, yTop: 912 }, // low ledge (reached from the underground floor)
+  { xMin: 845, xMax: 935, yTop: 816 }, // high ledge (set back ~55px from the exit edge)
+  // Garden pit (gap 1450-1750) -> exit RIGHT onto floor[1750,2270]. One wide gap,
+  // so a single mid-ledge with a full run-up is enough.
+  { xMin: 1520, xMax: 1700, yTop: 866 },
+  // Basement A (gap 2225-2410) -> exit RIGHT onto floor[2410,3140] (mirror of B).
+  { xMin: 2225, xMax: 2300, yTop: 912 }, // low ledge
+  { xMin: 2265, xMax: 2355, yTop: 816 }, // high ledge (set back ~55px from the exit edge)
+];
+
+export function drawZones(scene: Phaser.Scene, localTeam: Team) {
   const g = scene.add.graphics();
+  const ownGap = OWN_BASEMENT_GAP[localTeam];
 
   // sky + dirt backgrounds
   g.fillStyle(COLORS.sky, 1);
@@ -164,9 +204,11 @@ export function drawZones(scene: Phaser.Scene) {
     }
   }
 
-  // stair markers (visual cue for the floor gap)
+  // stair markers (visual cue for the floor gap) - skip the local team's own
+  // basement, whose gap is sealed off for them below.
   g.fillStyle(0x000000, 0.25);
   for (const s of STAIR_MARKERS) {
+    if (s === ownGap) continue;
     g.fillRect(s.xMin, GROUND_Y - 10, s.xMax - s.xMin, 20);
   }
 
@@ -193,6 +235,16 @@ export function drawZones(scene: Phaser.Scene) {
   g.fillStyle(COLORS.ground, 1);
   for (const f of FLOOR_SEGMENTS) {
     g.fillRect(f.xMin, GROUND_Y, f.xMax - f.xMin, FLOOR_HEIGHT);
+  }
+  // seal the local team's own-basement gap with floor (they can't go down there)
+  g.fillRect(ownGap.xMin, GROUND_Y, ownGap.xMax - ownGap.xMin, FLOOR_HEIGHT);
+
+  // staircase steps (climb-out platforms in each gap)
+  for (const s of STAIRCASES) {
+    g.fillStyle(COLORS.ground, 1);
+    g.fillRect(s.xMin, s.yTop, s.xMax - s.xMin, STAIR_STEP_H);
+    g.lineStyle(3, COLORS.wall, 1);
+    g.strokeRect(s.xMin, s.yTop, s.xMax - s.xMin, STAIR_STEP_H);
   }
 }
 
@@ -224,6 +276,11 @@ export function createWallColliders(scene: Phaser.Scene, localTeam: Team): Phase
     addRect(f.xMin, GROUND_Y, f.xMax - f.xMin, FLOOR_HEIGHT);
   }
 
+  // staircase steps (climb-out platforms in each gap)
+  for (const s of STAIRCASES) {
+    addRect(s.xMin, s.yTop, s.xMax - s.xMin, STAIR_STEP_H);
+  }
+
   // underground floor
   addRect(60, WORLD_HEIGHT - FLOOR_HEIGHT, 3080, FLOOR_HEIGHT);
 
@@ -235,6 +292,11 @@ export function createWallColliders(scene: Phaser.Scene, localTeam: Team): Phase
     addRect(2698, 560, 4, 160); // bedroomA door gap
     addRect(2930, 0, 80, 98); // bedroomA window gap + sill
   }
+
+  // Own team cannot enter their own basement - seal its floor gap so they can't
+  // drop in and camp the entrance the enemy uses for rescues.
+  const ownGap = OWN_BASEMENT_GAP[localTeam];
+  addRect(ownGap.xMin, GROUND_Y, ownGap.xMax - ownGap.xMin, FLOOR_HEIGHT);
 
   return group;
 }

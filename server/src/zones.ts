@@ -46,14 +46,18 @@ export function jailBasementForTeam(team: Team): "basementB" | "basementA" {
   return team === "A" ? "basementB" : "basementA";
 }
 
+// Up to 3 spawn points per team (2v2 uses the first two, 3v3 uses all three).
+// All sit on the living-room floor of the owning team, clear of the basement gap.
 export const SPAWN_POINTS: Record<Team, { x: number; y: number }[]> = {
   B: [
-    { x: 600, y: 620 },
-    { x: 750, y: 620 },
+    { x: 560, y: 620 },
+    { x: 660, y: 620 },
+    { x: 760, y: 620 },
   ],
   A: [
     { x: 2450, y: 620 },
-    { x: 2600, y: 620 },
+    { x: 2550, y: 620 },
+    { x: 2650, y: 620 },
   ],
 };
 
@@ -62,34 +66,21 @@ export const JAIL_POSITIONS: Record<"basementB" | "basementA", { x: number; y: n
   basementA: { x: 2800, y: 880 },
 };
 
-export const BUNDLE_POSITIONS: Record<"bedroomB" | "bedroomA", { x: number; y: number }[]> = {
-  bedroomB: [
-    { x: 150, y: 660 },
-    { x: 250, y: 660 },
-    { x: 350, y: 660 },
-  ],
-  bedroomA: [
-    { x: 2800, y: 660 },
-    { x: 2900, y: 660 },
-    { x: 3000, y: 660 },
-  ],
-};
+// Evenly spread `count` points across [xMin, xMax] at height y.
+function spread(xMin: number, xMax: number, count: number, y: number): { x: number; y: number }[] {
+  const out: { x: number; y: number }[] = [];
+  if (count <= 1) return [{ x: Math.round((xMin + xMax) / 2), y }];
+  const step = (xMax - xMin) / (count - 1);
+  for (let i = 0; i < count; i++) out.push({ x: Math.round(xMin + i * step), y });
+  return out;
+}
 
-// Where scored (deposited) bundles stack visually inside the scoring team's own bedroom,
-// indexed by how many bundles that team already has scored (0-4).
-export const SCORE_SLOT_POSITIONS: Record<Team, { x: number; y: number }[]> = {
-  B: [
-    { x: 130, y: 690 },
-    { x: 200, y: 690 },
-    { x: 270, y: 690 },
-    { x: 340, y: 690 },
-    { x: 410, y: 690 },
-  ],
-  A: [
-    { x: 2790, y: 690 },
-    { x: 2860, y: 690 },
-    { x: 2930, y: 690 },
-    { x: 3000, y: 690 },
-    { x: 3070, y: 690 },
-  ],
-};
+// Starting positions for the `count` original bundles in a master bedroom.
+export function bundlePositions(bedroom: "bedroomB" | "bedroomA", count: number): { x: number; y: number }[] {
+  return bedroom === "bedroomB" ? spread(120, 440, count, 660) : spread(2760, 3080, count, 660);
+}
+
+// Where scored (deposited) bundles stack inside the scoring team's own bedroom.
+export function scoreSlotPositions(team: Team, count: number): { x: number; y: number }[] {
+  return team === "B" ? spread(110, 460, count, 690) : spread(2740, 3090, count, 690);
+}
