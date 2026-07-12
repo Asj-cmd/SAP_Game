@@ -70,7 +70,7 @@ export class GameScene extends Phaser.Scene {
     this.physics.world.setBounds(0, 0, WORLD_WIDTH, WORLD_HEIGHT);
     this.cameras.main.setBounds(0, 0, WORLD_WIDTH, WORLD_HEIGHT);
 
-    drawZones(this);
+    drawZones(this, this.localTeam);
     this.wallGroup = createWallColliders(this, this.localTeam);
 
     this.localPlayer = new Player(

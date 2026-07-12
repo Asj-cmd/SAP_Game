@@ -29,7 +29,7 @@ export class LobbyScene extends Phaser.Scene {
       .setOrigin(0.5);
 
     this.add
-      .text(this.scale.width / 2, 82, "2 v 2 — steal the other family's cash, jail the intruders", {
+      .text(this.scale.width / 2, 82, "2v2 or 3v3 — steal the other family's cash, jail the intruders", {
         fontSize: "14px",
         color: "#dddddd",
         stroke: "#000000",
@@ -46,6 +46,21 @@ export class LobbyScene extends Phaser.Scene {
         <div style="display:flex;flex-direction:column;gap:10px;align-items:stretch;">
           <input id="nameInput" placeholder="Your name" maxlength="16"
                  style="padding:10px;font-size:15px;border:1px solid #ccc;border-radius:8px;" />
+          <div style="display:flex;gap:8px;">
+            <label style="flex:1;font-size:11px;color:#666;">Mode
+              <select id="modeInput" style="width:100%;padding:9px;font-size:14px;border:1px solid #ccc;border-radius:8px;margin-top:2px;">
+                <option value="2">2 v 2</option>
+                <option value="3">3 v 3</option>
+              </select>
+            </label>
+            <label style="flex:1;font-size:11px;color:#666;">Cash to win
+              <select id="bundleInput" style="width:100%;padding:9px;font-size:14px;border:1px solid #ccc;border-radius:8px;margin-top:2px;">
+                <option>3</option><option>4</option><option selected>5</option>
+                <option>6</option><option>7</option><option>8</option><option>9</option>
+              </select>
+            </label>
+          </div>
+          <div style="font-size:11px;color:#999;text-align:center;margin-top:-2px;">Host sets these; they apply to everyone in the room.</div>
           <button id="createBtn"
                  style="padding:10px;font-size:15px;font-weight:600;cursor:pointer;border:0;border-radius:8px;background:#2e7d32;color:#fff;">
             Create Room
@@ -66,8 +81,8 @@ export class LobbyScene extends Phaser.Scene {
         <div style="margin-top:14px;padding-top:12px;border-top:1px solid #eee;font-size:12px;color:#555;line-height:1.5;">
           <b>How to play:</b> Move with A/D (or arrows), jump with W/↑. Sneak into the enemy
           bedroom, grab cash and carry it home (it banks automatically). Catch intruders in
-          your house with <b>SPACE</b> to jail them. First to bank <b>5</b> wins the round —
-          best of 3.
+          your house with <b>SPACE</b> to jail them. First to bank the target cash (set above)
+          wins the round — best of 3.
         </div>
       </div>`;
 
@@ -76,13 +91,22 @@ export class LobbyScene extends Phaser.Scene {
     const status = this.panel.getChildByID("statusText") as HTMLDivElement;
     const nameInput = this.panel.getChildByID("nameInput") as HTMLInputElement;
     const codeInput = this.panel.getChildByID("codeInput") as HTMLInputElement;
+    const modeInput = this.panel.getChildByID("modeInput") as HTMLSelectElement;
+    const bundleInput = this.panel.getChildByID("bundleInput") as HTMLSelectElement;
+
+    // Default the win target to the mode when the host changes it (5 for 2v2, 7 for 3v3).
+    modeInput.addEventListener("change", () => {
+      bundleInput.value = modeInput.value === "3" ? "7" : "5";
+    });
 
     const create = async () => {
       const name = nameInput.value.trim() || "Player";
+      const teamSize = parseInt(modeInput.value, 10) || 2;
+      const bundles = parseInt(bundleInput.value, 10) || 5;
       status.style.color = "#555";
       status.textContent = "Connecting...";
       try {
-        const { room, code } = await colyseusClient.createRoom(name);
+        const { room, code } = await colyseusClient.createRoom(name, { teamSize, bundles });
         this.roomCode = code;
         this.showWaiting(room);
       } catch (e) {
@@ -136,7 +160,8 @@ export class LobbyScene extends Phaser.Scene {
     const html = `
       <div style="font-family:system-ui,sans-serif;background:#ffffffee;padding:22px 26px;border-radius:14px;min-width:320px;box-shadow:0 6px 24px #0006;">
         ${codeBlock}
-        <div id="waitCount" style="text-align:center;font-size:16px;font-weight:600;color:#111;">Waiting for players... (0/4)</div>
+        <div id="waitCount" style="text-align:center;font-size:16px;font-weight:600;color:#111;">Waiting for players...</div>
+        <div id="modeInfo" style="text-align:center;font-size:12px;color:#777;margin-top:2px;"></div>
         <div id="playerList" style="margin-top:12px;display:flex;flex-direction:column;gap:6px;"></div>
         <div id="youAre" style="text-align:center;margin-top:12px;font-size:13px;color:#555;"></div>
       </div>`;
@@ -149,10 +174,14 @@ export class LobbyScene extends Phaser.Scene {
     const render = (state: any) => {
       if (!this.panel) return;
       const count = state.players.size;
+      const teamSize = state.teamSize || 2;
+      const total = teamSize * 2;
       const waitCount = this.panel.getChildByID("waitCount") as HTMLDivElement | null;
+      const modeInfo = this.panel.getChildByID("modeInfo") as HTMLDivElement | null;
       const list = this.panel.getChildByID("playerList") as HTMLDivElement | null;
       const youAre = this.panel.getChildByID("youAre") as HTMLDivElement | null;
-      if (waitCount) waitCount.textContent = `Waiting for players... (${count}/4)`;
+      if (waitCount) waitCount.textContent = `Waiting for players... (${count}/${total})`;
+      if (modeInfo) modeInfo.textContent = `${teamSize} v ${teamSize}  •  first to ${state.winScore || teamSize} cash wins`;
 
       if (list) {
         let rows = "";
@@ -171,7 +200,7 @@ export class LobbyScene extends Phaser.Scene {
       const me = state.players.get(room.sessionId);
       if (youAre && me) {
         const color = me.team === "B" ? TEAM_B_COLOR : TEAM_A_COLOR;
-        youAre.innerHTML = `You are <b style="color:${color};">Team ${me.team}</b> — game starts automatically at 4 players.`;
+        youAre.innerHTML = `You are <b style="color:${color};">Team ${me.team}</b> — game starts automatically at ${total} players.`;
       }
 
       // Only transition on an explicit in-game phase. (Right after join the schema

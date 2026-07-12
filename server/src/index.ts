@@ -34,9 +34,10 @@ handler.on("dispose", (room) => {
   roomIdToCode.delete(room.roomId);
 });
 
-app.post("/create-room", async (_req, res) => {
+app.post("/create-room", async (req, res) => {
   try {
-    const room = await matchMaker.createRoom("game_room", {});
+    const { teamSize, bundles } = req.body ?? {};
+    const room = await matchMaker.createRoom("game_room", { teamSize, bundles });
     const code = roomIdToCode.get(room.roomId) || "";
     res.json({ roomId: room.roomId, code });
   } catch (err) {

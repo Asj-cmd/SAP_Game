@@ -1,9 +1,17 @@
 # Cash Grab
 
-A 2v2 multiplayer side-scrolling browser game. Two families of 2 players each
-compete to steal cash bundles from each other's master bedroom, jail the
-intruders they catch at home, and rescue jailed teammates. First to bank **5**
-bundles wins the round — best of 3.
+A multiplayer side-scrolling browser game. Two families compete to steal cash
+bundles from each other's master bedroom, jail the intruders they catch at home,
+and rescue jailed teammates.
+
+- **Modes:** the host picks **2v2 or 3v3** when creating the room.
+- **Cash to win:** the host also picks how much cash a team must bank to win a
+  round (defaults to 5 for 2v2, 7 for 3v3). First team to bank that much wins the
+  round immediately; if the timer runs out first, the team with the most banked
+  cash wins (a tie replays the round). Best of 3 rounds.
+- **Basements are one-way for the enemy:** you can't enter the basement under
+  your own house (so you can't camp the rescue entrance) — but you can drop into
+  the enemy's basement to free a captured teammate.
 
 Built with **Phaser 3** (client) + **Colyseus** (server) + **TypeScript** + **Vite**.
 See `cash-grab-prd.md` for the full spec.
@@ -69,10 +77,10 @@ Cash Grab server running on port 2567
 
 1. **Open your browser** (Chrome, Firefox, Safari, Edge — any will work)
 2. **Go to:** `http://localhost:2567`
-3. **Type your name** and click "Create Room"
+3. **Type your name**, pick the **mode** (2v2 or 3v3) and **cash to win**, then click "Create Room"
 4. **You'll get a 4-letter code** (like `AEKF`) — write it down!
-5. **Open a new browser tab** 3 more times and do the same thing, but click "Join" and paste the code
-6. **Once you have 4 players**, the game starts automatically
+5. **Open a new browser tab** for each other player and do the same thing, but click "Join" and paste the code
+6. **Once the room is full** (4 players for 2v2, 6 for 3v3), the game starts automatically
 
 ### Getting Friends to Play
 
@@ -164,8 +172,8 @@ It prints a public HTTPS URL like `https://random-words.trycloudflare.com`.
 Share **that URL** with your friends — they open it, enter your **room code**, and
 join. (Any tunnel works: ngrok `ngrok http 2567`, VS Code port forwarding, etc.)
 
-The game auto-starts the moment **4 players** are in the room (first 2 to join are
-Team B / orange, next 2 are Team A / blue).
+The game auto-starts the moment the room is full (**4 players** for 2v2, **6** for
+3v3). The first half to join are Team B / orange, the rest are Team A / blue.
 
 > Want to test alone first? Open **http://localhost:2567** in 4 browser tabs and
 > create/join with the room code — each tab is a player.
@@ -219,8 +227,10 @@ cash-grab/
 
 Phase 1 MVP. Stick-figure players, colored-zone world, no sound/art yet (by
 design for this phase). All mechanics — pickup, carry, auto-deposit, lock/jail,
-rescue, auto-release, steal-back, win at 5, round reset, best-of-3 — are
-implemented and verified with both a scripted 4-client logic test and a 4-tab
-browser test. Known-closed loopholes: score can't drift or be drained for free
-(a caught thief returns the point to the team that earned it), jailed players
-can't rescue, and a bundle carried by someone who disconnects returns to play.
+rescue, auto-release, steal-back, first-to-target win, timer fallback, round
+reset, best-of-3 — are implemented and verified with a scripted multi-client
+logic test and browser tests. Selectable **2v2 / 3v3** modes and a host-chosen
+**cash-to-win** target. Known-closed loopholes: score can't drift or be drained
+for free (a caught thief returns the point to the team that earned it), jailed
+players can't rescue, a bundle carried by someone who disconnects returns to
+play, and neither team can camp inside its own basement.

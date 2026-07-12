@@ -31,8 +31,15 @@ class ColyseusClient {
   private client = new Client(WS_URL);
   room: Room | null = null;
 
-  async createRoom(name: string): Promise<{ room: Room; code: string }> {
-    const res = await fetch(`${HTTP_URL}/create-room`, { method: "POST" });
+  async createRoom(
+    name: string,
+    opts?: { teamSize?: number; bundles?: number }
+  ): Promise<{ room: Room; code: string }> {
+    const res = await fetch(`${HTTP_URL}/create-room`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(opts ?? {}),
+    });
     if (!res.ok) throw new Error("Failed to create room");
     const { roomId, code } = await res.json();
     const room = await this.client.joinById(roomId, { name });

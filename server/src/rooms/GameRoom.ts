@@ -7,8 +7,8 @@ import {
   jailBasementForTeam,
   SPAWN_POINTS,
   JAIL_POSITIONS,
-  BUNDLE_POSITIONS,
-  SCORE_SLOT_POSITIONS,
+  bundlePositions,
+  scoreSlotPositions,
   WORLD_WIDTH,
   WORLD_HEIGHT,
   Team,
@@ -19,11 +19,23 @@ import {
 const PICKUP_RANGE = 72;
 const LOCK_RESCUE_RANGE = 82;
 const ROUND_TIME = 300;
-const WIN_SCORE = 5;
 const WINS_NEEDED = 2;
 const PRE_ROUND_COUNTDOWN = 3;
 const ROUND_END_PAUSE = 3;
 const JAIL_TIME = 60;
+
+// Match config bounds. Team size 2 (2v2) or 3 (3v3); bundles per bedroom is also
+// the win target (hold that many at once to win the round).
+const MIN_TEAM_SIZE = 2;
+const MAX_TEAM_SIZE = 3;
+const MIN_BUNDLES = 3;
+const MAX_BUNDLES = 9;
+
+function clampInt(value: unknown, min: number, max: number, fallback: number): number {
+  const n = Math.floor(Number(value));
+  if (!Number.isFinite(n)) return fallback;
+  return Math.max(min, Math.min(max, n));
+}
 
 const CODE_CHARS = "ABCDEFGHJKLMNPQRSTUVWXYZ23456789";
 
@@ -48,16 +60,14 @@ function originBedroom(bundleId: string): "bedroomA" | "bedroomB" {
   return bundleId.startsWith("b") ? "bedroomB" : "bedroomA";
 }
 
-function originPosition(bundleId: string): { x: number; y: number } {
-  const bedroom = originBedroom(bundleId);
-  const idx = Math.max(0, parseInt(bundleId.slice(1), 10) - 1);
-  const list = BUNDLE_POSITIONS[bedroom];
-  return list[Math.min(idx, list.length - 1)];
-}
-
 export class GameRoom extends Room<GameState> {
   maxClients = 4;
   code = generateRoomCode();
+
+  private teamSize = 2;
+  private bundlesPerBedroom = 5;
+  private bundlePos: Record<"bedroomB" | "bedroomA", { x: number; y: number }[]> = { bedroomB: [], bedroomA: [] };
+  private scoreSlots: Record<Team, { x: number; y: number }[]> = { A: [], B: [] };
 
   private slots = new Map<string, { team: Team; slot: number }>();
   // Tracks bundles that were carried away from an enemy's SCORED pile, so that if the
@@ -65,8 +75,33 @@ export class GameRoom extends Room<GameState> {
   // "steal a scored bundle and suicide to drain the enemy for free" loophole).
   private stolenFrom = new Map<string, Team>();
 
-  onCreate() {
+  private originPosition(bundleId: string): { x: number; y: number } {
+    const bedroom = originBedroom(bundleId);
+    const idx = Math.max(0, parseInt(bundleId.slice(1), 10) - 1);
+    const list = this.bundlePos[bedroom];
+    return list[Math.min(idx, list.length - 1)];
+  }
+
+  onCreate(options: { teamSize?: number; bundles?: number }) {
+    this.teamSize = clampInt(options?.teamSize, MIN_TEAM_SIZE, MAX_TEAM_SIZE, 2);
+    // Win target scales with team size by default (5 for 2v2, 7 for 3v3) but the host
+    // can override it via the bundle count picked in the lobby.
+    const defaultBundles = this.teamSize === 3 ? 7 : 5;
+    this.bundlesPerBedroom = clampInt(options?.bundles, MIN_BUNDLES, MAX_BUNDLES, defaultBundles);
+    this.maxClients = this.teamSize * 2;
+
+    this.bundlePos = {
+      bedroomB: bundlePositions("bedroomB", this.bundlesPerBedroom),
+      bedroomA: bundlePositions("bedroomA", this.bundlesPerBedroom),
+    };
+    this.scoreSlots = {
+      B: scoreSlotPositions("B", this.bundlesPerBedroom),
+      A: scoreSlotPositions("A", this.bundlesPerBedroom),
+    };
+
     this.setState(new GameState());
+    this.state.teamSize = this.teamSize;
+    this.state.winScore = this.bundlesPerBedroom;
 
     this.onMessage("move", (client, msg) => this.handleMove(client, msg));
     this.onMessage("pickupCash", (client, msg) => this.handlePickup(client, msg));
@@ -79,7 +114,7 @@ export class GameRoom extends Room<GameState> {
   }
 
   onJoin(client: Client, options: { name?: string }) {
-    const team: Team = this.countTeam("B") < 2 ? "B" : "A";
+    const team: Team = this.countTeam("B") < this.teamSize ? "B" : "A";
     const slot = this.firstFreeSlot(team);
 
     this.slots.set(client.sessionId, { team, slot });
@@ -93,7 +128,7 @@ export class GameRoom extends Room<GameState> {
     player.y = spawn.y;
     this.state.players.set(client.sessionId, player);
 
-    if (this.state.players.size === 4 && this.state.phase === "waiting") {
+    if (this.state.players.size === this.maxClients && this.state.phase === "waiting") {
       this.startCountdown();
     }
   }
@@ -158,14 +193,14 @@ export class GameRoom extends Room<GameState> {
     const restoredTeam = this.stolenFrom.get(bundle.id);
     if (restoredTeam) {
       const count = this.countScored(restoredTeam);
-      const slots = SCORE_SLOT_POSITIONS[restoredTeam];
+      const slots = this.scoreSlots[restoredTeam];
       const pos = slots[Math.min(count, slots.length - 1)];
       bundle.location = `scored:${restoredTeam}`;
       bundle.isScored = true;
       bundle.x = pos.x;
       bundle.y = pos.y;
     } else {
-      const pos = originPosition(bundle.id);
+      const pos = this.originPosition(bundle.id);
       bundle.location = originBedroom(bundle.id);
       bundle.isScored = false;
       bundle.x = pos.x;
@@ -237,8 +272,8 @@ export class GameRoom extends Room<GameState> {
     if (!isOwnHome(player.team as Team, player.x, player.y)) return;
 
     const team = player.team as Team;
-    const idx = Math.min(this.countScored(team), SCORE_SLOT_POSITIONS[team].length - 1);
-    const pos = SCORE_SLOT_POSITIONS[team][idx];
+    const idx = Math.min(this.countScored(team), this.scoreSlots[team].length - 1);
+    const pos = this.scoreSlots[team][idx];
     bundle.location = `scored:${team}`;
     bundle.isScored = true;
     bundle.x = pos.x;
@@ -302,8 +337,8 @@ export class GameRoom extends Room<GameState> {
 
   private checkWin() {
     if (this.state.phase !== "playing") return;
-    if (this.state.scoreA >= WIN_SCORE) this.finalizeRound("A");
-    else if (this.state.scoreB >= WIN_SCORE) this.finalizeRound("B");
+    if (this.state.scoreA >= this.state.winScore) this.finalizeRound("A");
+    else if (this.state.scoreB >= this.state.winScore) this.finalizeRound("B");
   }
 
   private finalizeRound(winner: "A" | "B") {
@@ -361,7 +396,7 @@ export class GameRoom extends Room<GameState> {
   }
 
   private initCashBundles() {
-    BUNDLE_POSITIONS.bedroomB.forEach((pos, i) => {
+    this.bundlePos.bedroomB.forEach((pos, i) => {
       const bundle = new CashBundleState();
       bundle.id = `b${i + 1}`;
       bundle.x = pos.x;
@@ -370,7 +405,7 @@ export class GameRoom extends Room<GameState> {
       bundle.isScored = false;
       this.state.cashBundles.set(bundle.id, bundle);
     });
-    BUNDLE_POSITIONS.bedroomA.forEach((pos, i) => {
+    this.bundlePos.bedroomA.forEach((pos, i) => {
       const bundle = new CashBundleState();
       bundle.id = `a${i + 1}`;
       bundle.x = pos.x;

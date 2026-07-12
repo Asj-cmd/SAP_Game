@@ -193,7 +193,7 @@ export class UIScene extends Phaser.Scene {
       .padStart(2, "0");
     const secs = (t % 60).toString().padStart(2, "0");
     this.timerText.setText(`${mins}:${secs}`);
-    this.roundText.setText(`Round ${state.roundNumber} of 3  •  Best of 3`);
+    this.roundText.setText(`Round ${state.roundNumber} of 3  •  First to ${state.winScore || 5}`);
 
     const self = room.state.players.get(room.sessionId);
     this.objectiveText.setText(this.objectiveMessage(!!self?.isCarryingCash));

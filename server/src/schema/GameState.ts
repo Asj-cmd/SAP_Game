@@ -24,6 +24,8 @@ export class CashBundleState extends Schema {
 
 export class GameState extends Schema {
   @type("string") phase: string = "waiting"; // "waiting" | "countdown" | "playing" | "roundEnd" | "matchEnd"
+  @type("number") teamSize: number = 2; // players per team (2 = 2v2, 3 = 3v3)
+  @type("number") winScore: number = 5; // bundles a team must hold to win the round
   @type("number") roundTimer: number = 300;
   @type("number") countdown: number = 3;
   @type("number") scoreA: number = 0;

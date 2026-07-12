@@ -140,6 +140,15 @@ const STAIR_MARKERS = [
   { xMin: 2225, xMax: 2410 },
 ];
 
+// The basement on a team's own side (Basement B is under Team B's house, Basement A
+// under Team A's). A team is blocked from its OWN basement so it can't camp the
+// entrance the enemy uses to rescue captured teammates; the enemy can still drop in.
+// The gap indices line up with STAIR_MARKERS above.
+const OWN_BASEMENT_GAP: Record<Team, { xMin: number; xMax: number }> = {
+  B: STAIR_MARKERS[0], // gap 790-975
+  A: STAIR_MARKERS[2], // gap 2225-2410
+};
+
 // Climb-out ledges inside each floor gap, so anyone who ends up underground - a
 // teammate who dropped in to rescue, a player auto-released from jail, or someone
 // who simply fell into the garden pit - can jump back up to the ground floor.
@@ -170,8 +179,9 @@ const STAIRCASES: StairStep[] = [
   { xMin: 2265, xMax: 2355, yTop: 816 }, // high ledge (set back ~55px from the exit edge)
 ];
 
-export function drawZones(scene: Phaser.Scene) {
+export function drawZones(scene: Phaser.Scene, localTeam: Team) {
   const g = scene.add.graphics();
+  const ownGap = OWN_BASEMENT_GAP[localTeam];
 
   // sky + dirt backgrounds
   g.fillStyle(COLORS.sky, 1);
@@ -194,9 +204,11 @@ export function drawZones(scene: Phaser.Scene) {
     }
   }
 
-  // stair markers (visual cue for the floor gap)
+  // stair markers (visual cue for the floor gap) - skip the local team's own
+  // basement, whose gap is sealed off for them below.
   g.fillStyle(0x000000, 0.25);
   for (const s of STAIR_MARKERS) {
+    if (s === ownGap) continue;
     g.fillRect(s.xMin, GROUND_Y - 10, s.xMax - s.xMin, 20);
   }
 
@@ -224,6 +236,8 @@ export function drawZones(scene: Phaser.Scene) {
   for (const f of FLOOR_SEGMENTS) {
     g.fillRect(f.xMin, GROUND_Y, f.xMax - f.xMin, FLOOR_HEIGHT);
   }
+  // seal the local team's own-basement gap with floor (they can't go down there)
+  g.fillRect(ownGap.xMin, GROUND_Y, ownGap.xMax - ownGap.xMin, FLOOR_HEIGHT);
 
   // staircase steps (climb-out platforms in each gap)
   for (const s of STAIRCASES) {
@@ -278,6 +292,11 @@ export function createWallColliders(scene: Phaser.Scene, localTeam: Team): Phase
     addRect(2698, 560, 4, 160); // bedroomA door gap
     addRect(2930, 0, 80, 98); // bedroomA window gap + sill
   }
+
+  // Own team cannot enter their own basement - seal its floor gap so they can't
+  // drop in and camp the entrance the enemy uses for rescues.
+  const ownGap = OWN_BASEMENT_GAP[localTeam];
+  addRect(ownGap.xMin, GROUND_Y, ownGap.xMax - ownGap.xMin, FLOOR_HEIGHT);
 
   return group;
 }
