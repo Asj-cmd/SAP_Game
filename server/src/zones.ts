@@ -45,18 +45,21 @@ export function jailBasementForTeam(team: Team): "basementB" | "basementA" {
   return team === "A" ? "basementB" : "basementA";
 }
 
-// Up to 3 spawn points per team (2v2 uses the first two, 3v3 uses all three),
-// clustered inside the living room interior, clear of every wall and door gap.
+// Up to 4 spawn points per team (2v2 uses the first two, 3v3 the first three, 4v4
+// all four), arranged in a 2x2 grid inside the living room interior, clear of
+// every wall and door gap.
 export const SPAWN_POINTS: Record<Team, { x: number; y: number }[]> = {
   B: [
-    { x: 110, y: 350 },
-    { x: 190, y: 350 },
-    { x: 150, y: 430 },
+    { x: 110, y: 340 },
+    { x: 190, y: 340 },
+    { x: 110, y: 420 },
+    { x: 190, y: 420 },
   ],
   A: [
-    { x: 1210, y: 350 },
-    { x: 1290, y: 350 },
-    { x: 1250, y: 430 },
+    { x: 1210, y: 340 },
+    { x: 1290, y: 340 },
+    { x: 1210, y: 420 },
+    { x: 1290, y: 420 },
   ],
 };
 

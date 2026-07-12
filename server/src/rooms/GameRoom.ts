@@ -24,12 +24,17 @@ const PRE_ROUND_COUNTDOWN = 3;
 const ROUND_END_PAUSE = 3;
 const JAIL_TIME = 60;
 
-// Match config bounds. Team size 2 (2v2) or 3 (3v3); bundles per bedroom is also
-// the win target (hold that many at once to win the round).
+// Match config bounds. Team size 2/3/4 (2v2, 3v3, 4v4). The host only picks bundles
+// per bedroom (3-5); the win target is derived from that: 3 bundles -> win at 5,
+// 4 -> win at 7, 5 -> win at 9 (winScore = bundles*2 - 1).
 const MIN_TEAM_SIZE = 2;
-const MAX_TEAM_SIZE = 3;
+const MAX_TEAM_SIZE = 4;
 const MIN_BUNDLES = 3;
-const MAX_BUNDLES = 9;
+const MAX_BUNDLES = 5;
+
+function winScoreForBundles(bundles: number): number {
+  return bundles * 2 - 1;
+}
 
 function clampInt(value: unknown, min: number, max: number, fallback: number): number {
   const n = Math.floor(Number(value));
@@ -84,9 +89,9 @@ export class GameRoom extends Room<GameState> {
 
   onCreate(options: { teamSize?: number; bundles?: number }) {
     this.teamSize = clampInt(options?.teamSize, MIN_TEAM_SIZE, MAX_TEAM_SIZE, 2);
-    // Win target scales with team size by default (5 for 2v2, 7 for 3v3) but the host
-    // can override it via the bundle count picked in the lobby.
-    const defaultBundles = this.teamSize === 3 ? 7 : 5;
+    // Bundles-per-team defaults to teamSize+1 (3 for 2v2, 4 for 3v3, 5 for 4v4); the
+    // host can pick any of 3/4/5 regardless of mode.
+    const defaultBundles = this.teamSize + 1;
     this.bundlesPerBedroom = clampInt(options?.bundles, MIN_BUNDLES, MAX_BUNDLES, defaultBundles);
     this.maxClients = this.teamSize * 2;
 
@@ -101,7 +106,7 @@ export class GameRoom extends Room<GameState> {
 
     this.setState(new GameState());
     this.state.teamSize = this.teamSize;
-    this.state.winScore = this.bundlesPerBedroom;
+    this.state.winScore = winScoreForBundles(this.bundlesPerBedroom);
 
     this.onMessage("move", (client, msg) => this.handleMove(client, msg));
     this.onMessage("pickupCash", (client, msg) => this.handlePickup(client, msg));

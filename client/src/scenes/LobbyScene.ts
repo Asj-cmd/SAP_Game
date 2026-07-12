@@ -29,7 +29,7 @@ export class LobbyScene extends Phaser.Scene {
       .setOrigin(0.5);
 
     this.add
-      .text(this.scale.width / 2, 82, "2v2 or 3v3 — steal the other family's cash, jail the intruders", {
+      .text(this.scale.width / 2, 82, "2v2, 3v3, or 4v4 — steal the other family's cash, jail the intruders", {
         fontSize: "14px",
         color: "#dddddd",
         stroke: "#000000",
@@ -51,15 +51,16 @@ export class LobbyScene extends Phaser.Scene {
               <select id="modeInput" style="width:100%;padding:9px;font-size:14px;border:1px solid #ccc;border-radius:8px;margin-top:2px;">
                 <option value="2">2 v 2</option>
                 <option value="3">3 v 3</option>
+                <option value="4">4 v 4</option>
               </select>
             </label>
-            <label style="flex:1;font-size:11px;color:#666;">Cash to win
+            <label style="flex:1;font-size:11px;color:#666;">Bundles per team
               <select id="bundleInput" style="width:100%;padding:9px;font-size:14px;border:1px solid #ccc;border-radius:8px;margin-top:2px;">
-                <option>3</option><option>4</option><option selected>5</option>
-                <option>6</option><option>7</option><option>8</option><option>9</option>
+                <option value="3">3</option><option value="4">4</option><option value="5">5</option>
               </select>
             </label>
           </div>
+          <div id="winInfo" style="font-size:12px;color:#555;text-align:center;font-weight:600;"></div>
           <div style="font-size:11px;color:#999;text-align:center;margin-top:-2px;">Host sets these; they apply to everyone in the room.</div>
           <button id="createBtn"
                  style="padding:10px;font-size:15px;font-weight:600;cursor:pointer;border:0;border-radius:8px;background:#2e7d32;color:#fff;">
@@ -81,7 +82,7 @@ export class LobbyScene extends Phaser.Scene {
         <div style="margin-top:14px;padding-top:12px;border-top:1px solid #eee;font-size:12px;color:#555;line-height:1.5;">
           <b>How to play:</b> Move with WASD or arrow keys (any direction). Sneak into the enemy
           bedroom, grab cash and carry it home (it banks automatically). Catch intruders in
-          your house with <b>SPACE</b> to jail them. First to bank the target cash (set above)
+          your house with <b>SPACE</b> to jail them. First to bank the target cash (shown above)
           wins the round — best of 3.
         </div>
       </div>`;
@@ -93,10 +94,23 @@ export class LobbyScene extends Phaser.Scene {
     const codeInput = this.panel.getChildByID("codeInput") as HTMLInputElement;
     const modeInput = this.panel.getChildByID("modeInput") as HTMLSelectElement;
     const bundleInput = this.panel.getChildByID("bundleInput") as HTMLSelectElement;
+    const winInfo = this.panel.getChildByID("winInfo") as HTMLDivElement;
 
-    // Default the win target to the mode when the host changes it (5 for 2v2, 7 for 3v3).
+    // The win target isn't picked directly - it's derived from bundles per team:
+    // 3 bundles -> win at 5, 4 -> win at 7, 5 -> win at 9.
+    const winTargetFor = (bundles: number) => bundles * 2 - 1;
+    const updateWinInfo = () => {
+      const bundles = parseInt(bundleInput.value, 10) || 3;
+      winInfo.textContent = `First to ${winTargetFor(bundles)} cash wins the round`;
+    };
+    updateWinInfo();
+    bundleInput.addEventListener("change", updateWinInfo);
+
+    // Default bundles-per-team to the mode when the host changes it (3 for 2v2,
+    // 4 for 3v3, 5 for 4v4).
     modeInput.addEventListener("change", () => {
-      bundleInput.value = modeInput.value === "3" ? "7" : "5";
+      bundleInput.value = String(parseInt(modeInput.value, 10) + 1);
+      updateWinInfo();
     });
 
     const create = async () => {

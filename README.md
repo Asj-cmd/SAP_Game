@@ -4,11 +4,13 @@ A multiplayer top-down browser game. Two families compete to steal cash
 bundles from each other's master bedroom, jail the intruders they catch at home,
 and rescue jailed teammates.
 
-- **Modes:** the host picks **2v2 or 3v3** when creating the room.
-- **Cash to win:** the host also picks how much cash a team must bank to win a
-  round (defaults to 5 for 2v2, 7 for 3v3). First team to bank that much wins the
-  round immediately; if the timer runs out first, the team with the most banked
-  cash wins (a tie replays the round). Best of 3 rounds.
+- **Modes:** the host picks **2v2, 3v3, or 4v4** when creating the room.
+- **Cash to win:** the host picks how many bundles start in each team's bedroom
+  (3, 4, or 5) — the target to win a round is derived from that: **3 bundles →
+  first to 5**, **4 bundles → first to 7**, **5 bundles → first to 9**. First
+  team to bank that much wins the round immediately; if the timer runs out
+  first, the team with the most banked cash wins (a tie replays the round).
+  Best of 3 rounds.
 - **Basements are one-way for the enemy:** you can't enter the basement under
   your own house (so you can't camp the rescue entrance) — but you can drop into
   the enemy's basement to free a captured teammate.
@@ -77,10 +79,10 @@ Cash Grab server running on port 2567
 
 1. **Open your browser** (Chrome, Firefox, Safari, Edge — any will work)
 2. **Go to:** `http://localhost:2567`
-3. **Type your name**, pick the **mode** (2v2 or 3v3) and **cash to win**, then click "Create Room"
+3. **Type your name**, pick the **mode** (2v2, 3v3, or 4v4) and **bundles per team**, then click "Create Room"
 4. **You'll get a 4-letter code** (like `AEKF`) — write it down!
 5. **Open a new browser tab** for each other player and do the same thing, but click "Join" and paste the code
-6. **Once the room is full** (4 players for 2v2, 6 for 3v3), the game starts automatically
+6. **Once the room is full** (4 players for 2v2, 6 for 3v3, 8 for 4v4), the game starts automatically
 
 ### Getting Friends to Play
 
@@ -173,7 +175,7 @@ Share **that URL** with your friends — they open it, enter your **room code**,
 join. (Any tunnel works: ngrok `ngrok http 2567`, VS Code port forwarding, etc.)
 
 The game auto-starts the moment the room is full (**4 players** for 2v2, **6** for
-3v3). The first half to join are Team B / orange, the rest are Team A / blue.
+3v3, **8** for 4v4). The first half to join are Team B / orange, the rest are Team A / blue.
 
 > Want to test alone first? Open **http://localhost:2567** in 4 browser tabs and
 > create/join with the room code — each tab is a player.
@@ -228,8 +230,9 @@ Phase 1 MVP. Stick-figure players, colored-zone world, no sound/art yet (by
 design for this phase). All mechanics — pickup, carry, auto-deposit, lock/jail,
 rescue, auto-release, steal-back, first-to-target win, timer fallback, round
 reset, best-of-3 — are implemented and verified with a scripted multi-client
-logic test and browser tests. Selectable **2v2 / 3v3** modes and a host-chosen
-**cash-to-win** target. Known-closed loopholes: score can't drift or be drained
+logic test and browser tests. Selectable **2v2 / 3v3 / 4v4** modes and a
+host-chosen bundles-per-team count, which derives the cash-to-win target.
+Known-closed loopholes: score can't drift or be drained
 for free (a caught thief returns the point to the team that earned it), jailed
 players can't rescue, a bundle carried by someone who disconnects returns to
 play, and neither team can camp inside its own basement.
