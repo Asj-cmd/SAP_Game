@@ -99,9 +99,12 @@ export class GameRoom extends Room<GameState> {
       bedroomB: bundlePositions("bedroomB", this.bundlesPerBedroom),
       bedroomA: bundlePositions("bedroomA", this.bundlesPerBedroom),
     };
+    // A team can end up banking every bundle in the match (its enemy's N plus its
+    // own N stolen back), so the visible score stack needs 2N distinct slots - not
+    // N, which made the 4th+ pile overlap the 3rd and "disappear".
     this.scoreSlots = {
-      B: scoreSlotPositions("B", this.bundlesPerBedroom),
-      A: scoreSlotPositions("A", this.bundlesPerBedroom),
+      B: scoreSlotPositions("B", this.bundlesPerBedroom * 2),
+      A: scoreSlotPositions("A", this.bundlesPerBedroom * 2),
     };
 
     this.setState(new GameState());
@@ -146,6 +149,7 @@ export class GameRoom extends Room<GameState> {
     this.state.players.delete(client.sessionId);
     this.slots.delete(client.sessionId);
     this.deriveScores();
+    this.checkWin(); // the returned bundle can put a team at the target
 
     if (this.state.players.size === 0) {
       this.disconnect();
@@ -178,14 +182,17 @@ export class GameRoom extends Room<GameState> {
     return found;
   }
 
-  // Score is DERIVED from bundle state (count of bundles currently scored in each
-  // bedroom). This makes score drift impossible and keeps every client in agreement.
+  // Score is DERIVED from bundle state: a team's score is the number of bundles
+  // currently sitting in ITS master bedroom - its own originals that haven't been
+  // stolen PLUS everything it has banked. With N bundles per team both sides start
+  // at N, and the first-to-(2N-1) target means winning the exchange by 2. Deriving
+  // (never incrementing) makes score drift impossible.
   private deriveScores() {
     let a = 0;
     let b = 0;
     this.state.cashBundles.forEach((bundle) => {
-      if (bundle.location === "scored:A") a++;
-      else if (bundle.location === "scored:B") b++;
+      if (bundle.location === "scored:A" || bundle.location === "bedroomA") a++;
+      else if (bundle.location === "scored:B" || bundle.location === "bedroomB") b++;
     });
     this.state.scoreA = a;
     this.state.scoreB = b;
@@ -197,9 +204,7 @@ export class GameRoom extends Room<GameState> {
   private returnCarriedBundle(bundle: CashBundleState) {
     const restoredTeam = this.stolenFrom.get(bundle.id);
     if (restoredTeam) {
-      const count = this.countScored(restoredTeam);
-      const slots = this.scoreSlots[restoredTeam];
-      const pos = slots[Math.min(count, slots.length - 1)];
+      const pos = this.freeScoreSlot(restoredTeam);
       bundle.location = `scored:${restoredTeam}`;
       bundle.isScored = true;
       bundle.x = pos.x;
@@ -214,12 +219,21 @@ export class GameRoom extends Room<GameState> {
     this.stolenFrom.delete(bundle.id);
   }
 
-  private countScored(team: Team): number {
-    let count = 0;
+  // First score-stack slot not already occupied by one of `team`'s scored bundles.
+  // Placing into a free slot (rather than slot[count]) means no two piles can ever
+  // land on the same position - previously a deposit past the slot capacity, or a
+  // bundle returned after its thief was jailed, rendered exactly underneath an
+  // existing pile and looked like it had vanished.
+  private freeScoreSlot(team: Team): { x: number; y: number } {
+    const slots = this.scoreSlots[team];
+    const occupied = new Set<string>();
     this.state.cashBundles.forEach((b) => {
-      if (b.location === `scored:${team}`) count++;
+      if (b.location === `scored:${team}`) occupied.add(`${b.x},${b.y}`);
     });
-    return count;
+    for (const pos of slots) {
+      if (!occupied.has(`${pos.x},${pos.y}`)) return pos;
+    }
+    return slots[slots.length - 1];
   }
 
   // ---- message handlers ----
@@ -249,6 +263,7 @@ export class GameRoom extends Room<GameState> {
     bundle.isScored = false;
     this.stolenFrom.delete(bundle.id);
     player.isCarryingCash = true;
+    this.deriveScores(); // the victim's bedroom count drops the moment it's grabbed
   }
 
   private handleStealScored(client: Client, msg: { bundleId: string }) {
@@ -277,8 +292,7 @@ export class GameRoom extends Room<GameState> {
     if (!isOwnHome(player.team as Team, player.x, player.y)) return;
 
     const team = player.team as Team;
-    const idx = Math.min(this.countScored(team), this.scoreSlots[team].length - 1);
-    const pos = this.scoreSlots[team][idx];
+    const pos = this.freeScoreSlot(team);
     bundle.location = `scored:${team}`;
     bundle.isScored = true;
     bundle.x = pos.x;

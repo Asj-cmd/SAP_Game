@@ -7,10 +7,11 @@ and rescue jailed teammates.
 - **Modes:** the host picks **2v2, 3v3, or 4v4** when creating the room.
 - **Cash to win:** the host picks how many bundles start in each team's bedroom
   (3, 4, or 5) — the target to win a round is derived from that: **3 bundles →
-  first to 5**, **4 bundles → first to 7**, **5 bundles → first to 9**. First
-  team to bank that much wins the round immediately; if the timer runs out
-  first, the team with the most banked cash wins (a tie replays the round).
-  Best of 3 rounds.
+  first to 5**, **4 bundles → first to 7**, **5 bundles → first to 9**. A team's
+  score is the number of bundles currently in its master bedroom: its own that
+  haven't been stolen **plus** everything it has banked. First team to reach the
+  target wins the round immediately; if the timer runs out first, the team with
+  more bundles in its bedroom wins (a tie replays the round). Best of 3 rounds.
 - **Basements are one-way for the enemy:** you can't enter the basement under
   your own house (so you can't camp the rescue entrance) — but you can drop into
   the enemy's basement to free a captured teammate.
