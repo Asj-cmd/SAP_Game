@@ -12,9 +12,13 @@ and rescue jailed teammates.
   haven't been stolen **plus** everything it has banked. First team to reach the
   target wins the round immediately; if the timer runs out first, the team with
   more bundles in its bedroom wins (a tie replays the round). Best of 3 rounds.
-- **Basements are one-way for the enemy:** you can't enter the basement under
-  your own house (so you can't camp the rescue entrance) — but you can drop into
-  the enemy's basement to free a captured teammate.
+- **Backyards:** each house has a private backyard along its outer edge, with
+  second doors into the master bedroom and basement (plus one from the living
+  room) — extra routes to chase and escape. The backyard is home turf: owners
+  can jail intruders caught there, same as inside the house.
+- **Basements are one-way for the enemy:** you can't enter your own basement
+  (so you can't camp the rescue entrances) — but you can walk into the enemy's
+  basement, through their living room or backyard, to free a captured teammate.
 
 Built with **Phaser 3** (client) + **Colyseus** (server) + **TypeScript** + **Vite**.
 See `cash-grab-prd.md` for the full spec.

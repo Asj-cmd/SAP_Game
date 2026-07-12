@@ -10,16 +10,18 @@ function toHex(color: number): string {
 // Minimap zone rectangles (world coords, mirrors objects/Zone.ts) - purposely does
 // NOT show cash, so the "look at the bedrooms to read the score" mechanic stays.
 const MINIMAP_ZONES = [
-  { xMin: 0, xMax: 300, yMin: 0, yMax: 180, color: COLORS.bedroom },
-  { xMin: 0, xMax: 300, yMin: 180, yMax: 620, color: COLORS.livingRoom },
-  { xMin: 0, xMax: 300, yMin: 620, yMax: 900, color: COLORS.basement },
-  { xMin: 300, xMax: 1100, yMin: 0, yMax: 900, color: COLORS.garden },
-  { xMin: 1100, xMax: 1400, yMin: 180, yMax: 620, color: COLORS.livingRoom },
-  { xMin: 1100, xMax: 1400, yMin: 0, yMax: 180, color: COLORS.bedroom },
-  { xMin: 1100, xMax: 1400, yMin: 620, yMax: 900, color: COLORS.basement },
+  { xMin: 0, xMax: 140, yMin: 0, yMax: 900, color: COLORS.backyard },
+  { xMin: 140, xMax: 540, yMin: 0, yMax: 200, color: COLORS.bedroom },
+  { xMin: 140, xMax: 540, yMin: 200, yMax: 620, color: COLORS.livingB },
+  { xMin: 140, xMax: 540, yMin: 620, yMax: 900, color: COLORS.basement },
+  { xMin: 540, xMax: 1060, yMin: 0, yMax: 900, color: COLORS.garden },
+  { xMin: 1060, xMax: 1460, yMin: 0, yMax: 200, color: COLORS.bedroom },
+  { xMin: 1060, xMax: 1460, yMin: 200, yMax: 620, color: COLORS.livingA },
+  { xMin: 1060, xMax: 1460, yMin: 620, yMax: 900, color: COLORS.basement },
+  { xMin: 1460, xMax: 1600, yMin: 0, yMax: 900, color: COLORS.backyard },
 ];
 
-const MINIMAP_W = 300;
+const MINIMAP_W = 240;
 
 export class UIScene extends Phaser.Scene {
   private timerText!: Phaser.GameObjects.Text;

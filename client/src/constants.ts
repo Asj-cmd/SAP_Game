@@ -1,7 +1,7 @@
-// Top-down world (Brawl Stars style): a single flat plane, no ground/underground
-// split and no gravity - see server/src/zones.ts + client/src/objects/Zone.ts for
-// the floor plan this size matches.
-export const WORLD_WIDTH = 1400;
+// Top-down world (Brawl Stars style): a single flat plane, no gravity - see
+// server/src/zones.ts + client/src/objects/Zone.ts for the floor plan this size
+// matches (backyard | house | garden | house | backyard).
+export const WORLD_WIDTH = 1600;
 export const WORLD_HEIGHT = 900;
 
 export const PLAYER_SPEED = 220;
@@ -14,11 +14,15 @@ export const ACTION_RANGE = 60;
 export const ROUND_TIME_DEFAULT = 300;
 
 export const COLORS = {
-  bedroom: 0xf0997b,
-  livingRoom: 0xb5d4f4,
+  bedroom: 0xf0997b, // cash rooms - same on both sides so "salmon = cash" reads instantly
+  livingB: 0xf3d5bc, // Team B's living room, tinted toward B's orange
+  livingA: 0xbfd9f2, // Team A's living room, tinted toward A's blue
   garden: 0xeaf3de,
   gardenAlt: 0xdcefc9,
+  backyard: 0xcde3b1, // grassier green than the garden - reads as private yard
   basement: 0xb4b2a9,
+  door: 0xefdfa8, // door mats drawn in every passable wall gap
+  doorEdge: 0x8a774a,
   teamB: 0xe85d24,
   teamA: 0x185fa5,
   cash: 0xffd700,

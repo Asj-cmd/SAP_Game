@@ -81,10 +81,10 @@ export class LobbyScene extends Phaser.Scene {
         </div>
         <div style="margin-top:14px;padding-top:12px;border-top:1px solid #eee;font-size:12px;color:#555;line-height:1.5;">
           <b>How to play:</b> Move with WASD or arrow keys (any direction). Sneak into the enemy
-          bedroom, grab cash and carry it home (it banks automatically). Catch intruders in
-          your house with <b>SPACE</b> to jail them. Your score is the cash in your bedroom —
-          what you've kept plus what you've banked. First to the target (shown above) wins the
-          round — best of 3.
+          bedroom, grab cash and carry it home (it banks automatically). Catch intruders anywhere
+          on your property — house or backyard — with <b>SPACE</b> to jail them. Your score is the
+          cash in your bedroom — what you've kept plus what you've banked. First to the target
+          (shown above) wins the round — best of 3.
         </div>
       </div>`;
 

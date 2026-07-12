@@ -1,30 +1,50 @@
 // Shared world geometry + zone lookup used by GameRoom for all server-authoritative
 // validation. Top-down floor plan: two mirrored houses (bedroom/living/basement
-// stacked per team) flanking a shared neutral garden in the middle. See
+// stacked per team), each with a private BACKYARD strip along its outer edge,
+// flanking a shared neutral garden in the middle. The backyard is part of the
+// property: it has second doors into the bedroom and basement (plus one from the
+// living room), and owners can jail intruders caught there. See
 // client/src/objects/Zone.ts for the matching wall/door geometry (kept in sync by
 // hand).
 
-export const WORLD_WIDTH = 1400;
+export const WORLD_WIDTH = 1600;
 export const WORLD_HEIGHT = 900;
 
-const COL_B_MAX = 300;
-const COL_A_MIN = 1100;
-const BEDROOM_MAX_Y = 180;
+// Column boundaries, left to right: backyard B | house B | garden | house A | backyard A
+const YARD_B_MAX = 140;
+const HOUSE_B_MAX = 540;
+const HOUSE_A_MIN = 1060;
+const YARD_A_MIN = 1460;
+// Row boundaries within a house column: bedroom | living | basement
+const BEDROOM_MAX_Y = 200;
 const BASEMENT_MIN_Y = 620;
 
 export type Team = "A" | "B";
-export type ZoneId = "bedroomB" | "livingB" | "garden" | "livingA" | "bedroomA" | "basementB" | "basementA";
+export type ZoneId =
+  | "backyardB"
+  | "bedroomB"
+  | "livingB"
+  | "basementB"
+  | "garden"
+  | "bedroomA"
+  | "livingA"
+  | "basementA"
+  | "backyardA";
 
 export function getZoneAt(x: number, y: number): ZoneId {
-  if (x < COL_B_MAX) {
+  if (x < YARD_B_MAX) return "backyardB";
+  if (x < HOUSE_B_MAX) {
     if (y < BEDROOM_MAX_Y) return "bedroomB";
     if (y < BASEMENT_MIN_Y) return "livingB";
     return "basementB";
   }
-  if (x < COL_A_MIN) return "garden";
-  if (y < BEDROOM_MAX_Y) return "bedroomA";
-  if (y < BASEMENT_MIN_Y) return "livingA";
-  return "basementA";
+  if (x < HOUSE_A_MIN) return "garden";
+  if (x < YARD_A_MIN) {
+    if (y < BEDROOM_MAX_Y) return "bedroomA";
+    if (y < BASEMENT_MIN_Y) return "livingA";
+    return "basementA";
+  }
+  return "backyardA";
 }
 
 export function isEnemyBedroom(team: Team, x: number, y: number): boolean {
@@ -32,12 +52,14 @@ export function isEnemyBedroom(team: Team, x: number, y: number): boolean {
   return (team === "B" && zone === "bedroomA") || (team === "A" && zone === "bedroomB");
 }
 
-// Own home = own living room OR own master bedroom (bedroom is normally unreachable
-// by the owning team - blocked client-side - but the check is kept for spec fidelity).
+// Own home = own living room, own master bedroom, or own BACKYARD - the yard is
+// part of the property, so owners can lock intruders caught there too. (The bedroom
+// is normally unreachable by the owning team - blocked client-side - but the check
+// is kept for spec fidelity.)
 export function isOwnHome(team: Team, x: number, y: number): boolean {
   const zone = getZoneAt(x, y);
-  if (team === "B") return zone === "livingB" || zone === "bedroomB";
-  return zone === "livingA" || zone === "bedroomA";
+  if (team === "B") return zone === "livingB" || zone === "bedroomB" || zone === "backyardB";
+  return zone === "livingA" || zone === "bedroomA" || zone === "backyardA";
 }
 
 // The basement that holds a given team's jailed prisoners (i.e. the enemy's basement).
@@ -50,22 +72,22 @@ export function jailBasementForTeam(team: Team): "basementB" | "basementA" {
 // every wall and door gap.
 export const SPAWN_POINTS: Record<Team, { x: number; y: number }[]> = {
   B: [
-    { x: 110, y: 340 },
-    { x: 190, y: 340 },
-    { x: 110, y: 420 },
-    { x: 190, y: 420 },
+    { x: 280, y: 330 },
+    { x: 400, y: 330 },
+    { x: 280, y: 450 },
+    { x: 400, y: 450 },
   ],
   A: [
-    { x: 1210, y: 340 },
-    { x: 1290, y: 340 },
-    { x: 1210, y: 420 },
-    { x: 1290, y: 420 },
+    { x: 1200, y: 330 },
+    { x: 1320, y: 330 },
+    { x: 1200, y: 450 },
+    { x: 1320, y: 450 },
   ],
 };
 
 export const JAIL_POSITIONS: Record<"basementB" | "basementA", { x: number; y: number }> = {
-  basementB: { x: 150, y: 760 },
-  basementA: { x: 1250, y: 760 },
+  basementB: { x: 340, y: 760 },
+  basementA: { x: 1260, y: 760 },
 };
 
 // Arrange `count` points in a compact grid inside [xMin,xMax] x [yMin,yMax].
@@ -85,11 +107,11 @@ function grid(xMin: number, xMax: number, yMin: number, yMax: number, count: num
 
 // Starting positions for the `count` original bundles in a master bedroom.
 export function bundlePositions(bedroom: "bedroomB" | "bedroomA", count: number): { x: number; y: number }[] {
-  return bedroom === "bedroomB" ? grid(30, 270, 35, 95, count) : grid(1130, 1370, 35, 95, count);
+  return bedroom === "bedroomB" ? grid(180, 500, 40, 100, count) : grid(1100, 1420, 40, 100, count);
 }
 
 // Where scored (deposited) bundles stack inside the scoring team's own bedroom
 // (offset to a lower band so they never overlap the original-bundle grid above).
 export function scoreSlotPositions(team: Team, count: number): { x: number; y: number }[] {
-  return team === "B" ? grid(30, 270, 105, 160, count) : grid(1130, 1370, 105, 160, count);
+  return team === "B" ? grid(180, 500, 125, 165, count) : grid(1100, 1420, 125, 165, count);
 }
