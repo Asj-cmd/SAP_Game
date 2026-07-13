@@ -3,3 +3,9 @@ dist/
 .DS_Store
 *.log
 *.tsbuildinfo
+
+# Blender asset pipeline: the bpy virtualenv is a multi-hundred-MB local
+# toolchain, not project source - build_character.py/build_cashbundle.py are
+# what's tracked; run them locally to (re)produce the .glb files if needed.
+assets/blender/venv/
+assets/blender/*_preview*.png
