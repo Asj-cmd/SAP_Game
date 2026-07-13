@@ -2,20 +2,14 @@ import { CharacterModel } from "./CharacterModel";
 import type { Rect } from "../geometry/floorplan";
 import { PLAYER_SPEED, CARRY_SPEED, WORLD_WIDTH, WORLD_HEIGHT } from "../constants";
 
-// World units; tuned relative to ACTION_RANGE (60) and the narrowest door
-// gaps (~60-80 units) so the character can pass through doors without
+// World units; tuned relative to the narrowest door gaps (90+ units at the
+// current WORLD_SCALE) so the character can pass through doors without
 // clipping the frame.
 const CHAR_RADIUS = 20;
 
-export interface InputState {
-  left: boolean;
-  right: boolean;
-  up: boolean;
-  down: boolean;
-}
-
-// Ports GameScene.updateLocalMovement's normalized-direction WASD logic
-// (dx/dy -> dx/dz) plus a circle-vs-AABB collision resolve against the same
+// Moves the character along a caller-supplied world-space direction (the
+// GameController rotates raw WASD by the camera's yaw first, so controls are
+// camera-relative) plus a circle-vs-AABB collision resolve against the same
 // wall rects Arcade Physics used to collide against in the 2D build.
 export class CharacterController {
   x: number;
@@ -36,21 +30,22 @@ export class CharacterController {
     this.model.root.position.set(this.x, 0, this.z);
   }
 
-  update(dt: number, input: InputState, carrying: boolean) {
+  // (moveX, moveZ): desired world-space direction, any length (normalized
+  // here). faceMovement=false keeps the current heading while moving - used
+  // for FPS-style backpedaling, where turning around would spin the camera.
+  update(dt: number, moveX: number, moveZ: number, faceMovement: boolean, carrying: boolean) {
     const speed = carrying ? CARRY_SPEED : PLAYER_SPEED;
-    const dx = (input.right ? 1 : 0) - (input.left ? 1 : 0);
-    const dz = (input.down ? 1 : 0) - (input.up ? 1 : 0);
 
     let speedFraction = 0;
-    if (dx !== 0 || dz !== 0) {
-      const len = Math.hypot(dx, dz);
-      const ndx = dx / len;
-      const ndz = dz / len;
+    if (moveX !== 0 || moveZ !== 0) {
+      const len = Math.hypot(moveX, moveZ);
+      const ndx = moveX / len;
+      const ndz = moveZ / len;
       this.vx = ndx * speed;
       this.vz = ndz * speed;
       this.x += this.vx * dt;
       this.z += this.vz * dt;
-      this.model.setFacing(ndx, ndz);
+      if (faceMovement) this.model.setFacing(ndx, ndz);
       speedFraction = 1;
     } else {
       this.vx = 0;

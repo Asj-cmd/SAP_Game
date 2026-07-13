@@ -1,25 +1,11 @@
 import type { Room } from "colyseus.js";
 import { COLORS, WORLD_WIDTH, WORLD_HEIGHT } from "../constants";
-import type { Team } from "../geometry/floorplan";
+import { ZONE_RECTS, type Team } from "../geometry/floorplan";
 
 function toHex(color: number): string {
   return "#" + color.toString(16).padStart(6, "0");
 }
 
-// Mirrors UIScene.ts's MINIMAP_ZONES (also mirrors geometry/floorplan.ts's
-// ZONE_RECTS - kept as a flat literal here since the minimap doesn't need the
-// zone-lookup logic, just the fill rects).
-const MINIMAP_ZONES = [
-  { xMin: 0, xMax: 140, yMin: 0, yMax: 900, color: COLORS.backyard },
-  { xMin: 140, xMax: 540, yMin: 0, yMax: 200, color: COLORS.bedroom },
-  { xMin: 140, xMax: 540, yMin: 200, yMax: 620, color: COLORS.livingB },
-  { xMin: 140, xMax: 540, yMin: 620, yMax: 900, color: COLORS.basement },
-  { xMin: 540, xMax: 1060, yMin: 0, yMax: 900, color: COLORS.garden },
-  { xMin: 1060, xMax: 1460, yMin: 0, yMax: 200, color: COLORS.bedroom },
-  { xMin: 1060, xMax: 1460, yMin: 200, yMax: 620, color: COLORS.livingA },
-  { xMin: 1060, xMax: 1460, yMin: 620, yMax: 900, color: COLORS.basement },
-  { xMin: 1460, xMax: 1600, yMin: 0, yMax: 900, color: COLORS.backyard },
-];
 const MINIMAP_W = 240;
 const MINIMAP_H = (MINIMAP_W / WORLD_WIDTH) * WORLD_HEIGHT;
 const MM_SCALE = MINIMAP_W / WORLD_WIDTH;
@@ -92,7 +78,7 @@ export class HudOverlay {
         <div id="hud-round">Round 1 of 3</div>
       </div>
       <div id="hud-objective"></div>
-      <div id="hud-controls">WASD or Arrow Keys : Move &nbsp;&nbsp; SPACE : Action &nbsp;&nbsp; (cash deposits automatically at home)</div>
+      <div id="hud-controls">W/&#8593; : Forward &nbsp; A/D : Veer &nbsp; S/&#8595; : Back up &nbsp;&nbsp; SPACE : Action &nbsp;&nbsp; (cash deposits automatically at home)</div>
       <div id="hud-prompt"></div>
       <div id="hud-minimap-wrap"><canvas id="hud-minimap"></canvas></div>
       <div id="hud-jail"></div>
@@ -102,19 +88,21 @@ export class HudOverlay {
     `;
   }
 
+  // No compass arrows here anymore: the camera rotates with the character now,
+  // so screen-left/right no longer map to fixed world directions - the minimap
+  // is the direction reference.
   private objectiveMessage(carrying: boolean): string {
     const teamLabel = `TEAM ${this.localTeam}`;
-    if (this.localTeam === "B") {
-      return carrying ? `${teamLabel}  ◀ Bring cash HOME` : `${teamLabel}  Steal enemy cash ▶`;
-    }
-    return carrying ? `${teamLabel}  Bring cash HOME ▶` : `${teamLabel}  ◀ Steal enemy cash`;
+    return carrying ? `${teamLabel}  •  Bring the cash HOME` : `${teamLabel}  •  Steal the enemy's cash`;
   }
 
   private drawMinimap(room: Room) {
     const ctx = this.minimapCanvas.getContext("2d")!;
     ctx.clearRect(0, 0, MINIMAP_W, MINIMAP_H);
 
-    for (const z of MINIMAP_ZONES) {
+    // Zone fills come straight from the floor plan's ZONE_RECTS, so the
+    // minimap can never drift out of sync with the world geometry.
+    for (const z of ZONE_RECTS) {
       ctx.fillStyle = toHex(z.color);
       ctx.fillRect(z.xMin * MM_SCALE, z.yMin * MM_SCALE, (z.xMax - z.xMin) * MM_SCALE, (z.yMax - z.yMin) * MM_SCALE);
     }

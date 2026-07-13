@@ -1,13 +1,14 @@
 import * as THREE from "three";
 import { FOLLOW_DISTANCE, FOLLOW_HEIGHT, LOOK_HEIGHT, MAX_YAW_SPEED } from "../constants";
 
-// 3rd-person chase camera: position follows the character tightly every
-// frame, but YAW is slew-rate limited toward the character's facing angle so
-// a sharp direction reversal swings the camera over ~0.3-0.5s instead of
-// snapping (per the plan: absolute-direction movement stays, only the camera
-// auto-orients). A raycast against the environment's wall mesh pulls the
-// camera in short of any wall between it and the character, since door gaps
-// are narrow enough that an unclamped camera constantly clips through them.
+// 3rd-person chase camera, FPS-style: the camera stays glued behind the
+// character's back, easing its yaw toward the character's facing at a capped
+// rate. Movement input is camera-relative (GameController rotates WASD by
+// getYaw() each frame), so "W" always walks into the screen and the view only
+// rotates when the player steers - never because of an absolute key flip.
+// A raycast against the environment's wall mesh pulls the camera in short of
+// any wall between it and the character, since door gaps are narrow enough
+// that an unclamped camera constantly clips through them.
 export class CameraRig {
   readonly camera: THREE.PerspectiveCamera;
   private yaw = 0;
@@ -19,6 +20,12 @@ export class CameraRig {
     private obstacles: THREE.Object3D[]
   ) {
     this.camera = camera;
+  }
+
+  // Current camera heading; the ground-plane forward it implies is
+  // (sin(yaw), -cos(yaw)), matching CharacterModel.setFacing's convention.
+  getYaw(): number {
+    return this.yaw;
   }
 
   update(dt: number, targetX: number, targetZ: number, facingAngle: number) {

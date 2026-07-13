@@ -1,12 +1,28 @@
 import * as THREE from "three";
 import { GLTFLoader } from "three/addons/loaders/GLTFLoader.js";
-import { COLORS, CHARACTER_SCALE } from "../constants";
+import { COLORS, CHARACTER_SCALE, BUNDLE_SCALE } from "../constants";
 import type { Team } from "../geometry/floorplan";
 
 const MODEL_URL = "/models/character.glb";
-// Pre-scale (Blender-unit) offset above the head-top (~1.85) for the carrying
-// indicator; CHARACTER_SCALE is applied to `root`, which this is a child of.
-const CARRY_INDICATOR_Y = 2.05;
+const BUNDLE_URL = "/models/cashbundle.glb";
+// Pre-scale (Blender-unit) placement of the carried cash bundle, held above
+// the head (head-top ~1.85) so it's clearly visible from the behind-the-back
+// camera - a bundle held at chest height would be hidden by the body.
+// CHARACTER_SCALE is applied to `root`, which the bundle is a child of.
+const CARRY_BUNDLE_Y = 2.1;
+// World-size fraction of a ground bundle: big enough to read at a glance,
+// small enough not to look like a hat from across the map.
+const CARRY_BUNDLE_WORLD_SCALE = (BUNDLE_SCALE / CHARACTER_SCALE) * 0.75;
+
+// The bundle template is shared by every character instance (local + remotes);
+// loaded once, cloned per character.
+let bundleTemplatePromise: Promise<THREE.Object3D> | null = null;
+function loadBundleTemplate(): Promise<THREE.Object3D> {
+  if (!bundleTemplatePromise) {
+    bundleTemplatePromise = new GLTFLoader().loadAsync(BUNDLE_URL).then((gltf) => gltf.scene);
+  }
+  return bundleTemplatePromise;
+}
 
 // Loads the Blender-authored character (Milestone A2), plays its Idle/Walk
 // clips blended by movement speed, and exposes a facing-angle rotation that's
@@ -19,7 +35,7 @@ export class CharacterModel {
   private walkAction: THREE.AnimationAction;
   private bodyMaterial: THREE.MeshStandardMaterial | null = null;
   private facingAngle = 0;
-  private carryIndicator: THREE.Mesh;
+  private carryIndicator: THREE.Object3D;
   private meshes: THREE.Mesh[] = [];
 
   private constructor(
@@ -27,7 +43,8 @@ export class CharacterModel {
     mixer: THREE.AnimationMixer,
     idleAction: THREE.AnimationAction,
     walkAction: THREE.AnimationAction,
-    bodyMaterial: THREE.MeshStandardMaterial | null
+    bodyMaterial: THREE.MeshStandardMaterial | null,
+    carriedBundle: THREE.Object3D
   ) {
     this.root.add(scene);
     this.root.scale.setScalar(CHARACTER_SCALE);
@@ -43,18 +60,16 @@ export class CharacterModel {
       if ((obj as THREE.Mesh).isMesh) this.meshes.push(obj as THREE.Mesh);
     });
 
-    this.carryIndicator = new THREE.Mesh(
-      new THREE.BoxGeometry(0.35, 0.22, 0.05),
-      new THREE.MeshStandardMaterial({ color: COLORS.cash })
-    );
-    this.carryIndicator.position.set(0, CARRY_INDICATOR_Y, 0);
+    this.carryIndicator = carriedBundle;
+    this.carryIndicator.scale.setScalar(CARRY_BUNDLE_WORLD_SCALE);
+    this.carryIndicator.position.set(0, CARRY_BUNDLE_Y, 0);
     this.carryIndicator.visible = false;
     this.root.add(this.carryIndicator);
   }
 
   static async load(team: Team): Promise<CharacterModel> {
     const loader = new GLTFLoader();
-    const gltf = await loader.loadAsync(MODEL_URL);
+    const [gltf, bundleTemplate] = await Promise.all([loader.loadAsync(MODEL_URL), loadBundleTemplate()]);
 
     let bodyMaterial: THREE.MeshStandardMaterial | null = null;
     gltf.scene.traverse((obj) => {
@@ -73,7 +88,14 @@ export class CharacterModel {
       throw new Error("character.glb is missing the Idle or Walk animation clip");
     }
 
-    const model = new CharacterModel(gltf.scene, mixer, mixer.clipAction(idleClip), mixer.clipAction(walkClip), bodyMaterial);
+    const model = new CharacterModel(
+      gltf.scene,
+      mixer,
+      mixer.clipAction(idleClip),
+      mixer.clipAction(walkClip),
+      bodyMaterial,
+      bundleTemplate.clone(true)
+    );
     model.setTeamColor(team);
     return model;
   }

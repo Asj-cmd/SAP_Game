@@ -11,6 +11,7 @@ import {
   scoreSlotPositions,
   WORLD_WIDTH,
   WORLD_HEIGHT,
+  WORLD_SCALE,
   Team,
   BOT_WAYPOINTS,
   BotNodeId,
@@ -18,10 +19,12 @@ import {
   nearestBotNode,
 } from "../zones";
 
-// Server ranges are a touch more generous than the client's prompt range (60px)
-// so an action never gets rejected right when the prompt says it's available.
-const PICKUP_RANGE = 72;
-const LOCK_RESCUE_RANGE = 82;
+// Server ranges are a touch more generous than the client's prompt range so an
+// action never gets rejected right when the prompt says it's available. Ranges
+// and speeds scale with WORLD_SCALE, keeping balance identical to the original
+// 2D-tuned values.
+const PICKUP_RANGE = 72 * WORLD_SCALE;
+const LOCK_RESCUE_RANGE = 82 * WORLD_SCALE;
 const ROUND_TIME = 300;
 const WINS_NEEDED = 2;
 const PRE_ROUND_COUNTDOWN = 3;
@@ -29,8 +32,8 @@ const ROUND_END_PAUSE = 3;
 const JAIL_TIME = 60;
 // Matches the client's PLAYER_SPEED/CARRY_SPEED (world units/sec) so bots move
 // at the same pace a human would.
-const BOT_SPEED = 220;
-const BOT_CARRY_SPEED = 160;
+const BOT_SPEED = 220 * WORLD_SCALE;
+const BOT_CARRY_SPEED = 160 * WORLD_SCALE;
 const BOT_TICK_MS = 250;
 
 // Match config bounds. Team size 2/3/4 (2v2, 3v3, 4v4). The host only picks bundles

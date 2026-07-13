@@ -7,17 +7,25 @@
 // client/src/objects/Zone.ts for the matching wall/door geometry (kept in sync by
 // hand).
 
-export const WORLD_WIDTH = 1600;
-export const WORLD_HEIGHT = 900;
+// Widens the whole floor plan relative to the original 2D layout (1600x900).
+// All tables in this file stay written in original coordinates and are scaled
+// at module load. The client applies the same factor (client/src/constants.ts
+// WORLD_SCALE) - keep both in sync. Speeds and action ranges in GameRoom.ts
+// scale with it too, so travel times and balance match the 2D-tuned values.
+export const WORLD_SCALE = 1.5;
+const S = WORLD_SCALE;
+
+export const WORLD_WIDTH = 1600 * S;
+export const WORLD_HEIGHT = 900 * S;
 
 // Column boundaries, left to right: backyard B | house B | garden | house A | backyard A
-const YARD_B_MAX = 140;
-const HOUSE_B_MAX = 540;
-const HOUSE_A_MIN = 1060;
-const YARD_A_MIN = 1460;
+const YARD_B_MAX = 140 * S;
+const HOUSE_B_MAX = 540 * S;
+const HOUSE_A_MIN = 1060 * S;
+const YARD_A_MIN = 1460 * S;
 // Row boundaries within a house column: bedroom | living | basement
-const BEDROOM_MAX_Y = 200;
-const BASEMENT_MIN_Y = 620;
+const BEDROOM_MAX_Y = 200 * S;
+const BASEMENT_MIN_Y = 620 * S;
 
 export type Team = "A" | "B";
 export type ZoneId =
@@ -70,24 +78,26 @@ export function jailBasementForTeam(team: Team): "basementB" | "basementA" {
 // Up to 4 spawn points per team (2v2 uses the first two, 3v3 the first three, 4v4
 // all four), arranged in a 2x2 grid inside the living room interior, clear of
 // every wall and door gap.
+const scalePoint = (p: { x: number; y: number }) => ({ x: p.x * S, y: p.y * S });
+
 export const SPAWN_POINTS: Record<Team, { x: number; y: number }[]> = {
   B: [
     { x: 280, y: 330 },
     { x: 400, y: 330 },
     { x: 280, y: 450 },
     { x: 400, y: 450 },
-  ],
+  ].map(scalePoint),
   A: [
     { x: 1200, y: 330 },
     { x: 1320, y: 330 },
     { x: 1200, y: 450 },
     { x: 1320, y: 450 },
-  ],
+  ].map(scalePoint),
 };
 
 export const JAIL_POSITIONS: Record<"basementB" | "basementA", { x: number; y: number }> = {
-  basementB: { x: 340, y: 760 },
-  basementA: { x: 1260, y: 760 },
+  basementB: scalePoint({ x: 340, y: 760 }),
+  basementA: scalePoint({ x: 1260, y: 760 }),
 };
 
 // Arrange `count` points in a compact grid inside [xMin,xMax] x [yMin,yMax].
@@ -107,13 +117,17 @@ function grid(xMin: number, xMax: number, yMin: number, yMax: number, count: num
 
 // Starting positions for the `count` original bundles in a master bedroom.
 export function bundlePositions(bedroom: "bedroomB" | "bedroomA", count: number): { x: number; y: number }[] {
-  return bedroom === "bedroomB" ? grid(180, 500, 40, 100, count) : grid(1100, 1420, 40, 100, count);
+  return bedroom === "bedroomB"
+    ? grid(180 * S, 500 * S, 40 * S, 100 * S, count)
+    : grid(1100 * S, 1420 * S, 40 * S, 100 * S, count);
 }
 
 // Where scored (deposited) bundles stack inside the scoring team's own bedroom
 // (offset to a lower band so they never overlap the original-bundle grid above).
 export function scoreSlotPositions(team: Team, count: number): { x: number; y: number }[] {
-  return team === "B" ? grid(180, 500, 125, 165, count) : grid(1100, 1420, 125, 165, count);
+  return team === "B"
+    ? grid(180 * S, 500 * S, 125 * S, 165 * S, count)
+    : grid(1100 * S, 1420 * S, 125 * S, 165 * S, count);
 }
 
 // ---- Bot pathing graph ----
@@ -139,19 +153,19 @@ export type BotNodeId =
   | "gateA_garden";
 
 export const BOT_WAYPOINTS: Record<BotNodeId, { x: number; y: number }> = {
-  livingB: { x: 340, y: 410 },
-  bedroomB: { x: 340, y: 100 },
-  basementB: { x: 340, y: 760 },
-  livingA: { x: 1260, y: 410 },
-  bedroomA: { x: 1260, y: 100 },
-  basementA: { x: 1260, y: 760 },
-  garden: { x: 800, y: 450 },
-  gateB_bedroom: { x: 340, y: 200 }, // sealedFor B - only usable by team A
-  gateB_basement: { x: 340, y: 620 }, // sealedFor B - only usable by team A
-  gateB_garden: { x: 540, y: 410 },
-  gateA_bedroom: { x: 1260, y: 200 }, // sealedFor A - only usable by team B
-  gateA_basement: { x: 1260, y: 620 }, // sealedFor A - only usable by team B
-  gateA_garden: { x: 1060, y: 410 },
+  livingB: scalePoint({ x: 340, y: 410 }),
+  bedroomB: scalePoint({ x: 340, y: 100 }),
+  basementB: scalePoint({ x: 340, y: 760 }),
+  livingA: scalePoint({ x: 1260, y: 410 }),
+  bedroomA: scalePoint({ x: 1260, y: 100 }),
+  basementA: scalePoint({ x: 1260, y: 760 }),
+  garden: scalePoint({ x: 800, y: 450 }),
+  gateB_bedroom: scalePoint({ x: 340, y: 200 }), // sealedFor B - only usable by team A
+  gateB_basement: scalePoint({ x: 340, y: 620 }), // sealedFor B - only usable by team A
+  gateB_garden: scalePoint({ x: 540, y: 410 }),
+  gateA_bedroom: scalePoint({ x: 1260, y: 200 }), // sealedFor A - only usable by team B
+  gateA_basement: scalePoint({ x: 1260, y: 620 }), // sealedFor A - only usable by team B
+  gateA_garden: scalePoint({ x: 1060, y: 410 }),
 };
 
 interface BotEdge {

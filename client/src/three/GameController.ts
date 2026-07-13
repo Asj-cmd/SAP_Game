@@ -3,7 +3,7 @@ import { colyseusClient } from "../network/ColyseusClient";
 import { SceneManager } from "./SceneManager";
 import { buildEnvironment } from "./EnvironmentBuilder";
 import { CharacterModel } from "./CharacterModel";
-import { CharacterController, type InputState } from "./CharacterController";
+import { CharacterController } from "./CharacterController";
 import { CameraRig } from "./CameraRig";
 import { RemoteCharacterSync } from "./RemoteCharacterSync";
 import { CashBundleView } from "./CashBundleView";
@@ -17,6 +17,13 @@ type Action =
   | { kind: "rescuePlayer"; targetId: string; prompt: string }
   | { kind: "stealScored"; bundleId: string; prompt: string }
   | null;
+
+interface InputState {
+  left: boolean;
+  right: boolean;
+  up: boolean;
+  down: boolean;
+}
 
 function dist(ax: number, ay: number, bx: number, by: number): number {
   return Math.hypot(ax - bx, ay - by);
@@ -123,7 +130,18 @@ export class GameController {
     }
     model.setJailed(false);
 
-    this.controller.update(dt, this.input, selfState.isCarryingCash);
+    // Camera-relative (FPS-style) input: W walks the direction the camera
+    // faces, A/D veer left/right (character turns, camera eases behind), and
+    // S backpedals WITHOUT turning - turning around on S would chase its own
+    // tail (facing flips -> camera swings -> "backward" flips again) and spin
+    // the view forever.
+    const f = (this.input.up ? 1 : 0) - (this.input.down ? 1 : 0);
+    const s = (this.input.right ? 1 : 0) - (this.input.left ? 1 : 0);
+    const yaw = this.cameraRig.getYaw();
+    const moveX = Math.sin(yaw) * f + Math.cos(yaw) * s;
+    const moveZ = -Math.cos(yaw) * f + Math.sin(yaw) * s;
+    const backpedal = f < 0;
+    this.controller.update(dt, moveX, moveZ, !backpedal, selfState.isCarryingCash);
     this.cameraRig.update(dt, this.controller.x, this.controller.z, model.getFacingAngle());
 
     this.moveAccumulatorMs += dt * 1000;

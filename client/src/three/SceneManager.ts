@@ -28,7 +28,7 @@ export class SceneManager {
     this.renderer.setSize(container.clientWidth, container.clientHeight);
     container.appendChild(this.renderer.domElement);
 
-    this.scene.add(new THREE.AmbientLight(0xffffff, 0.7));
+    this.scene.add(new THREE.AmbientLight(0xffffff, 0.75));
     const sun = new THREE.DirectionalLight(0xffffff, 0.8);
     sun.position.set(400, 900, 300);
     this.scene.add(sun);

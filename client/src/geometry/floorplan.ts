@@ -2,7 +2,11 @@
 // Three.js imports (constants.ts is plain data, safe to depend on), so this can
 // be shared by any renderer. Mirrors server/src/zones.ts by hand - keep both in
 // sync.
-import { COLORS } from "../constants";
+//
+// All tables below are written in the ORIGINAL 2D layout's coordinates
+// (1600x900) and scaled by WORLD_SCALE at module load, exactly like the server
+// does - so the raw numbers stay hand-comparable between the two files.
+import { COLORS, WORLD_SCALE } from "../constants";
 
 export type Team = "A" | "B";
 export type ZoneId =
@@ -16,16 +20,18 @@ export type ZoneId =
   | "basementA"
   | "backyardA";
 
+const S = WORLD_SCALE;
+
 // ---- zone lookup ----
 
 // Columns, left to right: backyard B | house B | garden | house A | backyard A
-const YARD_B_MAX = 140;
-const HOUSE_B_MAX = 540;
-const HOUSE_A_MIN = 1060;
-const YARD_A_MIN = 1460;
+const YARD_B_MAX = 140 * S;
+const HOUSE_B_MAX = 540 * S;
+const HOUSE_A_MIN = 1060 * S;
+const YARD_A_MIN = 1460 * S;
 // Rows within a house column: bedroom | living | basement
-const BEDROOM_MAX_Y = 200;
-const BASEMENT_MIN_Y = 620;
+const BEDROOM_MAX_Y = 200 * S;
+const BASEMENT_MIN_Y = 620 * S;
 
 export function getZoneAt(x: number, y: number): ZoneId {
   if (x < YARD_B_MAX) return "backyardB";
@@ -73,8 +79,13 @@ export interface ZoneRect {
   color: number;
 }
 
-export const ZONE_RECTS: ZoneRect[] = [
-  { id: "backyardB", label: "BACKYARD B", xMin: 0, xMax: 140, yMin: 0, yMax: 900, color: COLORS.backyard },
+function scaleZone(z: ZoneRect): ZoneRect {
+  return { ...z, xMin: z.xMin * S, xMax: z.xMax * S, yMin: z.yMin * S, yMax: z.yMax * S };
+}
+
+export const ZONE_RECTS: ZoneRect[] = (
+  [
+    { id: "backyardB", label: "BACKYARD B", xMin: 0, xMax: 140, yMin: 0, yMax: 900, color: COLORS.backyard },
   { id: "bedroomB", label: "MASTER BEDROOM B", xMin: 140, xMax: 540, yMin: 0, yMax: 200, color: COLORS.bedroom },
   {
     id: "livingB",
@@ -116,14 +127,19 @@ export const ZONE_RECTS: ZoneRect[] = [
     yMax: 900,
     color: COLORS.basement,
   },
-  { id: "backyardA", label: "BACKYARD A", xMin: 1460, xMax: 1600, yMin: 0, yMax: 900, color: COLORS.backyard },
-];
+    { id: "backyardA", label: "BACKYARD A", xMin: 1460, xMax: 1600, yMin: 0, yMax: 900, color: COLORS.backyard },
+  ] as ZoneRect[]
+).map(scaleZone);
 
 export interface Rect {
   x1: number;
   y1: number;
   x2: number;
   y2: number;
+}
+
+function scaleRect<T extends Rect>(r: T): T {
+  return { ...r, x1: r.x1 * S, y1: r.y1 * S, x2: r.x2 * S, y2: r.y2 * S };
 }
 
 // Every solid wall segment in the map. Door gaps are simply left out of this list;
@@ -167,7 +183,7 @@ export const WALLS: Rect[] = [
   // living A | basement A (y=620): gap x[1220,1300]
   { x1: 1060, y1: 615, x2: 1220, y2: 625 },
   { x1: 1300, y1: 615, x2: 1460, y2: 625 },
-];
+].map(scaleRect);
 
 // The 8 doors per house from the concept sketch: 3 house entry/exit (living <->
 // garden), 2 for the master bedroom (living side + backyard side), 2 for the
@@ -179,23 +195,25 @@ export interface Door extends Rect {
   sealedFor?: Team;
 }
 
-export const DOORS: Door[] = [
-  // ---- house B ----
-  { x1: 133, y1: 60, x2: 147, y2: 140, sealedFor: "B" }, // bedroom <-> backyard
-  { x1: 300, y1: 193, x2: 380, y2: 207, sealedFor: "B" }, // bedroom <-> living
-  { x1: 133, y1: 370, x2: 147, y2: 450 }, // living <-> backyard
-  { x1: 533, y1: 230, x2: 547, y2: 290 }, // living <-> garden (top)
-  { x1: 533, y1: 380, x2: 547, y2: 440 }, // living <-> garden (middle)
-  { x1: 533, y1: 530, x2: 547, y2: 590 }, // living <-> garden (bottom)
-  { x1: 300, y1: 613, x2: 380, y2: 627, sealedFor: "B" }, // basement <-> living
-  { x1: 133, y1: 700, x2: 147, y2: 780, sealedFor: "B" }, // basement <-> backyard
-  // ---- house A (mirror) ----
-  { x1: 1453, y1: 60, x2: 1467, y2: 140, sealedFor: "A" }, // bedroom <-> backyard
-  { x1: 1220, y1: 193, x2: 1300, y2: 207, sealedFor: "A" }, // bedroom <-> living
-  { x1: 1453, y1: 370, x2: 1467, y2: 450 }, // living <-> backyard
-  { x1: 1053, y1: 230, x2: 1067, y2: 290 }, // living <-> garden (top)
-  { x1: 1053, y1: 380, x2: 1067, y2: 440 }, // living <-> garden (middle)
-  { x1: 1053, y1: 530, x2: 1067, y2: 590 }, // living <-> garden (bottom)
-  { x1: 1220, y1: 613, x2: 1300, y2: 627, sealedFor: "A" }, // basement <-> living
-  { x1: 1453, y1: 700, x2: 1467, y2: 780, sealedFor: "A" }, // basement <-> backyard
-];
+export const DOORS: Door[] = (
+  [
+    // ---- house B ----
+    { x1: 133, y1: 60, x2: 147, y2: 140, sealedFor: "B" }, // bedroom <-> backyard
+    { x1: 300, y1: 193, x2: 380, y2: 207, sealedFor: "B" }, // bedroom <-> living
+    { x1: 133, y1: 370, x2: 147, y2: 450 }, // living <-> backyard
+    { x1: 533, y1: 230, x2: 547, y2: 290 }, // living <-> garden (top)
+    { x1: 533, y1: 380, x2: 547, y2: 440 }, // living <-> garden (middle)
+    { x1: 533, y1: 530, x2: 547, y2: 590 }, // living <-> garden (bottom)
+    { x1: 300, y1: 613, x2: 380, y2: 627, sealedFor: "B" }, // basement <-> living
+    { x1: 133, y1: 700, x2: 147, y2: 780, sealedFor: "B" }, // basement <-> backyard
+    // ---- house A (mirror) ----
+    { x1: 1453, y1: 60, x2: 1467, y2: 140, sealedFor: "A" }, // bedroom <-> backyard
+    { x1: 1220, y1: 193, x2: 1300, y2: 207, sealedFor: "A" }, // bedroom <-> living
+    { x1: 1453, y1: 370, x2: 1467, y2: 450 }, // living <-> backyard
+    { x1: 1053, y1: 230, x2: 1067, y2: 290 }, // living <-> garden (top)
+    { x1: 1053, y1: 380, x2: 1067, y2: 440 }, // living <-> garden (middle)
+    { x1: 1053, y1: 530, x2: 1067, y2: 590 }, // living <-> garden (bottom)
+    { x1: 1220, y1: 613, x2: 1300, y2: 627, sealedFor: "A" }, // basement <-> living
+    { x1: 1453, y1: 700, x2: 1467, y2: 780, sealedFor: "A" }, // basement <-> backyard
+  ] as Door[]
+).map(scaleRect);
