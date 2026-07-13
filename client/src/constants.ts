@@ -18,6 +18,17 @@ export const WALL_HEIGHT = 140; // tall enough to fully occlude camera/character
 export const FLOOR_HEIGHT = 4; // thin slab, purely visual
 export const DOOR_MAT_HEIGHT = 1; // flat mat, sits just above the floor slab
 
+// The Blender character rig (assets/blender/build_character.py) is ~1.85
+// "Blender units" tall; scaled up so its ~0.84-unit arm span roughly matches
+// CharacterController's 40-unit (2x radius) collision circle.
+export const CHARACTER_SCALE = 45;
+
+// 3rd-person chase camera (see three/CameraRig.ts).
+export const FOLLOW_DISTANCE = 240; // behind the character, world units
+export const FOLLOW_HEIGHT = 160; // above LOOK_HEIGHT
+export const LOOK_HEIGHT = 55; // roughly chest height on the scaled character
+export const MAX_YAW_SPEED = Math.PI * 2.5; // ~0.4s to swing a 180 degree reversal
+
 export const COLORS = {
   bedroom: 0xf0997b, // cash rooms - same on both sides so "salmon = cash" reads instantly
   livingB: 0xf3d5bc, // Team B's living room, tinted toward B's orange
