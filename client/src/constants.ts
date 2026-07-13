@@ -13,6 +13,11 @@ export const REMOTE_LERP = 0.2;
 export const ACTION_RANGE = 60;
 export const ROUND_TIME_DEFAULT = 300;
 
+// 3D rendering constants (world-unit scale, same units as WORLD_WIDTH/HEIGHT).
+export const WALL_HEIGHT = 140; // tall enough to fully occlude camera/character
+export const FLOOR_HEIGHT = 4; // thin slab, purely visual
+export const DOOR_MAT_HEIGHT = 1; // flat mat, sits just above the floor slab
+
 export const COLORS = {
   bedroom: 0xf0997b, // cash rooms - same on both sides so "salmon = cash" reads instantly
   livingB: 0xf3d5bc, // Team B's living room, tinted toward B's orange
