@@ -12,6 +12,10 @@ import {
   WORLD_WIDTH,
   WORLD_HEIGHT,
   Team,
+  BOT_WAYPOINTS,
+  BotNodeId,
+  findBotPath,
+  nearestBotNode,
 } from "../zones";
 
 // Server ranges are a touch more generous than the client's prompt range (60px)
@@ -23,6 +27,11 @@ const WINS_NEEDED = 2;
 const PRE_ROUND_COUNTDOWN = 3;
 const ROUND_END_PAUSE = 3;
 const JAIL_TIME = 60;
+// Matches the client's PLAYER_SPEED/CARRY_SPEED (world units/sec) so bots move
+// at the same pace a human would.
+const BOT_SPEED = 220;
+const BOT_CARRY_SPEED = 160;
+const BOT_TICK_MS = 250;
 
 // Match config bounds. Team size 2/3/4 (2v2, 3v3, 4v4). The host only picks bundles
 // per bedroom (3-5); the win target is derived from that: 3 bundles -> win at 5,
@@ -79,6 +88,9 @@ export class GameRoom extends Room<GameState> {
   // thief is caught the point is restored to the team that had earned it (closes the
   // "steal a scored bundle and suicide to drain the enemy for free" loophole).
   private stolenFrom = new Map<string, Team>();
+  // Synthetic-id bots, tracked separately from `this.clients` so onLeave (which is
+  // only ever called for real connections) never touches them.
+  private botIds = new Set<string>();
 
   private originPosition(bundleId: string): { x: number; y: number } {
     const bedroom = originBedroom(bundleId);
@@ -111,18 +123,35 @@ export class GameRoom extends Room<GameState> {
     this.state.teamSize = this.teamSize;
     this.state.winScore = winScoreForBundles(this.bundlesPerBedroom);
 
-    this.onMessage("move", (client, msg) => this.handleMove(client, msg));
-    this.onMessage("pickupCash", (client, msg) => this.handlePickup(client, msg));
-    this.onMessage("depositCash", (client, msg) => this.handleDeposit(client, msg));
-    this.onMessage("lockPlayer", (client, msg) => this.handleLock(client, msg));
-    this.onMessage("rescuePlayer", (client, msg) => this.handleRescue(client, msg));
-    this.onMessage("stealScored", (client, msg) => this.handleStealScored(client, msg));
+    this.onMessage("move", (client, msg) => this.handleMove(client.sessionId, msg));
+    this.onMessage("pickupCash", (client, msg) => this.handlePickup(client.sessionId, msg));
+    this.onMessage("depositCash", (client, msg) => this.handleDeposit(client.sessionId, msg));
+    this.onMessage("lockPlayer", (client, msg) => this.handleLock(client.sessionId, msg));
+    this.onMessage("rescuePlayer", (client, msg) => this.handleRescue(client.sessionId, msg));
+    this.onMessage("stealScored", (client, msg) => this.handleStealScored(client.sessionId, msg));
+    this.onMessage("startGame", (client) => this.handleStartGame(client));
+    this.onMessage("assignTeam", (client, msg) => this.handleAssignTeam(client, msg));
+    this.onMessage("setBotCount", (client, msg) => this.handleSetBotCount(client, msg));
 
     this.clock.setInterval(() => this.tick(), 1000);
+    this.clock.setInterval(() => this.botTick(), BOT_TICK_MS);
   }
 
   onJoin(client: Client, options: { name?: string }) {
-    const team: Team = this.countTeam("B") < this.teamSize ? "B" : "A";
+    if (!this.state.hostId) this.state.hostId = client.sessionId;
+
+    const teamB = this.countTeam("B");
+    const teamA = this.countTeam("A");
+    let team: Team;
+    if (teamB < this.teamSize) team = "B";
+    else if (teamA < this.teamSize) team = "A";
+    else {
+      // Both rosters are already full (bots can occupy slots ahead of a
+      // human joining) - maxClients is kept in sync with bot count so this
+      // should be rare, but bail out safely rather than overfilling a team.
+      client.leave();
+      return;
+    }
     const slot = this.firstFreeSlot(team);
 
     this.slots.set(client.sessionId, { team, slot });
@@ -135,10 +164,6 @@ export class GameRoom extends Room<GameState> {
     player.x = spawn.x;
     player.y = spawn.y;
     this.state.players.set(client.sessionId, player);
-
-    if (this.state.players.size === this.maxClients && this.state.phase === "waiting") {
-      this.startCountdown();
-    }
   }
 
   onLeave(client: Client) {
@@ -151,7 +176,14 @@ export class GameRoom extends Room<GameState> {
     this.deriveScores();
     this.checkWin(); // the returned bundle can put a team at the target
 
-    if (this.state.players.size === 0) {
+    if (client.sessionId === this.state.hostId) {
+      const nextHost = this.clients.find((c) => c.sessionId !== client.sessionId);
+      this.state.hostId = nextHost?.sessionId ?? "";
+    }
+
+    // state.players no longer includes the leaving client (deleted above), so
+    // subtracting bots tells us how many real connections remain.
+    if (this.state.players.size - this.botIds.size <= 0) {
       this.disconnect();
     }
   }
@@ -172,6 +204,98 @@ export class GameRoom extends Room<GameState> {
     let slot = 0;
     while (taken.has(slot)) slot++;
     return Math.min(slot, SPAWN_POINTS[team].length - 1);
+  }
+
+  // ---- host controls (lobby only) ----
+
+  private handleStartGame(client: Client) {
+    if (client.sessionId !== this.state.hostId) return;
+    if (this.state.phase !== "waiting") return;
+    if (this.countTeam("B") !== this.teamSize || this.countTeam("A") !== this.teamSize) return;
+    this.startCountdown();
+  }
+
+  private handleAssignTeam(client: Client, msg: { targetId?: string; team?: string }) {
+    if (client.sessionId !== this.state.hostId) return;
+    if (this.state.phase !== "waiting") return;
+    const target = this.state.players.get(msg?.targetId ?? "");
+    const team: Team | null = msg?.team === "A" ? "A" : msg?.team === "B" ? "B" : null;
+    if (!target || !team || target.team === team) return;
+    if (this.countTeam(team) >= this.teamSize) return; // destination team already full
+
+    target.team = team;
+    const slot = this.firstFreeSlot(team);
+    this.slots.set(target.id, { team, slot });
+    const spawn = SPAWN_POINTS[team][slot];
+    target.x = spawn.x;
+    target.y = spawn.y;
+  }
+
+  private countHumansOnTeam(team: Team): number {
+    let count = 0;
+    this.state.players.forEach((p, id) => {
+      if (p.team === team && !this.botIds.has(id)) count++;
+    });
+    return count;
+  }
+
+  // Bot ids on `team`, ordered by slot ascending (so callers can remove the
+  // highest-slot bots first, matching the plan's "remove newest bot first").
+  private botsOnTeam(team: Team): string[] {
+    const entries: { id: string; slot: number }[] = [];
+    this.botIds.forEach((id) => {
+      const p = this.state.players.get(id);
+      if (p && p.team === team) entries.push({ id, slot: this.slots.get(id)?.slot ?? 0 });
+    });
+    entries.sort((a, b) => a.slot - b.slot);
+    return entries.map((e) => e.id);
+  }
+
+  private addBot(team: Team) {
+    const slot = this.firstFreeSlot(team);
+    const id = `bot-${team}-${slot}-${Math.random().toString(36).slice(2, 8)}`;
+    this.slots.set(id, { team, slot });
+    this.botIds.add(id);
+
+    const spawn = SPAWN_POINTS[team][slot];
+    const bot = new PlayerState();
+    bot.id = id;
+    bot.name = `Bot ${team}${slot + 1}`;
+    bot.team = team;
+    bot.isBot = true;
+    bot.x = spawn.x;
+    bot.y = spawn.y;
+    this.state.players.set(id, bot);
+  }
+
+  private removeBot(id: string) {
+    const bundle = this.findCarriedBundle(id);
+    if (bundle) this.returnCarriedBundle(bundle);
+    this.state.players.delete(id);
+    this.slots.delete(id);
+    this.botIds.delete(id);
+    this.deriveScores();
+  }
+
+  private handleSetBotCount(client: Client, msg: { team?: string; count?: number }) {
+    if (client.sessionId !== this.state.hostId) return;
+    if (this.state.phase !== "waiting") return;
+    const team: Team | null = msg?.team === "A" ? "A" : msg?.team === "B" ? "B" : null;
+    if (!team) return;
+
+    const maxBots = Math.max(0, this.teamSize - this.countHumansOnTeam(team));
+    const targetCount = clampInt(msg?.count, 0, maxBots, 0);
+    const currentBots = this.botsOnTeam(team);
+
+    if (targetCount < currentBots.length) {
+      for (const id of currentBots.slice(targetCount)) this.removeBot(id);
+    } else if (targetCount > currentBots.length) {
+      for (let i = currentBots.length; i < targetCount; i++) this.addBot(team);
+    }
+
+    // Keep the human-connection ceiling in sync so a human can never join
+    // into a slot a bot is already occupying.
+    this.maxClients = this.teamSize * 2 - this.botIds.size;
   }
 
   private findCarriedBundle(playerId: string): CashBundleState | undefined {
@@ -238,8 +362,8 @@ export class GameRoom extends Room<GameState> {
 
   // ---- message handlers ----
 
-  private handleMove(client: Client, msg: { x: number; y: number; vx: number; vy: number }) {
-    const player = this.state.players.get(client.sessionId);
+  private handleMove(sessionId: string, msg: { x: number; y: number; vx: number; vy: number }) {
+    const player = this.state.players.get(sessionId);
     if (!player || this.state.phase !== "playing" || player.isJailed) return;
     if (typeof msg?.x !== "number" || typeof msg?.y !== "number") return;
     player.x = clamp(msg.x, 0, WORLD_WIDTH);
@@ -248,8 +372,8 @@ export class GameRoom extends Room<GameState> {
     player.vy = msg.vy ?? 0;
   }
 
-  private handlePickup(client: Client, msg: { bundleId: string }) {
-    const player = this.state.players.get(client.sessionId);
+  private handlePickup(sessionId: string, msg: { bundleId: string }) {
+    const player = this.state.players.get(sessionId);
     if (!player || this.state.phase !== "playing" || player.isJailed || player.isCarryingCash) return;
     const bundle = this.state.cashBundles.get(msg?.bundleId);
     if (!bundle) return;
@@ -266,8 +390,8 @@ export class GameRoom extends Room<GameState> {
     this.deriveScores(); // the victim's bedroom count drops the moment it's grabbed
   }
 
-  private handleStealScored(client: Client, msg: { bundleId: string }) {
-    const player = this.state.players.get(client.sessionId);
+  private handleStealScored(sessionId: string, msg: { bundleId: string }) {
+    const player = this.state.players.get(sessionId);
     if (!player || this.state.phase !== "playing" || player.isJailed || player.isCarryingCash) return;
     const bundle = this.state.cashBundles.get(msg?.bundleId);
     if (!bundle) return;
@@ -284,8 +408,8 @@ export class GameRoom extends Room<GameState> {
     this.deriveScores(); // enemy's count drops immediately on pickup (per checklist)
   }
 
-  private handleDeposit(client: Client, msg: { bundleId: string }) {
-    const player = this.state.players.get(client.sessionId);
+  private handleDeposit(sessionId: string, msg: { bundleId: string }) {
+    const player = this.state.players.get(sessionId);
     if (!player || this.state.phase !== "playing" || !player.isCarryingCash) return;
     const bundle = this.state.cashBundles.get(msg?.bundleId);
     if (!bundle || bundle.location !== `carried:${player.id}`) return;
@@ -304,8 +428,8 @@ export class GameRoom extends Room<GameState> {
     this.checkWin();
   }
 
-  private handleLock(client: Client, msg: { targetId: string }) {
-    const player = this.state.players.get(client.sessionId);
+  private handleLock(sessionId: string, msg: { targetId: string }) {
+    const player = this.state.players.get(sessionId);
     const target = this.state.players.get(msg?.targetId);
     if (!player || !target || this.state.phase !== "playing") return;
     if (player.team === target.team) return;
@@ -336,8 +460,8 @@ export class GameRoom extends Room<GameState> {
     this.checkWin();
   }
 
-  private handleRescue(client: Client, msg: { targetId: string }) {
-    const player = this.state.players.get(client.sessionId);
+  private handleRescue(sessionId: string, msg: { targetId: string }) {
+    const player = this.state.players.get(sessionId);
     const target = this.state.players.get(msg?.targetId);
     if (!player || !target || this.state.phase !== "playing") return;
     if (player.isJailed) return; // a jailed player can't rescue anyone
@@ -472,5 +596,128 @@ export class GameRoom extends Room<GameState> {
         }
       }
     }
+  }
+
+  // ---- AI bots ----
+  // Bots call the exact same handleX methods a real client's message would
+  // (with a synthetic sessionId), so they're subject to the same zone/range/
+  // phase validation as a human - no special-cased bypass of any rule. The
+  // waypoint graph (zones.ts) only decides *how a bot moves*; every action
+  // still gates on the real isOwnHome/isEnemyBedroom/distance checks below.
+
+  private botTick() {
+    if (this.state.phase !== "playing" || this.botIds.size === 0) return;
+    const dt = BOT_TICK_MS / 1000;
+    this.botIds.forEach((id) => this.stepBot(id, dt));
+  }
+
+  private stepBot(id: string, dt: number) {
+    const bot = this.state.players.get(id);
+    if (!bot) return;
+    if (bot.isJailed) {
+      bot.vx = 0;
+      bot.vy = 0;
+      return;
+    }
+
+    const team = bot.team as Team;
+
+    // Priority 1: a teammate is jailed and we're not carrying cash - rescue.
+    let jailedTeammate: PlayerState | undefined;
+    this.state.players.forEach((p, pid) => {
+      if (jailedTeammate || pid === id) return;
+      if (p.team === team && p.isJailed) jailedTeammate = p;
+    });
+    if (jailedTeammate && !bot.isCarryingCash) {
+      const jailNode = jailBasementForTeam(team) as BotNodeId;
+      this.botMoveToward(bot, team, jailNode, jailedTeammate, dt);
+      if (getZoneAt(bot.x, bot.y) === jailBasementForTeam(team) && distance(bot, jailedTeammate) <= LOCK_RESCUE_RANGE) {
+        this.handleRescue(id, { targetId: jailedTeammate.id });
+      }
+      return;
+    }
+
+    // Priority 2: an enemy is caught in our own home and we're not carrying cash - lock them.
+    let intruder: PlayerState | undefined;
+    this.state.players.forEach((p, pid) => {
+      if (intruder || pid === id) return;
+      if (p.team === team || p.isJailed) return;
+      if (isOwnHome(team, p.x, p.y)) intruder = p;
+    });
+    if (intruder && !bot.isCarryingCash) {
+      const homeNode: BotNodeId = team === "B" ? "livingB" : "livingA";
+      this.botMoveToward(bot, team, homeNode, intruder, dt);
+      if (isOwnHome(team, bot.x, bot.y) && distance(bot, intruder) <= LOCK_RESCUE_RANGE) {
+        this.handleLock(id, { targetId: intruder.id });
+      }
+      return;
+    }
+
+    // Priority 3: carrying cash - bring it home and deposit.
+    if (bot.isCarryingCash) {
+      const homeNode: BotNodeId = team === "B" ? "livingB" : "livingA";
+      const bundle = this.findCarriedBundle(id);
+      this.botMoveToward(bot, team, homeNode, BOT_WAYPOINTS[homeNode], dt);
+      if (bundle && isOwnHome(team, bot.x, bot.y)) {
+        this.handleDeposit(id, { bundleId: bundle.id });
+      }
+      return;
+    }
+
+    // Priority 4: otherwise, seek the nearest unscored bundle in the enemy bedroom.
+    const enemyBedroom = team === "B" ? "bedroomA" : "bedroomB";
+    let nearestBundle: CashBundleState | undefined;
+    let nearestDist = Infinity;
+    this.state.cashBundles.forEach((b) => {
+      if (b.location !== enemyBedroom) return;
+      const d = distance(bot, b);
+      if (d < nearestDist) {
+        nearestDist = d;
+        nearestBundle = b;
+      }
+    });
+    if (nearestBundle) {
+      const bedroomNode = enemyBedroom as BotNodeId;
+      this.botMoveToward(bot, team, bedroomNode, nearestBundle, dt);
+      if (isEnemyBedroom(team, bot.x, bot.y) && distance(bot, nearestBundle) <= PICKUP_RANGE) {
+        this.handlePickup(id, { bundleId: nearestBundle.id });
+      }
+    } else {
+      bot.vx = 0;
+      bot.vy = 0;
+    }
+  }
+
+  // Steers `bot` one tick closer to `finalTarget`, routing through the
+  // waypoint graph until it's in the same node/room as the target, then
+  // beelining the rest of the way (safe: same room means no walls between).
+  private botMoveToward(bot: PlayerState, team: Team, targetNode: BotNodeId, finalTarget: { x: number; y: number }, dt: number) {
+    const currentNode = nearestBotNode(bot.x, bot.y);
+    const speed = bot.isCarryingCash ? BOT_CARRY_SPEED : BOT_SPEED;
+
+    let aim: { x: number; y: number };
+    if (currentNode === targetNode) {
+      aim = finalTarget;
+    } else {
+      const path = findBotPath(team, currentNode, targetNode);
+      const next = path.length > 1 ? path[1] : targetNode;
+      aim = BOT_WAYPOINTS[next];
+    }
+
+    const dx = aim.x - bot.x;
+    const dy = aim.y - bot.y;
+    const dist = Math.hypot(dx, dy);
+    if (dist < 1) {
+      bot.vx = 0;
+      bot.vy = 0;
+      return;
+    }
+    const step = Math.min(dist, speed * dt);
+    const nx = dx / dist;
+    const ny = dy / dist;
+    bot.x = clamp(bot.x + nx * step, 0, WORLD_WIDTH);
+    bot.y = clamp(bot.y + ny * step, 0, WORLD_HEIGHT);
+    bot.vx = nx * speed;
+    bot.vy = ny * speed;
   }
 }

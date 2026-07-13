@@ -20,7 +20,7 @@ and rescue jailed teammates.
   (so you can't camp the rescue entrances) — but you can walk into the enemy's
   basement, through their living room or backyard, to free a captured teammate.
 
-Built with **Phaser 3** (client) + **Colyseus** (server) + **TypeScript** + **Vite**.
+Built with **Three.js** (client, 3rd-person 3D) + **Colyseus** (server) + **TypeScript** + **Vite**.
 See `cash-grab-prd.md` for the full spec.
 
 ---
@@ -87,7 +87,9 @@ Cash Grab server running on port 2567
 3. **Type your name**, pick the **mode** (2v2, 3v3, or 4v4) and **bundles per team**, then click "Create Room"
 4. **You'll get a 4-letter code** (like `AEKF`) — write it down!
 5. **Open a new browser tab** for each other player and do the same thing, but click "Join" and paste the code
-6. **Once the room is full** (4 players for 2v2, 6 for 3v3, 8 for 4v4), the game starts automatically
+6. **You're the host** (whoever created the room) — you can move players between teams,
+   add AI bots to fill any empty slots, and press **Start Game** whenever you're ready.
+   Nothing starts automatically
 
 ### Getting Friends to Play
 
@@ -179,8 +181,9 @@ It prints a public HTTPS URL like `https://random-words.trycloudflare.com`.
 Share **that URL** with your friends — they open it, enter your **room code**, and
 join. (Any tunnel works: ngrok `ngrok http 2567`, VS Code port forwarding, etc.)
 
-The game auto-starts the moment the room is full (**4 players** for 2v2, **6** for
-3v3, **8** for 4v4). The first half to join are Team B / orange, the rest are Team A / blue.
+The room's host controls the lobby: move players between teams, fill any empty
+slots with AI bots, and press **Start Game** when ready — nothing starts on its own.
+The first half to join default to Team B / orange, the rest to Team A / blue.
 
 > Want to test alone first? Open **http://localhost:2567** in 4 browser tabs and
 > create/join with the room code — each tab is a player.
@@ -224,7 +227,7 @@ Advanced server override (point the client at a specific server):
 
 ```
 cash-grab/
-├── client/    # Phaser 3 frontend (scenes, objects, network, constants)
+├── client/    # Three.js 3D frontend (scene, characters, camera, HUD, lobby, network)
 ├── server/    # Colyseus game server (room logic, schema, zones)
 └── package.json  # convenience scripts: install:all, play, dev:server, dev:client
 ```

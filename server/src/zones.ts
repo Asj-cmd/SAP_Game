@@ -115,3 +115,113 @@ export function bundlePositions(bedroom: "bedroomB" | "bedroomA", count: number)
 export function scoreSlotPositions(team: Team, count: number): { x: number; y: number }[] {
   return team === "B" ? grid(180, 500, 125, 165, count) : grid(1100, 1420, 125, 165, count);
 }
+
+// ---- Bot pathing graph ----
+// A minimal waypoint graph AI bots use to route between rooms without
+// clipping through walls. Team B can never re-enter its own bedroomB/basementB
+// (those doors are sealedFor "B" - see the client's DOORS list) and never
+// needs to: it defends from livingB/backyardB and only ever *targets* the
+// enemy's bedroomA/basementA. So the graph only needs the door gates a bot's
+// own team can actually use - not every physical door in the house.
+export type BotNodeId =
+  | "livingB"
+  | "bedroomB"
+  | "basementB"
+  | "livingA"
+  | "bedroomA"
+  | "basementA"
+  | "garden"
+  | "gateB_bedroom"
+  | "gateB_basement"
+  | "gateB_garden"
+  | "gateA_bedroom"
+  | "gateA_basement"
+  | "gateA_garden";
+
+export const BOT_WAYPOINTS: Record<BotNodeId, { x: number; y: number }> = {
+  livingB: { x: 340, y: 410 },
+  bedroomB: { x: 340, y: 100 },
+  basementB: { x: 340, y: 760 },
+  livingA: { x: 1260, y: 410 },
+  bedroomA: { x: 1260, y: 100 },
+  basementA: { x: 1260, y: 760 },
+  garden: { x: 800, y: 450 },
+  gateB_bedroom: { x: 340, y: 200 }, // sealedFor B - only usable by team A
+  gateB_basement: { x: 340, y: 620 }, // sealedFor B - only usable by team A
+  gateB_garden: { x: 540, y: 410 },
+  gateA_bedroom: { x: 1260, y: 200 }, // sealedFor A - only usable by team B
+  gateA_basement: { x: 1260, y: 620 }, // sealedFor A - only usable by team B
+  gateA_garden: { x: 1060, y: 410 },
+};
+
+interface BotEdge {
+  a: BotNodeId;
+  b: BotNodeId;
+  blockedFor?: Team; // the door here is sealed for this team
+}
+
+const BOT_EDGES: BotEdge[] = [
+  { a: "livingB", b: "gateB_garden" },
+  { a: "gateB_garden", b: "garden" },
+  { a: "garden", b: "gateA_garden" },
+  { a: "gateA_garden", b: "livingA" },
+  { a: "livingB", b: "gateB_bedroom", blockedFor: "B" },
+  { a: "gateB_bedroom", b: "bedroomB", blockedFor: "B" },
+  { a: "livingB", b: "gateB_basement", blockedFor: "B" },
+  { a: "gateB_basement", b: "basementB", blockedFor: "B" },
+  { a: "livingA", b: "gateA_bedroom", blockedFor: "A" },
+  { a: "gateA_bedroom", b: "bedroomA", blockedFor: "A" },
+  { a: "livingA", b: "gateA_basement", blockedFor: "A" },
+  { a: "gateA_basement", b: "basementA", blockedFor: "A" },
+];
+
+export function nearestBotNode(x: number, y: number): BotNodeId {
+  let best: BotNodeId = "garden";
+  let bestDist = Infinity;
+  (Object.keys(BOT_WAYPOINTS) as BotNodeId[]).forEach((id) => {
+    const p = BOT_WAYPOINTS[id];
+    const d = Math.hypot(p.x - x, p.y - y);
+    if (d < bestDist) {
+      bestDist = d;
+      best = id;
+    }
+  });
+  return best;
+}
+
+// BFS shortest path (by hop count - the graph is small and roughly uniform in
+// edge length, so hop count is a fine stand-in for distance) between two
+// nodes, respecting which gates `team` is allowed to use. Falls back to
+// staying put if the destination is unreachable (should not happen given the
+// graph's fixed shape, but a bot standing still beats a crash).
+export function findBotPath(team: Team, from: BotNodeId, to: BotNodeId): BotNodeId[] {
+  if (from === to) return [from];
+
+  const adjacency = new Map<BotNodeId, BotNodeId[]>();
+  for (const edge of BOT_EDGES) {
+    if (edge.blockedFor === team) continue;
+    if (!adjacency.has(edge.a)) adjacency.set(edge.a, []);
+    if (!adjacency.has(edge.b)) adjacency.set(edge.b, []);
+    adjacency.get(edge.a)!.push(edge.b);
+    adjacency.get(edge.b)!.push(edge.a);
+  }
+
+  const queue: BotNodeId[] = [from];
+  const cameFrom = new Map<BotNodeId, BotNodeId>();
+  const visited = new Set<BotNodeId>([from]);
+  while (queue.length > 0) {
+    const current = queue.shift()!;
+    if (current === to) break;
+    for (const next of adjacency.get(current) ?? []) {
+      if (visited.has(next)) continue;
+      visited.add(next);
+      cameFrom.set(next, current);
+      queue.push(next);
+    }
+  }
+
+  if (!visited.has(to)) return [from];
+  const path: BotNodeId[] = [to];
+  while (path[0] !== from) path.unshift(cameFrom.get(path[0])!);
+  return path;
+}

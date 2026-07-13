@@ -12,6 +12,7 @@ export class PlayerState extends Schema {
   @type("boolean") isJailed: boolean = false;
   @type("number") jailTimer: number = 0; // seconds remaining, counts down from 60
   @type("boolean") connected: boolean = true;
+  @type("boolean") isBot: boolean = false;
 }
 
 export class CashBundleState extends Schema {
@@ -23,6 +24,7 @@ export class CashBundleState extends Schema {
 }
 
 export class GameState extends Schema {
+  @type("string") hostId: string = ""; // sessionId of the player who can assign teams/bots and start the match
   @type("string") phase: string = "waiting"; // "waiting" | "countdown" | "playing" | "roundEnd" | "matchEnd"
   @type("number") teamSize: number = 2; // players per team (2 = 2v2, 3 = 3v3)
   @type("number") winScore: number = 5; // bundles a team must hold to win the round

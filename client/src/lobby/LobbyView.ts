@@ -168,13 +168,14 @@ export class LobbyView {
 
     const panel = document.createElement("div");
     panel.style.cssText =
-      "font-family:system-ui,sans-serif;background:#ffffffee;padding:22px 26px;border-radius:14px;min-width:320px;box-shadow:0 6px 24px #0006;";
+      "font-family:system-ui,sans-serif;background:#ffffffee;padding:22px 26px;border-radius:14px;min-width:340px;box-shadow:0 6px 24px #0006;";
     panel.innerHTML = `
         ${codeBlock}
         <div id="waitCount" style="text-align:center;font-size:16px;font-weight:600;color:#111;">Waiting for players...</div>
         <div id="modeInfo" style="text-align:center;font-size:12px;color:#777;margin-top:2px;"></div>
         <div id="playerList" style="margin-top:12px;display:flex;flex-direction:column;gap:6px;"></div>
-        <div id="youAre" style="text-align:center;margin-top:12px;font-size:13px;color:#555;"></div>`;
+        <div id="youAre" style="text-align:center;margin-top:12px;font-size:13px;color:#555;"></div>
+        <div id="hostControls" style="margin-top:14px;padding-top:12px;border-top:1px solid #eee;"></div>`;
     this.root.appendChild(panel);
     this.panel = panel;
 
@@ -182,16 +183,35 @@ export class LobbyView {
   }
 
   private watchRoom(room: Room) {
+    const countOnTeam = (state: any, team: string) => {
+      let c = 0;
+      state.players.forEach((p: any) => {
+        if (p.team === team) c++;
+      });
+      return c;
+    };
+    const countBotsOnTeam = (state: any, team: string) => {
+      let c = 0;
+      state.players.forEach((p: any) => {
+        if (p.team === team && p.isBot) c++;
+      });
+      return c;
+    };
+
     const render = (state: any) => {
       if (!this.panel) return;
-      const count = state.players.size;
       const teamSize = state.teamSize || 2;
-      const total = teamSize * 2;
+      const isHost = !!state.hostId && state.hostId === room.sessionId;
+
       const waitCount = this.panel.querySelector("#waitCount") as HTMLDivElement | null;
       const modeInfo = this.panel.querySelector("#modeInfo") as HTMLDivElement | null;
       const list = this.panel.querySelector("#playerList") as HTMLDivElement | null;
       const youAre = this.panel.querySelector("#youAre") as HTMLDivElement | null;
-      if (waitCount) waitCount.textContent = `Waiting for players... (${count}/${total})`;
+      const hostControls = this.panel.querySelector("#hostControls") as HTMLDivElement | null;
+
+      const countB = countOnTeam(state, "B");
+      const countA = countOnTeam(state, "A");
+      if (waitCount) waitCount.textContent = `Team B ${countB}/${teamSize}  •  Team A ${countA}/${teamSize}`;
       if (modeInfo) modeInfo.textContent = `${teamSize} v ${teamSize}  •  first to ${state.winScore || teamSize} cash wins`;
 
       if (list) {
@@ -199,19 +219,94 @@ export class LobbyView {
         state.players.forEach((p: any) => {
           const color = p.team === "B" ? TEAM_B_COLOR : TEAM_A_COLOR;
           const you = p.id === room.sessionId ? " (you)" : "";
+          const botTag = p.isBot ? " (BOT)" : "";
+          const otherTeam = p.team === "B" ? "A" : "B";
+          const swapBtn = isHost
+            ? `<button data-swap="${p.id}" data-team="${otherTeam}"
+                 style="margin-left:8px;font-size:11px;padding:3px 7px;border-radius:5px;border:1px solid #ccc;background:#fff;cursor:pointer;">
+                 → Team ${otherTeam}
+               </button>`
+            : "";
           rows += `<div style="display:flex;align-items:center;gap:8px;font-size:14px;">
               <span style="width:12px;height:12px;border-radius:50%;background:${color};display:inline-block;"></span>
-              <span style="color:#222;">${p.name}${you}</span>
+              <span style="color:#222;">${p.name}${you}${botTag}</span>
               <span style="margin-left:auto;color:${color};font-weight:600;">Team ${p.team}</span>
+              ${swapBtn}
             </div>`;
         });
         list.innerHTML = rows;
+
+        if (isHost) {
+          list.querySelectorAll<HTMLButtonElement>("[data-swap]").forEach((btn) => {
+            btn.addEventListener("click", () => {
+              colyseusClient.send("assignTeam", { targetId: btn.dataset.swap, team: btn.dataset.team });
+            });
+          });
+        }
       }
 
       const me = state.players.get(room.sessionId);
       if (youAre && me) {
         const color = me.team === "B" ? TEAM_B_COLOR : TEAM_A_COLOR;
-        youAre.innerHTML = `You are <b style="color:${color};">Team ${me.team}</b> — game starts automatically at ${total} players.`;
+        youAre.innerHTML = isHost
+          ? `You are <b style="color:${color};">Team ${me.team}</b> (Host) — fill both rosters and press Start.`
+          : `You are <b style="color:${color};">Team ${me.team}</b> — waiting for the host to start.`;
+      }
+
+      if (hostControls) {
+        if (!isHost) {
+          hostControls.style.display = "none";
+          hostControls.innerHTML = "";
+        } else {
+          hostControls.style.display = "block";
+          const canStart = countB === teamSize && countA === teamSize;
+          const needBText = Math.max(0, teamSize - countB);
+          const needAText = Math.max(0, teamSize - countA);
+          const startLabel = canStart
+            ? "Start Game"
+            : `Need ${needBText} more on B, ${needAText} more on A (or add bots)`;
+
+          hostControls.innerHTML = `
+            <div style="display:flex;justify-content:space-between;gap:16px;margin-bottom:10px;">
+              ${(["B", "A"] as const)
+                .map(
+                  (team) => `
+                <div style="text-align:center;flex:1;">
+                  <div style="font-size:11px;color:#666;">Team ${team} bots</div>
+                  <div style="display:flex;align-items:center;justify-content:center;gap:8px;margin-top:4px;">
+                    <button data-bot-dec="${team}"
+                      style="width:26px;height:26px;border-radius:6px;border:1px solid #ccc;background:#fff;cursor:pointer;">−</button>
+                    <span style="min-width:14px;font-weight:600;">${countBotsOnTeam(state, team)}</span>
+                    <button data-bot-inc="${team}"
+                      style="width:26px;height:26px;border-radius:6px;border:1px solid #ccc;background:#fff;cursor:pointer;">+</button>
+                  </div>
+                </div>`
+                )
+                .join("")}
+            </div>
+            <button id="startGameBtn" ${canStart ? "" : "disabled"}
+              style="width:100%;padding:10px;font-size:14px;font-weight:700;border:0;border-radius:8px;
+                     cursor:${canStart ? "pointer" : "not-allowed"};
+                     background:${canStart ? "#2e7d32" : "#aaa"};color:#fff;">
+              ${startLabel}
+            </button>`;
+
+          hostControls.querySelectorAll<HTMLButtonElement>("[data-bot-inc]").forEach((btn) => {
+            btn.addEventListener("click", () => {
+              const team = btn.dataset.botInc!;
+              colyseusClient.send("setBotCount", { team, count: countBotsOnTeam(state, team) + 1 });
+            });
+          });
+          hostControls.querySelectorAll<HTMLButtonElement>("[data-bot-dec]").forEach((btn) => {
+            btn.addEventListener("click", () => {
+              const team = btn.dataset.botDec!;
+              colyseusClient.send("setBotCount", { team, count: Math.max(0, countBotsOnTeam(state, team) - 1) });
+            });
+          });
+          hostControls.querySelector("#startGameBtn")?.addEventListener("click", () => {
+            colyseusClient.send("startGame");
+          });
+        }
       }
 
       const started = ["countdown", "playing", "roundEnd", "matchEnd"].includes(state.phase);
