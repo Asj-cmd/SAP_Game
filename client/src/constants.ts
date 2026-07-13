@@ -9,6 +9,9 @@ export const CARRY_SPEED = 160;
 
 export const MOVE_SEND_INTERVAL_MS = 50; // 20 times/sec
 export const REMOTE_LERP = 0.2;
+// Rotation snapping reads as more jarring than position snapping at the same
+// factor, so remote facing gets its own (higher) lerp constant.
+export const ROTATION_LERP = 0.25;
 
 export const ACTION_RANGE = 60;
 export const ROUND_TIME_DEFAULT = 300;
@@ -28,6 +31,10 @@ export const FOLLOW_DISTANCE = 240; // behind the character, world units
 export const FOLLOW_HEIGHT = 160; // above LOOK_HEIGHT
 export const LOOK_HEIGHT = 55; // roughly chest height on the scaled character
 export const MAX_YAW_SPEED = Math.PI * 2.5; // ~0.4s to swing a 180 degree reversal
+
+// The Blender cash bundle prop (assets/blender/build_cashbundle.py) is ~0.3
+// Blender units wide; scaled up to read clearly next to the character.
+export const BUNDLE_SCALE = 100;
 
 export const COLORS = {
   bedroom: 0xf0997b, // cash rooms - same on both sides so "salmon = cash" reads instantly

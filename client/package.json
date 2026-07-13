@@ -10,7 +10,6 @@
   },
   "dependencies": {
     "colyseus.js": "^0.15.28",
-    "phaser": "^3.80.1",
     "three": "^0.185.1"
   },
   "devDependencies": {

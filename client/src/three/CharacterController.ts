@@ -20,6 +20,10 @@ export interface InputState {
 export class CharacterController {
   x: number;
   z: number;
+  // Last-applied velocity (world units/sec), mirroring what the 2D build read
+  // off Arcade Physics' body.velocity for the "move" network message.
+  vx = 0;
+  vz = 0;
 
   constructor(
     readonly model: CharacterModel,
@@ -42,10 +46,15 @@ export class CharacterController {
       const len = Math.hypot(dx, dz);
       const ndx = dx / len;
       const ndz = dz / len;
-      this.x += ndx * speed * dt;
-      this.z += ndz * speed * dt;
+      this.vx = ndx * speed;
+      this.vz = ndz * speed;
+      this.x += this.vx * dt;
+      this.z += this.vz * dt;
       this.model.setFacing(ndx, ndz);
       speedFraction = 1;
+    } else {
+      this.vx = 0;
+      this.vz = 0;
     }
 
     this.resolveCollisions();
@@ -54,6 +63,16 @@ export class CharacterController {
 
     this.model.root.position.set(this.x, 0, this.z);
     this.model.update(dt, speedFraction);
+  }
+
+  // Server-authoritative snap for phases outside "playing" or while jailed -
+  // mirrors the 2D build's body.reset(x, y): hard-set position, zero velocity.
+  freeze(x: number, z: number) {
+    this.x = x;
+    this.z = z;
+    this.vx = 0;
+    this.vz = 0;
+    this.model.root.position.set(this.x, 0, this.z);
   }
 
   private resolveCollisions() {

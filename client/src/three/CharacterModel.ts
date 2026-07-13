@@ -4,6 +4,9 @@ import { COLORS, CHARACTER_SCALE } from "../constants";
 import type { Team } from "../geometry/floorplan";
 
 const MODEL_URL = "/models/character.glb";
+// Pre-scale (Blender-unit) offset above the head-top (~1.85) for the carrying
+// indicator; CHARACTER_SCALE is applied to `root`, which this is a child of.
+const CARRY_INDICATOR_Y = 2.05;
 
 // Loads the Blender-authored character (Milestone A2), plays its Idle/Walk
 // clips blended by movement speed, and exposes a facing-angle rotation that's
@@ -16,6 +19,8 @@ export class CharacterModel {
   private walkAction: THREE.AnimationAction;
   private bodyMaterial: THREE.MeshStandardMaterial | null = null;
   private facingAngle = 0;
+  private carryIndicator: THREE.Mesh;
+  private meshes: THREE.Mesh[] = [];
 
   private constructor(
     scene: THREE.Object3D,
@@ -33,6 +38,18 @@ export class CharacterModel {
     this.idleAction.play();
     this.walkAction.play();
     this.walkAction.setEffectiveWeight(0);
+
+    scene.traverse((obj) => {
+      if ((obj as THREE.Mesh).isMesh) this.meshes.push(obj as THREE.Mesh);
+    });
+
+    this.carryIndicator = new THREE.Mesh(
+      new THREE.BoxGeometry(0.35, 0.22, 0.05),
+      new THREE.MeshStandardMaterial({ color: COLORS.cash })
+    );
+    this.carryIndicator.position.set(0, CARRY_INDICATOR_Y, 0);
+    this.carryIndicator.visible = false;
+    this.root.add(this.carryIndicator);
   }
 
   static async load(team: Team): Promise<CharacterModel> {
@@ -75,6 +92,21 @@ export class CharacterModel {
 
   getFacingAngle(): number {
     return this.facingAngle;
+  }
+
+  setCarrying(carrying: boolean) {
+    this.carryIndicator.visible = carrying;
+  }
+
+  // 50% opacity while jailed, matching the 2D game's Player.setJailed dimming.
+  setJailed(jailed: boolean) {
+    const opacity = jailed ? 0.5 : 1;
+    for (const mesh of this.meshes) {
+      const mat = mesh.material as THREE.MeshStandardMaterial;
+      if (!mat) continue;
+      mat.transparent = jailed;
+      mat.opacity = opacity;
+    }
   }
 
   // speedFraction: 0 = fully idle, 1 = fully walking: blends the two clips'

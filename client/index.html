@@ -21,10 +21,21 @@
         align-items: center;
         justify-content: center;
       }
+      #canvas-root {
+        position: absolute;
+        inset: 0;
+      }
+      #hud-root {
+        position: absolute;
+        inset: 0;
+        pointer-events: none;
+      }
     </style>
   </head>
   <body>
     <div id="app"></div>
+    <div id="canvas-root" style="display: none"></div>
+    <div id="hud-root" style="display: none"></div>
     <script type="module" src="/src/main.ts"></script>
   </body>
 </html>

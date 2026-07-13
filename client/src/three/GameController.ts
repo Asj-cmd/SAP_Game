@@ -1,0 +1,262 @@
+import type { Room } from "colyseus.js";
+import { colyseusClient } from "../network/ColyseusClient";
+import { SceneManager } from "./SceneManager";
+import { buildEnvironment } from "./EnvironmentBuilder";
+import { CharacterModel } from "./CharacterModel";
+import { CharacterController, type InputState } from "./CharacterController";
+import { CameraRig } from "./CameraRig";
+import { RemoteCharacterSync } from "./RemoteCharacterSync";
+import { CashBundleView } from "./CashBundleView";
+import { HudOverlay } from "../ui/HudOverlay";
+import { getZoneAt, isEnemyBedroom, isOwnHome, jailBasementForTeam, type Team } from "../geometry/floorplan";
+import { MOVE_SEND_INTERVAL_MS, ACTION_RANGE } from "../constants";
+
+type Action =
+  | { kind: "pickupCash"; bundleId: string; prompt: string }
+  | { kind: "lockPlayer"; targetId: string; prompt: string }
+  | { kind: "rescuePlayer"; targetId: string; prompt: string }
+  | { kind: "stealScored"; bundleId: string; prompt: string }
+  | null;
+
+function dist(ax: number, ay: number, bx: number, by: number): number {
+  return Math.hypot(ax - bx, ay - by);
+}
+
+// The per-match orchestrator: owns the 3D scene, local character/camera,
+// remote sync, cash bundle view, and HUD, and drives the same per-frame logic
+// GameScene.ts + UIScene.ts did together in the 2D build (client-side action
+// availability detection, SPACE handling, auto-deposit-on-threshold) - now
+// consolidated into one class since there's one render loop, not two Phaser
+// scenes running in parallel.
+export class GameController {
+  private sceneManager: SceneManager;
+  private room: Room;
+  private localId: string;
+  private localTeam: Team;
+
+  private controller!: CharacterController;
+  private cameraRig!: CameraRig;
+  private remoteSync: RemoteCharacterSync;
+  private cashView!: CashBundleView;
+  private hud: HudOverlay;
+
+  private input: InputState = { left: false, right: false, up: false, down: false };
+  private spaceJustPressed = false;
+  private moveAccumulatorMs = 0;
+  private depositSent = false;
+  private currentAction: Action = null;
+
+  private keydownHandler = (e: KeyboardEvent) => this.onKey(e.key.toLowerCase(), true);
+  private keyupHandler = (e: KeyboardEvent) => this.onKey(e.key.toLowerCase(), false);
+
+  private constructor(canvasContainer: HTMLElement, hudContainer: HTMLElement, room: Room) {
+    this.room = room;
+    this.localId = room.sessionId;
+    const selfState = room.state.players.get(this.localId);
+    this.localTeam = (selfState?.team as Team) || "B";
+
+    this.sceneManager = new SceneManager(canvasContainer);
+    this.remoteSync = new RemoteCharacterSync(this.sceneManager.scene);
+    this.hud = new HudOverlay(hudContainer, this.localTeam);
+
+    window.addEventListener("keydown", this.keydownHandler);
+    window.addEventListener("keyup", this.keyupHandler);
+  }
+
+  static async start(canvasContainer: HTMLElement, hudContainer: HTMLElement, room: Room): Promise<GameController> {
+    const gc = new GameController(canvasContainer, hudContainer, room);
+    const selfState = room.state.players.get(gc.localId);
+
+    const env = buildEnvironment(gc.localTeam);
+    gc.sceneManager.scene.add(env.wallsMesh, env.floorMesh);
+
+    const model = await CharacterModel.load(gc.localTeam);
+    gc.sceneManager.scene.add(model.root);
+    gc.controller = new CharacterController(model, env.colliderRects, selfState?.x ?? 0, selfState?.y ?? 0);
+    gc.cameraRig = new CameraRig(gc.sceneManager.camera, [env.wallsMesh]);
+
+    gc.cashView = await CashBundleView.create(gc.sceneManager.scene);
+
+    gc.sceneManager.start((dt) => gc.tick(dt));
+    return gc;
+  }
+
+  private onKey(k: string, down: boolean) {
+    if (k === "a" || k === "arrowleft") this.input.left = down;
+    if (k === "d" || k === "arrowright") this.input.right = down;
+    if (k === "w" || k === "arrowup") this.input.up = down;
+    if (k === "s" || k === "arrowdown") this.input.down = down;
+    if (k === " " && down) this.spaceJustPressed = true;
+  }
+
+  private tick(dt: number) {
+    const room = this.room;
+    const selfState = room.state.players.get(this.localId);
+    if (!selfState) return;
+
+    this.updateLocalMovement(dt, selfState);
+    this.remoteSync.sync(dt, room, this.localId);
+    this.cashView.sync(room);
+    this.updateAction(selfState);
+    this.handleSpaceInput();
+    this.maybeAutoDeposit(selfState);
+
+    this.hud.update(room, this.currentAction?.prompt ?? "");
+    this.spaceJustPressed = false;
+  }
+
+  // Ports GameScene.updateLocalMovement: outside "playing" or while jailed,
+  // the server is fully authoritative - snap to its position every frame
+  // instead of processing input, exactly as the 2D build's body.reset() did.
+  private updateLocalMovement(dt: number, selfState: any) {
+    const model = this.controller.model;
+    const playing = this.room.state.phase === "playing";
+
+    if (!playing || selfState.isJailed) {
+      this.controller.freeze(selfState.x, selfState.y);
+      model.setJailed(selfState.isJailed);
+      model.setCarrying(selfState.isCarryingCash);
+      model.update(dt, 0);
+      this.cameraRig.update(dt, this.controller.x, this.controller.z, model.getFacingAngle());
+      this.depositSent = false;
+      return;
+    }
+    model.setJailed(false);
+
+    this.controller.update(dt, this.input, selfState.isCarryingCash);
+    this.cameraRig.update(dt, this.controller.x, this.controller.z, model.getFacingAngle());
+
+    this.moveAccumulatorMs += dt * 1000;
+    if (this.moveAccumulatorMs >= MOVE_SEND_INTERVAL_MS) {
+      this.moveAccumulatorMs = 0;
+      colyseusClient.send("move", {
+        x: this.controller.x,
+        y: this.controller.z,
+        vx: this.controller.vx,
+        vy: this.controller.vz,
+      });
+    }
+  }
+
+  // Ports GameScene.updateAction verbatim (same 5 checks, same priority order,
+  // same ACTION_RANGE), just reading local position off the character
+  // controller instead of a Phaser sprite.
+  private updateAction(selfState: any) {
+    const room = this.room;
+    if (!selfState || selfState.isJailed || room.state.phase !== "playing") {
+      this.currentAction = null;
+      return;
+    }
+
+    const x = this.controller.x;
+    const y = this.controller.z;
+    const team = this.localTeam;
+    const enemyBedroom = team === "B" ? "bedroomA" : "bedroomB";
+    const enemyTeam: Team = team === "B" ? "A" : "B";
+
+    let action: Action = null;
+
+    if (!selfState.isCarryingCash && isEnemyBedroom(team, x, y)) {
+      room.state.cashBundles.forEach((b: any) => {
+        if (action) return;
+        if (b.location === enemyBedroom && dist(x, y, b.x, b.y) <= ACTION_RANGE) {
+          action = { kind: "pickupCash", bundleId: b.id, prompt: "SPACE: Pick up cash" };
+        }
+      });
+    }
+
+    if (!action && isOwnHome(team, x, y)) {
+      let nearest: { id: string; name: string; d: number } | null = null;
+      room.state.players.forEach((p: any, id: string) => {
+        if (id === this.localId || p.team === team || p.isJailed) return;
+        const d = dist(x, y, p.x, p.y);
+        if (d <= ACTION_RANGE && (!nearest || d < nearest.d)) nearest = { id, name: p.name, d };
+      });
+      if (nearest) {
+        const n = nearest as { id: string; name: string; d: number };
+        action = { kind: "lockPlayer", targetId: n.id, prompt: `SPACE: Lock ${n.name}` };
+      }
+    }
+
+    if (!action && getZoneAt(x, y) === jailBasementForTeam(team)) {
+      let nearest: { id: string; name: string; d: number } | null = null;
+      room.state.players.forEach((p: any, id: string) => {
+        if (id === this.localId || p.team !== team || !p.isJailed) return;
+        const d = dist(x, y, p.x, p.y);
+        if (d <= ACTION_RANGE && (!nearest || d < nearest.d)) nearest = { id, name: p.name, d };
+      });
+      if (nearest) {
+        const n = nearest as { id: string; name: string; d: number };
+        action = { kind: "rescuePlayer", targetId: n.id, prompt: `SPACE: Rescue ${n.name}` };
+      }
+    }
+
+    if (!action && !selfState.isCarryingCash && isEnemyBedroom(team, x, y)) {
+      room.state.cashBundles.forEach((b: any) => {
+        if (action) return;
+        if (b.location === `scored:${enemyTeam}` && dist(x, y, b.x, b.y) <= ACTION_RANGE) {
+          action = { kind: "stealScored", bundleId: b.id, prompt: "SPACE: Steal scored cash" };
+        }
+      });
+    }
+
+    this.currentAction = action;
+  }
+
+  private handleSpaceInput() {
+    if (!this.spaceJustPressed || !this.currentAction) return;
+
+    switch (this.currentAction.kind) {
+      case "pickupCash":
+        colyseusClient.send("pickupCash", { bundleId: this.currentAction.bundleId });
+        break;
+      case "lockPlayer":
+        colyseusClient.send("lockPlayer", { targetId: this.currentAction.targetId });
+        break;
+      case "rescuePlayer":
+        colyseusClient.send("rescuePlayer", { targetId: this.currentAction.targetId });
+        break;
+      case "stealScored":
+        colyseusClient.send("stealScored", { bundleId: this.currentAction.bundleId });
+        break;
+    }
+  }
+
+  // Ports GameScene.maybeAutoDeposit verbatim, including the "push a fresh
+  // position before depositing" trick (move messages are throttled to 20/s
+  // otherwise, so the server could validate against a stale position).
+  private maybeAutoDeposit(selfState: any) {
+    const room = this.room;
+    if (!selfState || room.state.phase !== "playing" || !selfState.isCarryingCash) {
+      this.depositSent = false;
+      return;
+    }
+    if (!isOwnHome(this.localTeam, this.controller.x, this.controller.z)) {
+      this.depositSent = false;
+      return;
+    }
+    if (this.depositSent) return;
+
+    let carriedId: string | null = null;
+    room.state.cashBundles.forEach((b: any, id: string) => {
+      if (b.location === `carried:${this.localId}`) carriedId = id;
+    });
+    if (!carriedId) return;
+
+    colyseusClient.send("move", {
+      x: this.controller.x,
+      y: this.controller.z,
+      vx: this.controller.vx,
+      vy: this.controller.vz,
+    });
+    this.depositSent = true;
+    colyseusClient.send("depositCash", { bundleId: carriedId });
+  }
+
+  dispose() {
+    window.removeEventListener("keydown", this.keydownHandler);
+    window.removeEventListener("keyup", this.keyupHandler);
+    this.hud.dispose();
+    this.sceneManager.dispose();
+  }
+}

@@ -1,48 +1,47 @@
-import Phaser from "phaser";
 import { colyseusClient } from "../network/ColyseusClient";
 import type { Room } from "colyseus.js";
 
 const TEAM_B_COLOR = "#e85d24";
 const TEAM_A_COLOR = "#185fa5";
 
-export class LobbyScene extends Phaser.Scene {
-  private panel?: Phaser.GameObjects.DOMElement;
+// Plain-DOM port of the old Phaser LobbyScene (it was already just an HTML
+// form wrapped in a Phaser DOM GameObject, so dropping the wrapper is
+// mechanical). Milestone C behavior only: auto-starts once the room fills,
+// same as the 2D game. Milestone D extends this same class with host
+// controls (manual team assignment, bot count, a real "Start Game" button)
+// rather than replacing it.
+export class LobbyView {
+  private root: HTMLDivElement;
+  private panel?: HTMLDivElement;
   private roomCode = "";
   private started = false;
 
-  constructor() {
-    super("LobbyScene");
-  }
+  constructor(
+    private container: HTMLElement,
+    private onGameStart: (room: Room) => void
+  ) {
+    this.root = document.createElement("div");
+    this.root.style.cssText =
+      "width:100%;height:100%;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:14px;font-family:system-ui,sans-serif;";
+    this.container.appendChild(this.root);
 
-  create() {
-    this.started = false;
-    this.roomCode = "";
-
-    this.add
-      .text(this.scale.width / 2, 46, "CASH GRAB", {
-        fontSize: "44px",
-        color: "#ffffff",
-        fontStyle: "bold",
-        stroke: "#000000",
-        strokeThickness: 6,
-      })
-      .setOrigin(0.5);
-
-    this.add
-      .text(this.scale.width / 2, 82, "2v2, 3v3, or 4v4 — steal the other family's cash, jail the intruders", {
-        fontSize: "14px",
-        color: "#dddddd",
-        stroke: "#000000",
-        strokeThickness: 3,
-      })
-      .setOrigin(0.5);
+    const title = document.createElement("div");
+    title.innerHTML = `
+      <div style="font-size:44px;font-weight:800;color:#fff;-webkit-text-stroke:4px #000;text-align:center;">CASH GRAB</div>
+      <div style="font-size:14px;color:#ddd;-webkit-text-stroke:1.5px #000;text-align:center;margin-top:6px;">
+        2v2, 3v3, or 4v4 — steal the other family's cash, jail the intruders
+      </div>`;
+    this.root.appendChild(title);
 
     this.showForm();
   }
 
   private showForm() {
-    const html = `
-      <div style="font-family:system-ui,sans-serif;background:#ffffffee;padding:22px 24px;border-radius:14px;min-width:300px;box-shadow:0 6px 24px #0006;">
+    this.panel?.remove();
+    const panel = document.createElement("div");
+    panel.style.cssText =
+      "font-family:system-ui,sans-serif;background:#ffffffee;padding:22px 24px;border-radius:14px;min-width:300px;box-shadow:0 6px 24px #0006;";
+    panel.innerHTML = `
         <div style="display:flex;flex-direction:column;gap:10px;align-items:stretch;">
           <input id="nameInput" placeholder="Your name" maxlength="16"
                  style="padding:10px;font-size:15px;border:1px solid #ccc;border-radius:8px;" />
@@ -85,20 +84,17 @@ export class LobbyScene extends Phaser.Scene {
           on your property — house or backyard — with <b>SPACE</b> to jail them. Your score is the
           cash in your bedroom — what you've kept plus what you've banked. First to the target
           (shown above) wins the round — best of 3.
-        </div>
-      </div>`;
+        </div>`;
+    this.root.appendChild(panel);
+    this.panel = panel;
 
-    this.panel = this.add.dom(this.scale.width / 2, this.scale.height / 2 + 40).createFromHTML(html);
+    const status = panel.querySelector("#statusText") as HTMLDivElement;
+    const nameInput = panel.querySelector("#nameInput") as HTMLInputElement;
+    const codeInput = panel.querySelector("#codeInput") as HTMLInputElement;
+    const modeInput = panel.querySelector("#modeInput") as HTMLSelectElement;
+    const bundleInput = panel.querySelector("#bundleInput") as HTMLSelectElement;
+    const winInfo = panel.querySelector("#winInfo") as HTMLDivElement;
 
-    const status = this.panel.getChildByID("statusText") as HTMLDivElement;
-    const nameInput = this.panel.getChildByID("nameInput") as HTMLInputElement;
-    const codeInput = this.panel.getChildByID("codeInput") as HTMLInputElement;
-    const modeInput = this.panel.getChildByID("modeInput") as HTMLSelectElement;
-    const bundleInput = this.panel.getChildByID("bundleInput") as HTMLSelectElement;
-    const winInfo = this.panel.getChildByID("winInfo") as HTMLDivElement;
-
-    // The win target isn't picked directly - it's derived from bundles per team:
-    // 3 bundles -> win at 5, 4 -> win at 7, 5 -> win at 9.
     const winTargetFor = (bundles: number) => bundles * 2 - 1;
     const updateWinInfo = () => {
       const bundles = parseInt(bundleInput.value, 10) || 3;
@@ -107,8 +103,6 @@ export class LobbyScene extends Phaser.Scene {
     updateWinInfo();
     bundleInput.addEventListener("change", updateWinInfo);
 
-    // Default bundles-per-team to the mode when the host changes it (3 for 2v2,
-    // 4 for 3v3, 5 for 4v4).
     modeInput.addEventListener("change", () => {
       bundleInput.value = String(parseInt(modeInput.value, 10) + 1);
       updateWinInfo();
@@ -149,8 +143,8 @@ export class LobbyScene extends Phaser.Scene {
       }
     };
 
-    this.panel.getChildByID("createBtn")!.addEventListener("click", create);
-    this.panel.getChildByID("joinBtn")!.addEventListener("click", join);
+    panel.querySelector("#createBtn")!.addEventListener("click", create);
+    panel.querySelector("#joinBtn")!.addEventListener("click", join);
     codeInput.addEventListener("keydown", (e) => {
       if ((e as KeyboardEvent).key === "Enter") join();
     });
@@ -160,7 +154,7 @@ export class LobbyScene extends Phaser.Scene {
   }
 
   private showWaiting(room: Room) {
-    this.panel?.destroy();
+    this.panel?.remove();
 
     const shareUrl = window.location.href.split("?")[0];
     const codeBlock = this.roomCode
@@ -172,16 +166,18 @@ export class LobbyScene extends Phaser.Scene {
          </div>`
       : "";
 
-    const html = `
-      <div style="font-family:system-ui,sans-serif;background:#ffffffee;padding:22px 26px;border-radius:14px;min-width:320px;box-shadow:0 6px 24px #0006;">
+    const panel = document.createElement("div");
+    panel.style.cssText =
+      "font-family:system-ui,sans-serif;background:#ffffffee;padding:22px 26px;border-radius:14px;min-width:320px;box-shadow:0 6px 24px #0006;";
+    panel.innerHTML = `
         ${codeBlock}
         <div id="waitCount" style="text-align:center;font-size:16px;font-weight:600;color:#111;">Waiting for players...</div>
         <div id="modeInfo" style="text-align:center;font-size:12px;color:#777;margin-top:2px;"></div>
         <div id="playerList" style="margin-top:12px;display:flex;flex-direction:column;gap:6px;"></div>
-        <div id="youAre" style="text-align:center;margin-top:12px;font-size:13px;color:#555;"></div>
-      </div>`;
+        <div id="youAre" style="text-align:center;margin-top:12px;font-size:13px;color:#555;"></div>`;
+    this.root.appendChild(panel);
+    this.panel = panel;
 
-    this.panel = this.add.dom(this.scale.width / 2, this.scale.height / 2 + 30).createFromHTML(html);
     this.watchRoom(room);
   }
 
@@ -191,10 +187,10 @@ export class LobbyScene extends Phaser.Scene {
       const count = state.players.size;
       const teamSize = state.teamSize || 2;
       const total = teamSize * 2;
-      const waitCount = this.panel.getChildByID("waitCount") as HTMLDivElement | null;
-      const modeInfo = this.panel.getChildByID("modeInfo") as HTMLDivElement | null;
-      const list = this.panel.getChildByID("playerList") as HTMLDivElement | null;
-      const youAre = this.panel.getChildByID("youAre") as HTMLDivElement | null;
+      const waitCount = this.panel.querySelector("#waitCount") as HTMLDivElement | null;
+      const modeInfo = this.panel.querySelector("#modeInfo") as HTMLDivElement | null;
+      const list = this.panel.querySelector("#playerList") as HTMLDivElement | null;
+      const youAre = this.panel.querySelector("#youAre") as HTMLDivElement | null;
       if (waitCount) waitCount.textContent = `Waiting for players... (${count}/${total})`;
       if (modeInfo) modeInfo.textContent = `${teamSize} v ${teamSize}  •  first to ${state.winScore || teamSize} cash wins`;
 
@@ -218,20 +214,19 @@ export class LobbyScene extends Phaser.Scene {
         youAre.innerHTML = `You are <b style="color:${color};">Team ${me.team}</b> — game starts automatically at ${total} players.`;
       }
 
-      // Only transition on an explicit in-game phase. (Right after join the schema
-      // may not be synced yet and phase reads as "" - checking `!== "waiting"` there
-      // would wrongly start the game with a single player.)
       const started = ["countdown", "playing", "roundEnd", "matchEnd"].includes(state.phase);
       if (started && !this.started) {
         this.started = true;
-        this.panel?.destroy();
-        this.panel = undefined;
-        this.scene.start("GameScene");
-        this.scene.launch("UIScene");
+        this.dispose();
+        this.onGameStart(room);
       }
     };
 
     room.onStateChange(render);
     render(room.state);
+  }
+
+  dispose() {
+    this.root.remove();
   }
 }
