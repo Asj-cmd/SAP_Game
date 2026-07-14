@@ -192,10 +192,12 @@ The first half to join default to Team B / orange, the rest to Team A / blue.
 
 ## Controls
 
-- **W / ↑** — walk forward (the direction the camera faces); **A / D** veer
-  left/right (the camera swings behind you as you turn); **S / ↓** — back up
-  without turning. The 3rd-person camera always follows behind your character;
-  use the minimap for map directions.
+- **Mouse** — look around (FPS-style). Click the game once to lock the mouse;
+  **ESC** frees it again.
+- **W / ↑** — walk the direction the camera faces; **A / D** — strafe
+  left/right; **S / ↓** — walk backward. The 3rd-person camera stays behind
+  your character at whatever heading your mouse set; the minimap is the map
+  reference.
 - **SPACE** — context action: pick up cash, **lock** an enemy caught in your house,
   rescue a jailed teammate, or steal an already-scored bundle. A prompt appears
   above your character whenever SPACE will do something.

@@ -39,7 +39,7 @@ export const CHARACTER_SCALE = 45;
 export const FOLLOW_DISTANCE = 260; // behind the character, world units
 export const FOLLOW_HEIGHT = 160; // above LOOK_HEIGHT
 export const LOOK_HEIGHT = 55; // roughly chest height on the scaled character
-export const MAX_YAW_SPEED = Math.PI * 2.5; // ~0.4s to swing a 180 degree reversal
+export const MOUSE_SENSITIVITY = 0.003; // radians of camera yaw per pixel of mouse movement
 
 // The Blender cash bundle prop (assets/blender/build_cashbundle.py) is ~0.3
 // Blender units wide; scaled up to read clearly next to the character.

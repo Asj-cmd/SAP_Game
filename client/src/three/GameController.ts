@@ -9,7 +9,7 @@ import { RemoteCharacterSync } from "./RemoteCharacterSync";
 import { CashBundleView } from "./CashBundleView";
 import { HudOverlay } from "../ui/HudOverlay";
 import { getZoneAt, isEnemyBedroom, isOwnHome, jailBasementForTeam, type Team } from "../geometry/floorplan";
-import { MOVE_SEND_INTERVAL_MS, ACTION_RANGE } from "../constants";
+import { MOVE_SEND_INTERVAL_MS, ACTION_RANGE, MOUSE_SENSITIVITY } from "../constants";
 
 type Action =
   | { kind: "pickupCash"; bundleId: string; prompt: string }
@@ -53,8 +53,23 @@ export class GameController {
   private depositSent = false;
   private currentAction: Action = null;
 
+  private canvasContainer: HTMLElement;
+
   private keydownHandler = (e: KeyboardEvent) => this.onKey(e.key.toLowerCase(), true);
   private keyupHandler = (e: KeyboardEvent) => this.onKey(e.key.toLowerCase(), false);
+  // Browsers only allow pointer lock from a user gesture, hence the click.
+  private clickHandler = () => {
+    if (document.pointerLockElement !== this.canvasContainer) {
+      this.canvasContainer.requestPointerLock();
+    }
+  };
+  private mouseMoveHandler = (e: MouseEvent) => {
+    if (document.pointerLockElement !== this.canvasContainer) return;
+    this.cameraRig?.addYaw(e.movementX * MOUSE_SENSITIVITY);
+  };
+  private pointerLockChangeHandler = () => {
+    this.hud.setMouseHint(document.pointerLockElement !== this.canvasContainer);
+  };
 
   private constructor(canvasContainer: HTMLElement, hudContainer: HTMLElement, room: Room) {
     this.room = room;
@@ -62,12 +77,17 @@ export class GameController {
     const selfState = room.state.players.get(this.localId);
     this.localTeam = (selfState?.team as Team) || "B";
 
+    this.canvasContainer = canvasContainer;
     this.sceneManager = new SceneManager(canvasContainer);
     this.remoteSync = new RemoteCharacterSync(this.sceneManager.scene);
     this.hud = new HudOverlay(hudContainer, this.localTeam);
+    this.hud.setMouseHint(true);
 
     window.addEventListener("keydown", this.keydownHandler);
     window.addEventListener("keyup", this.keyupHandler);
+    canvasContainer.addEventListener("click", this.clickHandler);
+    window.addEventListener("mousemove", this.mouseMoveHandler);
+    document.addEventListener("pointerlockchange", this.pointerLockChangeHandler);
   }
 
   static async start(canvasContainer: HTMLElement, hudContainer: HTMLElement, room: Room): Promise<GameController> {
@@ -124,25 +144,25 @@ export class GameController {
       model.setJailed(selfState.isJailed);
       model.setCarrying(selfState.isCarryingCash);
       model.update(dt, 0);
-      this.cameraRig.update(dt, this.controller.x, this.controller.z, model.getFacingAngle());
+      this.cameraRig.update(dt, this.controller.x, this.controller.z);
       this.depositSent = false;
       return;
     }
     model.setJailed(false);
+    // Your own overhead bundle: previously only set on the frozen path above,
+    // so everyone BUT you could see you were carrying.
+    model.setCarrying(selfState.isCarryingCash);
 
-    // Camera-relative (FPS-style) input: W walks the direction the camera
-    // faces, A/D veer left/right (character turns, camera eases behind), and
-    // S backpedals WITHOUT turning - turning around on S would chase its own
-    // tail (facing flips -> camera swings -> "backward" flips again) and spin
-    // the view forever.
+    // FPS-style controls: the mouse owns the camera heading (pointer lock ->
+    // CameraRig.addYaw), and WASD/arrows move relative to it - W walks the
+    // direction the camera faces, A/D strafe, S walks back toward the camera.
     const f = (this.input.up ? 1 : 0) - (this.input.down ? 1 : 0);
     const s = (this.input.right ? 1 : 0) - (this.input.left ? 1 : 0);
     const yaw = this.cameraRig.getYaw();
     const moveX = Math.sin(yaw) * f + Math.cos(yaw) * s;
     const moveZ = -Math.cos(yaw) * f + Math.sin(yaw) * s;
-    const backpedal = f < 0;
-    this.controller.update(dt, moveX, moveZ, !backpedal, selfState.isCarryingCash);
-    this.cameraRig.update(dt, this.controller.x, this.controller.z, model.getFacingAngle());
+    this.controller.update(dt, moveX, moveZ, selfState.isCarryingCash);
+    this.cameraRig.update(dt, this.controller.x, this.controller.z);
 
     this.moveAccumulatorMs += dt * 1000;
     if (this.moveAccumulatorMs >= MOVE_SEND_INTERVAL_MS) {
@@ -274,6 +294,10 @@ export class GameController {
   dispose() {
     window.removeEventListener("keydown", this.keydownHandler);
     window.removeEventListener("keyup", this.keyupHandler);
+    this.canvasContainer.removeEventListener("click", this.clickHandler);
+    window.removeEventListener("mousemove", this.mouseMoveHandler);
+    document.removeEventListener("pointerlockchange", this.pointerLockChangeHandler);
+    if (document.pointerLockElement === this.canvasContainer) document.exitPointerLock();
     this.hud.dispose();
     this.sceneManager.dispose();
   }

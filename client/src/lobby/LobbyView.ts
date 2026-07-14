@@ -79,8 +79,8 @@ export class LobbyView {
           <div id="statusText" style="font-size:13px;color:#c62828;min-height:18px;text-align:center;"></div>
         </div>
         <div style="margin-top:14px;padding-top:12px;border-top:1px solid #eee;font-size:12px;color:#555;line-height:1.5;">
-          <b>How to play:</b> W walks forward, A/D veer, S backs up — the camera follows behind
-          you. Sneak into the enemy
+          <b>How to play:</b> Click the game to grab the mouse — the mouse looks around and
+          WASD/arrows move (W walks where you're looking). Sneak into the enemy
           bedroom, grab cash and carry it home (it banks automatically). Catch intruders anywhere
           on your property — house or backyard — with <b>SPACE</b> to jail them. Your score is the
           cash in your bedroom — what you've kept plus what you've banked. First to the target

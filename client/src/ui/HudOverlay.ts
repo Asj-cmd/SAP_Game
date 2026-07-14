@@ -54,6 +54,12 @@ export class HudOverlay {
     return this.root.querySelector(`#${id}`) as T;
   }
 
+  // Shown while the pointer is NOT locked, so players know how to get the
+  // mouse-look camera back after pressing ESC (or before the first click).
+  setMouseHint(show: boolean) {
+    this.q("hud-mouse-hint").style.display = show ? "block" : "none";
+  }
+
   private static template(): string {
     const strokeStyle = "-webkit-text-stroke:3px #000; text-shadow:0 1px 3px rgba(0,0,0,.6);";
     const strokeThin = "-webkit-text-stroke:1.5px #000; text-shadow:0 1px 2px rgba(0,0,0,.6);";
@@ -65,6 +71,7 @@ export class HudOverlay {
         #hud-round { font-size:15px; ${strokeThin} }
         #hud-objective { position:fixed; top:12px; right:14px; font-size:15px; font-weight:800; text-align:right; ${strokeStyle} }
         #hud-controls { position:fixed; bottom:10px; left:50%; transform:translateX(-50%); font-size:13px; text-align:center; ${strokeThin} }
+        #hud-mouse-hint { position:fixed; top:50%; left:50%; transform:translate(-50%, 150px); font-size:16px; font-weight:700; color:#9fd4ff; text-align:center; background:rgba(0,0,0,.55); padding:8px 14px; border-radius:8px; display:none; }
         #hud-prompt { position:fixed; bottom:38px; left:50%; transform:translateX(-50%); font-size:16px; font-weight:700; color:#ffff66; text-align:center; ${strokeThin} display:none; }
         #hud-minimap-wrap { position:fixed; top:8px; left:50%; transform:translateX(-50%); background:rgba(0,0,0,.35); padding:3px; border-radius:4px; }
         #hud-minimap { display:block; border:1.5px solid #222; }
@@ -78,7 +85,8 @@ export class HudOverlay {
         <div id="hud-round">Round 1 of 3</div>
       </div>
       <div id="hud-objective"></div>
-      <div id="hud-controls">W/&#8593; : Forward &nbsp; A/D : Veer &nbsp; S/&#8595; : Back up &nbsp;&nbsp; SPACE : Action &nbsp;&nbsp; (cash deposits automatically at home)</div>
+      <div id="hud-controls">Mouse : Look &nbsp; W/A/S/D or Arrows : Move &nbsp;&nbsp; SPACE : Action &nbsp;&nbsp; (cash deposits automatically at home)</div>
+      <div id="hud-mouse-hint">Click the game to enable mouse look &nbsp;•&nbsp; ESC frees the mouse</div>
       <div id="hud-prompt"></div>
       <div id="hud-minimap-wrap"><canvas id="hud-minimap"></canvas></div>
       <div id="hud-jail"></div>

@@ -31,9 +31,9 @@ export class CharacterController {
   }
 
   // (moveX, moveZ): desired world-space direction, any length (normalized
-  // here). faceMovement=false keeps the current heading while moving - used
-  // for FPS-style backpedaling, where turning around would spin the camera.
-  update(dt: number, moveX: number, moveZ: number, faceMovement: boolean, carrying: boolean) {
+  // here). The character turns to face wherever it's moving; the camera's
+  // heading is mouse-owned (CameraRig.addYaw) and unaffected by this.
+  update(dt: number, moveX: number, moveZ: number, carrying: boolean) {
     const speed = carrying ? CARRY_SPEED : PLAYER_SPEED;
 
     let speedFraction = 0;
@@ -45,7 +45,7 @@ export class CharacterController {
       this.vz = ndz * speed;
       this.x += this.vx * dt;
       this.z += this.vz * dt;
-      if (faceMovement) this.model.setFacing(ndx, ndz);
+      this.model.setFacing(ndx, ndz);
       speedFraction = 1;
     } else {
       this.vx = 0;

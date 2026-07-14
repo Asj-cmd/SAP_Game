@@ -1,11 +1,11 @@
 import * as THREE from "three";
-import { FOLLOW_DISTANCE, FOLLOW_HEIGHT, LOOK_HEIGHT, MAX_YAW_SPEED } from "../constants";
+import { FOLLOW_DISTANCE, FOLLOW_HEIGHT, LOOK_HEIGHT } from "../constants";
 
-// 3rd-person chase camera, FPS-style: the camera stays glued behind the
-// character's back, easing its yaw toward the character's facing at a capped
-// rate. Movement input is camera-relative (GameController rotates WASD by
-// getYaw() each frame), so "W" always walks into the screen and the view only
-// rotates when the player steers - never because of an absolute key flip.
+// 3rd-person chase camera with FPS-style mouse look: the mouse owns the yaw
+// (GameController feeds pointer-lock movementX deltas into addYaw), and the
+// camera just orbits behind the character at that heading - it never rotates
+// on its own, so the view only ever moves when the player moves the mouse.
+// Movement input is rotated by getYaw() so W always walks into the screen.
 // A raycast against the environment's wall mesh pulls the camera in short of
 // any wall between it and the character, since door gaps are narrow enough
 // that an unclamped camera constantly clips through them.
@@ -13,7 +13,6 @@ export class CameraRig {
   readonly camera: THREE.PerspectiveCamera;
   private yaw = 0;
   private raycaster = new THREE.Raycaster();
-  private initialized = false;
 
   constructor(
     camera: THREE.PerspectiveCamera,
@@ -28,17 +27,12 @@ export class CameraRig {
     return this.yaw;
   }
 
-  update(dt: number, targetX: number, targetZ: number, facingAngle: number) {
-    if (!this.initialized) {
-      this.yaw = facingAngle;
-      this.initialized = true;
-    } else {
-      let diff = facingAngle - this.yaw;
-      diff = Math.atan2(Math.sin(diff), Math.cos(diff)); // wrap to [-pi, pi]
-      const maxStep = MAX_YAW_SPEED * dt;
-      this.yaw += Math.max(-maxStep, Math.min(maxStep, diff));
-    }
+  // Mouse-look input: positive delta (mouse moved right) turns the view right.
+  addYaw(delta: number) {
+    this.yaw += delta;
+  }
 
+  update(dt: number, targetX: number, targetZ: number) {
     const lookAt = new THREE.Vector3(targetX, LOOK_HEIGHT, targetZ);
     // forward direction implied by CharacterModel.setFacing's atan2(dx,-dz):
     // theta -> forward = (sin(theta), -cos(theta)); camera sits behind it.
