@@ -11,6 +11,7 @@ import {
   WORLD_HEIGHT,
 } from "../constants";
 import { ZONE_RECTS, WALLS, DOORS, type Door, type Rect, type Team } from "../geometry/floorplan";
+import { buildWindows } from "./world/WindowBuilder";
 
 // Builds the 3D floor plan from the same rect data the server validates against.
 // Two draw calls total: one merged "walls" mesh (extruded wall boxes, wooden
@@ -37,7 +38,9 @@ function coloredBox(w: number, h: number, d: number, cx: number, cy: number, cz:
 }
 
 // World (x, y) ground-plane rect -> Three.js (x, z) box, y is height/up.
-function rectToBox(r: Rect, height: number, yCenter: number, colorHex: number) {
+// Exported for WindowBuilder, which needs the same rect->box conversion to
+// split a wall rect around an opening.
+export function rectToBox(r: Rect, height: number, yCenter: number, colorHex: number) {
   const w = r.x2 - r.x1;
   const d = r.y2 - r.y1;
   const cx = (r.x1 + r.x2) / 2;
@@ -48,8 +51,13 @@ function rectToBox(r: Rect, height: number, yCenter: number, colorHex: number) {
 export interface Environment {
   wallsMesh: THREE.Mesh;
   floorMesh: THREE.Mesh;
+  // Real see-through window panes (Phase 3) - a separate mesh since it needs
+  // its own translucent material, not the walls' opaque vertex-colored one.
+  windowGlassMesh: THREE.Mesh;
   // Collider rects for movement collision (Milestone B): every solid wall plus
-  // whichever doors are sealed for the local team.
+  // whichever doors are sealed for the local team. Deliberately the ORIGINAL
+  // WALLS rects, not WindowBuilder's split replacements - a window changes
+  // what you can see, never what you can walk through.
   colliderRects: Rect[];
 }
 
@@ -78,14 +86,36 @@ export function buildEnvironment(localTeam: Team): Environment {
   const sealedDoors = DOORS.filter((d) => d.sealedFor === localTeam);
   const openDoors = DOORS.filter((d) => d.sealedFor !== localTeam);
 
-  // ---- walls: WALLS + a wooden frame around every opening + this team's own
+  // ---- walls: WALLS (minus whichever rects have a window punched into them)
+  // + a wooden frame around every door AND window opening + this team's own
   // sealed doors filled with a closed door panel (instead of blank wall, so a
   // "door that won't open for you" reads as exactly that) ----
-  const wallGeoms = WALLS.map((r) => rectToBox(r, WALL_HEIGHT, WALL_HEIGHT / 2, COLORS.wall));
-  const frameGeoms = DOORS.flatMap((d) => doorFrameGeoms(d));
+  const windows = buildWindows();
+  const wallGeoms = WALLS.filter((_, i) => !windows.splitWallIndices.has(i)).map((r) =>
+    rectToBox(r, WALL_HEIGHT, WALL_HEIGHT / 2, COLORS.wall)
+  );
+  const frameGeoms = [...DOORS.flatMap((d) => doorFrameGeoms(d)), ...windows.frameGeoms];
   const sealedGeoms = sealedDoors.map((r) => rectToBox(r, DOOR_HEIGHT, DOOR_HEIGHT / 2, COLORS.doorPanel));
-  const wallsMerged = mergeGeometries([...wallGeoms, ...frameGeoms, ...sealedGeoms], false);
+  const wallsMerged = mergeGeometries(
+    [...wallGeoms, ...windows.wallReplacementGeoms, ...frameGeoms, ...sealedGeoms],
+    false
+  );
   const wallsMesh = new THREE.Mesh(wallsMerged, new THREE.MeshStandardMaterial({ vertexColors: true }));
+  wallsMesh.castShadow = true;
+  wallsMesh.receiveShadow = true;
+
+  const glassMerged = mergeGeometries(windows.glassGeoms, false);
+  const windowGlassMesh = new THREE.Mesh(
+    glassMerged,
+    new THREE.MeshStandardMaterial({
+      color: COLORS.glass,
+      transparent: true,
+      opacity: 0.35,
+      roughness: 0.1,
+      metalness: 0,
+      depthWrite: false,
+    })
+  );
 
   // ---- floor: per-zone tinted slabs (garden split into its two cosmetic
   // halves) + door mats for every door open to this team ----
@@ -131,6 +161,7 @@ export function buildEnvironment(localTeam: Team): Environment {
   return {
     wallsMesh,
     floorMesh,
+    windowGlassMesh,
     colliderRects: [...WALLS, ...sealedDoors],
   };
 }

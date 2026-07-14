@@ -1,0 +1,58 @@
+import * as THREE from "three";
+import { ZONE_RECTS, type ZoneId } from "../../geometry/floorplan";
+import { COLORS, ROOF_BASE, ROOF_THICKNESS, ROOF_FADE_SPEED } from "../../constants";
+
+// One flat slab per interior room - backyards/garden are open-air, so they're
+// deliberately excluded. Not added to CameraRig's obstacle list: the roof
+// should never block the chase camera's raycast, only visually cap the room
+// the player isn't currently standing in.
+const ROOFED_ZONES: ZoneId[] = ["bedroomB", "livingB", "basementB", "bedroomA", "livingA", "basementA"];
+
+interface RoofPanel {
+  zone: ZoneId;
+  mesh: THREE.Mesh;
+  material: THREE.MeshStandardMaterial;
+}
+
+// Fades the roof over whichever room the local player is standing in toward
+// invisible, and every other roof back toward opaque, so the camera never
+// loses the room the player's actually in while the rest of the house still
+// reads as a real building. Per-panel material (6 draw calls) instead of one
+// merged mesh, since each panel fades independently.
+export class RoofSystem {
+  private panels: RoofPanel[] = [];
+
+  build(scene: THREE.Scene) {
+    for (const zoneId of ROOFED_ZONES) {
+      const zone = ZONE_RECTS.find((z) => z.id === zoneId);
+      if (!zone) continue;
+
+      const width = zone.xMax - zone.xMin;
+      const depth = zone.yMax - zone.yMin;
+      const cx = (zone.xMin + zone.xMax) / 2;
+      const cz = (zone.yMin + zone.yMax) / 2;
+
+      const geometry = new THREE.BoxGeometry(width, ROOF_THICKNESS, depth);
+      const material = new THREE.MeshStandardMaterial({ color: COLORS.roof, transparent: true, opacity: 1 });
+      const mesh = new THREE.Mesh(geometry, material);
+      mesh.position.set(cx, ROOF_BASE + ROOF_THICKNESS / 2, cz);
+      mesh.castShadow = true;
+      scene.add(mesh);
+
+      this.panels.push({ zone: zoneId, mesh, material });
+    }
+  }
+
+  update(dt: number, localZone: ZoneId) {
+    const step = ROOF_FADE_SPEED * dt;
+    for (const panel of this.panels) {
+      const target = panel.zone === localZone ? 0 : 1;
+      const opacity = panel.material.opacity;
+      panel.material.opacity =
+        opacity < target ? Math.min(target, opacity + step) : Math.max(target, opacity - step);
+
+      panel.mesh.visible = panel.material.opacity >= 0.02;
+      panel.mesh.castShadow = panel.material.opacity > 0.5;
+    }
+  }
+}

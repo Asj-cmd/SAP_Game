@@ -7,6 +7,8 @@ import { CharacterController } from "./CharacterController";
 import { CameraRig } from "./CameraRig";
 import { RemoteCharacterSync } from "./RemoteCharacterSync";
 import { CashBundleView } from "./CashBundleView";
+import { dressHouses } from "./world/HouseDresser";
+import { RoofSystem } from "./world/RoofSystem";
 import { HudOverlay } from "../ui/HudOverlay";
 import { getZoneAt, isEnemyBedroom, isOwnHome, jailBasementForTeam, type Team } from "../geometry/floorplan";
 import { MOVE_SEND_INTERVAL_MS, ACTION_RANGE, MOUSE_SENSITIVITY } from "../constants";
@@ -45,6 +47,7 @@ export class GameController {
   private cameraRig!: CameraRig;
   private remoteSync: RemoteCharacterSync;
   private cashView!: CashBundleView;
+  private roofSystem!: RoofSystem;
   private hud: HudOverlay;
 
   private input: InputState = { left: false, right: false, up: false, down: false };
@@ -95,14 +98,26 @@ export class GameController {
     const selfState = room.state.players.get(gc.localId);
 
     const env = buildEnvironment(gc.localTeam);
-    gc.sceneManager.scene.add(env.wallsMesh, env.floorMesh);
+    gc.sceneManager.scene.add(env.wallsMesh, env.floorMesh, env.windowGlassMesh);
 
     const model = await CharacterModel.load(gc.localTeam);
     gc.sceneManager.scene.add(model.root);
-    gc.controller = new CharacterController(model, env.colliderRects, selfState?.x ?? 0, selfState?.y ?? 0);
+
+    const dresser = await dressHouses(gc.sceneManager.scene);
+    gc.controller = new CharacterController(
+      model,
+      [...env.colliderRects, ...dresser.solidRects],
+      selfState?.x ?? 0,
+      selfState?.y ?? 0
+    );
+    // Camera obstacles stay walls-only - props/roofs never pull the chase
+    // camera in, only the walls do.
     gc.cameraRig = new CameraRig(gc.sceneManager.camera, [env.wallsMesh]);
 
     gc.cashView = await CashBundleView.create(gc.sceneManager.scene);
+
+    gc.roofSystem = new RoofSystem();
+    gc.roofSystem.build(gc.sceneManager.scene);
 
     gc.sceneManager.start((dt) => gc.tick(dt));
     return gc;
@@ -127,6 +142,7 @@ export class GameController {
     this.updateAction(selfState);
     this.handleSpaceInput();
     this.maybeAutoDeposit(selfState);
+    this.roofSystem.update(dt, getZoneAt(this.controller.x, this.controller.z));
 
     this.hud.update(room, this.currentAction?.prompt ?? "");
     this.spaceJustPressed = false;

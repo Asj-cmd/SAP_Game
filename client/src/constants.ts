@@ -45,6 +45,20 @@ export const MOUSE_SENSITIVITY = 0.003; // radians of camera yaw per pixel of mo
 // Blender units wide; scaled up to read clearly next to the character.
 export const BUNDLE_SCALE = 130;
 
+// House/garden props (client/src/three/world/) - same "1 Blender unit ~= 1
+// meter" convention as the character/bundle rigs, scaled up to world units.
+export const PROP_SCALE = 45;
+
+// Phase 3 roof slabs (client/src/three/world/RoofSystem.ts).
+export const ROOF_BASE = WALL_HEIGHT; // roofs sit right on top of the walls
+export const ROOF_THICKNESS = 8;
+export const ROOF_FADE_SPEED = 4; // opacity units/sec, clamped lerp toward the target
+
+// Window openings (client/src/three/world/WindowBuilder.ts), three-y units,
+// NOT scaled by WORLD_SCALE (heights never are - see floorplan.ts's header).
+export const WINDOW_SILL = 45;
+export const WINDOW_HEAD = 100;
+
 export const COLORS = {
   bedroom: 0xf0997b, // cash rooms - same on both sides so "salmon = cash" reads instantly
   livingB: 0xf3d5bc, // Team B's living room, tinted toward B's orange
@@ -63,4 +77,6 @@ export const COLORS = {
   cash: 0xffd700,
   wall: 0x8a8075, // warm plaster instead of near-black, so interiors read as rooms
   void: 0x0d1926,
+  roof: 0x9c5340,
+  glass: 0xa8d8f0,
 };

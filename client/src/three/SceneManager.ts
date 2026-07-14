@@ -26,12 +26,37 @@ export class SceneManager {
     this.renderer = new THREE.WebGLRenderer({ antialias: true });
     this.renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
     this.renderer.setSize(container.clientWidth, container.clientHeight);
+    this.renderer.shadowMap.enabled = true;
+    this.renderer.shadowMap.type = THREE.PCFSoftShadowMap;
     container.appendChild(this.renderer.domElement);
 
-    this.scene.add(new THREE.AmbientLight(0xffffff, 0.75));
-    const sun = new THREE.DirectionalLight(0xffffff, 0.8);
-    sun.position.set(400, 900, 300);
-    this.scene.add(sun);
+    // Sky/ground fill (no shadows) + a low ambient floor, so shadowed faces
+    // never go fully black, plus one shadow-casting "sun" that does the real
+    // modeling - real houses need real shadows for Phase 3's roofs/props to
+    // read as solid.
+    this.scene.add(new THREE.HemisphereLight(0xbfd4e8, 0x4a5442, 0.55));
+    this.scene.add(new THREE.AmbientLight(0xffffff, 0.25));
+
+    const sun = new THREE.DirectionalLight(0xffffff, 1.1);
+    sun.name = "sun";
+    sun.position.set(WORLD_WIDTH * 0.3, 1400, WORLD_HEIGHT * 0.2);
+    sun.target.position.set(WORLD_WIDTH / 2, 0, WORLD_HEIGHT / 2);
+    sun.castShadow = true;
+    sun.shadow.mapSize.set(2048, 2048);
+    sun.shadow.bias = -0.0005;
+    // Orthographic shadow frustum sized to cover the whole world plus a
+    // margin, since the sun's rays are parallel (no perspective falloff).
+    const SHADOW_MARGIN = 400;
+    const shadowCam = sun.shadow.camera;
+    shadowCam.left = -WORLD_WIDTH / 2 - SHADOW_MARGIN;
+    shadowCam.right = WORLD_WIDTH / 2 + SHADOW_MARGIN;
+    shadowCam.top = WORLD_HEIGHT / 2 + SHADOW_MARGIN;
+    shadowCam.bottom = -WORLD_HEIGHT / 2 - SHADOW_MARGIN;
+    shadowCam.near = 10;
+    shadowCam.far = 3000;
+    shadowCam.updateProjectionMatrix();
+    this.scene.add(sun, sun.target);
+
     this.scene.background = new THREE.Color(0x0d1926);
 
     window.addEventListener("resize", this.handleResize);
