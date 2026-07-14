@@ -17,6 +17,11 @@ const FRAME_PROUD = 4 * WORLD_SCALE;
 // Thickness of the sill/head trim bands, and the width of each side jamb,
 // measured along the wall's run direction.
 const FRAME_BAND = 8 * WORLD_SCALE;
+// Thinner cross-bar splitting each pane into 4 lights (like the sill/head/
+// jamb trim, but thin enough to read as glazing bars rather than structural
+// frame) - a plain glass rectangle reads as a hole in the wall from outside;
+// a 4-light window reads as an authored window.
+const MULLION_THICKNESS = 3 * WORLD_SCALE;
 
 interface ScaledWindow {
   axis: "x" | "y";
@@ -149,6 +154,22 @@ export function buildWindows(): WindowBuildResult {
           WINDOW_SILL + glassHeight / 2,
           COLORS.doorFrame
         )
+      );
+
+      // Mullions: one vertical bar (full pane height, centered on the run)
+      // and one horizontal bar (full pane width, centered on the sill/head
+      // midpoint), splitting the pane into 4 lights.
+      const mid = (win.start + win.end) / 2;
+      frameGeoms.push(
+        rectToBox(
+          proudRunRect(r, axis, mid - MULLION_THICKNESS / 2, mid + MULLION_THICKNESS / 2),
+          glassHeight,
+          WINDOW_SILL + glassHeight / 2,
+          COLORS.doorFrame
+        )
+      );
+      frameGeoms.push(
+        rectToBox(proudRunRect(r, axis, win.start, win.end), MULLION_THICKNESS, WINDOW_SILL + glassHeight / 2, COLORS.doorFrame)
       );
 
       // The pane itself: a separate translucent mesh, not merged with the

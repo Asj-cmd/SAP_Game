@@ -66,6 +66,12 @@ export const HOUSE_B_PROPS: PropPlacement[] = [
   { prop: "fence", x: 16, y: 180, rot: 90, solid: false },
   { prop: "fence", x: 16, y: 520, rot: 90, solid: false },
   { prop: "fence", x: 16, y: 840, rot: 90, solid: false },
+  // Decorative-only density pass (graphics quality gate): clear open lawn
+  // between the door gaps, away from the shed/existing bushes/fences and
+  // every solid rect above - purely visual, not solid, doesn't touch any
+  // existing entry.
+  { prop: "bush", x: 110, y: 200, rot: 0, solid: false },
+  { prop: "bush", x: 100, y: 850, rot: 0, solid: false },
 ];
 
 const STONE_PATH_Y = 430;
@@ -86,6 +92,10 @@ export const GARDEN_PROPS: PropPlacement[] = [
   { prop: "bush", x: 900, y: 620, rot: 0, solid: false },
   { prop: "bush", x: 760, y: 700, rot: 0, solid: false },
   { prop: "fountain", x: 800, y: 180, rot: 0, solid: true },
+  // Decorative-only density pass: open lawn away from the path/trees/
+  // fountain/existing bushes above.
+  { prop: "bush", x: 650, y: 250, rot: 0, solid: false },
+  { prop: "bush", x: 900, y: 800, rot: 0, solid: false },
   ...stonePathTiles,
 ];
 

@@ -27,23 +27,41 @@ export class SceneManager {
     this.renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
     this.renderer.setSize(container.clientWidth, container.clientHeight);
     this.renderer.shadowMap.enabled = true;
-    this.renderer.shadowMap.type = THREE.PCFSoftShadowMap;
+    // PCFSoftShadowMap was silently downgraded to hard-edged PCFShadowMap by
+    // this Three.js version (with a console warning) - VSMShadowMap is the
+    // current supported way to get soft shadow edges, tuned via
+    // light.shadow.radius/blurSamples below instead of the shadow type alone.
+    this.renderer.shadowMap.type = THREE.VSMShadowMap;
+    // Deliberate tone mapping + exposure (previously unset/NoToneMapping,
+    // which read as flat and muddy indoors): ACES gives filmic roll-off on
+    // the sunlit exteriors while exposure keeps the window-lit interiors
+    // readable instead of crushed toward black.
+    this.renderer.toneMapping = THREE.ACESFilmicToneMapping;
+    this.renderer.toneMappingExposure = 1.2;
+    this.renderer.outputColorSpace = THREE.SRGBColorSpace;
     container.appendChild(this.renderer.domElement);
 
     // Sky/ground fill (no shadows) + a low ambient floor, so shadowed faces
     // never go fully black, plus one shadow-casting "sun" that does the real
     // modeling - real houses need real shadows for Phase 3's roofs/props to
-    // read as solid.
-    this.scene.add(new THREE.HemisphereLight(0xbfd4e8, 0x4a5442, 0.55));
-    this.scene.add(new THREE.AmbientLight(0xffffff, 0.25));
+    // read as solid. Hemisphere/ambient raised slightly (0.55->0.7,
+    // 0.25->0.35) to compensate for ACES's darker midtones and keep interiors
+    // (which only ever receive indirect light, never the sun directly)
+    // readable rather than muddy.
+    this.scene.add(new THREE.HemisphereLight(0xbfd4e8, 0x4a5442, 0.7));
+    this.scene.add(new THREE.AmbientLight(0xfff2e0, 0.35));
 
-    const sun = new THREE.DirectionalLight(0xffffff, 1.1);
+    const sun = new THREE.DirectionalLight(0xfff4e6, 1.3);
     sun.name = "sun";
     sun.position.set(WORLD_WIDTH * 0.3, 1400, WORLD_HEIGHT * 0.2);
     sun.target.position.set(WORLD_WIDTH / 2, 0, WORLD_HEIGHT / 2);
     sun.castShadow = true;
     sun.shadow.mapSize.set(2048, 2048);
     sun.shadow.bias = -0.0005;
+    // VSM softness: normalBias avoids the light-leak VSM otherwise causes on
+    // thin geometry (window sills/prop edges), radius controls blur width.
+    sun.shadow.normalBias = 0.6;
+    sun.shadow.radius = 3;
     // Orthographic shadow frustum sized to cover the whole world plus a
     // margin, since the sun's rays are parallel (no perspective falloff).
     const SHADOW_MARGIN = 400;
