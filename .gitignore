@@ -9,3 +9,4 @@ dist/
 # what's tracked; run them locally to (re)produce the .glb files if needed.
 assets/blender/venv/
 assets/blender/*_preview*.png
+assets/blender/prop_previews/
