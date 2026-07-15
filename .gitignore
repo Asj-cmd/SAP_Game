@@ -10,3 +10,4 @@ dist/
 assets/blender/venv/
 assets/blender/*_preview*.png
 assets/blender/prop_previews/
+assets/blender/family_previews/
