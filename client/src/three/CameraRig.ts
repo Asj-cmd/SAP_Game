@@ -23,6 +23,14 @@ export class CameraRig {
   // Smoothed ground height under the followed target - see GROUND_FOLLOW_RATE.
   private groundY = 0;
   private groundInitialized = false;
+  // Scratch vectors reused every frame in update() instead of allocated fresh -
+  // this runs once per rendered frame, so `new THREE.Vector3()`/`.clone()`
+  // here would be a steady stream of small GC garbage at 60+ fps.
+  private readonly lookAt = new THREE.Vector3();
+  private readonly forward = new THREE.Vector3();
+  private readonly desired = new THREE.Vector3();
+  private readonly toDesired = new THREE.Vector3();
+  private readonly dir = new THREE.Vector3();
 
   constructor(
     camera: THREE.PerspectiveCamera,
@@ -53,27 +61,27 @@ export class CameraRig {
       this.groundY += (targetGroundY - this.groundY) * Math.min(1, GROUND_FOLLOW_RATE * dt);
     }
 
-    const lookAt = new THREE.Vector3(targetX, LOOK_HEIGHT + this.groundY, targetZ);
+    this.lookAt.set(targetX, LOOK_HEIGHT + this.groundY, targetZ);
     // forward direction implied by CharacterModel.setFacing's atan2(dx,-dz):
     // theta -> forward = (sin(theta), -cos(theta)); camera sits behind it.
-    const forward = new THREE.Vector3(Math.sin(this.yaw), 0, -Math.cos(this.yaw));
-    let desired = lookAt.clone().addScaledVector(forward, -FOLLOW_DISTANCE);
-    desired.y = LOOK_HEIGHT + FOLLOW_HEIGHT + this.groundY;
+    this.forward.set(Math.sin(this.yaw), 0, -Math.cos(this.yaw));
+    this.desired.copy(this.lookAt).addScaledVector(this.forward, -FOLLOW_DISTANCE);
+    this.desired.y = LOOK_HEIGHT + FOLLOW_HEIGHT + this.groundY;
 
-    const toDesired = desired.clone().sub(lookAt);
-    const dist = toDesired.length();
+    this.toDesired.subVectors(this.desired, this.lookAt);
+    const dist = this.toDesired.length();
     if (dist > 1e-4) {
-      const dir = toDesired.clone().normalize();
-      this.raycaster.set(lookAt, dir);
+      this.dir.copy(this.toDesired).normalize();
+      this.raycaster.set(this.lookAt, this.dir);
       this.raycaster.far = dist;
       const hits = this.raycaster.intersectObjects(this.obstacles, false);
       if (hits.length > 0 && hits[0].distance < dist) {
         const pulled = Math.max(hits[0].distance - 10, 20);
-        desired = lookAt.clone().addScaledVector(dir, pulled);
+        this.desired.copy(this.lookAt).addScaledVector(this.dir, pulled);
       }
     }
 
-    this.camera.position.copy(desired);
-    this.camera.lookAt(lookAt);
+    this.camera.position.copy(this.desired);
+    this.camera.lookAt(this.lookAt);
   }
 }
