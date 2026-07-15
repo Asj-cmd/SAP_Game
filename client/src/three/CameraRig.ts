@@ -1,5 +1,12 @@
 import * as THREE from "three";
 import { FOLLOW_DISTANCE, FOLLOW_HEIGHT, LOOK_HEIGHT } from "../constants";
+import { heightAt } from "./world/HeightField";
+
+// Ground height tracks toward heightAt(target) at this rate (units/sec of
+// lerp-fraction, i.e. 1 - e^-RATE*dt), not snapped instantly, so climbing a
+// staircase eases the camera's vertical follow instead of juddering a frame
+// behind the character on every step.
+const GROUND_FOLLOW_RATE = 8;
 
 // 3rd-person chase camera with FPS-style mouse look: the mouse owns the yaw
 // (GameController feeds pointer-lock movementX deltas into addYaw), and the
@@ -13,6 +20,9 @@ export class CameraRig {
   readonly camera: THREE.PerspectiveCamera;
   private yaw = 0;
   private raycaster = new THREE.Raycaster();
+  // Smoothed ground height under the followed target - see GROUND_FOLLOW_RATE.
+  private groundY = 0;
+  private groundInitialized = false;
 
   constructor(
     camera: THREE.PerspectiveCamera,
@@ -33,12 +43,22 @@ export class CameraRig {
   }
 
   update(dt: number, targetX: number, targetZ: number) {
-    const lookAt = new THREE.Vector3(targetX, LOOK_HEIGHT, targetZ);
+    const targetGroundY = heightAt(targetX, targetZ);
+    if (!this.groundInitialized) {
+      // Snap on the very first frame instead of easing up from 0, in case a
+      // future spawn point ever lands somewhere other than grade.
+      this.groundY = targetGroundY;
+      this.groundInitialized = true;
+    } else {
+      this.groundY += (targetGroundY - this.groundY) * Math.min(1, GROUND_FOLLOW_RATE * dt);
+    }
+
+    const lookAt = new THREE.Vector3(targetX, LOOK_HEIGHT + this.groundY, targetZ);
     // forward direction implied by CharacterModel.setFacing's atan2(dx,-dz):
     // theta -> forward = (sin(theta), -cos(theta)); camera sits behind it.
     const forward = new THREE.Vector3(Math.sin(this.yaw), 0, -Math.cos(this.yaw));
     let desired = lookAt.clone().addScaledVector(forward, -FOLLOW_DISTANCE);
-    desired.y = LOOK_HEIGHT + FOLLOW_HEIGHT;
+    desired.y = LOOK_HEIGHT + FOLLOW_HEIGHT + this.groundY;
 
     const toDesired = desired.clone().sub(lookAt);
     const dist = toDesired.length();

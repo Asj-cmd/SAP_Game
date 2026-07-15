@@ -2,6 +2,8 @@ import * as THREE from "three";
 import { WALLS, type Rect } from "../../geometry/floorplan";
 import { WALL_HEIGHT, WINDOW_SILL, WINDOW_HEAD, WORLD_SCALE, COLORS } from "../../constants";
 import { rectToBox } from "../EnvironmentBuilder";
+import { wallSegments } from "./HeightField";
+import { buildWallBoxes } from "./WallHeightBuilder";
 import { WINDOWS, type WindowSpec } from "./propManifest";
 
 // Real see-through openings punched into the WALLS rects: for every window,
@@ -73,6 +75,21 @@ function plainBox(r: Rect, height: number, yCenter: number): THREE.BufferGeometr
   return geo;
 }
 
+// A window's sill/head must sit relative to whichever ROOM it opens onto,
+// not always ground 0 - a bedroom window (raised wing) needs to sit up near
+// FLOOR_RISE + WINDOW_SILL, not down at grade. Reuses HeightField.wallSegments
+// on the window's own (narrow) run range: one face always reads the flat
+// yard/garden height (0), the other the interior room's height, so whichever
+// side differs more from 0 is the room side. Window spans never straddle a
+// zone boundary in this floor plan (checked against propManifest.ts's
+// WINDOWS table), so this always resolves to a single uniform segment.
+function windowLocalBase(r: Rect, axis: "x" | "y", win: ScaledWindow): number {
+  const sub = runRect(r, axis, win.start, win.end);
+  const [seg] = wallSegments(sub);
+  if (!seg) return 0;
+  return Math.abs(seg.high) > Math.abs(seg.low) ? seg.high : seg.low;
+}
+
 export interface WindowBuildResult {
   // Indices into WALLS that were split - EnvironmentBuilder must skip these
   // when it emits the plain per-wall boxes, since wallReplacementGeoms
@@ -117,33 +134,39 @@ export function buildWindows(): WindowBuildResult {
     let cursor = runMin;
     for (const win of sorted) {
       // Solid wall between the previous opening (or the wall's start) and
-      // this one.
+      // this one - height-aware (buildWallBoxes), since this run can itself
+      // cross a raised/sunk room's boundary with no window anywhere near it.
       if (win.start > cursor) {
-        wallReplacementGeoms.push(rectToBox(runRect(r, axis, cursor, win.start), WALL_HEIGHT, WALL_HEIGHT / 2, COLORS.wall));
+        wallReplacementGeoms.push(...buildWallBoxes(runRect(r, axis, cursor, win.start), COLORS.wall));
       }
+
+      // This window's own room-relative base: 0 for a living-room window
+      // (unchanged from before verticality), +FLOOR_RISE for a bedroom
+      // window, etc.
+      const base = windowLocalBase(r, axis, win);
 
       // Solid wall below the sill and above the head, spanning just the
       // opening - what's left of the wall once the window pane is cut out.
       wallReplacementGeoms.push(
-        rectToBox(runRect(r, axis, win.start, win.end), WINDOW_SILL, WINDOW_SILL / 2, COLORS.wall)
+        rectToBox(runRect(r, axis, win.start, win.end), WINDOW_SILL, base + WINDOW_SILL / 2, COLORS.wall)
       );
       wallReplacementGeoms.push(
-        rectToBox(runRect(r, axis, win.start, win.end), headHeight, WINDOW_HEAD + headHeight / 2, COLORS.wall)
+        rectToBox(runRect(r, axis, win.start, win.end), headHeight, base + WINDOW_HEAD + headHeight / 2, COLORS.wall)
       );
 
       // Wooden frame: sill + head trim bands across the opening, plus a jamb
       // post just past each side.
       frameGeoms.push(
-        rectToBox(proudRunRect(r, axis, win.start, win.end), FRAME_BAND, WINDOW_SILL + FRAME_BAND / 2, COLORS.doorFrame)
+        rectToBox(proudRunRect(r, axis, win.start, win.end), FRAME_BAND, base + WINDOW_SILL + FRAME_BAND / 2, COLORS.doorFrame)
       );
       frameGeoms.push(
-        rectToBox(proudRunRect(r, axis, win.start, win.end), FRAME_BAND, WINDOW_HEAD - FRAME_BAND / 2, COLORS.doorFrame)
+        rectToBox(proudRunRect(r, axis, win.start, win.end), FRAME_BAND, base + WINDOW_HEAD - FRAME_BAND / 2, COLORS.doorFrame)
       );
       frameGeoms.push(
         rectToBox(
           proudRunRect(r, axis, win.start - FRAME_BAND, win.start),
           glassHeight,
-          WINDOW_SILL + glassHeight / 2,
+          base + WINDOW_SILL + glassHeight / 2,
           COLORS.doorFrame
         )
       );
@@ -151,7 +174,7 @@ export function buildWindows(): WindowBuildResult {
         rectToBox(
           proudRunRect(r, axis, win.end, win.end + FRAME_BAND),
           glassHeight,
-          WINDOW_SILL + glassHeight / 2,
+          base + WINDOW_SILL + glassHeight / 2,
           COLORS.doorFrame
         )
       );
@@ -164,22 +187,27 @@ export function buildWindows(): WindowBuildResult {
         rectToBox(
           proudRunRect(r, axis, mid - MULLION_THICKNESS / 2, mid + MULLION_THICKNESS / 2),
           glassHeight,
-          WINDOW_SILL + glassHeight / 2,
+          base + WINDOW_SILL + glassHeight / 2,
           COLORS.doorFrame
         )
       );
       frameGeoms.push(
-        rectToBox(proudRunRect(r, axis, win.start, win.end), MULLION_THICKNESS, WINDOW_SILL + glassHeight / 2, COLORS.doorFrame)
+        rectToBox(
+          proudRunRect(r, axis, win.start, win.end),
+          MULLION_THICKNESS,
+          base + WINDOW_SILL + glassHeight / 2,
+          COLORS.doorFrame
+        )
       );
 
       // The pane itself: a separate translucent mesh, not merged with the
       // opaque walls material.
-      glassGeoms.push(plainBox(runRect(r, axis, win.start, win.end), glassHeight, WINDOW_SILL + glassHeight / 2));
+      glassGeoms.push(plainBox(runRect(r, axis, win.start, win.end), glassHeight, base + WINDOW_SILL + glassHeight / 2));
 
       cursor = win.end;
     }
     if (cursor < runMax) {
-      wallReplacementGeoms.push(rectToBox(runRect(r, axis, cursor, runMax), WALL_HEIGHT, WALL_HEIGHT / 2, COLORS.wall));
+      wallReplacementGeoms.push(...buildWallBoxes(runRect(r, axis, cursor, runMax), COLORS.wall));
     }
   }
 

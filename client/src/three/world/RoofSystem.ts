@@ -1,6 +1,7 @@
 import * as THREE from "three";
 import { ZONE_RECTS, type ZoneId } from "../../geometry/floorplan";
 import { COLORS, ROOF_BASE, ROOF_THICKNESS, ROOF_FADE_SPEED } from "../../constants";
+import { zoneBaseHeight } from "./HeightField";
 
 // One flat slab per interior room - backyards/garden are open-air, so they're
 // deliberately excluded. Not added to CameraRig's obstacle list: the roof
@@ -35,7 +36,10 @@ export class RoofSystem {
       const geometry = new THREE.BoxGeometry(width, ROOF_THICKNESS, depth);
       const material = new THREE.MeshStandardMaterial({ color: COLORS.roof, transparent: true, opacity: 1 });
       const mesh = new THREE.Mesh(geometry, material);
-      mesh.position.set(cx, ROOF_BASE + ROOF_THICKNESS / 2, cz);
+      // Each room's roof sits one story above its own zone base: bedroom roof
+      // at +FLOOR_RISE+WALL_HEIGHT, living at WALL_HEIGHT, basement at grade
+      // (0 + WALL_HEIGHT) - reading as a cellar hatch cap over the sunken pit.
+      mesh.position.set(cx, zoneBaseHeight(zoneId) + ROOF_BASE + ROOF_THICKNESS / 2, cz);
       mesh.castShadow = true;
       scene.add(mesh);
 

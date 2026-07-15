@@ -2,6 +2,7 @@ import * as THREE from "three";
 import { WORLD_SCALE, PROP_SCALE } from "../../constants";
 import type { PropName, PropPlacement } from "./propManifest";
 import { loadPropTemplate, isReceiveOnly } from "./PropLibrary";
+import { heightAt } from "./HeightField";
 
 // Renders every placement of one repeated PropName as InstancedMesh(es) -
 // one per mesh primitive in the source GLB (a tree's trunk + 2 canopy
@@ -46,7 +47,9 @@ export async function buildInstancedProps(
     instanced.receiveShadow = true;
 
     placements.forEach((p, i) => {
-      dummy.position.set(p.x * WORLD_SCALE, 0, p.y * WORLD_SCALE);
+      const sx = p.x * WORLD_SCALE;
+      const sz = p.y * WORLD_SCALE;
+      dummy.position.set(sx, heightAt(sx, sz), sz);
       dummy.rotation.set(0, (p.rot * Math.PI) / 180, 0);
       dummy.scale.setScalar(PROP_SCALE);
       dummy.updateMatrix();

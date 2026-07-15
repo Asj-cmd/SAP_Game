@@ -3,13 +3,44 @@ import { GLTFLoader } from "three/addons/loaders/GLTFLoader.js";
 import { COLORS, CHARACTER_SCALE, BUNDLE_SCALE } from "../constants";
 import type { Team } from "../geometry/floorplan";
 
-const MODEL_URL = "/models/character.glb";
 const BUNDLE_URL = "/models/cashbundle.glb";
-// Pre-scale (Blender-unit) placement of the carried cash bundle, held above
-// the head (head-top ~1.85) so it's clearly visible from the behind-the-back
-// camera - a bundle held at chest height would be hidden by the body.
-// CHARACTER_SCALE is applied to `root`, which the bundle is a child of.
-const CARRY_BUNDLE_Y = 2.1;
+
+// The four family members (assets/blender/build_family.py). Every client
+// derives the same member for the same player (see pickFamilyVariant), so the
+// cast is consistent across all screens without any server involvement.
+export type FamilyVariant = "father" | "mother" | "son" | "daughter";
+const FAMILY_ORDER: FamilyVariant[] = ["father", "mother", "son", "daughter"];
+const VARIANT_URL = (v: FamilyVariant) => `/models/characters/${v}.glb`;
+
+// Head-top height per member in Blender units (from build_family.py's report,
+// hair included) - the carried bundle floats a fixed margin above whoever is
+// carrying, so the son doesn't wear it at his eye line or the father clip it.
+const VARIANT_TOP: Record<FamilyVariant, number> = {
+  father: 1.97,
+  mother: 1.8,
+  son: 1.48,
+  daughter: 1.29,
+};
+const CARRY_BUNDLE_MARGIN = 0.28;
+
+// Deterministic per-player family member: players of a team get
+// father/mother/son/daughter in the order they appear in the state's players
+// map (Colyseus preserves insertion order in sync, so every client iterates
+// identically). No randomness, no server field needed.
+export function pickFamilyVariant(players: { forEach(cb: (p: any, id: string) => void): void }, playerId: string): FamilyVariant {
+  let indexInTeam = 0;
+  let team = "";
+  players.forEach((p: any, id: string) => {
+    if (id === playerId) team = p.team;
+  });
+  let counted = 0;
+  players.forEach((p: any, id: string) => {
+    if (p.team !== team) return;
+    if (id === playerId) indexInTeam = counted;
+    counted++;
+  });
+  return FAMILY_ORDER[indexInTeam % FAMILY_ORDER.length];
+}
 // World-size fraction of a ground bundle: big enough to read at a glance,
 // small enough not to look like a hat from across the map.
 const CARRY_BUNDLE_WORLD_SCALE = (BUNDLE_SCALE / CHARACTER_SCALE) * 0.75;
@@ -44,7 +75,8 @@ export class CharacterModel {
     idleAction: THREE.AnimationAction,
     walkAction: THREE.AnimationAction,
     bodyMaterial: THREE.MeshStandardMaterial | null,
-    carriedBundle: THREE.Object3D
+    carriedBundle: THREE.Object3D,
+    variant: FamilyVariant
   ) {
     this.root.add(scene);
     this.root.scale.setScalar(CHARACTER_SCALE);
@@ -62,22 +94,27 @@ export class CharacterModel {
 
     this.carryIndicator = carriedBundle;
     this.carryIndicator.scale.setScalar(CARRY_BUNDLE_WORLD_SCALE);
-    this.carryIndicator.position.set(0, CARRY_BUNDLE_Y, 0);
+    this.carryIndicator.position.set(0, VARIANT_TOP[variant] + CARRY_BUNDLE_MARGIN, 0);
     this.carryIndicator.visible = false;
     this.root.add(this.carryIndicator);
   }
 
-  static async load(team: Team): Promise<CharacterModel> {
+  static async load(team: Team, variant: FamilyVariant): Promise<CharacterModel> {
     const loader = new GLTFLoader();
-    const [gltf, bundleTemplate] = await Promise.all([loader.loadAsync(MODEL_URL), loadBundleTemplate()]);
+    const [gltf, bundleTemplate] = await Promise.all([loader.loadAsync(VARIANT_URL(variant)), loadBundleTemplate()]);
 
+    // Team identity lives in the shirt: build_family.py names each member's
+    // shirt material exactly "Team" (neutral gray in the GLB) for the runtime
+    // tint below. Skin/hair/pants keep their authored colors.
     let bodyMaterial: THREE.MeshStandardMaterial | null = null;
     gltf.scene.traverse((obj) => {
       const mesh = obj as THREE.Mesh;
       if (mesh.isMesh) {
         mesh.castShadow = true;
-        const mat = mesh.material as THREE.MeshStandardMaterial;
-        if (mat?.name === "Body") bodyMaterial = mat;
+        const mats = Array.isArray(mesh.material) ? mesh.material : [mesh.material];
+        for (const mat of mats as THREE.MeshStandardMaterial[]) {
+          if (mat?.name === "Team") bodyMaterial = mat;
+        }
       }
     });
 
@@ -85,7 +122,7 @@ export class CharacterModel {
     const idleClip = THREE.AnimationClip.findByName(gltf.animations, "Idle");
     const walkClip = THREE.AnimationClip.findByName(gltf.animations, "Walk");
     if (!idleClip || !walkClip) {
-      throw new Error("character.glb is missing the Idle or Walk animation clip");
+      throw new Error(`${variant}.glb is missing the Idle or Walk animation clip`);
     }
 
     const model = new CharacterModel(
@@ -94,7 +131,8 @@ export class CharacterModel {
       mixer.clipAction(idleClip),
       mixer.clipAction(walkClip),
       bodyMaterial,
-      bundleTemplate.clone(true)
+      bundleTemplate.clone(true),
+      variant
     );
     model.setTeamColor(team);
     return model;

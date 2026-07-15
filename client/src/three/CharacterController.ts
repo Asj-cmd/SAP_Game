@@ -1,6 +1,7 @@
 import { CharacterModel } from "./CharacterModel";
 import type { Rect } from "../geometry/floorplan";
 import { PLAYER_SPEED, CARRY_SPEED, WORLD_WIDTH, WORLD_HEIGHT } from "../constants";
+import { heightAt } from "./world/HeightField";
 
 // World units; tuned relative to the narrowest door gaps (90+ units at the
 // current WORLD_SCALE) so the character can pass through doors without
@@ -27,7 +28,7 @@ export class CharacterController {
   ) {
     this.x = startX;
     this.z = startZ;
-    this.model.root.position.set(this.x, 0, this.z);
+    this.model.root.position.set(this.x, heightAt(this.x, this.z), this.z);
   }
 
   // (moveX, moveZ): desired world-space direction, any length (normalized
@@ -56,7 +57,9 @@ export class CharacterController {
     this.x = Math.max(0, Math.min(WORLD_WIDTH, this.x));
     this.z = Math.max(0, Math.min(WORLD_HEIGHT, this.z));
 
-    this.model.root.position.set(this.x, 0, this.z);
+    // Ground height is a pure function of (x, z) - the 2D movement/collision
+    // math above is untouched; this only decides where the model sits.
+    this.model.root.position.set(this.x, heightAt(this.x, this.z), this.z);
     this.model.update(dt, speedFraction);
   }
 
@@ -67,7 +70,7 @@ export class CharacterController {
     this.z = z;
     this.vx = 0;
     this.vz = 0;
-    this.model.root.position.set(this.x, 0, this.z);
+    this.model.root.position.set(this.x, heightAt(this.x, this.z), this.z);
   }
 
   private resolveCollisions() {

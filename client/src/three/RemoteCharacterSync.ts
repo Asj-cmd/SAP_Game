@@ -1,8 +1,9 @@
 import * as THREE from "three";
 import type { Room } from "colyseus.js";
-import { CharacterModel } from "./CharacterModel";
+import { CharacterModel, pickFamilyVariant } from "./CharacterModel";
 import { REMOTE_LERP, ROTATION_LERP } from "../constants";
 import type { Team } from "../geometry/floorplan";
+import { heightAt } from "./world/HeightField";
 
 function lerpAngle(a: number, b: number, t: number): number {
   let diff = b - a;
@@ -40,7 +41,7 @@ export class RemoteCharacterSync {
         // glTF resolves doesn't kick off a duplicate load.
         entry = { model: null, lastJailed: p.isJailed, facingAngle: 0 };
         this.remotes.set(id, entry);
-        CharacterModel.load(p.team as Team).then((model) => {
+        CharacterModel.load(p.team as Team, pickFamilyVariant(room.state.players, id)).then((model) => {
           const stillWanted = this.remotes.get(id);
           if (!stillWanted) {
             return; // player left while the model was loading
@@ -53,12 +54,17 @@ export class RemoteCharacterSync {
       if (!entry.model) return; // still loading
 
       const model = entry.model;
-      const target = new THREE.Vector3(p.x, 0, p.y);
       const wasJailed = entry.lastJailed;
       if (p.isJailed && !wasJailed) {
-        model.root.position.copy(target);
+        model.root.position.set(p.x, heightAt(p.x, p.y), p.y);
       } else {
-        model.root.position.lerp(target, REMOTE_LERP);
+        // Lerp the ground-plane position exactly as before, then read the
+        // height back off the lerped (x, z) - so the model's elevation is
+        // always a pure function of its rendered ground position, never
+        // lerped toward a stale target height on its own.
+        model.root.position.x = THREE.MathUtils.lerp(model.root.position.x, p.x, REMOTE_LERP);
+        model.root.position.z = THREE.MathUtils.lerp(model.root.position.z, p.y, REMOTE_LERP);
+        model.root.position.y = heightAt(model.root.position.x, model.root.position.z);
       }
       entry.lastJailed = p.isJailed;
 

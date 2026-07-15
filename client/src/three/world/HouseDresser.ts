@@ -4,6 +4,7 @@ import type { Rect } from "../../geometry/floorplan";
 import { HOUSE_B_PROPS, GARDEN_PROPS, type PropName, type PropPlacement, type Rot } from "./propManifest";
 import { createPropInstance, FOOTPRINTS } from "./PropLibrary";
 import { buildInstancedProps } from "./InstancedPropBuilder";
+import { heightAt } from "./HeightField";
 
 // Prop names placed at least this many times (across both mirrored houses +
 // garden) render as InstancedMesh instead of one Object3D clone per
@@ -47,7 +48,9 @@ async function placeIndividually(scene: THREE.Scene, placements: PropPlacement[]
   await Promise.all(
     placements.map(async (p) => {
       const instance = await createPropInstance(p.prop);
-      instance.position.set(p.x * WORLD_SCALE, 0, p.y * WORLD_SCALE);
+      const sx = p.x * WORLD_SCALE;
+      const sz = p.y * WORLD_SCALE;
+      instance.position.set(sx, heightAt(sx, sz), sz);
       instance.rotation.y = (p.rot * Math.PI) / 180;
       scene.add(instance);
     })

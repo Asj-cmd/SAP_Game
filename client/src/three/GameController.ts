@@ -2,7 +2,7 @@ import type { Room } from "colyseus.js";
 import { colyseusClient } from "../network/ColyseusClient";
 import { SceneManager } from "./SceneManager";
 import { buildEnvironment } from "./EnvironmentBuilder";
-import { CharacterModel } from "./CharacterModel";
+import { CharacterModel, pickFamilyVariant } from "./CharacterModel";
 import { CharacterController } from "./CharacterController";
 import { CameraRig } from "./CameraRig";
 import { RemoteCharacterSync } from "./RemoteCharacterSync";
@@ -100,7 +100,7 @@ export class GameController {
     const env = buildEnvironment(gc.localTeam);
     gc.sceneManager.scene.add(env.wallsMesh, env.floorMesh, env.windowGlassMesh);
 
-    const model = await CharacterModel.load(gc.localTeam);
+    const model = await CharacterModel.load(gc.localTeam, pickFamilyVariant(room.state.players, gc.localId));
     gc.sceneManager.scene.add(model.root);
 
     const dresser = await dressHouses(gc.sceneManager.scene);

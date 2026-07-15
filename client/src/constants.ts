@@ -30,6 +30,14 @@ export const DOOR_MAT_HEIGHT = 1; // flat mat, sits just above the floor slab
 export const DOOR_HEIGHT = 105; // top of a door opening; lintel fills up to WALL_HEIGHT
 export const DOOR_JAMB = 12; // how far the frame trim extends past each side of an opening
 
+// Split-level verticality (client/src/three/world/HeightField.ts): one full
+// story of rise/sink for the bedroom wing (up) and basement (down). Equal to
+// WALL_HEIGHT by design - a "story" is exactly one wall's height, so a
+// character walking up the stairs into the raised bedroom clears the living
+// room's ceiling line exactly as they arrive. Purely a client-side rendering
+// height; the server/network model stays 2D (ground x/y only).
+export const FLOOR_RISE = 140;
+
 // The Blender character rig (assets/blender/build_character.py) is ~1.85
 // "Blender units" tall; scaled up so its ~0.84-unit arm span roughly matches
 // CharacterController's 40-unit (2x radius) collision circle.
@@ -79,4 +87,6 @@ export const COLORS = {
   void: 0x0d1926,
   roof: 0x9c5340,
   glass: 0xa8d8f0,
+  stairs: 0x8a7256, // weathered wood/stone tread tone, distinct from every floor tint
+  foundation: 0x6b6259, // darker than wall - the solid fill under a raised bedroom wing
 };
