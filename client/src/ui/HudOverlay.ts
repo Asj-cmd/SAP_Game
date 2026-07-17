@@ -6,7 +6,9 @@ function toHex(color: number): string {
   return "#" + color.toString(16).padStart(6, "0");
 }
 
-const MINIMAP_W = 240;
+// Small enough to sit unobtrusively in the bottom-right corner; the aspect
+// ratio tracks the world's automatically via MINIMAP_H below.
+const MINIMAP_W = 176;
 const MINIMAP_H = (MINIMAP_W / WORLD_WIDTH) * WORLD_HEIGHT;
 const MM_SCALE = MINIMAP_W / WORLD_WIDTH;
 
@@ -61,19 +63,27 @@ export class HudOverlay {
   }
 
   private static template(): string {
-    const strokeStyle = "-webkit-text-stroke:3px #000; text-shadow:0 1px 3px rgba(0,0,0,.6);";
-    const strokeThin = "-webkit-text-stroke:1.5px #000; text-shadow:0 1px 2px rgba(0,0,0,.6);";
+    // paint-order:stroke fill is the load-bearing part: without it the stroke
+    // paints ON TOP of the glyph fill (centered on the outline), which at
+    // 13-15px swallows the letterform entirely - text rendered as black
+    // smudges. Behind-fill strokes can afford to be a touch wider, which is
+    // what keeps white/team-colored fills readable over both the sunlit
+    // garden and the dark basement.
+    const strokeStyle = "paint-order:stroke fill; -webkit-text-stroke:4px #000; text-shadow:0 1px 3px rgba(0,0,0,.6);";
+    const strokeThin = "paint-order:stroke fill; -webkit-text-stroke:3px #000; text-shadow:0 1px 2px rgba(0,0,0,.6);";
     return `
       <style>
         #hud-root * { font-family: system-ui, sans-serif; color: #fff; }
         #hud-topleft { position:fixed; top:14px; left:20px; display:flex; flex-direction:column; gap:4px; }
         #hud-timer { font-size:34px; font-weight:800; ${strokeStyle} }
-        #hud-round { font-size:15px; ${strokeThin} }
-        #hud-objective { position:fixed; top:12px; right:14px; font-size:15px; font-weight:800; text-align:right; ${strokeStyle} }
-        #hud-controls { position:fixed; bottom:10px; left:50%; transform:translateX(-50%); font-size:13px; text-align:center; ${strokeThin} }
+        #hud-round { font-size:15px; font-weight:700; ${strokeThin} }
+        #hud-objective { position:fixed; top:12px; right:14px; font-size:15px; font-weight:800; text-align:right; ${strokeThin} }
+        #hud-controls { position:fixed; bottom:10px; left:50%; transform:translateX(-50%); font-size:13px; font-weight:600; text-align:center; ${strokeThin} }
         #hud-mouse-hint { position:fixed; top:50%; left:50%; transform:translate(-50%, 150px); font-size:16px; font-weight:700; color:#9fd4ff; text-align:center; background:rgba(0,0,0,.55); padding:8px 14px; border-radius:8px; display:none; }
         #hud-prompt { position:fixed; bottom:38px; left:50%; transform:translateX(-50%); font-size:16px; font-weight:700; color:#ffff66; text-align:center; ${strokeThin} display:none; }
-        #hud-minimap-wrap { position:fixed; top:8px; left:50%; transform:translateX(-50%); background:rgba(0,0,0,.35); padding:3px; border-radius:4px; }
+        /* Bottom-right corner, small and translucent - the old top-center
+           240px opaque block sat exactly where the action is. */
+        #hud-minimap-wrap { position:fixed; right:10px; bottom:10px; background:rgba(0,0,0,.3); padding:3px; border-radius:4px; opacity:.82; }
         #hud-minimap { display:block; border:1.5px solid #222; }
         #hud-jail { position:fixed; top:50%; left:50%; transform:translate(-50%, 90px); font-size:20px; font-weight:700; color:#ffdd55; text-align:center; background:rgba(0,0,0,.65); padding:8px 12px; border-radius:8px; white-space:pre-line; display:none; }
         #hud-overlay-bg { position:fixed; inset:0; background:rgba(0,0,0,.55); display:none; }
