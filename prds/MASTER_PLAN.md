@@ -35,10 +35,14 @@ else Claude Code can carry.
   rendered as a 3rd-person chase cam). No height axis, no gravity, no jump.
   "Bedroom / living / basement" are labeled floor regions side-by-side, not
   vertical floors. True verticality is a deliberate future decision (Phase 5).
-- **Asset pipeline:** **headless Blender bpy scripts**
-  (`assets/blender/build_*.py`, run via `blender --background --python`). Claude
-  authors these to generate stylized `.glb` props/characters — no manual
-  modeling, no live Blender instance required.
+- **Asset pipeline:** two complementary paths — (a) **headless Blender bpy
+  scripts** (`assets/blender/build_*.py`, run via `blender --background
+  --python`) for deterministic, committed props; and (b) **Blender MCP** (from
+  Phase 4) for interactive character/world authoring with viewport-screenshot
+  feedback + PolyHaven/Hyper3D assets. Blender MCP output is exported to
+  committed `.glb` (and optionally back-filled into a bpy script) so the runtime
+  stays asset-based and needs no Blender to play. See
+  `PROJECT_STATUS_AND_HANDOFF.md` §5.
 - **Path to Steam:** web build wrapped in **Electron + steamworks.js** (Tauri as
   a lighter alt). Validate for free on the web (itch.io) *before* the $100 Steam
   fee.
@@ -73,8 +77,8 @@ else Claude Code can carry.
 |---|---|---|---|
 | 1 | 2D Concept MVP | ✅ done | Phaser + Colyseus, full game logic |
 | 2 | 3D Cutover (Milestones A–D) | ✅ done | Flat-plane 3D multiplayer: world, assets, controller, mouse-look chase cam, multiplayer wiring, host lobby + AI bots |
-| **3** | **Real Houses & World Believability** | **▶ next (PRD written)** | Flat plane *dressed as real houses*: roofs w/ per-room reveal, windows, furniture, materials, lighting. No server/physics change. |
-| 4 | Characters & Chaos | planned | Original funny/offbeat character redesign (bpy) + **Rapier physics**: knockback, ragdoll, dropped-cash, shove/tackle. Biggest "is it fun" lever. |
+| 3 | Real Houses & World Believability | ✅ done | Roofs w/ per-room reveal, see-through windows, 17 furnished props, instancing, ACES tone mapping + soft shadows. No server/physics change. |
+| **4** | **Characters & Chaos** | **▶ next** | Original funny/offbeat cast authored via **Blender MCP** + **Rapier physics**: knockback, ragdoll, dropped-cash, shove/tackle. Biggest "is it fun" lever. |
 | 5 | Verticality & Houses v2 | planned (ambitious; optional for first Steam pass) | True multi-floor, **functional stairs**, jump-through windows; server gains a height/floor axis. Depends on Phase 4 physics. |
 | 6 | Game Feel & UI Polish | planned | Meccha-style HUD/menus, audio, VFX/juice, settings. |
 | 7 | Online Hardening | planned | Deploy Colyseus, matchmaking, reconnection, regions, anti-cheat basics. |
@@ -83,7 +87,7 @@ else Claude Code can carry.
 | 10 | Post-launch | planned | Patches, new maps/characters, server scaling, community. |
 
 **Validation gates:**
-- **Gate 1 (free web build):** after Phase 3–4. Deploy client to itch.io + server
+- **Gate 1 (free web build):** after Phase 4. Deploy client to itch.io + server
   to a free tier. Watch real people play. Go/no-go before spending more.
 - **Gate 2 (Steam playtest/demo):** after Phase 8. Validate retention/virality
   before a paid launch.
