@@ -135,6 +135,7 @@ export class GameRoom extends Room<GameState> {
     this.onMessage("startGame", (client) => this.handleStartGame(client));
     this.onMessage("assignTeam", (client, msg) => this.handleAssignTeam(client, msg));
     this.onMessage("setBotCount", (client, msg) => this.handleSetBotCount(client, msg));
+    this.onMessage("rematch", (client) => this.handleRematch(client));
 
     this.clock.setInterval(() => this.tick(), 1000);
     this.clock.setInterval(() => this.botTick(), BOT_TICK_MS);
@@ -215,6 +216,27 @@ export class GameRoom extends Room<GameState> {
     if (client.sessionId !== this.state.hostId) return;
     if (this.state.phase !== "waiting") return;
     if (this.countTeam("B") !== this.teamSize || this.countTeam("A") !== this.teamSize) return;
+    this.startCountdown();
+  }
+
+  // Only the host, and only from the result screen, can restart a match. Rosters
+  // are allowed to be under `teamSize` here even though handleStartGame requires a
+  // full roster - that fill check is a gate for STARTING the very first match, not
+  // a property the game needs at every subsequent one. A player can leave while the
+  // result screen is up (onLeave already reassigns hostId and frees their carried
+  // bundle), and stranding the remaining party without a rematch button just
+  // because one seat emptied would be worse than letting them play shorthanded.
+  // startCountdown()'s resetRoundState() rebuilds bundles/scores and respawns
+  // everyone still in `this.slots` (humans and bots alike) regardless of count.
+  private handleRematch(client: Client) {
+    if (client.sessionId !== this.state.hostId) return;
+    if (this.state.phase !== "matchEnd") return;
+
+    this.state.winsA = 0;
+    this.state.winsB = 0;
+    this.state.roundNumber = 1;
+    this.state.matchWinner = "";
+    this.state.roundWinner = "";
     this.startCountdown();
   }
 

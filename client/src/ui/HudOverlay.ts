@@ -27,11 +27,14 @@ export class HudOverlay {
   private overlayBg!: HTMLDivElement;
   private overlayTitle!: HTMLDivElement;
   private overlaySub!: HTMLDivElement;
+  private rematchBtn!: HTMLButtonElement;
   private minimapCanvas!: HTMLCanvasElement;
   private localTeam: Team;
+  private onRematch: () => void;
 
-  constructor(container: HTMLElement, localTeam: Team) {
+  constructor(container: HTMLElement, localTeam: Team, onRematch: () => void) {
     this.localTeam = localTeam;
+    this.onRematch = onRematch;
     this.root = document.createElement("div");
     this.root.innerHTML = HudOverlay.template();
     container.appendChild(this.root);
@@ -44,12 +47,15 @@ export class HudOverlay {
     this.overlayBg = this.q("hud-overlay-bg");
     this.overlayTitle = this.q("hud-overlay-title");
     this.overlaySub = this.q("hud-overlay-sub");
+    this.rematchBtn = this.q<HTMLButtonElement>("hud-rematch");
     this.minimapCanvas = this.q("hud-minimap") as unknown as HTMLCanvasElement;
     this.minimapCanvas.width = MINIMAP_W;
     this.minimapCanvas.height = MINIMAP_H;
 
     const color = toHex(localTeam === "B" ? COLORS.teamB : COLORS.teamA);
     this.objectiveEl.style.color = color;
+
+    this.rematchBtn.addEventListener("click", () => this.onRematch());
   }
 
   private q<T extends HTMLElement = HTMLDivElement>(id: string): T {
@@ -92,6 +98,10 @@ export class HudOverlay {
         #hud-overlay-bg { position:fixed; inset:0; background:rgba(0,0,0,.55); display:none; }
         #hud-overlay-title { position:fixed; top:50%; left:50%; transform:translate(-50%, -56px); font-size:30px; font-weight:800; text-align:center; ${strokeStyle} display:none; }
         #hud-overlay-sub { position:fixed; top:50%; left:50%; transform:translate(-50%, -4px); font-size:18px; text-align:center; ${strokeThin} display:none; }
+        /* #hud-root is pointer-events:none (see index.html) so the rest of the
+           overlay doesn't block clicks into the 3D view - this button needs
+           pointer-events:auto to opt back in and actually be clickable. */
+        #hud-rematch { position:fixed; top:50%; left:50%; transform:translate(-50%, 40px); font-size:16px; font-weight:700; padding:12px 28px; border:0; border-radius:8px; background:#2e7d32; color:#fff; cursor:pointer; pointer-events:auto; display:none; }
       </style>
       <div id="hud-topleft">
         <div id="hud-timer">05:00</div>
@@ -106,6 +116,7 @@ export class HudOverlay {
       <div id="hud-overlay-bg"></div>
       <div id="hud-overlay-title"></div>
       <div id="hud-overlay-sub"></div>
+      <button id="hud-rematch">Rematch</button>
     `;
   }
 
@@ -191,17 +202,28 @@ export class HudOverlay {
       this.overlayBg.style.display = "none";
       this.overlayTitle.style.display = "none";
       this.overlaySub.style.display = "none";
+      this.rematchBtn.style.display = "none";
     };
 
     if (state.phase === "countdown") {
       showOverlay(`ROUND ${state.roundNumber}`, `Get ready...  ${Math.max(0, Math.floor(state.countdown))}`);
+      this.rematchBtn.style.display = "none";
     } else if (state.phase === "roundEnd") {
       const title = state.roundWinner
         ? `ROUND ${state.roundNumber}: TEAM ${state.roundWinner} WINS!`
         : `ROUND ${state.roundNumber}: TIE - REPLAY`;
       showOverlay(title, `Next round in ${Math.max(0, Math.floor(state.countdown))}...`);
+      this.rematchBtn.style.display = "none";
     } else if (state.phase === "matchEnd") {
-      showOverlay(`TEAM ${state.matchWinner} WINS THE MATCH!`, "Refresh the page to play again");
+      // The host might quit right on the result screen - state.hostId is checked
+      // fresh every frame (not cached at match-end time) so the button follows
+      // whoever the server just reassigned host to, live.
+      const isHost = state.hostId === room.sessionId;
+      showOverlay(
+        `TEAM ${state.matchWinner} WINS THE MATCH!`,
+        isHost ? "Best of 3 complete" : "Waiting for the host to start a rematch..."
+      );
+      this.rematchBtn.style.display = isHost ? "block" : "none";
     } else {
       hideOverlay();
     }

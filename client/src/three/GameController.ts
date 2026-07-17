@@ -55,6 +55,10 @@ export class GameController {
   private moveAccumulatorMs = 0;
   private depositSent = false;
   private currentAction: Action = null;
+  // Tracked so we can detect the ONE frame the phase transitions into
+  // "matchEnd" and free the cursor then, rather than fighting pointer lock
+  // every frame while the result screen is up.
+  private prevPhase = "";
 
   private canvasContainer: HTMLElement;
   // Cheap invert-Y read once at construction; no settings UI yet, so this is
@@ -89,7 +93,7 @@ export class GameController {
     this.canvasContainer = canvasContainer;
     this.sceneManager = new SceneManager(canvasContainer);
     this.remoteSync = new RemoteCharacterSync(this.sceneManager.scene);
-    this.hud = new HudOverlay(hudContainer, this.localTeam);
+    this.hud = new HudOverlay(hudContainer, this.localTeam, () => colyseusClient.send("rematch"));
     this.hud.setMouseHint(true);
 
     window.addEventListener("keydown", this.keydownHandler);
@@ -143,6 +147,15 @@ export class GameController {
     const room = this.room;
     const selfState = room.state.players.get(this.localId);
     if (!selfState) return;
+
+    // Free the mouse the instant the result screen appears - the player needs
+    // a visible cursor to click the rematch button, and pointer lock has no
+    // reason to hold on through a screen with no camera-look gameplay left.
+    const phase = room.state.phase;
+    if (phase === "matchEnd" && this.prevPhase !== "matchEnd" && document.pointerLockElement === this.canvasContainer) {
+      document.exitPointerLock();
+    }
+    this.prevPhase = phase;
 
     this.updateLocalMovement(dt, selfState);
     this.remoteSync.sync(dt, room, this.localId);
