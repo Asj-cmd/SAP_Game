@@ -224,13 +224,22 @@ export class GameRoom extends Room<GameState> {
   // full roster - that fill check is a gate for STARTING the very first match, not
   // a property the game needs at every subsequent one. A player can leave while the
   // result screen is up (onLeave already reassigns hostId and frees their carried
-  // bundle), and stranding the remaining party without a rematch button just
-  // because one seat emptied would be worse than letting them play shorthanded.
+  // bundle); any seat that emptied gets backfilled with a bot below, so a
+  // rage-quit never turns "one more round" into an unfair shorthanded round.
   // startCountdown()'s resetRoundState() rebuilds bundles/scores and respawns
-  // everyone still in `this.slots` (humans and bots alike) regardless of count.
+  // everyone still in `this.slots` (humans and bots alike).
   private handleRematch(client: Client) {
     if (client.sessionId !== this.state.hostId) return;
     if (this.state.phase !== "matchEnd") return;
+
+    // Backfill seats vacated since the match started - same addBot path the
+    // lobby's bot stepper uses, so the new bots get real slots/spawns.
+    for (const team of ["B", "A"] as Team[]) {
+      while (this.countTeam(team) < this.teamSize) this.addBot(team);
+    }
+    // Same human-connection-ceiling bookkeeping as handleSetBotCount: a human
+    // must not be able to join into a seat a bot now occupies.
+    this.maxClients = this.teamSize * 2 - this.botIds.size;
 
     this.state.winsA = 0;
     this.state.winsB = 0;
