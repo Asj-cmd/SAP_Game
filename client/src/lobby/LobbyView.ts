@@ -25,10 +25,15 @@ export class LobbyView {
       "width:100%;height:100%;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:14px;font-family:system-ui,sans-serif;";
     this.container.appendChild(this.root);
 
+    // paint-order:stroke fill keeps the outline BEHIND the glyphs (a centered
+    // stroke on top eats small text entirely - same fix as the HUD); the
+    // layered soft shadow replaces the hard offset that read as a default.
     const title = document.createElement("div");
     title.innerHTML = `
-      <div style="font-size:44px;font-weight:800;color:#fff;-webkit-text-stroke:4px #000;text-align:center;">CASH GRAB</div>
-      <div style="font-size:14px;color:#ddd;-webkit-text-stroke:1.5px #000;text-align:center;margin-top:6px;">
+      <div style="font-size:44px;font-weight:800;color:#fff;paint-order:stroke fill;-webkit-text-stroke:5px #000;
+                  text-shadow:0 2px 6px rgba(0,0,0,.5), 0 8px 24px rgba(0,0,0,.35);text-align:center;letter-spacing:2px;">CASH GRAB</div>
+      <div style="font-size:14px;font-weight:600;color:#f2f6fa;paint-order:stroke fill;-webkit-text-stroke:2.5px #000;
+                  text-shadow:0 1px 3px rgba(0,0,0,.5);text-align:center;margin-top:6px;">
         2v2, 3v3, or 4v4 — steal the other family's cash, jail the intruders
       </div>`;
     this.root.appendChild(title);
@@ -39,8 +44,11 @@ export class LobbyView {
   private showForm() {
     this.panel?.remove();
     const panel = document.createElement("div");
+    // Clamped width: without a max-width the long how-to-play copy stretched
+    // the card toward full-bleed on wide screens.
     panel.style.cssText =
-      "font-family:system-ui,sans-serif;background:#ffffffee;padding:22px 24px;border-radius:14px;min-width:300px;box-shadow:0 6px 24px #0006;";
+      "font-family:system-ui,sans-serif;background:#ffffffee;padding:22px 24px;border-radius:14px;" +
+      "width:min(92vw, 420px);box-sizing:border-box;box-shadow:0 6px 24px #0006;";
     panel.innerHTML = `
         <div style="display:flex;flex-direction:column;gap:10px;align-items:stretch;">
           <input id="nameInput" placeholder="Your name" maxlength="16"
@@ -169,7 +177,8 @@ export class LobbyView {
 
     const panel = document.createElement("div");
     panel.style.cssText =
-      "font-family:system-ui,sans-serif;background:#ffffffee;padding:22px 26px;border-radius:14px;min-width:340px;box-shadow:0 6px 24px #0006;";
+      "font-family:system-ui,sans-serif;background:#ffffffee;padding:22px 26px;border-radius:14px;" +
+      "width:min(92vw, 440px);box-sizing:border-box;box-shadow:0 6px 24px #0006;";
     panel.innerHTML = `
         ${codeBlock}
         <div id="waitCount" style="text-align:center;font-size:16px;font-weight:600;color:#111;">Waiting for players...</div>
