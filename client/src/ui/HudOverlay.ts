@@ -79,7 +79,10 @@ export class HudOverlay {
         #hud-round { font-size:15px; font-weight:700; ${strokeThin} }
         #hud-objective { position:fixed; top:12px; right:14px; font-size:15px; font-weight:800; text-align:right; ${strokeThin} }
         #hud-controls { position:fixed; bottom:10px; left:50%; transform:translateX(-50%); font-size:13px; font-weight:600; text-align:center; ${strokeThin} }
-        #hud-mouse-hint { position:fixed; top:50%; left:50%; transform:translate(-50%, 150px); font-size:16px; font-weight:700; color:#9fd4ff; text-align:center; background:rgba(0,0,0,.55); padding:8px 14px; border-radius:8px; display:none; }
+        /* Small and muted, tucked next to the controls line rather than
+           mid-screen - the old 16px mid-screen version fought for attention
+           with the action prompt every time the mouse unlocked. */
+        #hud-mouse-hint { position:fixed; bottom:32px; left:50%; transform:translateX(-50%); font-size:12px; font-weight:600; color:#8aa; text-align:center; opacity:.65; background:rgba(0,0,0,.35); padding:4px 10px; border-radius:6px; display:none; }
         #hud-prompt { position:fixed; bottom:38px; left:50%; transform:translateX(-50%); font-size:16px; font-weight:700; color:#ffff66; text-align:center; ${strokeThin} display:none; }
         /* Bottom-right corner, small and translucent - the old top-center
            240px opaque block sat exactly where the action is. */

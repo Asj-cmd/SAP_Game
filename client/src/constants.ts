@@ -44,9 +44,18 @@ export const FLOOR_RISE = 140;
 export const CHARACTER_SCALE = 45;
 
 // 3rd-person chase camera (see three/CameraRig.ts).
-export const FOLLOW_DISTANCE = 260; // behind the character, world units
-export const FOLLOW_HEIGHT = 160; // above LOOK_HEIGHT
+// Spherical orbit radius around the look-at point. The pre-pitch rig sat 260
+// world units behind and 160 above the look-at point, so its TRUE distance
+// was the hypotenuse (~305.3) - using that exact value (not the old 260
+// horizontal component) keeps the untouched-mouse default view pixel-identical
+// to the pre-pitch camera, not merely angle-identical.
+export const FOLLOW_DISTANCE = Math.hypot(260, 160); // ~305.3
 export const LOOK_HEIGHT = 55; // roughly chest height on the scaled character
+// Default camera elevation (pitch, radians) above the horizontal: the same
+// atan2(vertical, horizontal) angle the old fixed offset implied. Together
+// with FOLLOW_DISTANCE above, dir(DEFAULT_PITCH) * FOLLOW_DISTANCE lands on
+// exactly the old camera position (260 behind, 160 up).
+export const DEFAULT_PITCH = Math.atan2(160, 260); // ~0.55 rad
 export const MOUSE_SENSITIVITY = 0.003; // radians of camera yaw per pixel of mouse movement
 
 // The Blender cash bundle prop (assets/blender/build_cashbundle.py) is ~0.3

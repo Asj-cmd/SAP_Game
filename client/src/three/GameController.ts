@@ -57,6 +57,9 @@ export class GameController {
   private currentAction: Action = null;
 
   private canvasContainer: HTMLElement;
+  // Cheap invert-Y read once at construction; no settings UI yet, so this is
+  // the only way to flip it today (a real options menu comes later).
+  private readonly invertY = localStorage.getItem("cashgrab.invertY") === "1";
 
   private keydownHandler = (e: KeyboardEvent) => this.onKey(e.key.toLowerCase(), true);
   private keyupHandler = (e: KeyboardEvent) => this.onKey(e.key.toLowerCase(), false);
@@ -69,6 +72,9 @@ export class GameController {
   private mouseMoveHandler = (e: MouseEvent) => {
     if (document.pointerLockElement !== this.canvasContainer) return;
     this.cameraRig?.addYaw(e.movementX * MOUSE_SENSITIVITY);
+    // Mouse up (negative movementY) pitches the camera up by default -
+    // toward CameraRig's PITCH_MIN, i.e. up the basement/bedroom staircases.
+    this.cameraRig?.addPitch(e.movementY * MOUSE_SENSITIVITY * (this.invertY ? -1 : 1));
   };
   private pointerLockChangeHandler = () => {
     this.hud.setMouseHint(document.pointerLockElement !== this.canvasContainer);
@@ -110,9 +116,11 @@ export class GameController {
       selfState?.x ?? 0,
       selfState?.y ?? 0
     );
-    // Camera obstacles stay walls-only - props/roofs never pull the chase
-    // camera in, only the walls do.
-    gc.cameraRig = new CameraRig(gc.sceneManager.camera, [env.wallsMesh]);
+    // Camera obstacles: walls + floor (slabs/foundation/lawn) so looking down
+    // in the basement can't see through the slab into the void below it -
+    // props/roofs never pull the chase camera in, and window glass is left
+    // out since it's translucent and shouldn't block the view.
+    gc.cameraRig = new CameraRig(gc.sceneManager.camera, [env.wallsMesh, env.floorMesh]);
 
     gc.cashView = await CashBundleView.create(gc.sceneManager.scene);
 

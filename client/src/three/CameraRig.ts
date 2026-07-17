@@ -1,5 +1,5 @@
 import * as THREE from "three";
-import { FOLLOW_DISTANCE, FOLLOW_HEIGHT, LOOK_HEIGHT } from "../constants";
+import { DEFAULT_PITCH, FOLLOW_DISTANCE, LOOK_HEIGHT } from "../constants";
 import { heightAt } from "./world/HeightField";
 
 // Ground height tracks toward heightAt(target) at this rate (units/sec of
@@ -8,17 +8,33 @@ import { heightAt } from "./world/HeightField";
 // behind the character on every step.
 const GROUND_FOLLOW_RATE = 8;
 
-// 3rd-person chase camera with FPS-style mouse look: the mouse owns the yaw
-// (GameController feeds pointer-lock movementX deltas into addYaw), and the
-// camera just orbits behind the character at that heading - it never rotates
-// on its own, so the view only ever moves when the player moves the mouse.
-// Movement input is rotated by getYaw() so W always walks into the screen.
-// A raycast against the environment's wall mesh pulls the camera in short of
-// any wall between it and the character, since door gaps are narrow enough
-// that an unclamped camera constantly clips through them.
+// Pitch clamp, radians. PITCH_MIN sits slightly below horizontal (not all the
+// way to it) so a player at the foot of the basement/bedroom split-level
+// staircases can look up toward the floor above without the camera crashing
+// into the stairwell ceiling. PITCH_MAX is just short of straight down.
+const PITCH_MIN = -0.15;
+const PITCH_MAX = 1.25;
+
+function clamp(v: number, lo: number, hi: number): number {
+  return Math.max(lo, Math.min(hi, v));
+}
+
+// 3rd-person chase camera with FPS-style mouse look: the mouse owns yaw AND
+// pitch (GameController feeds pointer-lock movementX/movementY into
+// addYaw/addPitch), and the camera orbits the look-at point at that
+// yaw/pitch - it never rotates on its own, so the view only ever moves when
+// the player moves the mouse. Movement input is rotated by getYaw() so W
+// always walks into the screen. A raycast against the environment's wall +
+// floor meshes pulls the camera in short of any geometry between it and the
+// character, since door gaps (and, looking down in the basement, the slab)
+// are narrow/close enough that an unclamped camera constantly clips through.
 export class CameraRig {
   readonly camera: THREE.PerspectiveCamera;
   private yaw = 0;
+  // Elevation angle above horizontal; see DEFAULT_PITCH's provenance comment
+  // in constants.ts for why this starting value reproduces the old fixed
+  // camera's look with the mouse untouched.
+  private pitch = DEFAULT_PITCH;
   private raycaster = new THREE.Raycaster();
   // Smoothed ground height under the followed target - see GROUND_FOLLOW_RATE.
   private groundY = 0;
@@ -27,7 +43,6 @@ export class CameraRig {
   // this runs once per rendered frame, so `new THREE.Vector3()`/`.clone()`
   // here would be a steady stream of small GC garbage at 60+ fps.
   private readonly lookAt = new THREE.Vector3();
-  private readonly forward = new THREE.Vector3();
   private readonly desired = new THREE.Vector3();
   private readonly toDesired = new THREE.Vector3();
   private readonly dir = new THREE.Vector3();
@@ -50,6 +65,12 @@ export class CameraRig {
     this.yaw += delta;
   }
 
+  // Mouse-look input: positive delta pitches the camera down toward
+  // top-down (see PITCH_MAX); GameController is responsible for sign/invert.
+  addPitch(delta: number) {
+    this.pitch = clamp(this.pitch + delta, PITCH_MIN, PITCH_MAX);
+  }
+
   update(dt: number, targetX: number, targetZ: number) {
     const targetGroundY = heightAt(targetX, targetZ);
     if (!this.groundInitialized) {
@@ -62,11 +83,17 @@ export class CameraRig {
     }
 
     this.lookAt.set(targetX, LOOK_HEIGHT + this.groundY, targetZ);
-    // forward direction implied by CharacterModel.setFacing's atan2(dx,-dz):
-    // theta -> forward = (sin(theta), -cos(theta)); camera sits behind it.
-    this.forward.set(Math.sin(this.yaw), 0, -Math.cos(this.yaw));
-    this.desired.copy(this.lookAt).addScaledVector(this.forward, -FOLLOW_DISTANCE);
-    this.desired.y = LOOK_HEIGHT + FOLLOW_HEIGHT + this.groundY;
+
+    // True yaw+pitch spherical orbit: desired = lookAt - dir(yaw, pitch) *
+    // FOLLOW_DISTANCE. Horizontal component matches the old forward direction
+    // (sin(yaw), -cos(yaw)) implied by CharacterModel.setFacing's
+    // atan2(dx,-dz); pitch tilts the camera up/down off that horizontal plane.
+    const cosPitch = Math.cos(this.pitch);
+    this.desired.set(
+      this.lookAt.x - Math.sin(this.yaw) * cosPitch * FOLLOW_DISTANCE,
+      this.lookAt.y + Math.sin(this.pitch) * FOLLOW_DISTANCE,
+      this.lookAt.z + Math.cos(this.yaw) * cosPitch * FOLLOW_DISTANCE
+    );
 
     this.toDesired.subVectors(this.desired, this.lookAt);
     const dist = this.toDesired.length();
@@ -76,7 +103,12 @@ export class CameraRig {
       this.raycaster.far = dist;
       const hits = this.raycaster.intersectObjects(this.obstacles, false);
       if (hits.length > 0 && hits[0].distance < dist) {
-        const pulled = Math.max(hits[0].distance - 10, 20);
+        // Pull in short of the hit, never forced past it into geometry; floor
+        // of 1 (not 0) guards camera.lookAt below, since camera == lookAt
+        // makes the look direction degenerate. Near-1 is a brief
+        // almost-first-person moment, which is acceptable and rare (it only
+        // happens when there's genuinely no room behind the character).
+        const pulled = Math.max(hits[0].distance - 10, 1);
         this.desired.copy(this.lookAt).addScaledVector(this.dir, pulled);
       }
     }
