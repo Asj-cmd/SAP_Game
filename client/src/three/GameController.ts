@@ -199,6 +199,10 @@ export class GameController {
     const moveX = Math.sin(yaw) * f + Math.cos(yaw) * s;
     const moveZ = -Math.cos(yaw) * f + Math.sin(yaw) * s;
     this.controller.update(dt, moveX, moveZ, selfState.isCarryingCash);
+    // Facing tracks the camera continuously, moving or not - true third-person
+    // mouse-look. No smoothing: pointer-lock deltas arrive a few pixels per
+    // frame, so the character turns exactly as fast as the view does.
+    this.controller.model.setFacingAngle(yaw);
     this.cameraRig.update(dt, this.controller.x, this.controller.z);
 
     this.moveAccumulatorMs += dt * 1000;

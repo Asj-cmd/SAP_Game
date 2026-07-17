@@ -142,16 +142,17 @@ export class CharacterModel {
     this.bodyMaterial?.color.setHex(team === "B" ? COLORS.teamB : COLORS.teamA);
   }
 
-  // dx/dz: normalized (or raw, only the direction matters) movement vector in
-  // world space. No-op while stationary so the model keeps its last heading.
-  setFacing(dx: number, dz: number) {
-    if (dx === 0 && dz === 0) return;
-    this.facingAngle = Math.atan2(dx, -dz);
+  // Direct heading in radians, same convention as the camera's yaw (angle 0
+  // faces -z; forward = (sin, -cos)). The LOCAL player's facing is driven
+  // from CameraRig.getYaw() every frame - true third-person mouse-look, where
+  // turning the camera turns the character even at rest - rather than derived
+  // from movement velocity, which left a stationary character showing its
+  // face to a freely-orbiting camera. (Remote characters don't take this
+  // path: RemoteCharacterSync rotates their roots from server velocity, since
+  // there is no local camera for them to track.)
+  setFacingAngle(angle: number) {
+    this.facingAngle = angle;
     this.root.rotation.y = this.facingAngle;
-  }
-
-  getFacingAngle(): number {
-    return this.facingAngle;
   }
 
   setCarrying(carrying: boolean) {

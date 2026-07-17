@@ -32,8 +32,11 @@ export class CharacterController {
   }
 
   // (moveX, moveZ): desired world-space direction, any length (normalized
-  // here). The character turns to face wherever it's moving; the camera's
-  // heading is mouse-owned (CameraRig.addYaw) and unaffected by this.
+  // here). Facing is NOT set here: the local character's heading tracks the
+  // camera yaw continuously (GameController calls model.setFacingAngle every
+  // frame), so turning the mouse turns the character even while stationary -
+  // deriving facing from velocity left a still character showing its face to
+  // a freely-orbiting camera.
   update(dt: number, moveX: number, moveZ: number, carrying: boolean) {
     const speed = carrying ? CARRY_SPEED : PLAYER_SPEED;
 
@@ -46,7 +49,6 @@ export class CharacterController {
       this.vz = ndz * speed;
       this.x += this.vx * dt;
       this.z += this.vz * dt;
-      this.model.setFacing(ndx, ndz);
       speedFraction = 1;
     } else {
       this.vx = 0;
