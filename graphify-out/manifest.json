@@ -240,8 +240,8 @@
     "semantic_hash": ""
   },
   "client/src/three/SceneManager.ts": {
-    "mtime": 1784330051.6268013,
-    "ast_hash": "38606a45be6b79b7a208d3baa88a8f47",
+    "mtime": 1784332380.4725974,
+    "ast_hash": "f8f3794a388810a6833acb853fd2e2ce",
     "semantic_hash": ""
   },
   "client/src/three/world/HeightField.ts": {

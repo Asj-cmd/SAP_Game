@@ -137,5 +137,6 @@
   "135": "graphify reference: incremental update and cluster-only",
   "136": "graphify reference: GitHub clone and cross-repo merge",
   "137": "graphify reference: transcribe video and audio",
-  "138": "extraction-spec.md"
+  "138": "extraction-spec.md",
+  "139": "SceneManager"
 }

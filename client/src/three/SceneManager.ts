@@ -43,13 +43,15 @@ export class SceneManager {
 
     // Key-to-fill ratio is the whole game here: the old 0.7 hemisphere + 0.35
     // ambient (~1.05 combined) nearly matched the 1.3 sun, so shadowed and lit
-    // faces collapsed into one flat midtone band. Fill now totals ~0.5 against
-    // a 2.0 key (~4:1) - shadow sides stay legible but read clearly darker,
-    // which is what makes walls, stairs, and props look solid.
-    this.scene.add(new THREE.HemisphereLight(0xbfd4e8, 0x4a5442, 0.35));
+    // faces collapsed into one flat midtone band. Fill totals ~0.6 against a
+    // 2.0 key (~3.3:1) - the hemisphere is a touch above the look-pass's 0.35
+    // to lean "sunny morning" rather than "moody", without flattening the
+    // contrast that pass earned; shadow sides still read clearly darker.
+    this.scene.add(new THREE.HemisphereLight(0xcfe3f5, 0x4a5442, 0.45));
     this.scene.add(new THREE.AmbientLight(0xfff2e0, 0.15));
 
-    const sun = new THREE.DirectionalLight(0xfff4e6, 2.0);
+    // Crisper near-white key (was amber 0xfff4e6, which read sunset).
+    const sun = new THREE.DirectionalLight(0xfffbf2, 2.0);
     sun.name = "sun";
     sun.position.set(WORLD_WIDTH * 0.3, 1400, WORLD_HEIGHT * 0.2);
     sun.target.position.set(WORLD_WIDTH / 2, 0, WORLD_HEIGHT / 2);
@@ -73,11 +75,42 @@ export class SceneManager {
     shadowCam.updateProjectionMatrix();
     this.scene.add(sun, sun.target);
 
-    this.scene.background = new THREE.Color(0x0d1926);
+    // Bright morning sky (the old 0x0d1926 navy void made the sunlit world
+    // look like it was floating in night). Flat color + matching fog is
+    // deliberately cheap - a gradient dome isn't worth a draw call yet.
+    const SKY_COLOR = 0x8ecdf2;
+    this.scene.background = new THREE.Color(SKY_COLOR);
     // Cheap depth cue (built-in fog, no post-processing): the far house fades
     // toward the sky color, separating "my room" from "across the map" scale.
     // Starts past the whole near house (~1500) so interiors are untouched.
-    this.scene.fog = new THREE.Fog(0x0d1926, 1500, 4300);
+    this.scene.fog = new THREE.Fog(SKY_COLOR, 1500, 4300);
+
+    // Visible sun disc: a DirectionalLight has no geometry, so without this
+    // the light direction had no anchor anywhere in frame. Placed at the
+    // light's exact AZIMUTH (so it agrees with every shadow's direction on
+    // the ground) but at a low ~24-degree morning elevation - the literal
+    // light sits at ~66 degrees, which the camera's pitch clamp can never
+    // frame, and a low sun is what "morning" looks like anyway. Unlit
+    // material, excluded from fog so it never fades out at distance.
+    const SUN_DISC_DISTANCE = 3800;
+    const SUN_DISC_RADIUS = 170;
+    const SUN_DISC_ELEVATION = 0.42; // radians
+    const toSun = sun.position.clone().sub(sun.target.position);
+    const azimuth = Math.atan2(toSun.x, toSun.z);
+    const sunDisc = new THREE.Mesh(
+      new THREE.SphereGeometry(SUN_DISC_RADIUS, 16, 12),
+      new THREE.MeshBasicMaterial({ color: 0xfff3c4, fog: false })
+    );
+    sunDisc.position
+      .copy(sun.target.position)
+      .add(
+        new THREE.Vector3(
+          Math.sin(azimuth) * Math.cos(SUN_DISC_ELEVATION) * SUN_DISC_DISTANCE,
+          Math.sin(SUN_DISC_ELEVATION) * SUN_DISC_DISTANCE,
+          Math.cos(azimuth) * Math.cos(SUN_DISC_ELEVATION) * SUN_DISC_DISTANCE
+        )
+      );
+    this.scene.add(sunDisc);
 
     window.addEventListener("resize", this.handleResize);
   }

@@ -1,16 +1,16 @@
 # Graph Report - SAP_Game  (2026-07-17)
 
 ## Corpus Check
-- 164 files · ~109,839 words
+- 164 files · ~110,322 words
 - Verdict: corpus is large enough that graph structure adds value.
 
 ## Summary
-- 1589 nodes · 2065 edges · 139 communities (103 shown, 36 thin omitted)
+- 1589 nodes · 2070 edges · 140 communities (102 shown, 38 thin omitted)
 - Extraction: 99% EXTRACTED · 1% INFERRED · 0% AMBIGUOUS · INFERRED: 29 edges (avg confidence: 0.55)
 - Token cost: 0 input · 0 output
 
 ## Graph Freshness
-- Built from commit: `74287706`
+- Built from commit: `684c1e55`
 - Run `git rev-parse HEAD` and compare to check if the graph is stale.
 - Run `graphify update .` after code changes (no API cost).
 
@@ -149,6 +149,7 @@
 - graphify reference: GitHub clone and cross-repo merge
 - graphify reference: transcribe video and audio
 - extraction-spec.md
+- SceneManager
 
 ## God Nodes (most connected - your core abstractions)
 1. `GameRoom` - 37 edges
@@ -163,8 +164,8 @@
 10. `build_character()` - 16 edges
 
 ## Surprising Connections (you probably didn't know these)
-- `WallSpanSegment` --references--> `Rect`  [EXTRACTED]
-  client/src/three/world/HeightField.ts → client/src/geometry/floorplan.ts
+- `RemoteEntry` --references--> `CharacterModel`  [EXTRACTED]
+  client/src/three/RemoteCharacterSync.ts → client/src/three/CharacterModel.ts
 - `Game` --references--> `InputController`  [EXTRACTED]
   .claude/skills/threejs-gameplay-systems/assets/threejs-vite-game/src/game/Game.ts → .claude/skills/threejs-gameplay-systems/assets/threejs-vite-game/src/core/InputController.ts
 - `Game` --references--> `Pickup`  [EXTRACTED]
@@ -177,7 +178,7 @@
 ## Import Cycles
 - None detected.
 
-## Communities (139 total, 36 thin omitted)
+## Communities (140 total, 38 thin omitted)
 
 ### Community 0 - "GameRoom"
 Cohesion: 0.07
@@ -199,10 +200,6 @@ Nodes (32): 0. Read This First, 10. What Is Explicitly NOT in Phase 1, 11. Defin
 Cohesion: 0.06
 Nodes (31): dependencies, lil-gui, three, devDependencies, @playwright/test, pngjs, @types/node, @types/pngjs (+23 more)
 
-### Community 5 - "GameController.ts"
-Cohesion: 0.11
-Nodes (9): getZoneAt(), isEnemyBedroom(), isOwnHome(), jailBasementForTeam(), Action, dist(), GameController, InputState (+1 more)
-
 ### Community 6 - "HouseDresser.ts"
 Cohesion: 0.14
 Nodes (24): dressHouses(), mirrorPlacement(), mirrorRot(), placeIndividually(), solidRect(), buildInstancedProps(), dummy, applyMaterialRoles() (+16 more)
@@ -216,8 +213,8 @@ Cohesion: 0.07
 Nodes (27): Aliases Removed, BAD - Deprecated, BAD - Old API, Color Management (r151+), Common Migration Issues, Geometry Changes (r125+), GOOD - Current, GOOD - Current API (+19 more)
 
 ### Community 9 - "CharacterModel.ts"
-Cohesion: 0.15
-Nodes (11): Team, CharacterModel, FAMILY_ORDER, FamilyVariant, loadBundleTemplate(), pickFamilyVariant(), VARIANT_TOP, VARIANT_URL() (+3 more)
+Cohesion: 0.19
+Nodes (10): Team, FAMILY_ORDER, FamilyVariant, loadBundleTemplate(), pickFamilyVariant(), VARIANT_TOP, VARIANT_URL(), lerpAngle() (+2 more)
 
 ### Community 10 - "Rule Sections"
 Cohesion: 0.08
@@ -237,7 +234,7 @@ Nodes (22): dependencies, colyseus.js, three, devDependencies, playwright-core, 
 
 ### Community 14 - "EnvironmentBuilder.ts"
 Cohesion: 0.23
-Nodes (19): DOORS, buildEnvironment(), coloredBox(), doorBase(), doorFrameBase(), doorFrameGeoms(), foundationGeoms(), intersectRect() (+11 more)
+Nodes (20): teamSideAt(), DOORS, buildEnvironment(), coloredBox(), doorBase(), doorFrameBase(), doorFrameGeoms(), foundationGeoms() (+12 more)
 
 ### Community 15 - "compilerOptions"
 Cohesion: 0.10
@@ -252,12 +249,12 @@ Cohesion: 0.19
 Nodes (18): has_audio_blocker(), has_audio_output_evidence(), has_external_blocker(), has_external_output_evidence(), main(), marker_pattern(), missing_markers(), normalize() (+10 more)
 
 ### Community 18 - "floorplan.ts"
-Cohesion: 0.16
-Nodes (11): COLORS, ROOF_BASE, Door, Rect, ZONE_RECTS, ZoneId, ZoneRect, Environment (+3 more)
+Cohesion: 0.15
+Nodes (16): COLORS, ROOF_BASE, Door, getZoneAt(), isEnemyBedroom(), isOwnHome(), jailBasementForTeam(), ZONE_RECTS (+8 more)
 
 ### Community 19 - "HeightField.ts"
-Cohesion: 0.13
-Nodes (11): CashBundleView, CharacterController, Axis, clamp01(), corridorHeight(), heightAt(), inCorridor(), probeSpan() (+3 more)
+Cohesion: 0.11
+Nodes (14): Rect, CashBundleView, CharacterController, CharacterModel, Environment, Axis, clamp01(), corridorHeight() (+6 more)
 
 ### Community 20 - "build_nature.py"
 Cohesion: 0.24
@@ -574,14 +571,14 @@ Nodes (3): For --cluster-only, For --update (incremental re-extraction), graphif
 ## Knowledge Gaps
 - **850 isolated node(s):** `probe_asset_credentials.sh script`, `name`, `version`, `private`, `type` (+845 more)
   These have ≤1 connection - possible missing edges or undocumented components.
-- **36 thin communities (<3 nodes) omitted from report** — run `graphify query` to explore isolated nodes.
+- **38 thin communities (<3 nodes) omitted from report** — run `graphify query` to explore isolated nodes.
 
 ## Suggested Questions
 _Questions this graph is uniquely positioned to answer:_
 
-- **Why does `heightAt()` connect `HeightField.ts` to `constants.ts`, `GameController.ts`, `HouseDresser.ts`, `CharacterModel.ts`, `EnvironmentBuilder.ts`, `floorplan.ts`?**
+- **Why does `heightAt()` connect `HeightField.ts` to `constants.ts`, `HouseDresser.ts`, `CharacterModel.ts`, `EnvironmentBuilder.ts`, `floorplan.ts`?**
   _High betweenness centrality (0.002) - this node is a cross-community bridge._
-- **Why does `GameController` connect `GameController.ts` to `constants.ts`, `HudOverlay`, `CharacterModel.ts`, `floorplan.ts`, `HeightField.ts`, `LobbyView`?**
+- **Why does `GameController` connect `GameController.ts` to `constants.ts`, `HudOverlay`, `CharacterModel.ts`, `SceneManager`, `floorplan.ts`, `HeightField.ts`, `LobbyView`?**
   _High betweenness centrality (0.002) - this node is a cross-community bridge._
 - **Why does `InputController` connect `InputController` to `Game.ts`, `Game`?**
   _High betweenness centrality (0.001) - this node is a cross-community bridge._
