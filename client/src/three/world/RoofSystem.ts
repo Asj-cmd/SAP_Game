@@ -34,7 +34,14 @@ export class RoofSystem {
       const cz = (zone.yMin + zone.yMax) / 2;
 
       const geometry = new THREE.BoxGeometry(width, ROOF_THICKNESS, depth);
-      const material = new THREE.MeshStandardMaterial({ color: COLORS.roof, transparent: true, opacity: 1 });
+      // Roof color is the loudest per-house identity cue: terracotta over
+      // house B, slate blue over house A (ROOFED_ZONES ids end in their
+      // house letter), readable across the whole map.
+      const material = new THREE.MeshStandardMaterial({
+        color: zoneId.endsWith("B") ? COLORS.roofB : COLORS.roofA,
+        transparent: true,
+        opacity: 1,
+      });
       const mesh = new THREE.Mesh(geometry, material);
       // Each room's roof sits one story above its own zone base: bedroom roof
       // at +FLOOR_RISE+WALL_HEIGHT, living at WALL_HEIGHT, basement at grade

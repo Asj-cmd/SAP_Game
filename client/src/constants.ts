@@ -76,26 +76,43 @@ export const ROOF_FADE_SPEED = 4; // opacity units/sec, clamped lerp toward the 
 export const WINDOW_SILL = 45;
 export const WINDOW_HEAD = 100;
 
+// Which family's half of the map a scaled world-x sits in - house B owns the
+// west half, house A the east. Used to give each house's trim (roof, door and
+// window frames, stair treads) a hint of its team's hue so a house reads as
+// belonging to its family from a distance, without touching the gameplay
+// palette semantics below.
+export function teamSideAt(x: number): "A" | "B" {
+  return x < WORLD_WIDTH / 2 ? "B" : "A";
+}
+
+// Palette conventions (do not break): bedroom stays a warm salmon/coral family
+// on BOTH sides so "this room = cash" reads instantly; teamB and everything
+// B-flavored leans orange, teamA leans blue; door/foundation/stairs stay
+// mutually distinct. Deliberately vivid (Fall Guys / Overcooked energy, not
+// pastel): ACES tone mapping compresses midtones, so pastels grey out - the
+// palette has to arrive saturated for the render to leave it readable.
 export const COLORS = {
-  bedroom: 0xf0997b, // cash rooms - same on both sides so "salmon = cash" reads instantly
-  livingB: 0xf3d5bc, // Team B's living room, tinted toward B's orange
-  livingA: 0xbfd9f2, // Team A's living room, tinted toward A's blue
-  garden: 0xeaf3de,
-  gardenAlt: 0xdcefc9,
-  backyard: 0xcde3b1, // grassier green than the garden - reads as private yard
-  basement: 0xb4b2a9,
-  door: 0xefdfa8, // door mats drawn in every passable wall gap
-  doorEdge: 0x8a774a,
-  doorFrame: 0x7a5230, // wooden lintel + jamb trim around every opening
+  bedroom: 0xef8054, // cash rooms - vivid coral, same on both sides
+  livingB: 0xe3a45c, // Team B's living room, saturated amber
+  livingA: 0x6ea6d8, // Team A's living room, saturated steel blue
+  garden: 0xa8d178,
+  gardenAlt: 0x97c464,
+  backyard: 0x8dbd5e, // grassier green than the garden - reads as private yard
+  basement: 0x8d8b83,
+  door: 0xe6c964, // door mats drawn in every passable wall gap
+  doorFrameB: 0x9a5a28, // honey-oak trim, hinting team B's orange
+  doorFrameA: 0x4d6280, // slate-blue walnut trim, hinting team A's blue
   doorPanel: 0x5c3d24, // closed-door fill for the local team's own sealed doors
-  ground: 0x37452e, // lawn plane surrounding the whole map (replaces black void)
+  ground: 0x3b5231, // lawn plane surrounding the whole map (replaces black void)
   teamB: 0xe85d24,
   teamA: 0x185fa5,
   cash: 0xffd700,
-  wall: 0x8a8075, // warm plaster instead of near-black, so interiors read as rooms
+  wall: 0x9b8a74, // warm plaster, richer than the old grey-beige
   void: 0x0d1926,
-  roof: 0x9c5340,
+  roofB: 0xc2502a, // hot terracotta - house B's crown, visible across the map
+  roofA: 0x33628f, // deep slate blue - house A's
   glass: 0xa8d8f0,
-  stairs: 0x8a7256, // weathered wood/stone tread tone, distinct from every floor tint
-  foundation: 0x6b6259, // darker than wall - the solid fill under a raised bedroom wing
+  stairsB: 0x9a7040, // warm wood treads (B house)
+  stairsA: 0x5c6c85, // cool stone-blue treads (A house)
+  foundation: 0x655c50, // darker than wall - the solid fill under a raised bedroom wing
 };

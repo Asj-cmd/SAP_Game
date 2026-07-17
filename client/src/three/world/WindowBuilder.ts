@@ -1,6 +1,6 @@
 import * as THREE from "three";
 import { WALLS, type Rect } from "../../geometry/floorplan";
-import { WALL_HEIGHT, WINDOW_SILL, WINDOW_HEAD, WORLD_SCALE, COLORS } from "../../constants";
+import { WALL_HEIGHT, WINDOW_SILL, WINDOW_HEAD, WORLD_SCALE, COLORS, teamSideAt } from "../../constants";
 import { rectToBox } from "../EnvironmentBuilder";
 import { wallSegments } from "./HeightField";
 import { buildWallBoxes } from "./WallHeightBuilder";
@@ -98,7 +98,7 @@ export interface WindowBuildResult {
   // Vertex-colored (COLORS.wall) boxes to merge alongside the plain wall
   // boxes, replacing every split wall rect.
   wallReplacementGeoms: THREE.BufferGeometry[];
-  // Vertex-colored (COLORS.doorFrame) wooden trim, merged into the same walls
+  // Vertex-colored (frameColor) wooden trim, merged into the same walls
   // mesh as the door frames.
   frameGeoms: THREE.BufferGeometry[];
   // Plain (uncolored) boxes for the separate translucent glass mesh.
@@ -127,6 +127,8 @@ export function buildWindows(): WindowBuildResult {
 
   for (const [idx, windows] of byWall) {
     const r = WALLS[idx];
+    // Window trim matches the owning house's door-frame tint (west = B).
+    const frameColor = teamSideAt((r.x1 + r.x2) / 2) === "B" ? COLORS.doorFrameB : COLORS.doorFrameA;
     const axis = windows[0].axis;
     const [runMin, runMax] = axis === "x" ? [r.y1, r.y2] : [r.x1, r.x2];
     const sorted = [...windows].sort((a, b) => a.start - b.start);
@@ -157,17 +159,17 @@ export function buildWindows(): WindowBuildResult {
       // Wooden frame: sill + head trim bands across the opening, plus a jamb
       // post just past each side.
       frameGeoms.push(
-        rectToBox(proudRunRect(r, axis, win.start, win.end), FRAME_BAND, base + WINDOW_SILL + FRAME_BAND / 2, COLORS.doorFrame)
+        rectToBox(proudRunRect(r, axis, win.start, win.end), FRAME_BAND, base + WINDOW_SILL + FRAME_BAND / 2, frameColor)
       );
       frameGeoms.push(
-        rectToBox(proudRunRect(r, axis, win.start, win.end), FRAME_BAND, base + WINDOW_HEAD - FRAME_BAND / 2, COLORS.doorFrame)
+        rectToBox(proudRunRect(r, axis, win.start, win.end), FRAME_BAND, base + WINDOW_HEAD - FRAME_BAND / 2, frameColor)
       );
       frameGeoms.push(
         rectToBox(
           proudRunRect(r, axis, win.start - FRAME_BAND, win.start),
           glassHeight,
           base + WINDOW_SILL + glassHeight / 2,
-          COLORS.doorFrame
+          frameColor
         )
       );
       frameGeoms.push(
@@ -175,7 +177,7 @@ export function buildWindows(): WindowBuildResult {
           proudRunRect(r, axis, win.end, win.end + FRAME_BAND),
           glassHeight,
           base + WINDOW_SILL + glassHeight / 2,
-          COLORS.doorFrame
+          frameColor
         )
       );
 
@@ -188,7 +190,7 @@ export function buildWindows(): WindowBuildResult {
           proudRunRect(r, axis, mid - MULLION_THICKNESS / 2, mid + MULLION_THICKNESS / 2),
           glassHeight,
           base + WINDOW_SILL + glassHeight / 2,
-          COLORS.doorFrame
+          frameColor
         )
       );
       frameGeoms.push(
@@ -196,7 +198,7 @@ export function buildWindows(): WindowBuildResult {
           proudRunRect(r, axis, win.start, win.end),
           MULLION_THICKNESS,
           base + WINDOW_SILL + glassHeight / 2,
-          COLORS.doorFrame
+          frameColor
         )
       );
 

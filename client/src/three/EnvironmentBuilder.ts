@@ -10,6 +10,7 @@ import {
   DOOR_JAMB,
   WORLD_WIDTH,
   WORLD_HEIGHT,
+  teamSideAt,
 } from "../constants";
 import { ZONE_RECTS, WALLS, DOORS, getZoneAt, type Door, type Rect, type Team } from "../geometry/floorplan";
 import { buildWindows } from "./world/WindowBuilder";
@@ -108,7 +109,10 @@ function doorFrameBase(door: Door): number {
 function doorFrameGeoms(door: Door, base: number): THREE.BufferGeometry[] {
   const geoms: THREE.BufferGeometry[] = [];
   const lintelHeight = WALL_HEIGHT - DOOR_HEIGHT;
-  geoms.push(rectToBox(door, lintelHeight, base + DOOR_HEIGHT + lintelHeight / 2, COLORS.doorFrame));
+  // Trim picks up the owning house's team hue (west half = B, east = A) so
+  // each house reads as its family's from a distance.
+  const frameColor = teamSideAt((door.x1 + door.x2) / 2) === "B" ? COLORS.doorFrameB : COLORS.doorFrameA;
+  geoms.push(rectToBox(door, lintelHeight, base + DOOR_HEIGHT + lintelHeight / 2, frameColor));
 
   const gapRunsAlongY = door.x2 - door.x1 < door.y2 - door.y1;
   const jambA: Rect = gapRunsAlongY
@@ -117,8 +121,8 @@ function doorFrameGeoms(door: Door, base: number): THREE.BufferGeometry[] {
   const jambB: Rect = gapRunsAlongY
     ? { x1: door.x1, y1: door.y2, x2: door.x2, y2: door.y2 + DOOR_JAMB }
     : { x1: door.x2, y1: door.y1, x2: door.x2 + DOOR_JAMB, y2: door.y2 };
-  geoms.push(rectToBox(jambA, WALL_HEIGHT, base + WALL_HEIGHT / 2, COLORS.doorFrame));
-  geoms.push(rectToBox(jambB, WALL_HEIGHT, base + WALL_HEIGHT / 2, COLORS.doorFrame));
+  geoms.push(rectToBox(jambA, WALL_HEIGHT, base + WALL_HEIGHT / 2, frameColor));
+  geoms.push(rectToBox(jambB, WALL_HEIGHT, base + WALL_HEIGHT / 2, frameColor));
   return geoms;
 }
 

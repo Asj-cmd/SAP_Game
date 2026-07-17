@@ -41,17 +41,15 @@ export class SceneManager {
     this.renderer.outputColorSpace = THREE.SRGBColorSpace;
     container.appendChild(this.renderer.domElement);
 
-    // Sky/ground fill (no shadows) + a low ambient floor, so shadowed faces
-    // never go fully black, plus one shadow-casting "sun" that does the real
-    // modeling - real houses need real shadows for Phase 3's roofs/props to
-    // read as solid. Hemisphere/ambient raised slightly (0.55->0.7,
-    // 0.25->0.35) to compensate for ACES's darker midtones and keep interiors
-    // (which only ever receive indirect light, never the sun directly)
-    // readable rather than muddy.
-    this.scene.add(new THREE.HemisphereLight(0xbfd4e8, 0x4a5442, 0.7));
-    this.scene.add(new THREE.AmbientLight(0xfff2e0, 0.35));
+    // Key-to-fill ratio is the whole game here: the old 0.7 hemisphere + 0.35
+    // ambient (~1.05 combined) nearly matched the 1.3 sun, so shadowed and lit
+    // faces collapsed into one flat midtone band. Fill now totals ~0.5 against
+    // a 2.0 key (~4:1) - shadow sides stay legible but read clearly darker,
+    // which is what makes walls, stairs, and props look solid.
+    this.scene.add(new THREE.HemisphereLight(0xbfd4e8, 0x4a5442, 0.35));
+    this.scene.add(new THREE.AmbientLight(0xfff2e0, 0.15));
 
-    const sun = new THREE.DirectionalLight(0xfff4e6, 1.3);
+    const sun = new THREE.DirectionalLight(0xfff4e6, 2.0);
     sun.name = "sun";
     sun.position.set(WORLD_WIDTH * 0.3, 1400, WORLD_HEIGHT * 0.2);
     sun.target.position.set(WORLD_WIDTH / 2, 0, WORLD_HEIGHT / 2);
@@ -76,6 +74,10 @@ export class SceneManager {
     this.scene.add(sun, sun.target);
 
     this.scene.background = new THREE.Color(0x0d1926);
+    // Cheap depth cue (built-in fog, no post-processing): the far house fades
+    // toward the sky color, separating "my room" from "across the map" scale.
+    // Starts past the whole near house (~1500) so interiors are untouched.
+    this.scene.fog = new THREE.Fog(0x0d1926, 1500, 4300);
 
     window.addEventListener("resize", this.handleResize);
   }

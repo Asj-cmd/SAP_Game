@@ -1,5 +1,5 @@
 import * as THREE from "three";
-import { COLORS } from "../../constants";
+import { COLORS, teamSideAt } from "../../constants";
 import type { Rect } from "../../geometry/floorplan";
 import { STAIR_CORRIDORS, type StairCorridor } from "./HeightField";
 import { rectToBox } from "../EnvironmentBuilder";
@@ -42,7 +42,12 @@ function buildCorridorSteps(c: StairCorridor): THREE.BufferGeometry[] {
     const treadY = c.heightAtMin + (c.heightAtMax - c.heightAtMin) * t;
     const height = treadY - bottomY;
     if (height <= 0) continue;
-    geoms.push(rectToBox(stepRect(c, axisStart, axisEnd), height, bottomY + height / 2, COLORS.stairs));
+    const rect = stepRect(c, axisStart, axisEnd);
+    // Treads pick up the owning house's tint (warm wood in B, cool stone-blue
+    // in A) - stair corridors only exist inside houses, so the rect's center
+    // is always cleanly on one side.
+    const color = teamSideAt((rect.x1 + rect.x2) / 2) === "B" ? COLORS.stairsB : COLORS.stairsA;
+    geoms.push(rectToBox(rect, height, bottomY + height / 2, color));
   }
   return geoms;
 }

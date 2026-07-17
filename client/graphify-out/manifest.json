@@ -1,0 +1,142 @@
+{
+  "package.json": {
+    "mtime": 1783915125.2301407,
+    "ast_hash": "8a689e42b62766c5656c8ff06bf5eeeb",
+    "semantic_hash": ""
+  },
+  "src/constants.ts": {
+    "mtime": 1784330031.0308,
+    "ast_hash": "2e202cc00ba7c04d77c30f4dd002004a",
+    "semantic_hash": ""
+  },
+  "src/geometry/floorplan.ts": {
+    "mtime": 1783932278.1499684,
+    "ast_hash": "a102e3cbb23ac855ebff6ce0bad5126f",
+    "semantic_hash": ""
+  },
+  "src/lobby/LobbyView.ts": {
+    "mtime": 1784289118.9025457,
+    "ast_hash": "331b4b20215137c0bc2b7390cce9e399",
+    "semantic_hash": ""
+  },
+  "src/main.ts": {
+    "mtime": 1784094283.6871421,
+    "ast_hash": "37a8184e1a2c4c34a00fa21bffccbaad",
+    "semantic_hash": ""
+  },
+  "src/network/ColyseusClient.ts": {
+    "mtime": 1783817976.2233353,
+    "ast_hash": "94540b847b1f6e38f6199fa917d151d5",
+    "semantic_hash": ""
+  },
+  "src/three/CameraRig.ts": {
+    "mtime": 1784289281.1665418,
+    "ast_hash": "2e7e708fe81aaf0d1dcab863ca0a0eea",
+    "semantic_hash": ""
+  },
+  "src/three/CashBundleView.ts": {
+    "mtime": 1784092259.1471884,
+    "ast_hash": "50e7afefc9d9159308793cb40b60003a",
+    "semantic_hash": ""
+  },
+  "src/three/CharacterController.ts": {
+    "mtime": 1784327330.526143,
+    "ast_hash": "5bd2bd535d42fd0068731f33c7b61aa4",
+    "semantic_hash": ""
+  },
+  "src/three/CharacterModel.ts": {
+    "mtime": 1784292451.1346016,
+    "ast_hash": "ab69ea8c6b556025fa7c0860fb2d25a6",
+    "semantic_hash": ""
+  },
+  "src/three/EnvironmentBuilder.ts": {
+    "mtime": 1784330085.7268033,
+    "ast_hash": "94be9b60dac0de550a0465a9c3155f36",
+    "semantic_hash": ""
+  },
+  "src/three/GameController.ts": {
+    "mtime": 1784327340.9581428,
+    "ast_hash": "308d07dd23115c5a05eaaaaafc8bb29f",
+    "semantic_hash": ""
+  },
+  "src/three/RemoteCharacterSync.ts": {
+    "mtime": 1784094519.8231368,
+    "ast_hash": "45420a728e82150442508c3a2eb6b052",
+    "semantic_hash": ""
+  },
+  "src/three/SceneManager.ts": {
+    "mtime": 1784330051.6268013,
+    "ast_hash": "38606a45be6b79b7a208d3baa88a8f47",
+    "semantic_hash": ""
+  },
+  "src/three/world/HeightField.ts": {
+    "mtime": 1784093440.8871615,
+    "ast_hash": "bca7538bf6b007f13982cafeb06d12f7",
+    "semantic_hash": ""
+  },
+  "src/three/world/HouseDresser.ts": {
+    "mtime": 1784092207.1031897,
+    "ast_hash": "44a744505974b2c305700c4d44739d4c",
+    "semantic_hash": ""
+  },
+  "src/three/world/InstancedPropBuilder.ts": {
+    "mtime": 1784092218.3031893,
+    "ast_hash": "ef6ca0159b3d60b5d2e7ad996a2743a5",
+    "semantic_hash": ""
+  },
+  "src/three/world/PropLibrary.ts": {
+    "mtime": 1784069489.8035414,
+    "ast_hash": "d84ca39a1c39588f8ee69a5835e6910e",
+    "semantic_hash": ""
+  },
+  "src/three/world/RoofSystem.ts": {
+    "mtime": 1784330114.342805,
+    "ast_hash": "d9771bd75b41bb5d9e563349b982c4fc",
+    "semantic_hash": ""
+  },
+  "src/three/world/StaircaseBuilder.ts": {
+    "mtime": 1784330130.162806,
+    "ast_hash": "56d3bc0e96d7f00d107c922fc214d4bf",
+    "semantic_hash": ""
+  },
+  "src/three/world/WallHeightBuilder.ts": {
+    "mtime": 1784092020.439194,
+    "ast_hash": "0ff23f42e9100a80bf66c70dda6bb11d",
+    "semantic_hash": ""
+  },
+  "src/three/world/WindowBuilder.ts": {
+    "mtime": 1784330100.0198302,
+    "ast_hash": "fa976b27a91f88d300fb08a5977e664a",
+    "semantic_hash": ""
+  },
+  "src/three/world/propManifest.ts": {
+    "mtime": 1784069606.3115482,
+    "ast_hash": "acd9d3f8e55bac2a3341e0073b91f8b3",
+    "semantic_hash": ""
+  },
+  "src/ui/HudOverlay.ts": {
+    "mtime": 1784290128.1465225,
+    "ast_hash": "331aad64d66beb8673512f412b81e95a",
+    "semantic_hash": ""
+  },
+  "src/vite-env.d.ts": {
+    "mtime": 1783791972.611067,
+    "ast_hash": "0352474ba2918efe13895edbc3780d94",
+    "semantic_hash": ""
+  },
+  "tsconfig.json": {
+    "mtime": 1783791970.8790672,
+    "ast_hash": "a33f43a1f75a907013c115b8b432c1e1",
+    "semantic_hash": ""
+  },
+  "vite.config.ts": {
+    "mtime": 1783791964.4990673,
+    "ast_hash": "44cd20e7dcf711b1ea7a254fc1c44540",
+    "semantic_hash": ""
+  },
+  "index.html": {
+    "mtime": 1783915104.806141,
+    "ast_hash": "6e84c16b6418325315836681ce537a0b",
+    "semantic_hash": ""
+  }
+}
