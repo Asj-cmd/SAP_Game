@@ -191,6 +191,41 @@ function foundationGeoms(): THREE.BufferGeometry[] {
   return geoms;
 }
 
+// Enclosing side walls for every stair corridor. The split-level pass sank/
+// raised floors and ramped the door gaps, but the 2D-era wall list never grew
+// walls ALONGSIDE those ramps - from a basement pit the stair edges opened
+// straight to sky. One thin wall per corridor edge, running the corridor's
+// full length, fed through the same buildWallBoxes pipeline as every other
+// wall: its ramp-side face samples the descending/climbing corridor height
+// while its room-side face samples the flat zone, so each run extrudes from
+// the ramp up past the higher floor - a stairwell shaft, not a hand-authored
+// height table.
+const STAIRWELL_WALL_THICKNESS = 10 * WORLD_SCALE; // WALLS rects are 10 pre-scale units thick
+// The wall's inner face tucks this far INSIDE the corridor: stair-tread ends,
+// door jambs, and abutting room-wall ends all terminate exactly on the
+// crossMin/crossMax lines, so a flush wall would z-fight with all of them -
+// burying those faces swallows them instead. Small enough (2 of the ramp's
+// 160-unit width per side) that walkable clearance is untouched.
+const STAIRWELL_WALL_INSET = 2;
+
+function stairwellSideWallRects(): Rect[] {
+  const rects: Rect[] = [];
+  for (const c of STAIR_CORRIDORS) {
+    const sides = [
+      { min: c.crossMin - STAIRWELL_WALL_THICKNESS, max: c.crossMin + STAIRWELL_WALL_INSET },
+      { min: c.crossMax - STAIRWELL_WALL_INSET, max: c.crossMax + STAIRWELL_WALL_THICKNESS },
+    ];
+    for (const side of sides) {
+      rects.push(
+        c.axis === "x"
+          ? { x1: c.axisMin, x2: c.axisMax, y1: side.min, y2: side.max }
+          : { x1: side.min, x2: side.max, y1: c.axisMin, y2: c.axisMax }
+      );
+    }
+  }
+  return rects;
+}
+
 // A door counts as a "stair door" (ramped, no floor mat, furniture positioned
 // at the ramp's local height) exactly when it's sealed for someone -
 // geometry/floorplan.ts's DOORS table marks precisely the 4-per-house
@@ -209,9 +244,11 @@ export function buildEnvironment(localTeam: Team): Environment {
   // sealed doors filled with a closed door panel (instead of blank wall, so a
   // "door that won't open for you" reads as exactly that) ----
   const windows = buildWindows();
-  const wallGeoms = WALLS.filter((_, i) => !windows.splitWallIndices.has(i)).flatMap((r) =>
-    buildWallBoxes(r, COLORS.wall)
-  );
+  const stairwellWallRects = stairwellSideWallRects();
+  const wallGeoms = [
+    ...WALLS.filter((_, i) => !windows.splitWallIndices.has(i)),
+    ...stairwellWallRects,
+  ].flatMap((r) => buildWallBoxes(r, COLORS.wall));
   const frameGeoms = [...DOORS.flatMap((d) => doorFrameGeoms(d, doorFrameBase(d))), ...windows.frameGeoms];
   // Sealed fill: the closed panel sits on the door line's local ground
   // (mid-ramp for a stair door), but the lintel above hangs off the TALLER
@@ -319,6 +356,8 @@ export function buildEnvironment(localTeam: Team): Environment {
     wallsMesh,
     floorMesh,
     windowGlassMesh,
-    colliderRects: [...WALLS, ...sealedDoors],
+    // Stairwell side walls collide too: they're the only thing standing
+    // between the ramp and the pit/void beside it.
+    colliderRects: [...WALLS, ...sealedDoors, ...stairwellWallRects],
   };
 }
