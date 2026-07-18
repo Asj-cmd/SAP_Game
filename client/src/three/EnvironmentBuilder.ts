@@ -95,12 +95,18 @@ function doorFrameBase(door: Door): number {
   // so 75 * WORLD_SCALE stays safely beyond it at ANY map scale (a fixed
   // scaled number here silently broke the moment WORLD_SCALE grew).
   const PROBE = 75 * WORLD_SCALE;
-  const heights = [
-    zoneBaseHeight(getZoneAt(cx - PROBE, cy)),
-    zoneBaseHeight(getZoneAt(cx + PROBE, cy)),
-    zoneBaseHeight(getZoneAt(cx, cy - PROBE)),
-    zoneBaseHeight(getZoneAt(cx, cy + PROBE)),
-  ];
+  // Probe ONLY across the door line (the traversal direction) - the frame
+  // belongs to the two zones the door CONNECTS. An earlier version also
+  // probed along the wall's run, which could cross into an unrelated room
+  // row: house A's top garden door (center y=260 pre-scale) picked up
+  // bedroomA's +140 from the y-185 probe and hung its whole frame a story
+  // above the opening. (Only house A: that probe point sits exactly on the
+  // x=1060 column line, which getZoneAt's half-open ranges put inside house
+  // A - the x=540 mirror landed in "garden" and masked the same bug.)
+  const gapRunsAlongY = door.x2 - door.x1 < door.y2 - door.y1;
+  const heights = gapRunsAlongY
+    ? [zoneBaseHeight(getZoneAt(cx - PROBE, cy)), zoneBaseHeight(getZoneAt(cx + PROBE, cy))]
+    : [zoneBaseHeight(getZoneAt(cx, cy - PROBE)), zoneBaseHeight(getZoneAt(cx, cy + PROBE))];
   return Math.max(...heights);
 }
 
