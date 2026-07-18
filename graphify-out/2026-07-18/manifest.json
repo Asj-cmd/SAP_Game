@@ -225,8 +225,8 @@
     "semantic_hash": ""
   },
   "client/src/three/EnvironmentBuilder.ts": {
-    "mtime": 1784381815.0305085,
-    "ast_hash": "3da82acba4430cdb29ea79851159ec11",
+    "mtime": 1784391316.6069272,
+    "ast_hash": "06c68ac6f2049e5a0e0c698f297a7bca",
     "semantic_hash": ""
   },
   "client/src/three/GameController.ts": {
