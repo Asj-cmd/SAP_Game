@@ -18,10 +18,11 @@ const PITCH_MAX = 1.25;
 
 // Indoor horizontal clamp (see update()'s bounds parameter). The inset keeps
 // the camera off the walls' inner faces (boundary walls are ~10 scaled units
-// thick, centered on the zone edge); the ease rate smooths the correction in
-// and out across zone transitions - a doorway crossing can move the clamp
-// target ~100+ units in one frame, and 8/sec matches GROUND_FOLLOW_RATE's
-// feel for "the camera catches up, it doesn't teleport".
+// thick, centered on the zone edge). The ease rate smooths ONLY the RELEASE
+// of a correction (walking out of a room relaxes the constraint ~100+ units
+// in one frame; 8/sec matches GROUND_FOLLOW_RATE's feel) - it never delays
+// the correction itself, since the final position is hard-clamped every
+// frame regardless (see the re-clamp at the end of update()).
 const CLAMP_INSET = 30;
 const CLAMP_EASE_RATE = 8;
 // Indoors the camera also can't rise above the room's own (solid, opaque)
@@ -155,9 +156,8 @@ export class CameraRig {
       : 0;
     // Ceiling clamp (Y): only ever pushes DOWN (min with 0), and only
     // indoors - outdoor pitch freedom is untouched. See CEILING_MARGIN.
-    const wantY = bounds
-      ? Math.min(0, zoneBaseHeight(bounds.id) + ROOF_BASE - CEILING_MARGIN - this.desired.y)
-      : 0;
+    const ceilingY = bounds ? zoneBaseHeight(bounds.id) + ROOF_BASE - CEILING_MARGIN : 0;
+    const wantY = bounds ? Math.min(0, ceilingY - this.desired.y) : 0;
     const ease = Math.min(1, CLAMP_EASE_RATE * dt);
     this.clampOffsetX += (wantX - this.clampOffsetX) * ease;
     this.clampOffsetY += (wantY - this.clampOffsetY) * ease;
@@ -165,6 +165,19 @@ export class CameraRig {
     this.desired.x += this.clampOffsetX;
     this.desired.y += this.clampOffsetY;
     this.desired.z += this.clampOffsetZ;
+
+    // The ease above lags by design, but `desired` doesn't - a fast mouse
+    // swing moves it its full distance in one frame, and an eased-only
+    // correction would spend the next several frames rendering outside the
+    // room: a visible flash of exterior/sky on every hard mouse flick. Hard
+    // re-clamp the final position so the camera NEVER renders out of bounds,
+    // even for one frame (same immediacy as the raycast pull-in); the eased
+    // offsets then only ever soften the release when bounds relax.
+    if (bounds) {
+      this.desired.x = clamp(this.desired.x, bounds.xMin + CLAMP_INSET, bounds.xMax - CLAMP_INSET);
+      this.desired.z = clamp(this.desired.z, bounds.yMin + CLAMP_INSET, bounds.yMax - CLAMP_INSET);
+      this.desired.y = Math.min(this.desired.y, ceilingY);
+    }
 
     this.camera.position.copy(this.desired);
     this.camera.lookAt(this.lookAt);
