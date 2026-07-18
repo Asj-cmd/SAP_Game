@@ -101,7 +101,9 @@ export const GARDEN_PROPS: PropPlacement[] = [
 
 // ---- windows ----
 //
-// Pre-scale center-along-wall + a fixed 60-unit width, vertical extent
+// Pre-scale center-along-wall + a 60-unit PRE-SCALE width (WindowBuilder
+// multiplies it by WORLD_SCALE like every other run-axis dimension, so
+// windows stay proportional to their walls at any map scale), vertical extent
 // WINDOW_SILL..WINDOW_HEAD (see constants.ts). `axis` names which coordinate
 // of the wall is FIXED (the wall's own plane): "x" for the vertical walls
 // dividing backyard|house|garden (garden-side / backyard-side windows), "y"

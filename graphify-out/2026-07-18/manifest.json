@@ -180,8 +180,8 @@
     "semantic_hash": ""
   },
   "client/src/constants.ts": {
-    "mtime": 1784349266.8844147,
-    "ast_hash": "ea9634d18438dc26f9245db8644dc647",
+    "mtime": 1784330031.0308,
+    "ast_hash": "2e202cc00ba7c04d77c30f4dd002004a",
     "semantic_hash": ""
   },
   "client/src/geometry/floorplan.ts": {
@@ -240,8 +240,8 @@
     "semantic_hash": ""
   },
   "client/src/three/SceneManager.ts": {
-    "mtime": 1784349278.5244155,
-    "ast_hash": "c46526e9380bf541341dc231fd9fa978",
+    "mtime": 1784332380.4725974,
+    "ast_hash": "f8f3794a388810a6833acb853fd2e2ce",
     "semantic_hash": ""
   },
   "client/src/three/world/HeightField.ts": {
@@ -285,13 +285,13 @@
     "semantic_hash": ""
   },
   "client/src/three/world/propManifest.ts": {
-    "mtime": 1784349280.7764156,
-    "ast_hash": "050d0bcbc210e91039a4fa831359031c",
+    "mtime": 1784069606.3115482,
+    "ast_hash": "acd9d3f8e55bac2a3341e0073b91f8b3",
     "semantic_hash": ""
   },
   "client/src/ui/HudOverlay.ts": {
-    "mtime": 1784348845.6643896,
-    "ast_hash": "da4a198546e60b8ca6f61d95b607c715",
+    "mtime": 1784290128.1465225,
+    "ast_hash": "331aad64d66beb8673512f412b81e95a",
     "semantic_hash": ""
   },
   "client/src/vite-env.d.ts": {
@@ -335,8 +335,8 @@
     "semantic_hash": ""
   },
   "server/src/zones.ts": {
-    "mtime": 1784349268.0724149,
-    "ast_hash": "34b9efb6a4e55b3070ec99654bcbeabe",
+    "mtime": 1783932019.921953,
+    "ast_hash": "4dee7716496b335338e8a20c0c617b69",
     "semantic_hash": ""
   },
   "server/tsconfig.json": {

@@ -7,7 +7,11 @@
 // instead of corridors. Speeds and action ranges scale with it, which keeps
 // travel times and gameplay balance identical to the 2D-tuned values.
 // server/src/zones.ts applies the same factor - keep both in sync.
-export const WORLD_SCALE = 1.5;
+// 2.0 (was 1.5): rooms felt cramped - the character barely cleared doors and
+// the chase camera's wall avoidance pulled in tight indoors. At 2.0 the
+// camera sits at full FOLLOW_DISTANCE inside a living room. Character, props,
+// and vertical proportions deliberately do NOT scale with this.
+export const WORLD_SCALE = 2.0;
 export const WORLD_WIDTH = 1600 * WORLD_SCALE;
 export const WORLD_HEIGHT = 900 * WORLD_SCALE;
 
