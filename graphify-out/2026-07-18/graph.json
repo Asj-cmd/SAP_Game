@@ -3868,8 +3868,8 @@
       "source_location": "L194",
       "_origin": "ast",
       "id": "client_src_geometry_floorplan_door",
-      "community": 18,
-      "community_name": "floorplan.ts",
+      "community": 19,
+      "community_name": "HeightField.ts",
       "norm_label": "door"
     },
     {
@@ -4165,8 +4165,8 @@
       "source_location": "L1",
       "_origin": "ast",
       "id": "client_src_three_cashbundleview",
-      "community": 19,
-      "community_name": "HeightField.ts",
+      "community": 5,
+      "community_name": "GameController.ts",
       "norm_label": "cashbundleview.ts"
     },
     {
@@ -4176,8 +4176,8 @@
       "source_location": "L13",
       "_origin": "ast",
       "id": "client_src_three_cashbundleview_cashbundleview",
-      "community": 19,
-      "community_name": "HeightField.ts",
+      "community": 5,
+      "community_name": "GameController.ts",
       "norm_label": "cashbundleview"
     },
     {
@@ -4187,8 +4187,8 @@
       "source_location": "L17",
       "_origin": "ast",
       "id": "client_src_three_cashbundleview_cashbundleview_constructor",
-      "community": 19,
-      "community_name": "HeightField.ts",
+      "community": 5,
+      "community_name": "GameController.ts",
       "norm_label": ".constructor()"
     },
     {
@@ -4209,8 +4209,8 @@
       "source_location": "L27",
       "_origin": "ast",
       "id": "client_src_three_cashbundleview_cashbundleview_sync",
-      "community": 19,
-      "community_name": "HeightField.ts",
+      "community": 5,
+      "community_name": "GameController.ts",
       "norm_label": ".sync()"
     },
     {
@@ -4363,8 +4363,8 @@
       "source_location": "L62",
       "_origin": "ast",
       "id": "client_src_three_charactermodel_charactermodel",
-      "community": 19,
-      "community_name": "HeightField.ts",
+      "community": 9,
+      "community_name": "CharacterModel.ts",
       "norm_label": "charactermodel"
     },
     {
@@ -4374,8 +4374,8 @@
       "source_location": "L72",
       "_origin": "ast",
       "id": "client_src_three_charactermodel_charactermodel_constructor",
-      "community": 19,
-      "community_name": "HeightField.ts",
+      "community": 9,
+      "community_name": "CharacterModel.ts",
       "norm_label": ".constructor()"
     },
     {
@@ -4407,8 +4407,8 @@
       "source_location": "L153",
       "_origin": "ast",
       "id": "client_src_three_charactermodel_charactermodel_setfacingangle",
-      "community": 19,
-      "community_name": "HeightField.ts",
+      "community": 9,
+      "community_name": "CharacterModel.ts",
       "norm_label": ".setfacingangle()"
     },
     {
@@ -4418,8 +4418,8 @@
       "source_location": "L158",
       "_origin": "ast",
       "id": "client_src_three_charactermodel_charactermodel_setcarrying",
-      "community": 19,
-      "community_name": "HeightField.ts",
+      "community": 9,
+      "community_name": "CharacterModel.ts",
       "norm_label": ".setcarrying()"
     },
     {
@@ -4429,8 +4429,8 @@
       "source_location": "L163",
       "_origin": "ast",
       "id": "client_src_three_charactermodel_charactermodel_setjailed",
-      "community": 19,
-      "community_name": "HeightField.ts",
+      "community": 9,
+      "community_name": "CharacterModel.ts",
       "norm_label": ".setjailed()"
     },
     {
@@ -4462,8 +4462,8 @@
       "source_location": "L31",
       "_origin": "ast",
       "id": "client_src_three_environmentbuilder_coloredbox",
-      "community": 14,
-      "community_name": "EnvironmentBuilder.ts",
+      "community": 44,
+      "community_name": "WindowBuilder.ts",
       "norm_label": "coloredbox()"
     },
     {
@@ -4473,8 +4473,8 @@
       "source_location": "L49",
       "_origin": "ast",
       "id": "client_src_three_environmentbuilder_recttobox",
-      "community": 14,
-      "community_name": "EnvironmentBuilder.ts",
+      "community": 44,
+      "community_name": "WindowBuilder.ts",
       "norm_label": "recttobox()"
     },
     {
@@ -4555,10 +4555,21 @@
       "norm_label": "foundationgeoms()"
     },
     {
+      "label": "stairwellSideWallRects()",
+      "file_type": "code",
+      "source_file": "client/src/three/EnvironmentBuilder.ts",
+      "source_location": "L211",
+      "_origin": "ast",
+      "id": "client_src_three_environmentbuilder_stairwellsidewallrects",
+      "community": 14,
+      "community_name": "EnvironmentBuilder.ts",
+      "norm_label": "stairwellsidewallrects()"
+    },
+    {
       "label": "isStairDoor()",
       "file_type": "code",
       "source_file": "client/src/three/EnvironmentBuilder.ts",
-      "source_location": "L199",
+      "source_location": "L234",
       "_origin": "ast",
       "id": "client_src_three_environmentbuilder_isstairdoor",
       "community": 14,
@@ -4569,7 +4580,7 @@
       "label": "buildEnvironment()",
       "file_type": "code",
       "source_file": "client/src/three/EnvironmentBuilder.ts",
-      "source_location": "L203",
+      "source_location": "L238",
       "_origin": "ast",
       "id": "client_src_three_environmentbuilder_buildenvironment",
       "community": 14,
@@ -5650,8 +5661,8 @@
       "source_location": "L113",
       "_origin": "ast",
       "id": "client_src_three_world_propmanifest_windowspec",
-      "community": 44,
-      "community_name": "WindowBuilder.ts",
+      "community": 6,
+      "community_name": "HouseDresser.ts",
       "norm_label": "windowspec"
     },
     {
@@ -5683,8 +5694,8 @@
       "source_location": "L143",
       "_origin": "ast",
       "id": "client_src_three_world_propmanifest_windows",
-      "community": 44,
-      "community_name": "WindowBuilder.ts",
+      "community": 6,
+      "community_name": "HouseDresser.ts",
       "norm_label": "windows"
     },
     {
@@ -24795,7 +24806,7 @@
       "confidence": "EXTRACTED",
       "confidence_score": 1.0,
       "source_file": "client/src/three/EnvironmentBuilder.ts",
-      "source_location": "L215",
+      "source_location": "L252",
       "weight": 1.0,
       "_origin": "ast",
       "source": "client_src_three_environmentbuilder_buildenvironment",
@@ -25938,7 +25949,7 @@
       "relation": "contains",
       "confidence": "EXTRACTED",
       "source_file": "client/src/three/EnvironmentBuilder.ts",
-      "source_location": "L203",
+      "source_location": "L238",
       "weight": 1.0,
       "_origin": "ast",
       "source": "client_src_three_environmentbuilder",
@@ -26026,7 +26037,7 @@
       "relation": "contains",
       "confidence": "EXTRACTED",
       "source_file": "client/src/three/EnvironmentBuilder.ts",
-      "source_location": "L199",
+      "source_location": "L234",
       "weight": 1.0,
       "_origin": "ast",
       "source": "client_src_three_environmentbuilder",
@@ -26053,6 +26064,17 @@
       "_origin": "ast",
       "source": "client_src_three_environmentbuilder",
       "target": "client_src_three_environmentbuilder_recttobox",
+      "confidence_score": 1.0
+    },
+    {
+      "relation": "contains",
+      "confidence": "EXTRACTED",
+      "source_file": "client/src/three/EnvironmentBuilder.ts",
+      "source_location": "L211",
+      "weight": 1.0,
+      "_origin": "ast",
+      "source": "client_src_three_environmentbuilder",
+      "target": "client_src_three_environmentbuilder_stairwellsidewallrects",
       "confidence_score": 1.0
     },
     {
@@ -26216,7 +26238,7 @@
       "context": "call",
       "confidence": "EXTRACTED",
       "source_file": "client/src/three/EnvironmentBuilder.ts",
-      "source_location": "L224",
+      "source_location": "L261",
       "weight": 1.0,
       "_origin": "ast",
       "source": "client_src_three_environmentbuilder_buildenvironment",
@@ -26324,7 +26346,7 @@
       "context": "call",
       "confidence": "EXTRACTED",
       "source_file": "client/src/three/EnvironmentBuilder.ts",
-      "source_location": "L223",
+      "source_location": "L260",
       "weight": 1.0,
       "_origin": "ast",
       "source": "client_src_three_environmentbuilder_buildenvironment",
@@ -26348,7 +26370,7 @@
       "context": "call",
       "confidence": "EXTRACTED",
       "source_file": "client/src/three/EnvironmentBuilder.ts",
-      "source_location": "L215",
+      "source_location": "L252",
       "weight": 1.0,
       "_origin": "ast",
       "source": "client_src_three_environmentbuilder_buildenvironment",
@@ -26372,7 +26394,7 @@
       "context": "call",
       "confidence": "EXTRACTED",
       "source_file": "client/src/three/EnvironmentBuilder.ts",
-      "source_location": "L215",
+      "source_location": "L252",
       "weight": 1.0,
       "_origin": "ast",
       "source": "client_src_three_environmentbuilder_buildenvironment",
@@ -26384,7 +26406,7 @@
       "context": "call",
       "confidence": "EXTRACTED",
       "source_file": "client/src/three/EnvironmentBuilder.ts",
-      "source_location": "L270",
+      "source_location": "L307",
       "weight": 1.0,
       "_origin": "ast",
       "source": "client_src_three_environmentbuilder_buildenvironment",
@@ -26408,7 +26430,7 @@
       "context": "call",
       "confidence": "EXTRACTED",
       "source_file": "client/src/three/EnvironmentBuilder.ts",
-      "source_location": "L263",
+      "source_location": "L300",
       "weight": 1.0,
       "_origin": "ast",
       "source": "client_src_three_environmentbuilder_buildenvironment",
@@ -26432,7 +26454,7 @@
       "context": "call",
       "confidence": "EXTRACTED",
       "source_file": "client/src/three/EnvironmentBuilder.ts",
-      "source_location": "L232",
+      "source_location": "L269",
       "weight": 1.0,
       "_origin": "ast",
       "source": "client_src_three_environmentbuilder_buildenvironment",
@@ -26456,7 +26478,19 @@
       "context": "call",
       "confidence": "EXTRACTED",
       "source_file": "client/src/three/EnvironmentBuilder.ts",
-      "source_location": "L205",
+      "source_location": "L247",
+      "weight": 1.0,
+      "_origin": "ast",
+      "source": "client_src_three_environmentbuilder_buildenvironment",
+      "target": "client_src_three_environmentbuilder_stairwellsidewallrects",
+      "confidence_score": 1.0
+    },
+    {
+      "relation": "calls",
+      "context": "call",
+      "confidence": "EXTRACTED",
+      "source_file": "client/src/three/EnvironmentBuilder.ts",
+      "source_location": "L240",
       "weight": 1.0,
       "_origin": "ast",
       "source": "client_src_three_environmentbuilder_buildenvironment",
@@ -26469,7 +26503,7 @@
       "confidence": "EXTRACTED",
       "confidence_score": 1.0,
       "source_file": "client/src/three/EnvironmentBuilder.ts",
-      "source_location": "L263",
+      "source_location": "L300",
       "weight": 1.0,
       "_origin": "ast",
       "source": "client_src_three_environmentbuilder_buildenvironment",
@@ -26481,7 +26515,7 @@
       "confidence": "EXTRACTED",
       "confidence_score": 1.0,
       "source_file": "client/src/three/EnvironmentBuilder.ts",
-      "source_location": "L265",
+      "source_location": "L302",
       "weight": 1.0,
       "_origin": "ast",
       "source": "client_src_three_environmentbuilder_buildenvironment",
@@ -26493,7 +26527,7 @@
       "confidence": "EXTRACTED",
       "confidence_score": 1.0,
       "source_file": "client/src/three/EnvironmentBuilder.ts",
-      "source_location": "L286",
+      "source_location": "L323",
       "weight": 1.0,
       "_origin": "ast",
       "source": "client_src_three_environmentbuilder_buildenvironment",
@@ -26505,7 +26539,7 @@
       "confidence": "EXTRACTED",
       "confidence_score": 1.0,
       "source_file": "client/src/three/EnvironmentBuilder.ts",
-      "source_location": "L213",
+      "source_location": "L251",
       "weight": 1.0,
       "_origin": "ast",
       "source": "client_src_three_environmentbuilder_buildenvironment",
@@ -26517,7 +26551,7 @@
       "confidence": "EXTRACTED",
       "confidence_score": 1.0,
       "source_file": "client/src/three/EnvironmentBuilder.ts",
-      "source_location": "L211",
+      "source_location": "L246",
       "weight": 1.0,
       "_origin": "ast",
       "source": "client_src_three_environmentbuilder_buildenvironment",
@@ -40969,5 +41003,5 @@
     }
   ],
   "hyperedges": [],
-  "built_at_commit": "7de246e2695744f8f7d9a40f54992724713081ce"
+  "built_at_commit": "06597c0e43f970ac22b44ea834c92cfca2cff4aa"
 }

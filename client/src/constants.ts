@@ -74,6 +74,13 @@ export const PROP_SCALE = 45;
 export const ROOF_BASE = WALL_HEIGHT; // roofs sit right on top of the walls
 export const ROOF_THICKNESS = 8;
 export const ROOF_FADE_SPEED = 4; // opacity units/sec, clamped lerp toward the target
+// The roof over the room you're standing in fades to THIS, not to invisible:
+// low enough that the chase camera (which sits above roof height and doesn't
+// raycast against roofs) still shows the character clearly, high enough that
+// every room always reads as having a ceiling instead of open sky.
+// (0.25 read as tinted haze from below rather than a ceiling; 0.35 keeps the
+// slab clearly present without meaningfully obscuring the top-down view.)
+export const ROOF_REVEAL_OPACITY = 0.35;
 
 // Window openings (client/src/three/world/WindowBuilder.ts), three-y units,
 // NOT scaled by WORLD_SCALE (heights never are - see floorplan.ts's header).

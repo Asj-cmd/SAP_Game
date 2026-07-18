@@ -1,6 +1,6 @@
 import * as THREE from "three";
 import { ZONE_RECTS, type ZoneId } from "../../geometry/floorplan";
-import { COLORS, ROOF_BASE, ROOF_THICKNESS, ROOF_FADE_SPEED } from "../../constants";
+import { COLORS, ROOF_BASE, ROOF_THICKNESS, ROOF_FADE_SPEED, ROOF_REVEAL_OPACITY } from "../../constants";
 import { zoneBaseHeight } from "./HeightField";
 
 // One flat slab per interior room - backyards/garden are open-air, so they're
@@ -16,10 +16,11 @@ interface RoofPanel {
 }
 
 // Fades the roof over whichever room the local player is standing in toward
-// invisible, and every other roof back toward opaque, so the camera never
-// loses the room the player's actually in while the rest of the house still
-// reads as a real building. Per-panel material (6 draw calls) instead of one
-// merged mesh, since each panel fades independently.
+// a low-but-visible opacity (ROOF_REVEAL_OPACITY - a ghosted ceiling, never
+// literal open sky), and every other roof back toward opaque, so the camera
+// never loses the room the player's actually in while every room still reads
+// as enclosed. Per-panel material (6 draw calls) instead of one merged mesh,
+// since each panel fades independently.
 export class RoofSystem {
   private panels: RoofPanel[] = [];
 
@@ -57,12 +58,13 @@ export class RoofSystem {
   update(dt: number, localZone: ZoneId) {
     const step = ROOF_FADE_SPEED * dt;
     for (const panel of this.panels) {
-      const target = panel.zone === localZone ? 0 : 1;
+      const target = panel.zone === localZone ? ROOF_REVEAL_OPACITY : 1;
       const opacity = panel.material.opacity;
       panel.material.opacity =
         opacity < target ? Math.min(target, opacity + step) : Math.max(target, opacity - step);
 
-      panel.mesh.visible = panel.material.opacity >= 0.02;
+      // Panels never fade below ROOF_REVEAL_OPACITY anymore, so they stay
+      // visible always; a ghosted ceiling shouldn't darken its own room.
       panel.mesh.castShadow = panel.material.opacity > 0.5;
     }
   }

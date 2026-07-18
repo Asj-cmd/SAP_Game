@@ -180,8 +180,8 @@
     "semantic_hash": ""
   },
   "client/src/constants.ts": {
-    "mtime": 1784349266.8844147,
-    "ast_hash": "ea9634d18438dc26f9245db8644dc647",
+    "mtime": 1784382056.390523,
+    "ast_hash": "e2027a48e5c27e5d196dc7a86a6457e0",
     "semantic_hash": ""
   },
   "client/src/geometry/floorplan.ts": {
@@ -225,8 +225,8 @@
     "semantic_hash": ""
   },
   "client/src/three/EnvironmentBuilder.ts": {
-    "mtime": 1784380096.9419267,
-    "ast_hash": "d4f773f99b1277fb8bec3d3c408afab8",
+    "mtime": 1784381815.0305085,
+    "ast_hash": "3da82acba4430cdb29ea79851159ec11",
     "semantic_hash": ""
   },
   "client/src/three/GameController.ts": {
@@ -265,13 +265,13 @@
     "semantic_hash": ""
   },
   "client/src/three/world/RoofSystem.ts": {
-    "mtime": 1784330114.342805,
-    "ast_hash": "d9771bd75b41bb5d9e563349b982c4fc",
+    "mtime": 1784381842.8385103,
+    "ast_hash": "1042f4066d870a1a6e1aa566359efd9f",
     "semantic_hash": ""
   },
   "client/src/three/world/StaircaseBuilder.ts": {
-    "mtime": 1784330130.162806,
-    "ast_hash": "56d3bc0e96d7f00d107c922fc214d4bf",
+    "mtime": 1784381774.9145062,
+    "ast_hash": "7295efc3a7ce5b439fad6f5a5be4e966",
     "semantic_hash": ""
   },
   "client/src/three/world/WallHeightBuilder.ts": {
