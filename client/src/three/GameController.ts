@@ -171,7 +171,6 @@ export class GameController {
     this.updateAction(selfState);
     this.handleSpaceInput();
     this.maybeAutoDeposit(selfState);
-    this.roofSystem.update(dt, getZoneAt(this.controller.x, this.controller.z));
 
     this.hud.update(room, this.currentAction?.prompt ?? "");
     this.spaceJustPressed = false;

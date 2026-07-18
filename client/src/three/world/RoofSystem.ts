@@ -1,31 +1,23 @@
 import * as THREE from "three";
 import { ZONE_RECTS, type ZoneId } from "../../geometry/floorplan";
-import { COLORS, ROOF_BASE, ROOF_THICKNESS, ROOF_FADE_SPEED, ROOF_REVEAL_OPACITY } from "../../constants";
+import { COLORS, ROOF_BASE, ROOF_THICKNESS } from "../../constants";
 import { zoneBaseHeight } from "./HeightField";
 
 // One flat slab per interior room - backyards/garden are open-air, so they're
-// deliberately excluded. Not added to CameraRig's obstacle list: the roof
-// should never block the chase camera's raycast, only visually cap the room
-// the player isn't currently standing in. Exported as THE definition of
-// "enclosed interior room" - CameraRig's indoor clamp keys off the same list,
-// so a zone can't be roofed but unclamped (or vice versa) by accident.
+// deliberately excluded. Not added to CameraRig's obstacle list: the camera
+// never needs to raycast against a ceiling it can't rise above (CameraRig's
+// indoor Y clamp keeps it under zoneBase + ROOF_BASE). Exported as THE
+// definition of "enclosed interior room" - that clamp keys off the same
+// list, so a zone can't be roofed but unclamped (or vice versa) by accident.
 export const ROOFED_ZONES: ZoneId[] = ["bedroomB", "livingB", "basementB", "bedroomA", "livingA", "basementA"];
 
-interface RoofPanel {
-  zone: ZoneId;
-  mesh: THREE.Mesh;
-  material: THREE.MeshStandardMaterial;
-}
-
-// Fades the roof over whichever room the local player is standing in toward
-// a low-but-visible opacity (ROOF_REVEAL_OPACITY - a ghosted ceiling, never
-// literal open sky), and every other roof back toward opaque, so the camera
-// never loses the room the player's actually in while every room still reads
-// as enclosed. Per-panel material (6 draw calls) instead of one merged mesh,
-// since each panel fades independently.
+// Solid, always-opaque ceilings. The old fade-the-local-room's-roof reveal
+// (and its ROOF_REVEAL_OPACITY translucency compromise) existed only because
+// the chase camera could climb above roof height; now that CameraRig clamps
+// indoor camera Y under the ceiling, a roof never stands between the camera
+// and the character, so every room keeps a plain solid lid - and no sky or
+// sun can ever bleed through it.
 export class RoofSystem {
-  private panels: RoofPanel[] = [];
-
   build(scene: THREE.Scene) {
     for (const zoneId of ROOFED_ZONES) {
       const zone = ZONE_RECTS.find((z) => z.id === zoneId);
@@ -42,32 +34,19 @@ export class RoofSystem {
       // house letter), readable across the whole map.
       const material = new THREE.MeshStandardMaterial({
         color: zoneId.endsWith("B") ? COLORS.roofB : COLORS.roofA,
-        transparent: true,
-        opacity: 1,
       });
       const mesh = new THREE.Mesh(geometry, material);
       // Each room's roof sits one story above its own zone base: bedroom roof
       // at +FLOOR_RISE+WALL_HEIGHT, living at WALL_HEIGHT, basement at grade
       // (0 + WALL_HEIGHT) - reading as a cellar hatch cap over the sunken pit.
       mesh.position.set(cx, zoneBaseHeight(zoneId) + ROOF_BASE + ROOF_THICKNESS / 2, cz);
-      mesh.castShadow = true;
+      // Deliberately NOT a shadow caster: an opaque lid that also blocked the
+      // sun would plunge every interior into flat shadow, and the standing
+      // art direction is bright sunlit rooms (the old reveal achieved that by
+      // disabling the faded roof's shadow - this keeps the same interior
+      // light with the lid permanently solid).
+      mesh.castShadow = false;
       scene.add(mesh);
-
-      this.panels.push({ zone: zoneId, mesh, material });
-    }
-  }
-
-  update(dt: number, localZone: ZoneId) {
-    const step = ROOF_FADE_SPEED * dt;
-    for (const panel of this.panels) {
-      const target = panel.zone === localZone ? ROOF_REVEAL_OPACITY : 1;
-      const opacity = panel.material.opacity;
-      panel.material.opacity =
-        opacity < target ? Math.min(target, opacity + step) : Math.max(target, opacity - step);
-
-      // Panels never fade below ROOF_REVEAL_OPACITY anymore, so they stay
-      // visible always; a ghosted ceiling shouldn't darken its own room.
-      panel.mesh.castShadow = panel.material.opacity > 0.5;
     }
   }
 }

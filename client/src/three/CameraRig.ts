@@ -1,6 +1,6 @@
 import * as THREE from "three";
-import { DEFAULT_PITCH, FOLLOW_DISTANCE, LOOK_HEIGHT } from "../constants";
-import { heightAt } from "./world/HeightField";
+import { DEFAULT_PITCH, FOLLOW_DISTANCE, LOOK_HEIGHT, ROOF_BASE } from "../constants";
+import { heightAt, zoneBaseHeight } from "./world/HeightField";
 import type { ZoneRect } from "../geometry/floorplan";
 
 // Ground height tracks toward heightAt(target) at this rate (units/sec of
@@ -24,6 +24,13 @@ const PITCH_MAX = 1.25;
 // feel for "the camera catches up, it doesn't teleport".
 const CLAMP_INSET = 30;
 const CLAMP_EASE_RATE = 8;
+// Indoors the camera also can't rise above the room's own (solid, opaque)
+// ceiling: roof slabs sit at zoneBase + ROOF_BASE, and this margin keeps the
+// camera clearly under the slab's underside rather than grazing it. Pitch
+// past the cap still steepens the view - the orbit's horizontal component
+// keeps shrinking with cos(pitch) while height holds - it just tops out at
+// ~35 degrees of down-angle indoors instead of outdoor's ~71.
+const CEILING_MARGIN = 16;
 
 function clamp(v: number, lo: number, hi: number): number {
   return Math.max(lo, Math.min(hi, v));
@@ -53,6 +60,7 @@ export class CameraRig {
   // rather than applied raw so entering/leaving a clamped zone slides the
   // camera instead of snapping it (see CLAMP_EASE_RATE).
   private clampOffsetX = 0;
+  private clampOffsetY = 0;
   private clampOffsetZ = 0;
   // Scratch vectors reused every frame in update() instead of allocated fresh -
   // this runs once per rendered frame, so `new THREE.Vector3()`/`.clone()`
@@ -145,10 +153,17 @@ export class CameraRig {
     const wantZ = bounds
       ? clamp(this.desired.z, bounds.yMin + CLAMP_INSET, bounds.yMax - CLAMP_INSET) - this.desired.z
       : 0;
+    // Ceiling clamp (Y): only ever pushes DOWN (min with 0), and only
+    // indoors - outdoor pitch freedom is untouched. See CEILING_MARGIN.
+    const wantY = bounds
+      ? Math.min(0, zoneBaseHeight(bounds.id) + ROOF_BASE - CEILING_MARGIN - this.desired.y)
+      : 0;
     const ease = Math.min(1, CLAMP_EASE_RATE * dt);
     this.clampOffsetX += (wantX - this.clampOffsetX) * ease;
+    this.clampOffsetY += (wantY - this.clampOffsetY) * ease;
     this.clampOffsetZ += (wantZ - this.clampOffsetZ) * ease;
     this.desired.x += this.clampOffsetX;
+    this.desired.y += this.clampOffsetY;
     this.desired.z += this.clampOffsetZ;
 
     this.camera.position.copy(this.desired);
