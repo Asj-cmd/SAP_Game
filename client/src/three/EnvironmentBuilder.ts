@@ -10,6 +10,7 @@ import {
   DOOR_JAMB,
   WORLD_WIDTH,
   WORLD_HEIGHT,
+  WORLD_SCALE,
   teamSideAt,
 } from "../constants";
 import { ZONE_RECTS, WALLS, DOORS, getZoneAt, type Door, type Rect, type Team } from "../geometry/floorplan";
@@ -90,7 +91,10 @@ function doorBase(door: Door): number {
 function doorFrameBase(door: Door): number {
   const cx = (door.x1 + door.x2) / 2;
   const cy = (door.y1 + door.y2) / 2;
-  const PROBE = 150; // scaled units, past any corridor's RAMP_EXTENT (105)
+  // Must probe past the corridor's ramp: RAMP_EXTENT is 70 pre-scale units,
+  // so 75 * WORLD_SCALE stays safely beyond it at ANY map scale (a fixed
+  // scaled number here silently broke the moment WORLD_SCALE grew).
+  const PROBE = 75 * WORLD_SCALE;
   const heights = [
     zoneBaseHeight(getZoneAt(cx - PROBE, cy)),
     zoneBaseHeight(getZoneAt(cx + PROBE, cy)),
@@ -209,7 +213,21 @@ export function buildEnvironment(localTeam: Team): Environment {
     buildWallBoxes(r, COLORS.wall)
   );
   const frameGeoms = [...DOORS.flatMap((d) => doorFrameGeoms(d, doorFrameBase(d))), ...windows.frameGeoms];
-  const sealedGeoms = sealedDoors.map((r) => rectToBox(r, DOOR_HEIGHT, doorBase(r) + DOOR_HEIGHT / 2, COLORS.doorPanel));
+  // Sealed fill: the closed panel sits on the door line's local ground
+  // (mid-ramp for a stair door), but the lintel above hangs off the TALLER
+  // side's base - on stair doors that left an open transom slit of sky
+  // between panel top and lintel bottom (visible from inside the basement
+  // pits). A second panel-colored box fills that band; on flat doors the two
+  // bases coincide and the fill is zero-height, so nothing is emitted.
+  const sealedGeoms = sealedDoors.flatMap((r) => {
+    const base = doorBase(r);
+    const geoms = [rectToBox(r, DOOR_HEIGHT, base + DOOR_HEIGHT / 2, COLORS.doorPanel)];
+    const transom = doorFrameBase(r) - base;
+    if (transom > 0.01) {
+      geoms.push(rectToBox(r, transom, base + DOOR_HEIGHT + transom / 2, COLORS.doorPanel));
+    }
+    return geoms;
+  });
   const wallsMerged = mergeGeometries(
     [...wallGeoms, ...windows.wallReplacementGeoms, ...frameGeoms, ...sealedGeoms, ...foundationGeoms()],
     false
@@ -268,15 +286,31 @@ export function buildEnvironment(localTeam: Team): Environment {
   floorGeoms.push(...buildStaircaseGeoms());
   // Lawn plane extending past the world bounds on every side, sitting just
   // below the zone slabs, so the map edge isn't a cliff into black void.
+  // CARVED around the sunken basements and their below-grade stair corridors:
+  // the sheet predates the split-level and otherwise roofs the -140 pits at
+  // y~-6 - an unlit black ceiling from inside, a grade-level green cap from
+  // above, and stair steps knifing through its 4-unit band at corridor edges.
+  // (Above-grade corridors don't need carving: there the lawn hides under the
+  // living slabs, and step undersides merely overlap it invisibly.)
   const LAWN_MARGIN = 600;
-  floorGeoms.push(
-    rectToBox(
-      { x1: -LAWN_MARGIN, y1: -LAWN_MARGIN, x2: WORLD_WIDTH + LAWN_MARGIN, y2: WORLD_HEIGHT + LAWN_MARGIN },
-      FLOOR_HEIGHT,
-      -FLOOR_HEIGHT - FLOOR_HEIGHT / 2,
-      COLORS.ground
-    )
-  );
+  const lawnRect: Rect = {
+    x1: -LAWN_MARGIN,
+    y1: -LAWN_MARGIN,
+    x2: WORLD_WIDTH + LAWN_MARGIN,
+    y2: WORLD_HEIGHT + LAWN_MARGIN,
+  };
+  const lawnHoles: Rect[] = [];
+  for (const zone of ZONE_RECTS) {
+    if (zone.id === "basementB" || zone.id === "basementA") {
+      lawnHoles.push({ x1: zone.xMin, y1: zone.yMin, x2: zone.xMax, y2: zone.yMax });
+    }
+  }
+  for (const c of STAIR_CORRIDORS) {
+    if (Math.min(c.heightAtMin, c.heightAtMax) < 0) lawnHoles.push(corridorBBox(c));
+  }
+  for (const tile of rectMinusRects(lawnRect, lawnHoles)) {
+    floorGeoms.push(rectToBox(tile, FLOOR_HEIGHT, -FLOOR_HEIGHT - FLOOR_HEIGHT / 2, COLORS.ground));
+  }
   const floorMerged = mergeGeometries(floorGeoms, false);
   const floorMesh = new THREE.Mesh(floorMerged, new THREE.MeshStandardMaterial({ vertexColors: true }));
   floorMesh.receiveShadow = true;

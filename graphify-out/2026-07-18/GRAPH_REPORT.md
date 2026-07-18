@@ -1,7 +1,7 @@
-# Graph Report - SAP_Game  (2026-07-17)
+# Graph Report - SAP_Game  (2026-07-18)
 
 ## Corpus Check
-- 164 files · ~110,536 words
+- 164 files · ~110,693 words
 - Verdict: corpus is large enough that graph structure adds value.
 
 ## Summary
@@ -10,7 +10,7 @@
 - Token cost: 0 input · 0 output
 
 ## Graph Freshness
-- Built from commit: `6ba1e2a7`
+- Built from commit: `05b86ebf`
 - Run `git rev-parse HEAD` and compare to check if the graph is stale.
 - Run `graphify update .` after code changes (no API cost).
 

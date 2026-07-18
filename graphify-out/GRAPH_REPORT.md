@@ -1,7 +1,7 @@
 # Graph Report - SAP_Game  (2026-07-18)
 
 ## Corpus Check
-- 164 files · ~110,693 words
+- 164 files · ~110,965 words
 - Verdict: corpus is large enough that graph structure adds value.
 
 ## Summary
@@ -10,7 +10,7 @@
 - Token cost: 0 input · 0 output
 
 ## Graph Freshness
-- Built from commit: `05b86ebf`
+- Built from commit: `7de246e2`
 - Run `git rev-parse HEAD` and compare to check if the graph is stale.
 - Run `graphify update .` after code changes (no API cost).
 
@@ -250,7 +250,7 @@ Nodes (18): has_audio_blocker(), has_audio_output_evidence(), has_external_block
 
 ### Community 18 - "floorplan.ts"
 Cohesion: 0.15
-Nodes (15): ROOF_BASE, Door, getZoneAt(), isEnemyBedroom(), isOwnHome(), jailBasementForTeam(), ZONE_RECTS, ZoneId (+7 more)
+Nodes (16): COLORS, ROOF_BASE, Door, getZoneAt(), isEnemyBedroom(), isOwnHome(), jailBasementForTeam(), ZONE_RECTS (+8 more)
 
 ### Community 19 - "HeightField.ts"
 Cohesion: 0.11
@@ -541,8 +541,8 @@ Cohesion: 0.08
 Nodes (24): For /graphify add and --watch, For /graphify query, For the commit hook and native CLAUDE.md integration, For --update and --cluster-only, /graphify, Honesty Rules, Interpreter guard for subcommands, Part A - Structural extraction for code files (+16 more)
 
 ### Community 129 - "constants.ts"
-Cohesion: 0.21
-Nodes (5): COLORS, DEFAULT_PITCH, FOLLOW_DISTANCE, CameraRig, clamp()
+Cohesion: 0.24
+Nodes (4): DEFAULT_PITCH, FOLLOW_DISTANCE, CameraRig, clamp()
 
 ### Community 130 - "graphify reference: extra exports and benchmark"
 Cohesion: 0.22
