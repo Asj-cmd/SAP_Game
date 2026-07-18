@@ -36,41 +36,53 @@ const BOT_SPEED = 220 * WORLD_SCALE;
 const BOT_CARRY_SPEED = 160 * WORLD_SCALE;
 const BOT_TICK_MS = 250;
 
-// ---- bot decision tuning ----
-// A bot COMMITS to a task instead of re-solving the strict priority list
-// every 250ms tick (which made every bot on a team flip to the same target
-// the instant anything changed, then flip back - "always guarding the door").
-// Shield: how long a fresh raid/defense runs before a rescue/intruder alert
-// may preempt it - the hysteresis window, also a natural "reaction time".
-const BOT_COMMIT_SHIELD_MS = 2500;
-// Defend: keep pursuing this long after the intruder leaves home turf, so a
-// doorway-hopping raider can't toggle the defender every tick.
+// ---- bot decision weights ----
+// Utility-scored AI: every decide cycle a bot scores EVERY plausible action
+// (score = value - cost*pathDistance - risk*threat - coordination + noise,
+// plus a commit bonus on whatever it's already doing) and adopts the best.
+// These are deliberately NAMED and grouped as one table: a future difficulty
+// tier should be a different weight table swapped in here (sharper vision,
+// less noise, faster re-scoring, different risk appetite) - never an edit to
+// the scoring logic itself.
+const BOT_DECIDE_MS = 1000; // re-score cadence: the bot's reaction speed
+const BOT_DECIDE_JITTER_MS = 300; // de-syncs teammates' decide ticks
+const BOT_VALUE_DEPOSIT = 100000; // carrying cash home is near-absolute
+const BOT_VALUE_RESCUE = 6000; // a freed teammate outweighs any single bundle
+const BOT_VALUE_DEFEND = 4000; // scaled by zeal per bot (see below)
+const BOT_VALUE_BUNDLE = 3000; // every bundle is worth the same base
+const BOT_VALUE_PATROL = 150; // fallback: wins only when everything else is bad
+const BOT_COST_WEIGHT = 0.6; // score lost per world-unit of graph path distance
+const BOT_RISK_WEIGHT = 1400; // score lost per enemy sitting on a chokepoint/target
+const BOT_VISION_RADIUS = 420 * WORLD_SCALE; // how far away an enemy registers as a threat
+const BOT_COMMIT_BONUS = 700; // stickiness: current task wins ties and near-ties
+const BOT_COORD_PENALTY = 2600; // a teammate already handles it - usually pick something else
+const BOT_CHOICE_NOISE = 250; // imperfection: +-jitter per candidate per re-score
+// Defend pursuit keeps going this long after the intruder leaves home turf,
+// so a doorway-hopping raider can't toggle the defender every tick.
 const BOT_DEFEND_GRACE_MS = 1500;
-// Hard cap on any chase/rescue/raid commitment - a bot never tunnels on one
-// goal longer than this before re-deciding from scratch.
-const BOT_TASK_CAP_MS = 12000;
 // Patrol legs last this long (plus jitter) or until arrival, then re-roll.
 const BOT_PATROL_MIN_MS = 3000;
 const BOT_PATROL_VAR_MS = 4000;
 const BOT_PATROL_ARRIVE = 40 * WORLD_SCALE;
-// A second defender joins an already-handled intruder only inside this
-// radius, scaled by the bot's own zeal - hot-headed bots pile on, calm ones
-// stay on offense.
-const BOT_PILE_ON_RANGE = 500 * WORLD_SCALE;
 
 type BotTask = "rescue" | "defend" | "deposit" | "raid" | "patrol";
+
+interface BotOption {
+  task: BotTask;
+  targetId: string;
+  score: number;
+}
 
 // Server-side only - none of this is networked schema state; clients never
 // see a bot's intentions, only the same position/velocity a human sends.
 interface BotMind {
   task: BotTask | null;
   targetId: string; // player id (rescue/defend) or bundle id (raid)
-  shieldUntil: number; // clock ms: until then, rescue/defend may not preempt this task
-  capUntil: number; // clock ms: task force-expires (see BOT_TASK_CAP_MS)
+  nextDecideAt: number; // clock ms of the next scheduled re-score
   lastSeenHomeAt: number; // defend: last tick the target was inside our home turf
   patrolNode: BotNodeId | null;
   patrolUntil: number;
-  zeal: number; // 0..1 fixed per bot - eagerness to pile onto a handled intruder
+  zeal: number; // 0..1 fixed per bot - scales defend value & pile-on willingness
 }
 
 // Loop through the map's shared spine - reachable by BOTH teams (only the
@@ -695,8 +707,7 @@ export class GameRoom extends Room<GameState> {
       m = {
         task: null,
         targetId: "",
-        shieldUntil: 0,
-        capUntil: 0,
+        nextDecideAt: 0,
         lastSeenHomeAt: 0,
         patrolNode: null,
         patrolUntil: 0,
@@ -707,19 +718,10 @@ export class GameRoom extends Room<GameState> {
     return m;
   }
 
-  private adoptBotTask(mind: BotMind, task: BotTask, targetId: string, now: number) {
-    mind.task = task;
-    mind.targetId = targetId;
-    mind.shieldUntil = now + BOT_COMMIT_SHIELD_MS;
-    mind.capUntil = now + BOT_TASK_CAP_MS;
-    if (task === "defend") mind.lastSeenHomeAt = now;
-    if (task !== "patrol") mind.patrolNode = null;
-  }
-
-  // Commit-validate-interrupt loop: a bot keeps its current task until it
-  // RESOLVES (caught/rescued/deposited/bundle gone/target left), expires, or
-  // a higher-priority alert preempts it after the commit shield - it does
-  // not re-solve the whole priority list from scratch every 250ms.
+  // Decide/move decoupling: movement runs every BOT_TICK_MS toward the
+  // committed target, but the full utility re-score only runs every
+  // BOT_DECIDE_MS (or immediately when the current task resolves) - bounded
+  // server cost and a human-ish reaction delay in one.
   private stepBot(id: string, dt: number) {
     const bot = this.state.players.get(id);
     if (!bot) return;
@@ -735,22 +737,23 @@ export class GameRoom extends Room<GameState> {
     const now = this.clock.currentTime;
 
     this.validateBotTask(bot, mind, team, now);
-    this.considerBotInterrupts(bot, id, mind, team, now);
-    if (!mind.task) this.chooseBotTask(bot, id, mind, team, now);
+    if (!mind.task || now >= mind.nextDecideAt) this.decideBotTask(bot, id, mind, team, now);
     this.executeBotTask(bot, id, mind, team, now, dt);
   }
 
-  // Does the committed task still make sense? Clears it on resolution.
+  // Does the committed task still make sense between re-scores? Clears it on
+  // resolution so the bot re-decides immediately instead of executing on a
+  // dead target until the next decide tick.
   private validateBotTask(bot: PlayerState, mind: BotMind, team: Team, now: number) {
     switch (mind.task) {
       case "rescue": {
         const t = this.state.players.get(mind.targetId);
-        if (!t || !t.isJailed || t.team !== team || bot.isCarryingCash || now > mind.capUntil) mind.task = null;
+        if (!t || !t.isJailed || t.team !== team || bot.isCarryingCash) mind.task = null;
         break;
       }
       case "defend": {
         const t = this.state.players.get(mind.targetId);
-        if (!t || t.isJailed || bot.isCarryingCash || now > mind.capUntil) {
+        if (!t || t.isJailed || bot.isCarryingCash) {
           mind.task = null;
           break;
         }
@@ -765,9 +768,7 @@ export class GameRoom extends Room<GameState> {
         break;
       case "raid": {
         const b = this.state.cashBundles.get(mind.targetId);
-        if (bot.isCarryingCash || !b || b.location !== this.enemyBedroomOf(team) || now > mind.capUntil) {
-          mind.task = null;
-        }
+        if (bot.isCarryingCash || !b || b.location !== this.enemyBedroomOf(team)) mind.task = null;
         break;
       }
       case "patrol":
@@ -776,73 +777,130 @@ export class GameRoom extends Room<GameState> {
     if (!mind.task) mind.targetId = "";
   }
 
-  // Rescue/defend alerts may preempt a raid or patrol - but only after the
-  // commit shield (hysteresis), only for non-carriers, and only for the bot
-  // the coordination rules designate, so one raider doesn't yank the whole
-  // team off offense.
-  private considerBotInterrupts(bot: PlayerState, id: string, mind: BotMind, team: Team, now: number) {
-    if (mind.task === "rescue" || mind.task === "deposit") return; // never preempted
-    if (bot.isCarryingCash) return;
-    if (mind.task && mind.task !== "patrol" && now < mind.shieldUntil) return;
+  // The core: score every plausible candidate action and commit to the best.
+  private decideBotTask(bot: PlayerState, id: string, mind: BotMind, team: Team, now: number) {
+    mind.nextDecideAt = now + BOT_DECIDE_MS + Math.random() * BOT_DECIDE_JITTER_MS;
 
-    const rescueTarget = this.pickRescueTarget(bot, id, team);
-    if (rescueTarget) {
-      this.adoptBotTask(mind, "rescue", rescueTarget.id, now);
-      return;
-    }
-    if (mind.task === "defend") return; // already defending; no retarget churn
-    const intruder = this.pickDefendTarget(bot, id, team);
-    if (intruder) this.adoptBotTask(mind, "defend", intruder.id, now);
-  }
+    const options: BotOption[] = [];
+    const noise = () => (Math.random() * 2 - 1) * BOT_CHOICE_NOISE;
 
-  // Fresh decision, same priority ORDER as the original loop - rescue,
-  // defend, deposit, raid - with patrol replacing "freeze" as the fallback.
-  private chooseBotTask(bot: PlayerState, id: string, mind: BotMind, team: Team, now: number) {
-    if (!bot.isCarryingCash) {
-      const rescueTarget = this.pickRescueTarget(bot, id, team);
-      if (rescueTarget) {
-        this.adoptBotTask(mind, "rescue", rescueTarget.id, now);
-        return;
-      }
-      const intruder = this.pickDefendTarget(bot, id, team);
-      if (intruder) {
-        this.adoptBotTask(mind, "defend", intruder.id, now);
-        return;
-      }
-    }
     if (bot.isCarryingCash) {
-      this.adoptBotTask(mind, "deposit", "", now);
-      return;
+      // Dropping cash mid-map to do anything else is always worse - deposit
+      // is the only candidate while carrying (near-hard priority by value).
+      const homeNode: BotNodeId = team === "B" ? "livingB" : "livingA";
+      const cost = this.botPathCost(bot, team, homeNode, BOT_WAYPOINTS[homeNode]);
+      options.push({ task: "deposit", targetId: "", score: BOT_VALUE_DEPOSIT - BOT_COST_WEIGHT * cost });
+    } else {
+      // Rescue: one candidate per jailed teammate. Guarded jails score lower;
+      // a teammate already en route makes it near-worthless (double penalty -
+      // two rescuers in one basement is a gift to the defenders).
+      const jailZone = jailBasementForTeam(team);
+      const jailPos = JAIL_POSITIONS[jailZone];
+      this.state.players.forEach((p, pid) => {
+        if (pid === id || p.team !== team || !p.isJailed) return;
+        const cost = this.botPathCost(bot, team, jailZone as BotNodeId, p);
+        if (!Number.isFinite(cost)) return;
+        const risk = this.threatAt(team, jailPos);
+        const coord = this.someBotTasked(team, "rescue", pid, id) ? BOT_COORD_PENALTY * 2 : 0;
+        options.push({
+          task: "rescue",
+          targetId: pid,
+          score: BOT_VALUE_RESCUE - BOT_COST_WEIGHT * cost - BOT_RISK_WEIGHT * risk - coord + noise(),
+        });
+      });
+
+      // Defend: one candidate per intruder in home turf. Zeal scales how much
+      // a bot values defense at all; the coordination penalty (softened by
+      // zeal) lets one nearby hot-head still pile on while calm teammates
+      // keep raiding.
+      this.state.players.forEach((p, pid) => {
+        if (pid === id || p.team === team || p.isJailed) return;
+        if (!isOwnHome(team, p.x, p.y)) return;
+        const { node, aim } = this.defendApproach(team, p);
+        const cost = this.botPathCost(bot, team, node, aim);
+        if (!Number.isFinite(cost)) return;
+        const value = BOT_VALUE_DEFEND * (0.8 + 0.4 * mind.zeal);
+        const coord = this.someBotTasked(team, "defend", pid, id) ? BOT_COORD_PENALTY * (1 - mind.zeal) : 0;
+        options.push({
+          task: "defend",
+          targetId: pid,
+          score: value - BOT_COST_WEIGHT * cost - coord + noise(),
+        });
+      });
+
+      // Steal: one candidate PER available bundle (not just the nearest).
+      // Cost is the real graph route; risk probes the chokepoint the bot must
+      // pass (the enemy's living room) and the bundle itself - a camped
+      // entrance discounts the raid without flatly forbidding it.
+      const bedroom = this.enemyBedroomOf(team);
+      const chokeNode: BotNodeId = team === "B" ? "livingA" : "livingB";
+      const chokePos = BOT_WAYPOINTS[chokeNode];
+      this.state.cashBundles.forEach((b) => {
+        if (b.location !== bedroom) return;
+        const cost = this.botPathCost(bot, team, bedroom as BotNodeId, b);
+        if (!Number.isFinite(cost)) return;
+        const risk = Math.max(this.threatAt(team, chokePos), this.threatAt(team, b));
+        const coord = this.someBotTasked(team, "raid", b.id, id) ? BOT_COORD_PENALTY : 0;
+        options.push({
+          task: "raid",
+          targetId: b.id,
+          score: BOT_VALUE_BUNDLE - BOT_COST_WEIGHT * cost - BOT_RISK_WEIGHT * risk - coord + noise(),
+        });
+      });
+
+      // Patrol: the floor under everything - "do something" beats freezing,
+      // and when raids are heavily guarded it doubles as lurking until the
+      // guard moves off.
+      options.push({ task: "patrol", targetId: "", score: BOT_VALUE_PATROL + noise() });
     }
-    const bundle = this.pickRaidBundle(bot, team);
-    if (bundle) {
-      this.adoptBotTask(mind, "raid", bundle.id, now);
-      return;
+
+    let best: BotOption | undefined;
+    for (const o of options) {
+      // Commitment within the new structure: the currently-held choice gets a
+      // flat bonus, so a marginal score difference doesn't flip the plan on
+      // every re-score - only a meaningful change does.
+      const score = o.score + (o.task === mind.task && o.targetId === mind.targetId ? BOT_COMMIT_BONUS : 0);
+      if (!best || score > best.score) best = { ...o, score };
     }
-    this.adoptBotTask(mind, "patrol", "", now);
+    if (!best) return;
+    if (best.task !== mind.task || best.targetId !== mind.targetId) {
+      mind.task = best.task;
+      mind.targetId = best.targetId;
+      if (best.task === "defend") mind.lastSeenHomeAt = now;
+      if (best.task !== "patrol") mind.patrolNode = null;
+    }
   }
 
   private enemyBedroomOf(team: Team): "bedroomA" | "bedroomB" {
     return team === "B" ? "bedroomA" : "bedroomB";
   }
 
-  // Nearest teammate bot that's free to drop what it's doing (not jailed,
-  // not carrying, not mid-rescue/deposit) - the designated responder.
-  private nearestFreeBot(team: Team, to: { x: number; y: number }): string | null {
-    let bestId: string | null = null;
-    let bestDist = Infinity;
-    this.botIds.forEach((bid) => {
-      const p = this.state.players.get(bid);
-      if (!p || p.team !== team || p.isJailed || p.isCarryingCash) return;
-      const m = this.botMind(bid);
-      if (m.task === "rescue" || m.task === "deposit") return;
-      const d = distance(p, to);
-      if (d < bestDist) {
-        bestDist = d;
-        bestId = bid;
-      }
+  // How threatened `point` is for `team`'s bots: each living enemy inside
+  // BOT_VISION_RADIUS contributes linearly with proximity (0..1 each).
+  private threatAt(team: Team, point: { x: number; y: number }): number {
+    let threat = 0;
+    this.state.players.forEach((p) => {
+      if (p.team === team || p.isJailed) return;
+      const d = distance(p, point);
+      if (d < BOT_VISION_RADIUS) threat += 1 - d / BOT_VISION_RADIUS;
     });
-    return bestId;
+    return threat;
+  }
+
+  // Real route length through the waypoint graph (not straight-line), so the
+  // cost term reflects how far the bot would actually travel. Infinity =
+  // unreachable for this team (its own sealed gates).
+  private botPathCost(bot: PlayerState, team: Team, targetNode: BotNodeId, targetPoint: { x: number; y: number }): number {
+    const startNode = nearestBotNode(bot.x, bot.y);
+    if (startNode === targetNode) return distance(bot, targetPoint);
+    const path = findBotPath(team, startNode, targetNode);
+    if (path.length < 2) return Infinity;
+    let cost = distance(bot, BOT_WAYPOINTS[path[0]]);
+    for (let i = 1; i < path.length; i++) {
+      cost += distance(BOT_WAYPOINTS[path[i - 1]], BOT_WAYPOINTS[path[i]]);
+    }
+    cost += distance(BOT_WAYPOINTS[path[path.length - 1]], targetPoint);
+    return cost;
   }
 
   private someBotTasked(team: Team, task: BotTask, targetId: string, exceptId: string): boolean {
@@ -855,59 +913,6 @@ export class GameRoom extends Room<GameState> {
       if (m.task === task && m.targetId === targetId) found = true;
     });
     return found;
-  }
-
-  // A jailed teammate this bot should go free: skipped if another bot is
-  // already on it or if a different free bot is closer to the jail.
-  private pickRescueTarget(bot: PlayerState, id: string, team: Team): PlayerState | undefined {
-    let target: PlayerState | undefined;
-    this.state.players.forEach((p, pid) => {
-      if (target || pid === id) return;
-      if (p.team === team && p.isJailed && !this.someBotTasked(team, "rescue", pid, id)) target = p;
-    });
-    if (!target) return undefined;
-    return this.nearestFreeBot(team, target) === id ? target : undefined;
-  }
-
-  // An intruder this bot should respond to: normally only the nearest free
-  // bot takes each intruder (everyone else stays on offense); a bot also
-  // piles on to an already-handled intruder if it's close by and zealous.
-  private pickDefendTarget(bot: PlayerState, id: string, team: Team): PlayerState | undefined {
-    const pileOnRange = this.botMind(id).zeal * BOT_PILE_ON_RANGE;
-    let best: PlayerState | undefined;
-    let bestDist = Infinity;
-    this.state.players.forEach((p, pid) => {
-      if (pid === id || p.team === team || p.isJailed) return;
-      if (!isOwnHome(team, p.x, p.y)) return;
-      const handled = this.someBotTasked(team, "defend", pid, id);
-      const d = distance(bot, p);
-      if (handled && d > pileOnRange) return;
-      if (!handled && this.nearestFreeBot(team, p) !== id) return;
-      if (d < bestDist) {
-        bestDist = d;
-        best = p;
-      }
-    });
-    return best;
-  }
-
-  // Jittered-nearest with teammate spread: prefer close bundles without
-  // picking the identical one every round, and lean away from a bundle a
-  // teammate bot is already going for.
-  private pickRaidBundle(bot: PlayerState, team: Team): CashBundleState | undefined {
-    const bedroom = this.enemyBedroomOf(team);
-    let best: CashBundleState | undefined;
-    let bestScore = Infinity;
-    this.state.cashBundles.forEach((b) => {
-      if (b.location !== bedroom) return;
-      let score = distance(bot, b) * (0.75 + Math.random() * 0.5);
-      if (this.someBotTasked(team, "raid", b.id, "")) score *= 2;
-      if (score < bestScore) {
-        bestScore = score;
-        best = b;
-      }
-    });
-    return best;
   }
 
   // Where to route a defender: chase directly inside the shared living room,

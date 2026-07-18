@@ -1,16 +1,16 @@
 # Graph Report - SAP_Game  (2026-07-18)
 
 ## Corpus Check
-- 164 files · ~113,798 words
+- 164 files · ~114,022 words
 - Verdict: corpus is large enough that graph structure adds value.
 
 ## Summary
-- 1609 nodes · 2171 edges · 139 communities (101 shown, 38 thin omitted)
+- 1606 nodes · 2153 edges · 139 communities (101 shown, 38 thin omitted)
 - Extraction: 99% EXTRACTED · 1% INFERRED · 0% AMBIGUOUS · INFERRED: 29 edges (avg confidence: 0.55)
 - Token cost: 0 input · 0 output
 
 ## Graph Freshness
-- Built from commit: `8e090481`
+- Built from commit: `40e1ab58`
 - Run `git rev-parse HEAD` and compare to check if the graph is stale.
 - Run `graphify update .` after code changes (no API cost).
 
@@ -151,16 +151,16 @@
 - extraction-spec.md
 
 ## God Nodes (most connected - your core abstractions)
-1. `GameRoom` - 50 edges
+1. `GameRoom` - 46 edges
 2. `GameController` - 25 edges
 3. `Quick Reference` - 24 edges
 4. `Rule Sections` - 24 edges
 5. `heightAt()` - 22 edges
-6. `Team` - 21 edges
-7. `Game` - 20 edges
-8. `buildEnvironment()` - 19 edges
-9. `TSL Complete Reference` - 19 edges
-10. `InputController` - 18 edges
+6. `Game` - 20 edges
+7. `buildEnvironment()` - 19 edges
+8. `TSL Complete Reference` - 19 edges
+9. `InputController` - 18 edges
+10. `Team` - 18 edges
 
 ## Surprising Connections (you probably didn't know these)
 - `Game` --references--> `InputController`  [EXTRACTED]
@@ -181,7 +181,7 @@
 
 ### Community 0 - "GameRoom"
 Cohesion: 0.07
-Nodes (37): app, clientDist, codeToRoomId, gameServer, handler, httpServer, roomIdToCode, BotMind (+29 more)
+Nodes (38): app, clientDist, codeToRoomId, gameServer, handler, httpServer, roomIdToCode, BotMind (+30 more)
 
 ### Community 1 - "build_family.py"
 Cohesion: 0.12
@@ -564,7 +564,7 @@ Cohesion: 0.50
 Nodes (3): For --cluster-only, For --update (incremental re-extraction), graphify reference: incremental update and cluster-only
 
 ## Knowledge Gaps
-- **849 isolated node(s):** `probe_asset_credentials.sh script`, `name`, `version`, `private`, `type` (+844 more)
+- **850 isolated node(s):** `probe_asset_credentials.sh script`, `name`, `version`, `private`, `type` (+845 more)
   These have ≤1 connection - possible missing edges or undocumented components.
 - **38 thin communities (<3 nodes) omitted from report** — run `graphify query` to explore isolated nodes.
 
@@ -578,9 +578,9 @@ _Questions this graph is uniquely positioned to answer:_
 - **Why does `GameController` connect `GameController` to `constants.ts`, `HudOverlay`, `CharacterModel.ts`, `floorplan.ts`, `HeightField.ts`, `LobbyView`?**
   _High betweenness centrality (0.001) - this node is a cross-community bridge._
 - **What connects `probe_asset_credentials.sh script`, `name`, `version` to the rest of the system?**
-  _849 weakly-connected nodes found - possible documentation gaps or missing edges._
+  _850 weakly-connected nodes found - possible documentation gaps or missing edges._
 - **Should `GameRoom` be split into smaller, more focused modules?**
-  _Cohesion score 0.06541822721598002 - nodes in this community are weakly interconnected._
+  _Cohesion score 0.06522320235231222 - nodes in this community are weakly interconnected._
 - **Should `build_family.py` be split into smaller, more focused modules?**
   _Cohesion score 0.1226890756302521 - nodes in this community are weakly interconnected._
 - **Should `Quick Reference` be split into smaller, more focused modules?**
