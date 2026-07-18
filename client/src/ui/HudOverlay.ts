@@ -88,7 +88,12 @@ export class HudOverlay {
         /* Small and muted, tucked next to the controls line rather than
            mid-screen - the old 16px mid-screen version fought for attention
            with the action prompt every time the mouse unlocked. */
-        #hud-mouse-hint { position:fixed; bottom:32px; left:50%; transform:translateX(-50%); font-size:12px; font-weight:600; color:#8aa; text-align:center; opacity:.65; background:rgba(0,0,0,.35); padding:4px 10px; border-radius:6px; display:none; }
+        /* bottom:74px keeps this clear of #hud-prompt (bottom:38px, ~20px of
+           text) - the two are independent and can show simultaneously
+           (pointer unlocked while standing next to an actionable), so they
+           need distinct slots. The more urgent/frequent yellow prompt keeps
+           the spot nearer the controls line. */
+        #hud-mouse-hint { position:fixed; bottom:74px; left:50%; transform:translateX(-50%); font-size:12px; font-weight:600; color:#8aa; text-align:center; opacity:.65; background:rgba(0,0,0,.35); padding:4px 10px; border-radius:6px; display:none; }
         #hud-prompt { position:fixed; bottom:38px; left:50%; transform:translateX(-50%); font-size:16px; font-weight:700; color:#ffff66; text-align:center; ${strokeThin} display:none; }
         /* Bottom-right corner, small and translucent - the old top-center
            240px opaque block sat exactly where the action is. */
