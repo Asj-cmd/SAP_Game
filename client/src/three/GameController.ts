@@ -8,9 +8,17 @@ import { CameraRig } from "./CameraRig";
 import { RemoteCharacterSync } from "./RemoteCharacterSync";
 import { CashBundleView } from "./CashBundleView";
 import { dressHouses } from "./world/HouseDresser";
-import { RoofSystem } from "./world/RoofSystem";
+import { RoofSystem, ROOFED_ZONES } from "./world/RoofSystem";
 import { HudOverlay } from "../ui/HudOverlay";
-import { getZoneAt, isEnemyBedroom, isOwnHome, jailBasementForTeam, type Team } from "../geometry/floorplan";
+import {
+  ZONE_RECTS,
+  getZoneAt,
+  isEnemyBedroom,
+  isOwnHome,
+  jailBasementForTeam,
+  type Team,
+  type ZoneRect,
+} from "../geometry/floorplan";
 import { MOVE_SEND_INTERVAL_MS, ACTION_RANGE, MOUSE_SENSITIVITY } from "../constants";
 
 type Action =
@@ -169,6 +177,16 @@ export class GameController {
     this.spaceJustPressed = false;
   }
 
+  // The rect CameraRig clamps its position into: the character's current zone
+  // if it's an enclosed interior room (RoofSystem's own ROOFED_ZONES list),
+  // null in the open-air garden/backyards. Same getZoneAt lookup the roof
+  // reveal already does each frame.
+  private cameraBounds(): ZoneRect | null {
+    const zone = getZoneAt(this.controller.x, this.controller.z);
+    if (!ROOFED_ZONES.includes(zone)) return null;
+    return ZONE_RECTS.find((z) => z.id === zone) ?? null;
+  }
+
   // Ports GameScene.updateLocalMovement: outside "playing" or while jailed,
   // the server is fully authoritative - snap to its position every frame
   // instead of processing input, exactly as the 2D build's body.reset() did.
@@ -181,7 +199,7 @@ export class GameController {
       model.setJailed(selfState.isJailed);
       model.setCarrying(selfState.isCarryingCash);
       model.update(dt, 0);
-      this.cameraRig.update(dt, this.controller.x, this.controller.z);
+      this.cameraRig.update(dt, this.controller.x, this.controller.z, this.cameraBounds());
       this.depositSent = false;
       return;
     }
@@ -203,7 +221,7 @@ export class GameController {
     // mouse-look. No smoothing: pointer-lock deltas arrive a few pixels per
     // frame, so the character turns exactly as fast as the view does.
     this.controller.model.setFacingAngle(yaw);
-    this.cameraRig.update(dt, this.controller.x, this.controller.z);
+    this.cameraRig.update(dt, this.controller.x, this.controller.z, this.cameraBounds());
 
     this.moveAccumulatorMs += dt * 1000;
     if (this.moveAccumulatorMs >= MOVE_SEND_INTERVAL_MS) {

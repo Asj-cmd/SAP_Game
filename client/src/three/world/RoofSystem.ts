@@ -6,8 +6,10 @@ import { zoneBaseHeight } from "./HeightField";
 // One flat slab per interior room - backyards/garden are open-air, so they're
 // deliberately excluded. Not added to CameraRig's obstacle list: the roof
 // should never block the chase camera's raycast, only visually cap the room
-// the player isn't currently standing in.
-const ROOFED_ZONES: ZoneId[] = ["bedroomB", "livingB", "basementB", "bedroomA", "livingA", "basementA"];
+// the player isn't currently standing in. Exported as THE definition of
+// "enclosed interior room" - CameraRig's indoor clamp keys off the same list,
+// so a zone can't be roofed but unclamped (or vice versa) by accident.
+export const ROOFED_ZONES: ZoneId[] = ["bedroomB", "livingB", "basementB", "bedroomA", "livingA", "basementA"];
 
 interface RoofPanel {
   zone: ZoneId;

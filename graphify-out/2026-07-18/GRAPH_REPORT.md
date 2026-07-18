@@ -1,16 +1,16 @@
 # Graph Report - SAP_Game  (2026-07-18)
 
 ## Corpus Check
-- 164 files · ~111,258 words
+- 164 files · ~111,615 words
 - Verdict: corpus is large enough that graph structure adds value.
 
 ## Summary
-- 1590 nodes · 2072 edges · 140 communities (102 shown, 38 thin omitted)
+- 1594 nodes · 2092 edges · 140 communities (102 shown, 38 thin omitted)
 - Extraction: 99% EXTRACTED · 1% INFERRED · 0% AMBIGUOUS · INFERRED: 29 edges (avg confidence: 0.55)
 - Token cost: 0 input · 0 output
 
 ## Graph Freshness
-- Built from commit: `06597c0e`
+- Built from commit: `939e62c8`
 - Run `git rev-parse HEAD` and compare to check if the graph is stale.
 - Run `graphify update .` after code changes (no API cost).
 
@@ -158,9 +158,9 @@
 4. `Rule Sections` - 24 edges
 5. `heightAt()` - 22 edges
 6. `Game` - 20 edges
-7. `TSL Complete Reference` - 19 edges
-8. `InputController` - 18 edges
-9. `buildEnvironment()` - 18 edges
+7. `buildEnvironment()` - 19 edges
+8. `TSL Complete Reference` - 19 edges
+9. `InputController` - 18 edges
 10. `build_character()` - 16 edges
 
 ## Surprising Connections (you probably didn't know these)
@@ -201,8 +201,8 @@ Cohesion: 0.06
 Nodes (31): dependencies, lil-gui, three, devDependencies, @playwright/test, pngjs, @types/node, @types/pngjs (+23 more)
 
 ### Community 6 - "HouseDresser.ts"
-Cohesion: 0.12
-Nodes (26): dressHouses(), mirrorPlacement(), mirrorRot(), placeIndividually(), solidRect(), buildInstancedProps(), dummy, applyMaterialRoles() (+18 more)
+Cohesion: 0.13
+Nodes (25): dressHouses(), mirrorPlacement(), mirrorRot(), placeIndividually(), solidRect(), buildInstancedProps(), dummy, applyMaterialRoles() (+17 more)
 
 ### Community 7 - "package.json"
 Cohesion: 0.06
@@ -233,8 +233,8 @@ Cohesion: 0.09
 Nodes (22): dependencies, colyseus.js, three, devDependencies, playwright-core, @types/three, typescript, vite (+14 more)
 
 ### Community 14 - "EnvironmentBuilder.ts"
-Cohesion: 0.22
-Nodes (19): teamSideAt(), DOORS, buildEnvironment(), doorBase(), doorFrameBase(), doorFrameGeoms(), foundationGeoms(), intersectRect() (+11 more)
+Cohesion: 0.21
+Nodes (23): teamSideAt(), DOORS, buildEnvironment(), doorBase(), doorFrameBase(), doorFrameGeoms(), foundationGeoms(), intersectRect() (+15 more)
 
 ### Community 15 - "compilerOptions"
 Cohesion: 0.10
@@ -253,8 +253,8 @@ Cohesion: 0.16
 Nodes (15): COLORS, ROOF_BASE, getZoneAt(), isEnemyBedroom(), isOwnHome(), jailBasementForTeam(), ZONE_RECTS, ZoneId (+7 more)
 
 ### Community 19 - "HeightField.ts"
-Cohesion: 0.16
-Nodes (13): Door, Rect, CharacterController, Environment, Axis, clamp01(), corridorHeight(), heightAt() (+5 more)
+Cohesion: 0.13
+Nodes (13): Door, Rect, CashBundleView, CharacterController, Environment, Axis, clamp01(), corridorHeight() (+5 more)
 
 ### Community 20 - "build_nature.py"
 Cohesion: 0.24
@@ -297,8 +297,8 @@ Cohesion: 0.12
 Nodes (16): BAD - Multiple passes, Device Detection, Draw Calls, GOOD - Combined SuperShader, Level of Detail, Material Hierarchy (Fast to Slow), Memory Management, Mobile Checklist (+8 more)
 
 ### Community 30 - "LobbyView"
-Cohesion: 0.16
-Nodes (4): LobbyView, onGameStart(), ColyseusClient, HOST
+Cohesion: 0.18
+Nodes (3): LobbyView, ColyseusClient, HOST
 
 ### Community 31 - "compilerOptions"
 Cohesion: 0.12
@@ -349,8 +349,8 @@ Cohesion: 0.14
 Nodes (13): Anti-Patterns, Audio Feel Coupling, Camera Kick / FOV Punch, Determinism, Game Feel, Gamepad Rumble, Hitstop, Impact Flash (+5 more)
 
 ### Community 44 - "WindowBuilder.ts"
-Cohesion: 0.26
-Nodes (14): WALLS, coloredBox(), rectToBox(), wallSegments(), buildWallBoxes(), buildWindows(), findWallIndex(), plainBox() (+6 more)
+Cohesion: 0.22
+Nodes (16): WALLS, coloredBox(), rectToBox(), probeSpan(), wallSegments(), WINDOWS, buildWallBoxes(), buildWindows() (+8 more)
 
 ### Community 45 - "Animation System"
 Cohesion: 0.15
@@ -576,11 +576,11 @@ Nodes (3): For --cluster-only, For --update (incremental re-extraction), graphif
 ## Suggested Questions
 _Questions this graph is uniquely positioned to answer:_
 
-- **Why does `heightAt()` connect `HeightField.ts` to `constants.ts`, `GameController.ts`, `HouseDresser.ts`, `CharacterModel.ts`, `EnvironmentBuilder.ts`, `floorplan.ts`?**
+- **Why does `heightAt()` connect `HeightField.ts` to `constants.ts`, `HouseDresser.ts`, `CharacterModel.ts`, `WindowBuilder.ts`, `EnvironmentBuilder.ts`, `floorplan.ts`?**
   _High betweenness centrality (0.002) - this node is a cross-community bridge._
-- **Why does `SceneManager` connect `SceneManager` to `floorplan.ts`, `GameController.ts`?**
+- **Why does `GameController` connect `GameController.ts` to `constants.ts`, `HudOverlay`, `CharacterModel.ts`, `SceneManager`, `floorplan.ts`, `HeightField.ts`?**
   _High betweenness centrality (0.002) - this node is a cross-community bridge._
-- **Why does `GameController` connect `GameController.ts` to `constants.ts`, `HudOverlay`, `CharacterModel.ts`, `SceneManager`, `floorplan.ts`, `HeightField.ts`, `LobbyView`?**
+- **Why does `InputController` connect `InputController` to `Game.ts`, `Game`?**
   _High betweenness centrality (0.001) - this node is a cross-community bridge._
 - **What connects `probe_asset_credentials.sh script`, `name`, `version` to the rest of the system?**
   _850 weakly-connected nodes found - possible documentation gaps or missing edges._

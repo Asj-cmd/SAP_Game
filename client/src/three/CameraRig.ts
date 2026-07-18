@@ -1,6 +1,7 @@
 import * as THREE from "three";
 import { DEFAULT_PITCH, FOLLOW_DISTANCE, LOOK_HEIGHT } from "../constants";
 import { heightAt } from "./world/HeightField";
+import type { ZoneRect } from "../geometry/floorplan";
 
 // Ground height tracks toward heightAt(target) at this rate (units/sec of
 // lerp-fraction, i.e. 1 - e^-RATE*dt), not snapped instantly, so climbing a
@@ -14,6 +15,15 @@ const GROUND_FOLLOW_RATE = 8;
 // into the stairwell ceiling. PITCH_MAX is just short of straight down.
 const PITCH_MIN = -0.15;
 const PITCH_MAX = 1.25;
+
+// Indoor horizontal clamp (see update()'s bounds parameter). The inset keeps
+// the camera off the walls' inner faces (boundary walls are ~10 scaled units
+// thick, centered on the zone edge); the ease rate smooths the correction in
+// and out across zone transitions - a doorway crossing can move the clamp
+// target ~100+ units in one frame, and 8/sec matches GROUND_FOLLOW_RATE's
+// feel for "the camera catches up, it doesn't teleport".
+const CLAMP_INSET = 30;
+const CLAMP_EASE_RATE = 8;
 
 function clamp(v: number, lo: number, hi: number): number {
   return Math.max(lo, Math.min(hi, v));
@@ -39,6 +49,11 @@ export class CameraRig {
   // Smoothed ground height under the followed target - see GROUND_FOLLOW_RATE.
   private groundY = 0;
   private groundInitialized = false;
+  // Eased indoor-clamp correction (world units), per horizontal axis - eased
+  // rather than applied raw so entering/leaving a clamped zone slides the
+  // camera instead of snapping it (see CLAMP_EASE_RATE).
+  private clampOffsetX = 0;
+  private clampOffsetZ = 0;
   // Scratch vectors reused every frame in update() instead of allocated fresh -
   // this runs once per rendered frame, so `new THREE.Vector3()`/`.clone()`
   // here would be a steady stream of small GC garbage at 60+ fps.
@@ -71,7 +86,14 @@ export class CameraRig {
     this.pitch = clamp(this.pitch + delta, PITCH_MIN, PITCH_MAX);
   }
 
-  update(dt: number, targetX: number, targetZ: number) {
+  // `bounds`: the enclosed interior zone the character is standing in (its
+  // ZONE_RECTS entry), or null outdoors. Indoors the camera's final X/Z is
+  // clamped inside that rect: FOLLOW_DISTANCE fits inside the scaled-up rooms
+  // without the raycast ever firing (it only sees geometry ON the ray), so an
+  // unclamped orbit can drift past the room's footprint and show sky around
+  // the building or over a wall's top edge. Y is deliberately never clamped -
+  // the near-top-down pitch must keep working.
+  update(dt: number, targetX: number, targetZ: number, bounds: ZoneRect | null = null) {
     const targetGroundY = heightAt(targetX, targetZ);
     if (!this.groundInitialized) {
       // Snap on the very first frame instead of easing up from 0, in case a
@@ -112,6 +134,22 @@ export class CameraRig {
         this.desired.copy(this.lookAt).addScaledVector(this.dir, pulled);
       }
     }
+
+    // Indoor clamp, applied AFTER the pull-in (which still owns door gaps and
+    // the basement slab): ease the correction toward what the clamp currently
+    // wants - zero outdoors - so zone transitions slide rather than snap.
+    // Floorplan (x, y) maps to three (x, z), hence yMin/yMax against desired.z.
+    const wantX = bounds
+      ? clamp(this.desired.x, bounds.xMin + CLAMP_INSET, bounds.xMax - CLAMP_INSET) - this.desired.x
+      : 0;
+    const wantZ = bounds
+      ? clamp(this.desired.z, bounds.yMin + CLAMP_INSET, bounds.yMax - CLAMP_INSET) - this.desired.z
+      : 0;
+    const ease = Math.min(1, CLAMP_EASE_RATE * dt);
+    this.clampOffsetX += (wantX - this.clampOffsetX) * ease;
+    this.clampOffsetZ += (wantZ - this.clampOffsetZ) * ease;
+    this.desired.x += this.clampOffsetX;
+    this.desired.z += this.clampOffsetZ;
 
     this.camera.position.copy(this.desired);
     this.camera.lookAt(this.lookAt);

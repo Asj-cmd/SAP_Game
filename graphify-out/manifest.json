@@ -205,8 +205,8 @@
     "semantic_hash": ""
   },
   "client/src/three/CameraRig.ts": {
-    "mtime": 1784289281.1665418,
-    "ast_hash": "2e7e708fe81aaf0d1dcab863ca0a0eea",
+    "mtime": 1784383530.7210124,
+    "ast_hash": "c151e62df45e1cb1b487a11ad43f9035",
     "semantic_hash": ""
   },
   "client/src/three/CashBundleView.ts": {
@@ -230,8 +230,8 @@
     "semantic_hash": ""
   },
   "client/src/three/GameController.ts": {
-    "mtime": 1784327340.9581428,
-    "ast_hash": "308d07dd23115c5a05eaaaaafc8bb29f",
+    "mtime": 1784383563.633011,
+    "ast_hash": "342309b214b009590eb44894c4331da7",
     "semantic_hash": ""
   },
   "client/src/three/RemoteCharacterSync.ts": {
@@ -265,8 +265,8 @@
     "semantic_hash": ""
   },
   "client/src/three/world/RoofSystem.ts": {
-    "mtime": 1784381842.8385103,
-    "ast_hash": "1042f4066d870a1a6e1aa566359efd9f",
+    "mtime": 1784383482.517014,
+    "ast_hash": "f82db598fb37d7963f56ba24eceb5cd2",
     "semantic_hash": ""
   },
   "client/src/three/world/StaircaseBuilder.ts": {
