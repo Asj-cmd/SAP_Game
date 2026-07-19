@@ -335,8 +335,8 @@
     "semantic_hash": ""
   },
   "server/src/zones.ts": {
-    "mtime": 1784477246.5888386,
-    "ast_hash": "fd5304c045a5075a2782b81537cc2368",
+    "mtime": 1784488285.1703286,
+    "ast_hash": "83b5277e41f5052680bb26ff7dc16751",
     "semantic_hash": ""
   },
   "server/tsconfig.json": {

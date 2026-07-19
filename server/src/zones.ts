@@ -226,16 +226,24 @@ export type BotNodeId =
   | "gateA_bedroom"
   | "gateA_basement"
   | "gateA_garden"
-  // Backyard spur (per house): the yard itself plus its three door gates -
-  // living<->yard (open to all), yard<->bedroom and yard<->basement (sealed
-  // for the OWNING team, exactly like the interior stair doors). Gives bots
-  // the same alternative raid/rescue route humans always had, and lets a
-  // defender chase an intruder into its own yard.
+  // Backyard spur (per house). The yard is an open vertical STRIP, so it gets
+  // one node per door latitude (bedroom / living / basement) linked vertically,
+  // plus the three door gates - living<->yard (open to all), yard<->bedroom and
+  // yard<->basement (sealed for the OWNING team, like the interior stairs).
+  // Every edge is axis-aligned so a bot threads each door head-on instead of
+  // beelining diagonally into a jamb and wedging. Gives bots the alternative
+  // raid/rescue route humans always had, and lets a defender chase into its
+  // own yard. `backyardB`/`backyardA` are the living-latitude strip nodes (the
+  // hub the raid/rescue "via" and defence routing target).
   | "backyardB"
+  | "yardB_bedroom"
+  | "yardB_basement"
   | "gateB_yard"
   | "gateB_yardBedroom"
   | "gateB_yardBasement"
   | "backyardA"
+  | "yardA_bedroom"
+  | "yardA_basement"
   | "gateA_yard"
   | "gateA_yardBedroom"
   | "gateA_yardBasement";
@@ -254,13 +262,17 @@ export const BOT_WAYPOINTS: Record<BotNodeId, { x: number; y: number }> = {
   gateA_bedroom: scalePoint({ x: 1260, y: 200 }), // sealedFor A - only usable by team B
   gateA_basement: scalePoint({ x: 1260, y: 620 }), // sealedFor A - only usable by team B
   gateA_garden: scalePoint({ x: 1060, y: 410 }),
-  // Yard node sits mid-strip at the living door's latitude: straight lines
-  // from it to either sealed yard gate stay inside the yard strip.
-  backyardB: scalePoint({ x: 70, y: 410 }),
+  // Yard strip nodes: mid-strip (x=70 / x=1530), one per door latitude, so
+  // travel in the open yard is vertical and each door is entered straight-on.
+  backyardB: scalePoint({ x: 70, y: 410 }), // living latitude (the hub)
+  yardB_bedroom: scalePoint({ x: 70, y: 100 }),
+  yardB_basement: scalePoint({ x: 70, y: 740 }),
   gateB_yard: scalePoint({ x: 140, y: 410 }), // living<->backyard door, open to all
   gateB_yardBedroom: scalePoint({ x: 140, y: 100 }), // sealedFor B - only usable by team A
   gateB_yardBasement: scalePoint({ x: 140, y: 740 }), // sealedFor B - only usable by team A
   backyardA: scalePoint({ x: 1530, y: 410 }),
+  yardA_bedroom: scalePoint({ x: 1530, y: 100 }),
+  yardA_basement: scalePoint({ x: 1530, y: 740 }),
   gateA_yard: scalePoint({ x: 1460, y: 410 }),
   gateA_yardBedroom: scalePoint({ x: 1460, y: 100 }), // sealedFor A - only usable by team B
   gateA_yardBasement: scalePoint({ x: 1460, y: 740 }), // sealedFor A - only usable by team B
@@ -285,20 +297,27 @@ const BOT_EDGES: BotEdge[] = [
   { a: "gateA_bedroom", b: "bedroomA", blockedFor: "A" },
   { a: "livingA", b: "gateA_basement", blockedFor: "A" },
   { a: "gateA_basement", b: "basementA", blockedFor: "A" },
-  // Backyard spurs. The living<->yard leg is open to everyone (owners chase
-  // intruders into their own yard); the yard<->bedroom/basement legs mirror
-  // the interior stair doors' seals.
-  { a: "livingB", b: "gateB_yard" },
-  { a: "gateB_yard", b: "backyardB" },
-  { a: "backyardB", b: "gateB_yardBedroom", blockedFor: "B" },
-  { a: "gateB_yardBedroom", b: "bedroomB", blockedFor: "B" },
-  { a: "backyardB", b: "gateB_yardBasement", blockedFor: "B" },
+  // Backyard spurs. Living<->yard is open to everyone (owners chase intruders
+  // into their own yard); the yard<->bedroom/basement legs mirror the interior
+  // stair doors' seals. Every edge is axis-aligned: the strip nodes link
+  // vertically (open yard), each door gate links straight across to its strip
+  // node and straight in to the room, so a bot never beelines diagonally into
+  // a door jamb.
+  { a: "livingB", b: "gateB_yard" }, // straight W
+  { a: "gateB_yard", b: "backyardB" }, // straight W through the living door
+  { a: "backyardB", b: "yardB_bedroom" }, // straight N up the strip
+  { a: "backyardB", b: "yardB_basement" }, // straight S down the strip
+  { a: "yardB_bedroom", b: "gateB_yardBedroom", blockedFor: "B" }, // straight E to the door
+  { a: "gateB_yardBedroom", b: "bedroomB", blockedFor: "B" }, // straight E into the bedroom
+  { a: "yardB_basement", b: "gateB_yardBasement", blockedFor: "B" },
   { a: "gateB_yardBasement", b: "basementB", blockedFor: "B" },
   { a: "livingA", b: "gateA_yard" },
   { a: "gateA_yard", b: "backyardA" },
-  { a: "backyardA", b: "gateA_yardBedroom", blockedFor: "A" },
+  { a: "backyardA", b: "yardA_bedroom" },
+  { a: "backyardA", b: "yardA_basement" },
+  { a: "yardA_bedroom", b: "gateA_yardBedroom", blockedFor: "A" },
   { a: "gateA_yardBedroom", b: "bedroomA", blockedFor: "A" },
-  { a: "backyardA", b: "gateA_yardBasement", blockedFor: "A" },
+  { a: "yardA_basement", b: "gateA_yardBasement", blockedFor: "A" },
   { a: "gateA_yardBasement", b: "basementA", blockedFor: "A" },
 ];
 

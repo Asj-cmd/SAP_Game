@@ -7253,7 +7253,7 @@
       "label": ".moveBotWithCollision()",
       "file_type": "code",
       "source_file": "server/src/rooms/GameRoom.ts",
-      "source_location": "L1119",
+      "source_location": "L1125",
       "_origin": "ast",
       "id": "server_src_rooms_gameroom_gameroom_movebotwithcollision",
       "community": 0,
@@ -7261,15 +7261,15 @@
       "norm_label": ".movebotwithcollision()"
     },
     {
-      "label": ".resolveBotCollision()",
+      "label": ".botHitsWall()",
       "file_type": "code",
       "source_file": "server/src/rooms/GameRoom.ts",
-      "source_location": "L1134",
+      "source_location": "L1143",
       "_origin": "ast",
-      "id": "server_src_rooms_gameroom_gameroom_resolvebotcollision",
+      "id": "server_src_rooms_gameroom_gameroom_bothitswall",
       "community": 0,
       "community_name": "GameRoom",
-      "norm_label": ".resolvebotcollision()"
+      "norm_label": ".bothitswall()"
     },
     {
       "label": "GameState.ts",
@@ -30862,7 +30862,7 @@
       "context": "call",
       "confidence": "EXTRACTED",
       "source_file": "server/src/rooms/GameRoom.ts",
-      "source_location": "L1125",
+      "source_location": "L1132",
       "weight": 1.0,
       "_origin": "ast",
       "source": "server_src_rooms_gameroom_gameroom_movebotwithcollision",
@@ -30998,6 +30998,17 @@
       "_origin": "ast",
       "source": "server_src_rooms_gameroom_gameroom",
       "target": "server_src_rooms_gameroom_gameroom_addbot",
+      "confidence_score": 1.0
+    },
+    {
+      "relation": "method",
+      "confidence": "EXTRACTED",
+      "source_file": "server/src/rooms/GameRoom.ts",
+      "source_location": "L1143",
+      "weight": 1.0,
+      "_origin": "ast",
+      "source": "server_src_rooms_gameroom_gameroom",
+      "target": "server_src_rooms_gameroom_gameroom_bothitswall",
       "confidence_score": 1.0
     },
     {
@@ -31323,7 +31334,7 @@
       "relation": "method",
       "confidence": "EXTRACTED",
       "source_file": "server/src/rooms/GameRoom.ts",
-      "source_location": "L1119",
+      "source_location": "L1125",
       "weight": 1.0,
       "_origin": "ast",
       "source": "server_src_rooms_gameroom_gameroom",
@@ -31394,17 +31405,6 @@
       "_origin": "ast",
       "source": "server_src_rooms_gameroom_gameroom",
       "target": "server_src_rooms_gameroom_gameroom_resetroundstate",
-      "confidence_score": 1.0
-    },
-    {
-      "relation": "method",
-      "confidence": "EXTRACTED",
-      "source_file": "server/src/rooms/GameRoom.ts",
-      "source_location": "L1134",
-      "weight": 1.0,
-      "_origin": "ast",
-      "source": "server_src_rooms_gameroom_gameroom",
-      "target": "server_src_rooms_gameroom_gameroom_resolvebotcollision",
       "confidence_score": 1.0
     },
     {
@@ -33036,11 +33036,11 @@
       "context": "call",
       "confidence": "EXTRACTED",
       "source_file": "server/src/rooms/GameRoom.ts",
-      "source_location": "L1127",
+      "source_location": "L1133",
       "weight": 1.0,
       "_origin": "ast",
       "source": "server_src_rooms_gameroom_gameroom_movebotwithcollision",
-      "target": "server_src_rooms_gameroom_gameroom_resolvebotcollision",
+      "target": "server_src_rooms_gameroom_gameroom_bothitswall",
       "confidence_score": 1.0
     },
     {
@@ -33048,7 +33048,7 @@
       "context": "parameter_type",
       "confidence": "EXTRACTED",
       "source_file": "server/src/rooms/GameRoom.ts",
-      "source_location": "L1119",
+      "source_location": "L1125",
       "weight": 1.0,
       "_origin": "ast",
       "source": "server_src_rooms_gameroom_gameroom_movebotwithcollision",
@@ -33060,7 +33060,7 @@
       "context": "parameter_type",
       "confidence": "EXTRACTED",
       "source_file": "server/src/rooms/GameRoom.ts",
-      "source_location": "L1119",
+      "source_location": "L1125",
       "weight": 1.0,
       "_origin": "ast",
       "source": "server_src_rooms_gameroom_gameroom_movebotwithcollision",
@@ -33072,10 +33072,10 @@
       "context": "parameter_type",
       "confidence": "EXTRACTED",
       "source_file": "server/src/rooms/GameRoom.ts",
-      "source_location": "L1134",
+      "source_location": "L1143",
       "weight": 1.0,
       "_origin": "ast",
-      "source": "server_src_rooms_gameroom_gameroom_resolvebotcollision",
+      "source": "server_src_rooms_gameroom_gameroom_bothitswall",
       "target": "server_src_schema_gamestate_playerstate",
       "confidence_score": 1.0
     },
@@ -33084,10 +33084,10 @@
       "context": "parameter_type",
       "confidence": "EXTRACTED",
       "source_file": "server/src/rooms/GameRoom.ts",
-      "source_location": "L1134",
+      "source_location": "L1143",
       "weight": 1.0,
       "_origin": "ast",
-      "source": "server_src_rooms_gameroom_gameroom_resolvebotcollision",
+      "source": "server_src_rooms_gameroom_gameroom_bothitswall",
       "target": "server_src_zones_team",
       "confidence_score": 1.0
     },
@@ -42575,5 +42575,5 @@
     }
   ],
   "hyperedges": [],
-  "built_at_commit": "7f43ec2b13fc099ffc59d3a1807a256c7d329ff9"
+  "built_at_commit": "9b82baa8374fe334ff9765f9231bf68e4fdb4639"
 }
