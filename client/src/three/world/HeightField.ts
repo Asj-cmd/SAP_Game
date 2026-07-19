@@ -11,17 +11,27 @@
 // room stays at grade (0). The two houses mirror each other, so the two
 // elevation tables below are literal mirrors by construction (see each
 // corridor's provenance comment).
-import { FLOOR_RISE, WORLD_SCALE, WALL_HEIGHT } from "../../constants";
+import { STORY_HEIGHT, WORLD_SCALE, WALL_HEIGHT } from "../../constants";
 import { getZoneAt, type ZoneId, type Rect } from "../../geometry/floorplan";
 
 const S = WORLD_SCALE;
 
-// ---- per-zone base height ----
+// ---- per-zone story level ----
+//
+// Each zone lives on a STORY LEVEL and its floor sits at level * STORY_HEIGHT.
+// This is the single knob for vertical layout: the master bedroom is one story
+// up (+1), the basement one story down (-1), everything else at grade (0). To
+// add rooms ON TOP later, give the new zones a higher level here (e.g. +2) and
+// a ZONE_RECT - all vertical geometry (walls, ceilings, roofs, stairs, the
+// camera cap) is derived from the level, so no other height math changes.
+function zoneLevel(zone: ZoneId): number {
+  if (zone === "bedroomB" || zone === "bedroomA") return 1;
+  if (zone === "basementB" || zone === "basementA") return -1;
+  return 0;
+}
 
 export function zoneBaseHeight(zone: ZoneId): number {
-  if (zone === "bedroomB" || zone === "bedroomA") return FLOOR_RISE;
-  if (zone === "basementB" || zone === "basementA") return -FLOOR_RISE;
-  return 0;
+  return zoneLevel(zone) * STORY_HEIGHT;
 }
 
 // The Y a roofed zone's CEILING/roof plane sits at - the single source both
@@ -56,7 +66,12 @@ export function ceilingHeight(zone: ZoneId): number {
 // pre-scale units on each side of the door line along that axis. `cross` is
 // the perpendicular span, bounded by the gap's own width (not extended) so
 // the ramp never bleeds into the solid wall beside the door.
-const RAMP_EXTENT = 70; // pre-scale units, each side of the door line
+// Pre-scale units, each side of the door line. Widened (was 70) so the ramp
+// run keeps pace with the taller STORY_HEIGHT rise - a full story over too
+// short a run reads as a near-vertical ladder; this keeps the slope walkable.
+// Still comfortably inside the adjacent rooms: 100 either side of a door line
+// stays within the ~200-deep bedroom and the longer living/basement rooms.
+const RAMP_EXTENT = 100;
 
 export type Axis = "x" | "z";
 
@@ -95,7 +110,9 @@ function corridor(
   };
 }
 
-const RISE = FLOOR_RISE;
+// Stair corridors span exactly one story between grade and a raised/sunken
+// zone, so the ramp's endpoint height is one STORY_HEIGHT.
+const RISE = STORY_HEIGHT;
 
 export const STAIR_CORRIDORS: StairCorridor[] = [
   // ---- house B ----

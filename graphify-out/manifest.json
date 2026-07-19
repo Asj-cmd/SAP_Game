@@ -180,8 +180,8 @@
     "semantic_hash": ""
   },
   "client/src/constants.ts": {
-    "mtime": 1784443321.554375,
-    "ast_hash": "2230cea775ea18880bedd083a134cc14",
+    "mtime": 1784490212.881161,
+    "ast_hash": "8f8cf5770e0d026964c09ed4d5d82e65",
     "semantic_hash": ""
   },
   "client/src/geometry/floorplan.ts": {
@@ -225,8 +225,8 @@
     "semantic_hash": ""
   },
   "client/src/three/EnvironmentBuilder.ts": {
-    "mtime": 1784391316.6069272,
-    "ast_hash": "06c68ac6f2049e5a0e0c698f297a7bca",
+    "mtime": 1784490348.549169,
+    "ast_hash": "112f7b9541f51173451d77d8d3526c55",
     "semantic_hash": ""
   },
   "client/src/three/GameController.ts": {
@@ -245,8 +245,8 @@
     "semantic_hash": ""
   },
   "client/src/three/world/HeightField.ts": {
-    "mtime": 1784443183.294378,
-    "ast_hash": "88d0dd1dd3cef207c5b7fc72a754af44",
+    "mtime": 1784490297.785166,
+    "ast_hash": "f0b92b4128b38fbf4fa27b5fab0572c7",
     "semantic_hash": ""
   },
   "client/src/three/world/HouseDresser.ts": {

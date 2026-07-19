@@ -91,10 +91,10 @@ function doorBase(door: Door): number {
 function doorFrameBase(door: Door): number {
   const cx = (door.x1 + door.x2) / 2;
   const cy = (door.y1 + door.y2) / 2;
-  // Must probe past the corridor's ramp: RAMP_EXTENT is 70 pre-scale units,
-  // so 75 * WORLD_SCALE stays safely beyond it at ANY map scale (a fixed
-  // scaled number here silently broke the moment WORLD_SCALE grew).
-  const PROBE = 75 * WORLD_SCALE;
+  // Must probe past the corridor's ramp (RAMP_EXTENT = 100 pre-scale) so the
+  // samples land in the flat zones on either side, not mid-ramp: 130 pre-scale
+  // clears it with margin, scaled by WORLD_SCALE like every run-axis distance.
+  const PROBE = 130 * WORLD_SCALE;
   // Probe ONLY across the door line (the traversal direction) - the frame
   // belongs to the two zones the door CONNECTS. An earlier version also
   // probed along the wall's run, which could cross into an unrelated room

@@ -28,19 +28,30 @@ export const ACTION_RANGE = 60 * WORLD_SCALE;
 export const ROUND_TIME_DEFAULT = 300;
 
 // 3D rendering constants (world-unit scale, same units as WORLD_WIDTH/HEIGHT).
-export const WALL_HEIGHT = 140; // tall enough to fully occlude camera/character
+//
+// STORY_HEIGHT is the ONE vertical unit the whole building derives from: the
+// floor-to-ceiling height of a room AND the rise/sink of one split-level. Set
+// tall on purpose (the character is ~83 units) so rooms feel like real rooms
+// and, crucially, so the chase camera's default over-the-shoulder position
+// (~215 units above the character) fits UNDER the ceiling without the indoor
+// clamp fighting it - that clamp firing at normal play, and re-firing on every
+// floor change, is what made the camera feel snappy and boxed-in. To add an
+// upper floor later, give its zones a higher level in HeightField.zoneBaseHeight
+// (base = level * STORY_HEIGHT) and a ZONE_RECT; everything vertical - walls,
+// ceilings, roofs, stairs, the camera cap - already derives from this unit, so
+// the building is expandable upward without new height math.
+export const STORY_HEIGHT = 260;
+export const WALL_HEIGHT = STORY_HEIGHT; // room floor-to-ceiling
 export const FLOOR_HEIGHT = 4; // thin slab, purely visual
 export const DOOR_MAT_HEIGHT = 1; // flat mat, sits just above the floor slab
-export const DOOR_HEIGHT = 105; // top of a door opening; lintel fills up to WALL_HEIGHT
+export const DOOR_HEIGHT = 170; // top of a door opening; lintel fills up to WALL_HEIGHT
 export const DOOR_JAMB = 12; // how far the frame trim extends past each side of an opening
 
-// Split-level verticality (client/src/three/world/HeightField.ts): one full
-// story of rise/sink for the bedroom wing (up) and basement (down). Equal to
-// WALL_HEIGHT by design - a "story" is exactly one wall's height, so a
-// character walking up the stairs into the raised bedroom clears the living
-// room's ceiling line exactly as they arrive. Purely a client-side rendering
-// height; the server/network model stays 2D (ground x/y only).
-export const FLOOR_RISE = 140;
+// Split-level rise/sink per story - EQUAL to STORY_HEIGHT by design, so a
+// character climbing into the raised bedroom clears the living room's ceiling
+// line exactly as they arrive, and a sunken basement drops one clean story.
+// Purely a client-side rendering height; the server/network model stays 2D.
+export const FLOOR_RISE = STORY_HEIGHT;
 
 // The Blender character rig (assets/blender/build_character.py) is ~1.85
 // "Blender units" tall; scaled up so its ~0.84-unit arm span roughly matches
@@ -79,8 +90,9 @@ export const ROOF_THICKNESS = 8;
 
 // Window openings (client/src/three/world/WindowBuilder.ts), three-y units,
 // NOT scaled by WORLD_SCALE (heights never are - see floorplan.ts's header).
-export const WINDOW_SILL = 45;
-export const WINDOW_HEAD = 100;
+// Raised to sit proportionally on the taller STORY_HEIGHT walls.
+export const WINDOW_SILL = 70;
+export const WINDOW_HEAD = 190;
 
 // Which family's half of the map a scaled world-x sits in - house B owns the
 // west half, house A the east. Used to give each house's trim (roof, door and
