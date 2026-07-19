@@ -11,7 +11,7 @@
 // room stays at grade (0). The two houses mirror each other, so the two
 // elevation tables below are literal mirrors by construction (see each
 // corridor's provenance comment).
-import { FLOOR_RISE, WORLD_SCALE } from "../../constants";
+import { FLOOR_RISE, WORLD_SCALE, WALL_HEIGHT } from "../../constants";
 import { getZoneAt, type ZoneId, type Rect } from "../../geometry/floorplan";
 
 const S = WORLD_SCALE;
@@ -22,6 +22,20 @@ export function zoneBaseHeight(zone: ZoneId): number {
   if (zone === "bedroomB" || zone === "bedroomA") return FLOOR_RISE;
   if (zone === "basementB" || zone === "basementA") return -FLOOR_RISE;
   return 0;
+}
+
+// The Y a roofed zone's CEILING/roof plane sits at - the single source both
+// RoofSystem (where it draws the slab) and CameraRig (where it caps the
+// indoor camera) derive from, so they can never drift apart. A raised
+// bedroom's ceiling rides up with its floor, but a SUNKEN basement's ceiling
+// stays at grade+WALL_HEIGHT - level with the living room and, crucially,
+// with the exterior walls around the pit. Rooting the basement roof at its
+// own floor instead (-FLOOR_RISE + WALL_HEIGHT = grade) left it at the bottom
+// of an open-topped well: from the garden you looked over the +WALL_HEIGHT
+// exterior wall straight down into the basement interior. max(base,0) caps
+// the pit at the top instead.
+export function ceilingHeight(zone: ZoneId): number {
+  return Math.max(zoneBaseHeight(zone), 0) + WALL_HEIGHT;
 }
 
 // ---- stair corridors ----

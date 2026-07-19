@@ -180,8 +180,8 @@
     "semantic_hash": ""
   },
   "client/src/constants.ts": {
-    "mtime": 1784443321.554375,
-    "ast_hash": "2230cea775ea18880bedd083a134cc14",
+    "mtime": 1784386033.6638076,
+    "ast_hash": "c88138d9ea0e8a97be98ef643aa3b169",
     "semantic_hash": ""
   },
   "client/src/geometry/floorplan.ts": {
@@ -205,8 +205,8 @@
     "semantic_hash": ""
   },
   "client/src/three/CameraRig.ts": {
-    "mtime": 1784443302.2303753,
-    "ast_hash": "496d49ecbf1a1d491f25c875c67fafa9",
+    "mtime": 1784388378.867647,
+    "ast_hash": "08f5b9f53e9ff3dfe54e87e2cc0a1585",
     "semantic_hash": ""
   },
   "client/src/three/CashBundleView.ts": {
@@ -245,8 +245,8 @@
     "semantic_hash": ""
   },
   "client/src/three/world/HeightField.ts": {
-    "mtime": 1784443183.294378,
-    "ast_hash": "88d0dd1dd3cef207c5b7fc72a754af44",
+    "mtime": 1784093440.8871615,
+    "ast_hash": "bca7538bf6b007f13982cafeb06d12f7",
     "semantic_hash": ""
   },
   "client/src/three/world/HouseDresser.ts": {
@@ -265,8 +265,8 @@
     "semantic_hash": ""
   },
   "client/src/three/world/RoofSystem.ts": {
-    "mtime": 1784443258.3503764,
-    "ast_hash": "2e03e56182c40324447e0cc816f63981",
+    "mtime": 1784386217.5038185,
+    "ast_hash": "a278f117d63a11f8cd0bce0b21d54403",
     "semantic_hash": ""
   },
   "client/src/three/world/StaircaseBuilder.ts": {
@@ -325,8 +325,8 @@
     "semantic_hash": ""
   },
   "server/src/rooms/GameRoom.ts": {
-    "mtime": 1784442744.3943882,
-    "ast_hash": "67223b98b9c7b9e60306d8a8601b34cf",
+    "mtime": 1784404696.3225238,
+    "ast_hash": "3ef301af72043f23e7a8198f9026d3bc",
     "semantic_hash": ""
   },
   "server/src/schema/GameState.ts": {
@@ -335,8 +335,8 @@
     "semantic_hash": ""
   },
   "server/src/zones.ts": {
-    "mtime": 1784442634.2183907,
-    "ast_hash": "10d0521c7a7ae969231516c3ca3b0114",
+    "mtime": 1784349268.0724149,
+    "ast_hash": "34b9efb6a4e55b3070ec99654bcbeabe",
     "semantic_hash": ""
   },
   "server/tsconfig.json": {

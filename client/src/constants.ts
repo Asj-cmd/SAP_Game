@@ -72,8 +72,9 @@ export const PROP_SCALE = 45;
 
 // Phase 3 roof slabs (client/src/three/world/RoofSystem.ts). Always fully
 // opaque: CameraRig's indoor Y clamp keeps the camera under the ceiling, so
-// the old fade-to-translucent reveal is gone.
-export const ROOF_BASE = WALL_HEIGHT; // roofs sit right on top of the walls
+// the old fade-to-translucent reveal is gone. The roof PLANE height is
+// derived per-zone by HeightField.ceilingHeight (grade+WALL_HEIGHT, so a
+// sunken basement's lid still caps the pit at grade); this is just slab trim.
 export const ROOF_THICKNESS = 8;
 
 // Window openings (client/src/three/world/WindowBuilder.ts), three-y units,

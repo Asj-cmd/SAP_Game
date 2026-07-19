@@ -57,6 +57,7 @@ const BOT_VISION_RADIUS = 420 * WORLD_SCALE; // how far away an enemy registers 
 const BOT_COMMIT_BONUS = 700; // stickiness: current task wins ties and near-ties
 const BOT_COORD_PENALTY = 2600; // a teammate already handles it - usually pick something else
 const BOT_CHOICE_NOISE = 250; // imperfection: +-jitter per candidate per re-score
+const BOT_VIA_ARRIVE = 60 * WORLD_SCALE; // a route waypoint counts as reached inside this
 // Defend pursuit keeps going this long after the intruder leaves home turf,
 // so a doorway-hopping raider can't toggle the defender every tick.
 const BOT_DEFEND_GRACE_MS = 1500;
@@ -71,6 +72,9 @@ interface BotOption {
   task: BotTask;
   targetId: string;
   score: number;
+  // Route waypoint to pass through first (the enemy's backyard for the
+  // yard-route variants of raid/rescue), or null for the direct route.
+  via: BotNodeId | null;
 }
 
 // Server-side only - none of this is networked schema state; clients never
@@ -78,6 +82,7 @@ interface BotOption {
 interface BotMind {
   task: BotTask | null;
   targetId: string; // player id (rescue/defend) or bundle id (raid)
+  via: BotNodeId | null; // pending route waypoint (cleared on arrival)
   nextDecideAt: number; // clock ms of the next scheduled re-score
   lastSeenHomeAt: number; // defend: last tick the target was inside our home turf
   patrolNode: BotNodeId | null;
@@ -707,6 +712,7 @@ export class GameRoom extends Room<GameState> {
       m = {
         task: null,
         targetId: "",
+        via: null,
         nextDecideAt: 0,
         lastSeenHomeAt: 0,
         patrolNode: null,
@@ -774,7 +780,10 @@ export class GameRoom extends Room<GameState> {
       case "patrol":
         break; // filler - always droppable, re-rolled in execute
     }
-    if (!mind.task) mind.targetId = "";
+    if (!mind.task) {
+      mind.targetId = "";
+      mind.via = null;
+    }
   }
 
   // The core: score every plausible candidate action and commit to the best.
@@ -784,29 +793,57 @@ export class GameRoom extends Room<GameState> {
     const options: BotOption[] = [];
     const noise = () => (Math.random() * 2 - 1) * BOT_CHOICE_NOISE;
 
+    // The enemy house's route landmarks: front = in through the living room
+    // to the interior stair doors; yard = through the living room's yard door
+    // and around the OUTSIDE, entering bedroom/basement by their backyard
+    // doors (sealed only for the owners). Scoring both routes per target is
+    // what makes bots actually USE the yard: it wins whenever the interior
+    // stair gates are the guarded part.
+    const enemyYard: BotNodeId = team === "B" ? "backyardA" : "backyardB";
+    const enemyYardPos = BOT_WAYPOINTS[enemyYard];
+    const enemyYardBedGate = BOT_WAYPOINTS[team === "B" ? "gateA_yardBedroom" : "gateB_yardBedroom"];
+    const enemyYardBaseGate = BOT_WAYPOINTS[team === "B" ? "gateA_yardBasement" : "gateB_yardBasement"];
+    const enemyBedGate = BOT_WAYPOINTS[team === "B" ? "gateA_bedroom" : "gateB_bedroom"];
+    const enemyBaseGate = BOT_WAYPOINTS[team === "B" ? "gateA_basement" : "gateB_basement"];
+
     if (bot.isCarryingCash) {
       // Dropping cash mid-map to do anything else is always worse - deposit
       // is the only candidate while carrying (near-hard priority by value).
       const homeNode: BotNodeId = team === "B" ? "livingB" : "livingA";
       const cost = this.botPathCost(bot, team, homeNode, BOT_WAYPOINTS[homeNode]);
-      options.push({ task: "deposit", targetId: "", score: BOT_VALUE_DEPOSIT - BOT_COST_WEIGHT * cost });
+      options.push({ task: "deposit", targetId: "", via: null, score: BOT_VALUE_DEPOSIT - BOT_COST_WEIGHT * cost });
     } else {
-      // Rescue: one candidate per jailed teammate. Guarded jails score lower;
-      // a teammate already en route makes it near-worthless (double penalty -
-      // two rescuers in one basement is a gift to the defenders).
+      // Rescue: one candidate per jailed teammate PER route. Guarded routes
+      // score lower; a teammate already en route makes it near-worthless
+      // (double penalty - two rescuers in one basement is a gift).
       const jailZone = jailBasementForTeam(team);
       const jailPos = JAIL_POSITIONS[jailZone];
       this.state.players.forEach((p, pid) => {
         if (pid === id || p.team !== team || !p.isJailed) return;
-        const cost = this.botPathCost(bot, team, jailZone as BotNodeId, p);
-        if (!Number.isFinite(cost)) return;
-        const risk = this.threatAt(team, jailPos);
         const coord = this.someBotTasked(team, "rescue", pid, id) ? BOT_COORD_PENALTY * 2 : 0;
-        options.push({
-          task: "rescue",
-          targetId: pid,
-          score: BOT_VALUE_RESCUE - BOT_COST_WEIGHT * cost - BOT_RISK_WEIGHT * risk - coord + noise(),
-        });
+        const frontCost = this.botPathCost(bot, team, jailZone as BotNodeId, p);
+        if (Number.isFinite(frontCost)) {
+          const risk = Math.max(this.threatAt(team, enemyBaseGate), this.threatAt(team, jailPos));
+          options.push({
+            task: "rescue",
+            targetId: pid,
+            via: null,
+            score: BOT_VALUE_RESCUE - BOT_COST_WEIGHT * frontCost - BOT_RISK_WEIGHT * risk - coord + noise(),
+          });
+        }
+        const yardCost =
+          this.botPathCost(bot, team, enemyYard, enemyYardPos) +
+          distance(enemyYardPos, enemyYardBaseGate) +
+          distance(enemyYardBaseGate, p);
+        if (Number.isFinite(yardCost)) {
+          const risk = Math.max(this.threatAt(team, enemyYardPos), this.threatAt(team, jailPos));
+          options.push({
+            task: "rescue",
+            targetId: pid,
+            via: enemyYard,
+            score: BOT_VALUE_RESCUE - BOT_COST_WEIGHT * yardCost - BOT_RISK_WEIGHT * risk - coord + noise(),
+          });
+        }
       });
 
       // Defend: one candidate per intruder in home turf. Zeal scales how much
@@ -816,7 +853,7 @@ export class GameRoom extends Room<GameState> {
       this.state.players.forEach((p, pid) => {
         if (pid === id || p.team === team || p.isJailed) return;
         if (!isOwnHome(team, p.x, p.y)) return;
-        const { node, aim } = this.defendApproach(team, p);
+        const { node, aim } = this.defendApproach(team, p, id);
         const cost = this.botPathCost(bot, team, node, aim);
         if (!Number.isFinite(cost)) return;
         const value = BOT_VALUE_DEFEND * (0.8 + 0.4 * mind.zeal);
@@ -824,34 +861,52 @@ export class GameRoom extends Room<GameState> {
         options.push({
           task: "defend",
           targetId: pid,
+          via: null,
           score: value - BOT_COST_WEIGHT * cost - coord + noise(),
         });
       });
 
-      // Steal: one candidate PER available bundle (not just the nearest).
-      // Cost is the real graph route; risk probes the chokepoint the bot must
-      // pass (the enemy's living room) and the bundle itself - a camped
-      // entrance discounts the raid without flatly forbidding it.
+      // Steal: one candidate PER available bundle PER route (not just the
+      // nearest). Cost is the real route; risk probes what each route must
+      // actually pass - the interior stair gate for the front route, the
+      // enemy yard for the yard route (both funnel through the enemy living
+      // room, so a guard THERE discounts both equally). A camped route
+      // discounts the raid without flatly forbidding it.
       const bedroom = this.enemyBedroomOf(team);
       const chokeNode: BotNodeId = team === "B" ? "livingA" : "livingB";
       const chokePos = BOT_WAYPOINTS[chokeNode];
       this.state.cashBundles.forEach((b) => {
         if (b.location !== bedroom) return;
-        const cost = this.botPathCost(bot, team, bedroom as BotNodeId, b);
-        if (!Number.isFinite(cost)) return;
-        const risk = Math.max(this.threatAt(team, chokePos), this.threatAt(team, b));
         const coord = this.someBotTasked(team, "raid", b.id, id) ? BOT_COORD_PENALTY : 0;
-        options.push({
-          task: "raid",
-          targetId: b.id,
-          score: BOT_VALUE_BUNDLE - BOT_COST_WEIGHT * cost - BOT_RISK_WEIGHT * risk - coord + noise(),
-        });
+        const frontCost = this.botPathCost(bot, team, bedroom as BotNodeId, b);
+        if (Number.isFinite(frontCost)) {
+          const risk = Math.max(this.threatAt(team, chokePos), this.threatAt(team, enemyBedGate), this.threatAt(team, b));
+          options.push({
+            task: "raid",
+            targetId: b.id,
+            via: null,
+            score: BOT_VALUE_BUNDLE - BOT_COST_WEIGHT * frontCost - BOT_RISK_WEIGHT * risk - coord + noise(),
+          });
+        }
+        const yardCost =
+          this.botPathCost(bot, team, enemyYard, enemyYardPos) +
+          distance(enemyYardPos, enemyYardBedGate) +
+          distance(enemyYardBedGate, b);
+        if (Number.isFinite(yardCost)) {
+          const risk = Math.max(this.threatAt(team, chokePos), this.threatAt(team, enemyYardPos), this.threatAt(team, b));
+          options.push({
+            task: "raid",
+            targetId: b.id,
+            via: enemyYard,
+            score: BOT_VALUE_BUNDLE - BOT_COST_WEIGHT * yardCost - BOT_RISK_WEIGHT * risk - coord + noise(),
+          });
+        }
       });
 
       // Patrol: the floor under everything - "do something" beats freezing,
       // and when raids are heavily guarded it doubles as lurking until the
       // guard moves off.
-      options.push({ task: "patrol", targetId: "", score: BOT_VALUE_PATROL + noise() });
+      options.push({ task: "patrol", targetId: "", via: null, score: BOT_VALUE_PATROL + noise() });
     }
 
     let best: BotOption | undefined;
@@ -866,6 +921,7 @@ export class GameRoom extends Room<GameState> {
     if (best.task !== mind.task || best.targetId !== mind.targetId) {
       mind.task = best.task;
       mind.targetId = best.targetId;
+      mind.via = best.via;
       if (best.task === "defend") mind.lastSeenHomeAt = now;
       if (best.task !== "patrol") mind.patrolNode = null;
     }
@@ -915,26 +971,42 @@ export class GameRoom extends Room<GameState> {
     return found;
   }
 
-  // Where to route a defender: chase directly inside the shared living room,
-  // but for the SEALED rooms (own bedroom - which this team can't even
-  // enter) and the off-graph backyard, guard the living-side doorway the
-  // intruder has to come back through instead of wall-phasing in after them.
-  private defendApproach(team: Team, intruder: PlayerState): { node: BotNodeId; aim: { x: number; y: number } } {
+  // Where to route a defender: chase directly in the living room and (now
+  // that the yard is on the waypoint graph) in the OWN BACKYARD too. Only
+  // the own bedroom stays a guard-the-exits case - this team can't enter it
+  // at all. It has TWO exits (interior stairs and the yard door), so the
+  // first defender covers the living-side stairs and any pile-on defender
+  // covers the yard-side door from inside the yard.
+  private defendApproach(team: Team, intruder: PlayerState, selfId: string): { node: BotNodeId; aim: { x: number; y: number } } {
     const S = WORLD_SCALE;
     const living: BotNodeId = team === "B" ? "livingB" : "livingA";
+    const yard: BotNodeId = team === "B" ? "backyardB" : "backyardA";
     const zone = getZoneAt(intruder.x, intruder.y);
     if (zone === "bedroomB" || zone === "bedroomA") {
+      if (this.someBotTasked(team, "defend", intruder.id, selfId)) {
+        const aim = team === "B" ? { x: 110 * S, y: 100 * S } : { x: 1490 * S, y: 100 * S };
+        return { node: yard, aim }; // in the yard, at the bedroom's yard door
+      }
       const aim = team === "B" ? { x: 340 * S, y: 290 * S } : { x: 1260 * S, y: 290 * S };
       return { node: living, aim }; // just past the stair corridor's living end
     }
     if (zone === "backyardB" || zone === "backyardA") {
-      const aim = team === "B" ? { x: 190 * S, y: 410 * S } : { x: 1410 * S, y: 410 * S };
-      return { node: living, aim }; // inside the living<->backyard door
+      return { node: yard, aim: intruder }; // chase them down in our own yard
     }
     return { node: living, aim: intruder };
   }
 
   private executeBotTask(bot: PlayerState, id: string, mind: BotMind, team: Team, now: number, dt: number) {
+    // Yard-route detour: head to the route waypoint first; once there, the
+    // ordinary graph routing continues to the real target - and from the
+    // enemy yard, BFS's fewest-hops path IS the yard door.
+    if (mind.via && (mind.task === "rescue" || mind.task === "raid")) {
+      if (distance(bot, BOT_WAYPOINTS[mind.via]) > BOT_VIA_ARRIVE) {
+        this.botMoveToward(bot, team, mind.via, BOT_WAYPOINTS[mind.via], dt);
+        return;
+      }
+      mind.via = null;
+    }
     switch (mind.task) {
       case "rescue": {
         const target = this.state.players.get(mind.targetId)!;
@@ -947,7 +1019,7 @@ export class GameRoom extends Room<GameState> {
       }
       case "defend": {
         const target = this.state.players.get(mind.targetId)!;
-        const { node, aim } = this.defendApproach(team, target);
+        const { node, aim } = this.defendApproach(team, target, id);
         this.botMoveToward(bot, team, node, aim, dt);
         if (isOwnHome(team, bot.x, bot.y) && distance(bot, target) <= LOCK_RESCUE_RANGE) {
           this.handleLock(id, { targetId: target.id });

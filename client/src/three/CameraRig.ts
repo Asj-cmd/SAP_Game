@@ -1,6 +1,6 @@
 import * as THREE from "three";
-import { DEFAULT_PITCH, FOLLOW_DISTANCE, LOOK_HEIGHT, ROOF_BASE } from "../constants";
-import { heightAt, zoneBaseHeight } from "./world/HeightField";
+import { DEFAULT_PITCH, FOLLOW_DISTANCE, LOOK_HEIGHT } from "../constants";
+import { heightAt, ceilingHeight } from "./world/HeightField";
 import type { ZoneRect } from "../geometry/floorplan";
 
 // Ground height tracks toward heightAt(target) at this rate (units/sec of
@@ -26,11 +26,11 @@ const PITCH_MAX = 1.25;
 const CLAMP_INSET = 30;
 const CLAMP_EASE_RATE = 8;
 // Indoors the camera also can't rise above the room's own (solid, opaque)
-// ceiling: roof slabs sit at zoneBase + ROOF_BASE, and this margin keeps the
-// camera clearly under the slab's underside rather than grazing it. Pitch
-// past the cap still steepens the view - the orbit's horizontal component
-// keeps shrinking with cos(pitch) while height holds - it just tops out at
-// ~35 degrees of down-angle indoors instead of outdoor's ~71.
+// ceiling - ceilingHeight() is the exact plane RoofSystem draws the slab at,
+// and this margin keeps the camera clearly under it rather than grazing it.
+// Pitch past the cap still steepens the view - the orbit's horizontal
+// component keeps shrinking with cos(pitch) while height holds - it just
+// tops out shy of straight-down indoors instead of outdoor's full range.
 const CEILING_MARGIN = 16;
 
 function clamp(v: number, lo: number, hi: number): number {
@@ -156,7 +156,7 @@ export class CameraRig {
       : 0;
     // Ceiling clamp (Y): only ever pushes DOWN (min with 0), and only
     // indoors - outdoor pitch freedom is untouched. See CEILING_MARGIN.
-    const ceilingY = bounds ? zoneBaseHeight(bounds.id) + ROOF_BASE - CEILING_MARGIN : 0;
+    const ceilingY = bounds ? ceilingHeight(bounds.id) - CEILING_MARGIN : 0;
     const wantY = bounds ? Math.min(0, ceilingY - this.desired.y) : 0;
     const ease = Math.min(1, CLAMP_EASE_RATE * dt);
     this.clampOffsetX += (wantX - this.clampOffsetX) * ease;

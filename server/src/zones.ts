@@ -150,7 +150,20 @@ export type BotNodeId =
   | "gateB_garden"
   | "gateA_bedroom"
   | "gateA_basement"
-  | "gateA_garden";
+  | "gateA_garden"
+  // Backyard spur (per house): the yard itself plus its three door gates -
+  // living<->yard (open to all), yard<->bedroom and yard<->basement (sealed
+  // for the OWNING team, exactly like the interior stair doors). Gives bots
+  // the same alternative raid/rescue route humans always had, and lets a
+  // defender chase an intruder into its own yard.
+  | "backyardB"
+  | "gateB_yard"
+  | "gateB_yardBedroom"
+  | "gateB_yardBasement"
+  | "backyardA"
+  | "gateA_yard"
+  | "gateA_yardBedroom"
+  | "gateA_yardBasement";
 
 export const BOT_WAYPOINTS: Record<BotNodeId, { x: number; y: number }> = {
   livingB: scalePoint({ x: 340, y: 410 }),
@@ -166,6 +179,16 @@ export const BOT_WAYPOINTS: Record<BotNodeId, { x: number; y: number }> = {
   gateA_bedroom: scalePoint({ x: 1260, y: 200 }), // sealedFor A - only usable by team B
   gateA_basement: scalePoint({ x: 1260, y: 620 }), // sealedFor A - only usable by team B
   gateA_garden: scalePoint({ x: 1060, y: 410 }),
+  // Yard node sits mid-strip at the living door's latitude: straight lines
+  // from it to either sealed yard gate stay inside the yard strip.
+  backyardB: scalePoint({ x: 70, y: 410 }),
+  gateB_yard: scalePoint({ x: 140, y: 410 }), // living<->backyard door, open to all
+  gateB_yardBedroom: scalePoint({ x: 140, y: 100 }), // sealedFor B - only usable by team A
+  gateB_yardBasement: scalePoint({ x: 140, y: 740 }), // sealedFor B - only usable by team A
+  backyardA: scalePoint({ x: 1530, y: 410 }),
+  gateA_yard: scalePoint({ x: 1460, y: 410 }),
+  gateA_yardBedroom: scalePoint({ x: 1460, y: 100 }), // sealedFor A - only usable by team B
+  gateA_yardBasement: scalePoint({ x: 1460, y: 740 }), // sealedFor A - only usable by team B
 };
 
 interface BotEdge {
@@ -187,6 +210,21 @@ const BOT_EDGES: BotEdge[] = [
   { a: "gateA_bedroom", b: "bedroomA", blockedFor: "A" },
   { a: "livingA", b: "gateA_basement", blockedFor: "A" },
   { a: "gateA_basement", b: "basementA", blockedFor: "A" },
+  // Backyard spurs. The living<->yard leg is open to everyone (owners chase
+  // intruders into their own yard); the yard<->bedroom/basement legs mirror
+  // the interior stair doors' seals.
+  { a: "livingB", b: "gateB_yard" },
+  { a: "gateB_yard", b: "backyardB" },
+  { a: "backyardB", b: "gateB_yardBedroom", blockedFor: "B" },
+  { a: "gateB_yardBedroom", b: "bedroomB", blockedFor: "B" },
+  { a: "backyardB", b: "gateB_yardBasement", blockedFor: "B" },
+  { a: "gateB_yardBasement", b: "basementB", blockedFor: "B" },
+  { a: "livingA", b: "gateA_yard" },
+  { a: "gateA_yard", b: "backyardA" },
+  { a: "backyardA", b: "gateA_yardBedroom", blockedFor: "A" },
+  { a: "gateA_yardBedroom", b: "bedroomA", blockedFor: "A" },
+  { a: "backyardA", b: "gateA_yardBasement", blockedFor: "A" },
+  { a: "gateA_yardBasement", b: "basementA", blockedFor: "A" },
 ];
 
 export function nearestBotNode(x: number, y: number): BotNodeId {
