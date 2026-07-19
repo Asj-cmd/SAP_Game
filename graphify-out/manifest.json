@@ -275,8 +275,8 @@
     "semantic_hash": ""
   },
   "client/src/three/world/WallHeightBuilder.ts": {
-    "mtime": 1784092020.439194,
-    "ast_hash": "0ff23f42e9100a80bf66c70dda6bb11d",
+    "mtime": 1784476999.188824,
+    "ast_hash": "a5e0aff7e696173a937a62c6430da94b",
     "semantic_hash": ""
   },
   "client/src/three/world/WindowBuilder.ts": {
@@ -325,8 +325,8 @@
     "semantic_hash": ""
   },
   "server/src/rooms/GameRoom.ts": {
-    "mtime": 1784442744.3943882,
-    "ast_hash": "67223b98b9c7b9e60306d8a8601b34cf",
+    "mtime": 1784477313.0328426,
+    "ast_hash": "f81aa0d6c0533686002fac58c7d06f03",
     "semantic_hash": ""
   },
   "server/src/schema/GameState.ts": {
@@ -335,8 +335,8 @@
     "semantic_hash": ""
   },
   "server/src/zones.ts": {
-    "mtime": 1784442634.2183907,
-    "ast_hash": "10d0521c7a7ae969231516c3ca3b0114",
+    "mtime": 1784477246.5888386,
+    "ast_hash": "fd5304c045a5075a2782b81537cc2368",
     "semantic_hash": ""
   },
   "server/tsconfig.json": {

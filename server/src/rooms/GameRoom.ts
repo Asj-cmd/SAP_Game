@@ -17,6 +17,9 @@ import {
   BotNodeId,
   findBotPath,
   nearestBotNode,
+  WALLS,
+  SEALED_DOORS,
+  type Rect,
 } from "../zones";
 
 // Server ranges are a touch more generous than the client's prompt range so an
@@ -58,6 +61,15 @@ const BOT_COMMIT_BONUS = 700; // stickiness: current task wins ties and near-tie
 const BOT_COORD_PENALTY = 2600; // a teammate already handles it - usually pick something else
 const BOT_CHOICE_NOISE = 250; // imperfection: +-jitter per candidate per re-score
 const BOT_VIA_ARRIVE = 60 * WORLD_SCALE; // a route waypoint counts as reached inside this
+// Bot body radius for wall collision - matches the client's CHAR_RADIUS (a
+// fixed world-unit size that deliberately does NOT scale with WORLD_SCALE),
+// so bots fit through the same door gaps a human does.
+const BOT_RADIUS = 20;
+// A bot's per-tick move (up to BOT_SPEED*dt ~= 110 units) is far thicker than
+// a wall (~20 units), so a single big step could tunnel clean through one.
+// Movement is applied in sub-steps no longer than this, resolving collision
+// after each, so bots slide along walls instead of passing through them.
+const BOT_SUBSTEP = BOT_RADIUS / 2;
 // Defend pursuit keeps going this long after the intruder leaves home turf,
 // so a doorway-hopping raider can't toggle the defender every tick.
 const BOT_DEFEND_GRACE_MS = 1500;
@@ -1063,9 +1075,14 @@ export class GameRoom extends Room<GameState> {
     }
   }
 
-  // Steers `bot` one tick closer to `finalTarget`, routing through the
-  // waypoint graph until it's in the same node/room as the target, then
-  // beelining the rest of the way (safe: same room means no walls between).
+  // Steers `bot` one tick toward `finalTarget`, routing through the waypoint
+  // graph until it's in the same node/room as the target, then beelining the
+  // rest of the way. The waypoint graph keeps the intended path near door
+  // gaps, but the beeline from the bot's ACTUAL position to the next waypoint
+  // can still clip a wall corner - so the move is applied in sub-steps with a
+  // circle-vs-AABB resolve after each (see moveBotWithCollision), the same
+  // collision a human gets client-side. Bots therefore slide along walls
+  // instead of passing through them.
   private botMoveToward(bot: PlayerState, team: Team, targetNode: BotNodeId, finalTarget: { x: number; y: number }, dt: number) {
     const currentNode = nearestBotNode(bot.x, bot.y);
     const speed = bot.isCarryingCash ? BOT_CARRY_SPEED : BOT_SPEED;
@@ -1090,9 +1107,43 @@ export class GameRoom extends Room<GameState> {
     const step = Math.min(dist, speed * dt);
     const nx = dx / dist;
     const ny = dy / dist;
-    bot.x = clamp(bot.x + nx * step, 0, WORLD_WIDTH);
-    bot.y = clamp(bot.y + ny * step, 0, WORLD_HEIGHT);
+    this.moveBotWithCollision(bot, team, nx * step, ny * step);
     bot.vx = nx * speed;
     bot.vy = ny * speed;
+  }
+
+  // Applies a total (dx, dy) displacement to the bot in sub-steps, resolving
+  // wall collision after each so a fast tick can't tunnel through a thin wall.
+  private moveBotWithCollision(bot: PlayerState, team: Team, dx: number, dy: number) {
+    const total = Math.hypot(dx, dy);
+    const steps = Math.max(1, Math.ceil(total / BOT_SUBSTEP));
+    const sx = dx / steps;
+    const sy = dy / steps;
+    for (let i = 0; i < steps; i++) {
+      bot.x = clamp(bot.x + sx, 0, WORLD_WIDTH);
+      bot.y = clamp(bot.y + sy, 0, WORLD_HEIGHT);
+      this.resolveBotCollision(bot, team);
+    }
+  }
+
+  // Circle-vs-AABB push-out against WALLS plus the bot's OWN sealed doors -
+  // the exact colliders a human on this team gets client-side. Pushing out of
+  // the nearest surface each sub-step yields wall-sliding for free.
+  private resolveBotCollision(bot: PlayerState, team: Team) {
+    const push = (r: Rect) => {
+      const cx = Math.max(r.x1, Math.min(bot.x, r.x2));
+      const cy = Math.max(r.y1, Math.min(bot.y, r.y2));
+      const dx = bot.x - cx;
+      const dy = bot.y - cy;
+      const distSq = dx * dx + dy * dy;
+      if (distSq < BOT_RADIUS * BOT_RADIUS) {
+        const dist = Math.sqrt(distSq) || 0.001;
+        const amount = BOT_RADIUS - dist;
+        bot.x += (dx / dist) * amount;
+        bot.y += (dy / dist) * amount;
+      }
+    };
+    for (const r of WALLS) push(r);
+    for (const d of SEALED_DOORS) if (d.team === team) push(d);
   }
 }

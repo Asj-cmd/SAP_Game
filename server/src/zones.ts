@@ -80,6 +80,81 @@ export function jailBasementForTeam(team: Team): "basementB" | "basementA" {
 // every wall and door gap.
 const scalePoint = (p: { x: number; y: number }) => ({ x: p.x * S, y: p.y * S });
 
+// ---- collision geometry (bots) ----
+//
+// Hand-synced with client/src/geometry/floorplan.ts WALLS + DOORS (same
+// pre-scale numbers, scaled here at load) - keep both in sync. Humans collide
+// against these CLIENT-side in CharacterController; bots have no client, so
+// GameRoom.botTick resolves bot movement against the same rects server-side.
+// Only the SEALED doors are colliders (and only for the team they're sealed
+// for - the enemy walks through them); every open door gap is simply absent
+// from WALLS, exactly like the client.
+export interface Rect {
+  x1: number;
+  y1: number;
+  x2: number;
+  y2: number;
+}
+const scaleRect = (r: Rect): Rect => ({ x1: r.x1 * S, y1: r.y1 * S, x2: r.x2 * S, y2: r.y2 * S });
+
+export const WALLS: Rect[] = (
+  [
+    // world boundary
+    { x1: 0, y1: 0, x2: 1600, y2: 10 },
+    { x1: 0, y1: 890, x2: 1600, y2: 900 },
+    { x1: 0, y1: 0, x2: 10, y2: 900 },
+    { x1: 1590, y1: 0, x2: 1600, y2: 900 },
+    // backyard B | house B (x=140)
+    { x1: 135, y1: 0, x2: 145, y2: 60 },
+    { x1: 135, y1: 140, x2: 145, y2: 370 },
+    { x1: 135, y1: 450, x2: 145, y2: 700 },
+    { x1: 135, y1: 780, x2: 145, y2: 900 },
+    // house B | garden (x=540)
+    { x1: 535, y1: 0, x2: 545, y2: 230 },
+    { x1: 535, y1: 290, x2: 545, y2: 380 },
+    { x1: 535, y1: 440, x2: 545, y2: 530 },
+    { x1: 535, y1: 590, x2: 545, y2: 900 },
+    // bedroom B | living B (y=200)
+    { x1: 140, y1: 195, x2: 300, y2: 205 },
+    { x1: 380, y1: 195, x2: 540, y2: 205 },
+    // living B | basement B (y=620)
+    { x1: 140, y1: 615, x2: 300, y2: 625 },
+    { x1: 380, y1: 615, x2: 540, y2: 625 },
+    // garden | house A (x=1060)
+    { x1: 1055, y1: 0, x2: 1065, y2: 230 },
+    { x1: 1055, y1: 290, x2: 1065, y2: 380 },
+    { x1: 1055, y1: 440, x2: 1065, y2: 530 },
+    { x1: 1055, y1: 590, x2: 1065, y2: 900 },
+    // house A | backyard A (x=1460)
+    { x1: 1455, y1: 0, x2: 1465, y2: 60 },
+    { x1: 1455, y1: 140, x2: 1465, y2: 370 },
+    { x1: 1455, y1: 450, x2: 1465, y2: 700 },
+    { x1: 1455, y1: 780, x2: 1465, y2: 900 },
+    // bedroom A | living A (y=200)
+    { x1: 1060, y1: 195, x2: 1220, y2: 205 },
+    { x1: 1300, y1: 195, x2: 1460, y2: 205 },
+    // living A | basement A (y=620)
+    { x1: 1060, y1: 615, x2: 1220, y2: 625 },
+    { x1: 1300, y1: 615, x2: 1460, y2: 625 },
+  ] as Rect[]
+).map(scaleRect);
+
+// The 8 sealed doors (4 per house), tagged with the team that CANNOT pass
+// them - so a bot collides only with its OWN sealed doors, mirroring the
+// client's colliderRects = WALLS + sealedDoors(localTeam).
+export const SEALED_DOORS: (Rect & { team: Team })[] = (
+  [
+    { x1: 133, y1: 60, x2: 147, y2: 140, team: "B" }, // bedroom <-> backyard
+    { x1: 300, y1: 193, x2: 380, y2: 207, team: "B" }, // bedroom <-> living
+    { x1: 300, y1: 613, x2: 380, y2: 627, team: "B" }, // basement <-> living
+    { x1: 133, y1: 700, x2: 147, y2: 780, team: "B" }, // basement <-> backyard
+    { x1: 1453, y1: 60, x2: 1467, y2: 140, team: "A" },
+    { x1: 1220, y1: 193, x2: 1300, y2: 207, team: "A" },
+    { x1: 1220, y1: 613, x2: 1300, y2: 627, team: "A" },
+    { x1: 1453, y1: 700, x2: 1467, y2: 780, team: "A" },
+  ] as (Rect & { team: Team })[]
+).map((d) => ({ ...scaleRect(d), team: d.team }));
+
 export const SPAWN_POINTS: Record<Team, { x: number; y: number }[]> = {
   B: [
     { x: 280, y: 330 },

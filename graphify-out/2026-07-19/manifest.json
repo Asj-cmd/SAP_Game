@@ -290,8 +290,8 @@
     "semantic_hash": ""
   },
   "client/src/ui/HudOverlay.ts": {
-    "mtime": 1784348845.6643896,
-    "ast_hash": "da4a198546e60b8ca6f61d95b607c715",
+    "mtime": 1784471296.369735,
+    "ast_hash": "e987a19ae84ec8fecaeb64edcb38c05e",
     "semantic_hash": ""
   },
   "client/src/vite-env.d.ts": {
