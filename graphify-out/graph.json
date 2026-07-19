@@ -3670,8 +3670,8 @@
       "source_location": "L1",
       "_origin": "ast",
       "id": "client_src_constants",
-      "community": 18,
-      "community_name": "floorplan.ts",
+      "community": 9,
+      "community_name": "constants.ts",
       "norm_label": "constants.ts"
     },
     {
@@ -3681,8 +3681,8 @@
       "source_location": "L67",
       "_origin": "ast",
       "id": "client_src_constants_follow_distance",
-      "community": 18,
-      "community_name": "floorplan.ts",
+      "community": 9,
+      "community_name": "constants.ts",
       "norm_label": "follow_distance"
     },
     {
@@ -3692,8 +3692,8 @@
       "source_location": "L73",
       "_origin": "ast",
       "id": "client_src_constants_default_pitch",
-      "community": 18,
-      "community_name": "floorplan.ts",
+      "community": 9,
+      "community_name": "constants.ts",
       "norm_label": "default_pitch"
     },
     {
@@ -3714,8 +3714,8 @@
       "source_location": "L112",
       "_origin": "ast",
       "id": "client_src_constants_colors",
-      "community": 18,
-      "community_name": "floorplan.ts",
+      "community": 129,
+      "community_name": "CharacterModel.ts",
       "norm_label": "colors"
     },
     {
@@ -3736,8 +3736,8 @@
       "source_location": "L11",
       "_origin": "ast",
       "id": "client_src_geometry_floorplan_team",
-      "community": 129,
-      "community_name": "CharacterModel.ts",
+      "community": 72,
+      "community_name": "HudOverlay",
       "norm_label": "team"
     },
     {
@@ -3802,8 +3802,8 @@
       "source_location": "L71",
       "_origin": "ast",
       "id": "client_src_geometry_floorplan_zonerect",
-      "community": 18,
-      "community_name": "floorplan.ts",
+      "community": 9,
+      "community_name": "constants.ts",
       "norm_label": "zonerect"
     },
     {
@@ -3967,8 +3967,8 @@
       "source_location": "L1",
       "_origin": "ast",
       "id": "client_src_main",
-      "community": 30,
-      "community_name": "LobbyView",
+      "community": 5,
+      "community_name": "GameController",
       "norm_label": "main.ts"
     },
     {
@@ -3978,8 +3978,8 @@
       "source_location": "L9",
       "_origin": "ast",
       "id": "client_src_main_ongamestart",
-      "community": 30,
-      "community_name": "LobbyView",
+      "community": 5,
+      "community_name": "GameController",
       "norm_label": "ongamestart()"
     },
     {
@@ -4077,86 +4077,97 @@
       "source_location": "L1",
       "_origin": "ast",
       "id": "client_src_three_camerarig",
-      "community": 18,
-      "community_name": "floorplan.ts",
+      "community": 9,
+      "community_name": "constants.ts",
       "norm_label": "camerarig.ts"
     },
     {
       "label": "clamp()",
       "file_type": "code",
       "source_file": "client/src/three/CameraRig.ts",
-      "source_location": "L37",
+      "source_location": "L47",
       "_origin": "ast",
       "id": "client_src_three_camerarig_clamp",
-      "community": 18,
-      "community_name": "floorplan.ts",
+      "community": 9,
+      "community_name": "constants.ts",
       "norm_label": "clamp()"
     },
     {
       "label": "CameraRig",
       "file_type": "code",
       "source_file": "client/src/three/CameraRig.ts",
-      "source_location": "L50",
+      "source_location": "L51",
       "_origin": "ast",
       "id": "client_src_three_camerarig_camerarig",
-      "community": 18,
-      "community_name": "floorplan.ts",
+      "community": 9,
+      "community_name": "constants.ts",
       "norm_label": "camerarig"
     },
     {
       "label": ".constructor()",
       "file_type": "code",
       "source_file": "client/src/three/CameraRig.ts",
-      "source_location": "L69",
+      "source_location": "L67",
       "_origin": "ast",
       "id": "client_src_three_camerarig_camerarig_constructor",
-      "community": 18,
-      "community_name": "floorplan.ts",
+      "community": 9,
+      "community_name": "constants.ts",
       "norm_label": ".constructor()"
     },
     {
       "label": ".getYaw()",
       "file_type": "code",
       "source_file": "client/src/three/CameraRig.ts",
-      "source_location": "L78",
+      "source_location": "L74",
       "_origin": "ast",
       "id": "client_src_three_camerarig_camerarig_getyaw",
-      "community": 18,
-      "community_name": "floorplan.ts",
+      "community": 9,
+      "community_name": "constants.ts",
       "norm_label": ".getyaw()"
     },
     {
       "label": ".addYaw()",
       "file_type": "code",
       "source_file": "client/src/three/CameraRig.ts",
-      "source_location": "L83",
+      "source_location": "L79",
       "_origin": "ast",
       "id": "client_src_three_camerarig_camerarig_addyaw",
-      "community": 18,
-      "community_name": "floorplan.ts",
+      "community": 9,
+      "community_name": "constants.ts",
       "norm_label": ".addyaw()"
     },
     {
       "label": ".addPitch()",
       "file_type": "code",
       "source_file": "client/src/three/CameraRig.ts",
-      "source_location": "L89",
+      "source_location": "L85",
       "_origin": "ast",
       "id": "client_src_three_camerarig_camerarig_addpitch",
-      "community": 18,
-      "community_name": "floorplan.ts",
+      "community": 9,
+      "community_name": "constants.ts",
       "norm_label": ".addpitch()"
     },
     {
       "label": ".update()",
       "file_type": "code",
       "source_file": "client/src/three/CameraRig.ts",
-      "source_location": "L100",
+      "source_location": "L93",
       "_origin": "ast",
       "id": "client_src_three_camerarig_camerarig_update",
-      "community": 18,
-      "community_name": "floorplan.ts",
+      "community": 9,
+      "community_name": "constants.ts",
       "norm_label": ".update()"
+    },
+    {
+      "label": ".boundsDistance()",
+      "file_type": "code",
+      "source_file": "client/src/three/CameraRig.ts",
+      "source_location": "L140",
+      "_origin": "ast",
+      "id": "client_src_three_camerarig_camerarig_boundsdistance",
+      "community": 9,
+      "community_name": "constants.ts",
+      "norm_label": ".boundsdistance()"
     },
     {
       "label": "CashBundleView.ts",
@@ -4176,8 +4187,8 @@
       "source_location": "L13",
       "_origin": "ast",
       "id": "client_src_three_cashbundleview_cashbundleview",
-      "community": 5,
-      "community_name": "GameController",
+      "community": 19,
+      "community_name": "HeightField.ts",
       "norm_label": "cashbundleview"
     },
     {
@@ -4187,8 +4198,8 @@
       "source_location": "L17",
       "_origin": "ast",
       "id": "client_src_three_cashbundleview_cashbundleview_constructor",
-      "community": 5,
-      "community_name": "GameController",
+      "community": 19,
+      "community_name": "HeightField.ts",
       "norm_label": ".constructor()"
     },
     {
@@ -4209,8 +4220,8 @@
       "source_location": "L27",
       "_origin": "ast",
       "id": "client_src_three_cashbundleview_cashbundleview_sync",
-      "community": 5,
-      "community_name": "GameController",
+      "community": 19,
+      "community_name": "HeightField.ts",
       "norm_label": ".sync()"
     },
     {
@@ -4440,8 +4451,8 @@
       "source_location": "L176",
       "_origin": "ast",
       "id": "client_src_three_charactermodel_charactermodel_update",
-      "community": 19,
-      "community_name": "HeightField.ts",
+      "community": 129,
+      "community_name": "CharacterModel.ts",
       "norm_label": ".update()"
     },
     {
@@ -4462,8 +4473,8 @@
       "source_location": "L31",
       "_origin": "ast",
       "id": "client_src_three_environmentbuilder_coloredbox",
-      "community": 14,
-      "community_name": "EnvironmentBuilder.ts",
+      "community": 44,
+      "community_name": "WindowBuilder.ts",
       "norm_label": "coloredbox()"
     },
     {
@@ -4473,8 +4484,8 @@
       "source_location": "L49",
       "_origin": "ast",
       "id": "client_src_three_environmentbuilder_recttobox",
-      "community": 14,
-      "community_name": "EnvironmentBuilder.ts",
+      "community": 44,
+      "community_name": "WindowBuilder.ts",
       "norm_label": "recttobox()"
     },
     {
@@ -4869,8 +4880,8 @@
       "source_location": "L1",
       "_origin": "ast",
       "id": "client_src_three_scenemanager",
-      "community": 18,
-      "community_name": "floorplan.ts",
+      "community": 9,
+      "community_name": "constants.ts",
       "norm_label": "scenemanager.ts"
     },
     {
@@ -4880,8 +4891,8 @@
       "source_location": "L9",
       "_origin": "ast",
       "id": "client_src_three_scenemanager_scenemanager",
-      "community": 18,
-      "community_name": "floorplan.ts",
+      "community": 9,
+      "community_name": "constants.ts",
       "norm_label": "scenemanager"
     },
     {
@@ -4891,8 +4902,8 @@
       "source_location": "L17",
       "_origin": "ast",
       "id": "client_src_three_scenemanager_scenemanager_constructor",
-      "community": 18,
-      "community_name": "floorplan.ts",
+      "community": 9,
+      "community_name": "constants.ts",
       "norm_label": ".constructor()"
     },
     {
@@ -4902,8 +4913,8 @@
       "source_location": "L121",
       "_origin": "ast",
       "id": "client_src_three_scenemanager_scenemanager_handleresize",
-      "community": 18,
-      "community_name": "floorplan.ts",
+      "community": 9,
+      "community_name": "constants.ts",
       "norm_label": ".handleresize()"
     },
     {
@@ -4913,8 +4924,8 @@
       "source_location": "L128",
       "_origin": "ast",
       "id": "client_src_three_scenemanager_scenemanager_start",
-      "community": 18,
-      "community_name": "floorplan.ts",
+      "community": 9,
+      "community_name": "constants.ts",
       "norm_label": ".start()"
     },
     {
@@ -4924,8 +4935,8 @@
       "source_location": "L134",
       "_origin": "ast",
       "id": "client_src_three_scenemanager_scenemanager_tick",
-      "community": 18,
-      "community_name": "floorplan.ts",
+      "community": 9,
+      "community_name": "constants.ts",
       "norm_label": ".tick()"
     },
     {
@@ -4935,8 +4946,8 @@
       "source_location": "L142",
       "_origin": "ast",
       "id": "client_src_three_scenemanager_scenemanager_dispose",
-      "community": 18,
-      "community_name": "floorplan.ts",
+      "community": 9,
+      "community_name": "constants.ts",
       "norm_label": ".dispose()"
     },
     {
@@ -5760,8 +5771,8 @@
       "source_location": "L1",
       "_origin": "ast",
       "id": "client_src_ui_hudoverlay",
-      "community": 18,
-      "community_name": "floorplan.ts",
+      "community": 72,
+      "community_name": "HudOverlay",
       "norm_label": "hudoverlay.ts"
     },
     {
@@ -24922,7 +24933,19 @@
       "context": "parameter_type",
       "confidence": "EXTRACTED",
       "source_file": "client/src/three/CameraRig.ts",
-      "source_location": "L100",
+      "source_location": "L140",
+      "weight": 1.0,
+      "_origin": "ast",
+      "source": "client_src_three_camerarig_camerarig_boundsdistance",
+      "target": "client_src_geometry_floorplan_zonerect",
+      "confidence_score": 1.0
+    },
+    {
+      "relation": "references",
+      "context": "parameter_type",
+      "confidence": "EXTRACTED",
+      "source_file": "client/src/three/CameraRig.ts",
+      "source_location": "L93",
       "weight": 1.0,
       "_origin": "ast",
       "source": "client_src_three_camerarig_camerarig_update",
@@ -25532,7 +25555,7 @@
       "relation": "contains",
       "confidence": "EXTRACTED",
       "source_file": "client/src/three/CameraRig.ts",
-      "source_location": "L50",
+      "source_location": "L51",
       "weight": 1.0,
       "_origin": "ast",
       "source": "client_src_three_camerarig",
@@ -25543,7 +25566,7 @@
       "relation": "contains",
       "confidence": "EXTRACTED",
       "source_file": "client/src/three/CameraRig.ts",
-      "source_location": "L37",
+      "source_location": "L47",
       "weight": 1.0,
       "_origin": "ast",
       "source": "client_src_three_camerarig",
@@ -25603,7 +25626,7 @@
       "context": "call",
       "confidence": "EXTRACTED",
       "source_file": "client/src/three/CameraRig.ts",
-      "source_location": "L90",
+      "source_location": "L86",
       "weight": 1.0,
       "_origin": "ast",
       "source": "client_src_three_camerarig_camerarig_addpitch",
@@ -25611,22 +25634,10 @@
       "confidence_score": 1.0
     },
     {
-      "relation": "calls",
-      "context": "call",
-      "confidence": "EXTRACTED",
-      "source_file": "client/src/three/CameraRig.ts",
-      "source_location": "L150",
-      "weight": 1.0,
-      "_origin": "ast",
-      "source": "client_src_three_camerarig_camerarig_update",
-      "target": "client_src_three_camerarig_clamp",
-      "confidence_score": 1.0
-    },
-    {
       "relation": "method",
       "confidence": "EXTRACTED",
       "source_file": "client/src/three/CameraRig.ts",
-      "source_location": "L89",
+      "source_location": "L85",
       "weight": 1.0,
       "_origin": "ast",
       "source": "client_src_three_camerarig_camerarig",
@@ -25637,7 +25648,7 @@
       "relation": "method",
       "confidence": "EXTRACTED",
       "source_file": "client/src/three/CameraRig.ts",
-      "source_location": "L83",
+      "source_location": "L79",
       "weight": 1.0,
       "_origin": "ast",
       "source": "client_src_three_camerarig_camerarig",
@@ -25648,7 +25659,18 @@
       "relation": "method",
       "confidence": "EXTRACTED",
       "source_file": "client/src/three/CameraRig.ts",
-      "source_location": "L69",
+      "source_location": "L140",
+      "weight": 1.0,
+      "_origin": "ast",
+      "source": "client_src_three_camerarig_camerarig",
+      "target": "client_src_three_camerarig_camerarig_boundsdistance",
+      "confidence_score": 1.0
+    },
+    {
+      "relation": "method",
+      "confidence": "EXTRACTED",
+      "source_file": "client/src/three/CameraRig.ts",
+      "source_location": "L67",
       "weight": 1.0,
       "_origin": "ast",
       "source": "client_src_three_camerarig_camerarig",
@@ -25659,7 +25681,7 @@
       "relation": "method",
       "confidence": "EXTRACTED",
       "source_file": "client/src/three/CameraRig.ts",
-      "source_location": "L78",
+      "source_location": "L74",
       "weight": 1.0,
       "_origin": "ast",
       "source": "client_src_three_camerarig_camerarig",
@@ -25670,7 +25692,7 @@
       "relation": "method",
       "confidence": "EXTRACTED",
       "source_file": "client/src/three/CameraRig.ts",
-      "source_location": "L100",
+      "source_location": "L93",
       "weight": 1.0,
       "_origin": "ast",
       "source": "client_src_three_camerarig_camerarig",
@@ -25705,13 +25727,13 @@
       "relation": "calls",
       "context": "call",
       "confidence": "EXTRACTED",
-      "confidence_score": 1.0,
       "source_file": "client/src/three/CameraRig.ts",
-      "source_location": "L152",
+      "source_location": "L113",
       "weight": 1.0,
       "_origin": "ast",
       "source": "client_src_three_camerarig_camerarig_update",
-      "target": "client_src_three_world_heightfield_ceilingheight"
+      "target": "client_src_three_camerarig_camerarig_boundsdistance",
+      "confidence_score": 1.0
     },
     {
       "relation": "calls",
@@ -25719,11 +25741,23 @@
       "confidence": "EXTRACTED",
       "confidence_score": 1.0,
       "source_file": "client/src/three/CameraRig.ts",
-      "source_location": "L101",
+      "source_location": "L95",
       "weight": 1.0,
       "_origin": "ast",
       "source": "client_src_three_camerarig_camerarig_update",
       "target": "client_src_three_world_heightfield_heightat"
+    },
+    {
+      "relation": "calls",
+      "context": "call",
+      "confidence": "EXTRACTED",
+      "confidence_score": 1.0,
+      "source_file": "client/src/three/CameraRig.ts",
+      "source_location": "L154",
+      "weight": 1.0,
+      "_origin": "ast",
+      "source": "client_src_three_camerarig_camerarig_boundsdistance",
+      "target": "client_src_three_world_heightfield_ceilingheight"
     },
     {
       "relation": "contains",
@@ -42703,5 +42737,5 @@
     }
   ],
   "hyperedges": [],
-  "built_at_commit": "53a6c85a9a52654ee0e4711b364b7924c4b0ee4f"
+  "built_at_commit": "3d18909fc192a465fc08c8c87f210e42d17d6719"
 }

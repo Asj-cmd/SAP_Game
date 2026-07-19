@@ -8,7 +8,6 @@
   "6": "HouseDresser.ts",
   "7": "package.json",
   "8": "Migration Checklist",
-  "9": "CharacterModel.ts",
   "10": "Rule Sections",
   "11": "inspect-threejs-canvas.mjs",
   "12": "build_furniture.py",
@@ -137,6 +136,5 @@
   "135": "graphify reference: incremental update and cluster-only",
   "136": "graphify reference: GitHub clone and cross-repo merge",
   "137": "graphify reference: transcribe video and audio",
-  "138": "extraction-spec.md",
-  "139": "SceneManager"
+  "138": "extraction-spec.md"
 }
