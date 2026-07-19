@@ -1,5 +1,5 @@
 import * as THREE from "three";
-import { ZONE_RECTS, type ZoneId } from "../../geometry/floorplan";
+import { ZONE_RECTS, getZoneAt, type ZoneId } from "../../geometry/floorplan";
 import { COLORS, ROOF_THICKNESS, WORLD_SCALE } from "../../constants";
 import { ceilingHeight } from "./HeightField";
 
@@ -12,13 +12,23 @@ import { ceilingHeight } from "./HeightField";
 export const ROOFED_ZONES: ZoneId[] = ["bedroomB", "livingB", "basementB", "bedroomA", "livingA", "basementA"];
 
 // Roof panels overhang the room's footprint by this much, so the slab tucks
-// OVER the top of every surrounding wall (walls are centred on the zone edge
-// and ~10 units thick) instead of meeting it at a hairline seam that leaks
-// sky when viewed edge-on - and it reads as a proper eave.
+// OVER the top of the surrounding wall (walls are centred on the zone edge and
+// ~10 units thick) instead of meeting it at a hairline seam that leaks sky
+// when viewed edge-on - and it reads as a proper eave. Applied ONLY toward
+// open-air neighbours (garden/backyard/world edge): overhanging an edge shared
+// with another roofed room pushed the slab INTO that room, and because a raised
+// bedroom's floor sits exactly at the neighbouring living room's ceiling
+// height, the living roof's overhang punched up through the bedroom floor as a
+// bar of protruding roof. Per-edge overhang keeps the exterior eave without
+// the intrusion.
 const ROOF_OVERHANG = 14 * WORLD_SCALE;
 // The eave slab is deliberately chunky (vs the old thin sheet) so from ground
 // level the overhanging edge casts a readable lip, not a paper-thin line.
 const ROOF_SLAB_THICKNESS = ROOF_THICKNESS * 3;
+// Faint self-illumination on the underside so the ceiling reads as a dim
+// ceiling rather than a pitch-black void when the camera pitches up indoors
+// (the opaque slab casts no light through, so its underside gets only ambient).
+const ROOF_EMISSIVE = 0.22;
 
 // Solid, always-opaque ceilings. The old fade-the-local-room's-roof reveal
 // (and its ROOF_REVEAL_OPACITY translucency compromise) existed only because
@@ -30,21 +40,42 @@ const ROOF_SLAB_THICKNESS = ROOF_THICKNESS * 3;
 // the pit, so the garden camera can't peer over the wall into the interior.
 export class RoofSystem {
   build(scene: THREE.Scene) {
+    const EPS = 2;
+    // Overhang an edge only if the zone just across it is NOT another roofed
+    // room (i.e. it faces the garden, a backyard, or the world edge).
+    const overhangIfOpen = (nx: number, nz: number) =>
+      ROOFED_ZONES.includes(getZoneAt(nx, nz)) ? 0 : ROOF_OVERHANG;
+
     for (const zoneId of ROOFED_ZONES) {
       const zone = ZONE_RECTS.find((z) => z.id === zoneId);
       if (!zone) continue;
 
-      const width = zone.xMax - zone.xMin + ROOF_OVERHANG * 2;
-      const depth = zone.yMax - zone.yMin + ROOF_OVERHANG * 2;
-      const cx = (zone.xMin + zone.xMax) / 2;
-      const cz = (zone.yMin + zone.yMax) / 2;
+      const midX = (zone.xMin + zone.xMax) / 2;
+      const midZ = (zone.yMin + zone.yMax) / 2;
+      const west = overhangIfOpen(zone.xMin - EPS, midZ);
+      const east = overhangIfOpen(zone.xMax + EPS, midZ);
+      const north = overhangIfOpen(midX, zone.yMin - EPS);
+      const south = overhangIfOpen(midX, zone.yMax + EPS);
+
+      const x1 = zone.xMin - west;
+      const x2 = zone.xMax + east;
+      const z1 = zone.yMin - north;
+      const z2 = zone.yMax + south;
+      const width = x2 - x1;
+      const depth = z2 - z1;
+      const cx = (x1 + x2) / 2;
+      const cz = (z1 + z2) / 2;
       const top = ceilingHeight(zoneId);
 
       // Roof color is the loudest per-house identity cue: terracotta over
       // house B, slate blue over house A (ROOFED_ZONES ids end in their
       // house letter), readable across the whole map.
       const color = zoneId.endsWith("B") ? COLORS.roofB : COLORS.roofA;
-      const material = new THREE.MeshStandardMaterial({ color, roughness: 0.85 });
+      const material = new THREE.MeshStandardMaterial({
+        color,
+        roughness: 0.85,
+        emissive: new THREE.Color(color).multiplyScalar(ROOF_EMISSIVE),
+      });
 
       // The slab's UNDERSIDE sits at `top` (the ceiling plane) and its bulk
       // rises above - so it never eats interior headroom, and the chunky

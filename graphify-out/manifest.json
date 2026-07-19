@@ -205,8 +205,8 @@
     "semantic_hash": ""
   },
   "client/src/three/CameraRig.ts": {
-    "mtime": 1784443302.2303753,
-    "ast_hash": "496d49ecbf1a1d491f25c875c67fafa9",
+    "mtime": 1784479277.3733444,
+    "ast_hash": "0789003fd530f2ac6bd9ecf83b3a6901",
     "semantic_hash": ""
   },
   "client/src/three/CashBundleView.ts": {
@@ -265,8 +265,8 @@
     "semantic_hash": ""
   },
   "client/src/three/world/RoofSystem.ts": {
-    "mtime": 1784443258.3503764,
-    "ast_hash": "2e03e56182c40324447e0cc816f63981",
+    "mtime": 1784479236.941342,
+    "ast_hash": "33959116e122a473dae5e0cf01ed4e09",
     "semantic_hash": ""
   },
   "client/src/three/world/StaircaseBuilder.ts": {

@@ -18,13 +18,14 @@ const PITCH_MAX = 1.25;
 
 // Indoor horizontal clamp (see update()'s bounds parameter). The inset keeps
 // the camera off the walls' inner faces (boundary walls are ~10 scaled units
-// thick, centered on the zone edge). The ease rate smooths ONLY the RELEASE
-// of a correction (walking out of a room relaxes the constraint ~100+ units
-// in one frame; 8/sec matches GROUND_FOLLOW_RATE's feel) - it never delays
-// the correction itself, since the final position is hard-clamped every
-// frame regardless (see the re-clamp at the end of update()).
+// thick, centered on the zone edge). Applied as a HARD clamp every frame, not
+// eased: an earlier eased version lagged the correction on a fast mouse flick,
+// so the camera pinned to the wall for several frames then sprang free - a
+// visible flash/switch. A pure per-frame clamp makes the camera position a
+// deterministic function of yaw/pitch/target, so fast and slow mouse look
+// identical and the camera simply slides along the wall when the orbit would
+// exceed the room.
 const CLAMP_INSET = 30;
-const CLAMP_EASE_RATE = 8;
 // Indoors the camera also can't rise above the room's own (solid, opaque)
 // ceiling - ceilingHeight() is the exact plane RoofSystem draws the slab at,
 // and this margin keeps the camera clearly under it rather than grazing it.
@@ -57,12 +58,6 @@ export class CameraRig {
   // Smoothed ground height under the followed target - see GROUND_FOLLOW_RATE.
   private groundY = 0;
   private groundInitialized = false;
-  // Eased indoor-clamp correction (world units), per horizontal axis - eased
-  // rather than applied raw so entering/leaving a clamped zone slides the
-  // camera instead of snapping it (see CLAMP_EASE_RATE).
-  private clampOffsetX = 0;
-  private clampOffsetY = 0;
-  private clampOffsetZ = 0;
   // Scratch vectors reused every frame in update() instead of allocated fresh -
   // this runs once per rendered frame, so `new THREE.Vector3()`/`.clone()`
   // here would be a steady stream of small GC garbage at 60+ fps.
@@ -145,38 +140,16 @@ export class CameraRig {
     }
 
     // Indoor clamp, applied AFTER the pull-in (which still owns door gaps and
-    // the basement slab): ease the correction toward what the clamp currently
-    // wants - zero outdoors - so zone transitions slide rather than snap.
-    // Floorplan (x, y) maps to three (x, z), hence yMin/yMax against desired.z.
-    const wantX = bounds
-      ? clamp(this.desired.x, bounds.xMin + CLAMP_INSET, bounds.xMax - CLAMP_INSET) - this.desired.x
-      : 0;
-    const wantZ = bounds
-      ? clamp(this.desired.z, bounds.yMin + CLAMP_INSET, bounds.yMax - CLAMP_INSET) - this.desired.z
-      : 0;
-    // Ceiling clamp (Y): only ever pushes DOWN (min with 0), and only
-    // indoors - outdoor pitch freedom is untouched. See CEILING_MARGIN.
-    const ceilingY = bounds ? ceilingHeight(bounds.id) - CEILING_MARGIN : 0;
-    const wantY = bounds ? Math.min(0, ceilingY - this.desired.y) : 0;
-    const ease = Math.min(1, CLAMP_EASE_RATE * dt);
-    this.clampOffsetX += (wantX - this.clampOffsetX) * ease;
-    this.clampOffsetY += (wantY - this.clampOffsetY) * ease;
-    this.clampOffsetZ += (wantZ - this.clampOffsetZ) * ease;
-    this.desired.x += this.clampOffsetX;
-    this.desired.y += this.clampOffsetY;
-    this.desired.z += this.clampOffsetZ;
-
-    // The ease above lags by design, but `desired` doesn't - a fast mouse
-    // swing moves it its full distance in one frame, and an eased-only
-    // correction would spend the next several frames rendering outside the
-    // room: a visible flash of exterior/sky on every hard mouse flick. Hard
-    // re-clamp the final position so the camera NEVER renders out of bounds,
-    // even for one frame (same immediacy as the raycast pull-in); the eased
-    // offsets then only ever soften the release when bounds relax.
+    // the basement slab). Hard, every frame - the camera can never render
+    // outside the room even for one frame, so a fast mouse flick can't flash
+    // the exterior; the camera just slides along the wall when the orbit would
+    // exceed the room. Floorplan (x, y) maps to three (x, z), hence yMin/yMax
+    // against desired.z. Y only ever pushes DOWN, under the ceiling plane
+    // (CEILING_MARGIN below RoofSystem's slab); outdoor pitch is untouched.
     if (bounds) {
       this.desired.x = clamp(this.desired.x, bounds.xMin + CLAMP_INSET, bounds.xMax - CLAMP_INSET);
       this.desired.z = clamp(this.desired.z, bounds.yMin + CLAMP_INSET, bounds.yMax - CLAMP_INSET);
-      this.desired.y = Math.min(this.desired.y, ceilingY);
+      this.desired.y = Math.min(this.desired.y, ceilingHeight(bounds.id) - CEILING_MARGIN);
     }
 
     this.camera.position.copy(this.desired);
