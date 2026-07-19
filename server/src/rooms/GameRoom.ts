@@ -1114,38 +1114,42 @@ export class GameRoom extends Room<GameState> {
     bot.vy = ny * speed;
   }
 
-  // Applies a total (dx, dy) displacement to the bot in sub-steps, resolving
-  // wall collision after each so a fast tick can't tunnel through a thin wall.
+  // Move-and-SLIDE, axis-separated, in sub-steps (the sub-steps stop a fast
+  // 4Hz tick from tunnelling a thin wall). Each axis is attempted on its own
+  // and reverted if it would put the bot inside a wall - so a bot pressing
+  // diagonally into the wall beside a doorway keeps the UNblocked axis and
+  // slides along the wall into the gap, instead of the old push-out that
+  // cancelled both components and left it "walking against the door". Because
+  // a blocked axis is simply not taken, the bot never enters a wall, so no
+  // separate push-out pass is needed (it starts every round in open space).
   private moveBotWithCollision(bot: PlayerState, team: Team, dx: number, dy: number) {
     const total = Math.hypot(dx, dy);
     const steps = Math.max(1, Math.ceil(total / BOT_SUBSTEP));
     const sx = dx / steps;
     const sy = dy / steps;
     for (let i = 0; i < steps; i++) {
+      const ox = bot.x;
       bot.x = clamp(bot.x + sx, 0, WORLD_WIDTH);
+      if (this.botHitsWall(bot, team)) bot.x = ox;
+      const oy = bot.y;
       bot.y = clamp(bot.y + sy, 0, WORLD_HEIGHT);
-      this.resolveBotCollision(bot, team);
+      if (this.botHitsWall(bot, team)) bot.y = oy;
     }
   }
 
-  // Circle-vs-AABB push-out against WALLS plus the bot's OWN sealed doors -
-  // the exact colliders a human on this team gets client-side. Pushing out of
-  // the nearest surface each sub-step yields wall-sliding for free.
-  private resolveBotCollision(bot: PlayerState, team: Team) {
-    const push = (r: Rect) => {
+  // True if the bot's body circle overlaps any WALL or its OWN sealed door -
+  // the exact colliders a human on this team gets client-side (the enemy's
+  // sealed doors are open to this team, so they are not colliders for it).
+  private botHitsWall(bot: PlayerState, team: Team): boolean {
+    const hits = (r: Rect) => {
       const cx = Math.max(r.x1, Math.min(bot.x, r.x2));
       const cy = Math.max(r.y1, Math.min(bot.y, r.y2));
       const dx = bot.x - cx;
       const dy = bot.y - cy;
-      const distSq = dx * dx + dy * dy;
-      if (distSq < BOT_RADIUS * BOT_RADIUS) {
-        const dist = Math.sqrt(distSq) || 0.001;
-        const amount = BOT_RADIUS - dist;
-        bot.x += (dx / dist) * amount;
-        bot.y += (dy / dist) * amount;
-      }
+      return dx * dx + dy * dy < BOT_RADIUS * BOT_RADIUS;
     };
-    for (const r of WALLS) push(r);
-    for (const d of SEALED_DOORS) if (d.team === team) push(d);
+    for (const r of WALLS) if (hits(r)) return true;
+    for (const d of SEALED_DOORS) if (d.team === team && hits(d)) return true;
+    return false;
   }
 }
