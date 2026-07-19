@@ -29,6 +29,9 @@ export class HudOverlay {
   private overlaySub!: HTMLDivElement;
   private rematchBtn!: HTMLButtonElement;
   private minimapCanvas!: HTMLCanvasElement;
+  private scoreOwnEl!: HTMLSpanElement;
+  private scoreFoeEl!: HTMLSpanElement;
+  private winPipsEl!: HTMLDivElement;
   private localTeam: Team;
   private onRematch: () => void;
 
@@ -36,8 +39,15 @@ export class HudOverlay {
     this.localTeam = localTeam;
     this.onRematch = onRematch;
     this.root = document.createElement("div");
-    this.root.innerHTML = HudOverlay.template();
+    this.root.innerHTML = HudOverlay.template(localTeam);
     container.appendChild(this.root);
+
+    // Team accent colors drive every highlight in the HUD via CSS vars, so the
+    // panels read as "yours" (own team) vs "theirs" at a glance.
+    const own = toHex(localTeam === "B" ? COLORS.teamB : COLORS.teamA);
+    const foe = toHex(localTeam === "B" ? COLORS.teamA : COLORS.teamB);
+    this.root.style.setProperty("--team", own);
+    this.root.style.setProperty("--foe", foe);
 
     this.timerEl = this.q("hud-timer");
     this.roundEl = this.q("hud-round");
@@ -48,12 +58,14 @@ export class HudOverlay {
     this.overlayTitle = this.q("hud-overlay-title");
     this.overlaySub = this.q("hud-overlay-sub");
     this.rematchBtn = this.q<HTMLButtonElement>("hud-rematch");
+    this.scoreOwnEl = this.q<HTMLSpanElement>("hud-score-own");
+    this.scoreFoeEl = this.q<HTMLSpanElement>("hud-score-foe");
+    this.winPipsEl = this.q("hud-win-pips");
     this.minimapCanvas = this.q("hud-minimap") as unknown as HTMLCanvasElement;
     this.minimapCanvas.width = MINIMAP_W;
     this.minimapCanvas.height = MINIMAP_H;
 
-    const color = toHex(localTeam === "B" ? COLORS.teamB : COLORS.teamA);
-    this.objectiveEl.style.color = color;
+    this.objectiveEl.style.color = own;
 
     this.rematchBtn.addEventListener("click", () => this.onRematch());
   }
@@ -68,55 +80,81 @@ export class HudOverlay {
     this.q("hud-mouse-hint").style.display = show ? "block" : "none";
   }
 
-  private static template(): string {
+  private static template(localTeam: Team): string {
     // paint-order:stroke fill is the load-bearing part: without it the stroke
     // paints ON TOP of the glyph fill (centered on the outline), which at
     // 13-15px swallows the letterform entirely - text rendered as black
     // smudges. Behind-fill strokes can afford to be a touch wider, which is
     // what keeps white/team-colored fills readable over both the sunlit
     // garden and the dark basement.
-    const strokeStyle = "paint-order:stroke fill; -webkit-text-stroke:4px #000; text-shadow:0 1px 3px rgba(0,0,0,.6);";
+    // paint-order:stroke fill is still load-bearing for the few labels that
+    // sit DIRECTLY on the 3D scene (the action prompt, the mouse hint): without
+    // it the stroke paints on top of the glyph fill and swallows the letters.
+    // The panelled labels (timer/score/objective/controls) no longer need it -
+    // they read against their own translucent backing instead.
     const strokeThin = "paint-order:stroke fill; -webkit-text-stroke:3px #000; text-shadow:0 1px 2px rgba(0,0,0,.6);";
+    // Shared glass-panel look: translucent dark backing + hairline border +
+    // soft drop shadow, blurred where the browser supports it. Keeps the HUD
+    // legible over both the bright garden and the dark basement.
+    const panel =
+      "background:linear-gradient(180deg,rgba(18,22,30,.62),rgba(10,13,18,.72)); border:1px solid rgba(255,255,255,.14); border-radius:14px; box-shadow:0 6px 20px rgba(0,0,0,.4); backdrop-filter:blur(7px); -webkit-backdrop-filter:blur(7px);";
     return `
       <style>
-        #hud-root * { font-family: system-ui, sans-serif; color: #fff; }
-        #hud-topleft { position:fixed; top:14px; left:20px; display:flex; flex-direction:column; gap:4px; }
-        #hud-timer { font-size:34px; font-weight:800; ${strokeStyle} }
-        #hud-round { font-size:15px; font-weight:700; ${strokeThin} }
-        #hud-objective { position:fixed; top:12px; right:14px; font-size:15px; font-weight:800; text-align:right; ${strokeThin} }
-        #hud-controls { position:fixed; bottom:10px; left:50%; transform:translateX(-50%); font-size:13px; font-weight:600; text-align:center; ${strokeThin} }
-        /* Small and muted, tucked next to the controls line rather than
-           mid-screen - the old 16px mid-screen version fought for attention
-           with the action prompt every time the mouse unlocked. */
-        /* bottom:74px keeps this clear of #hud-prompt (bottom:38px, ~20px of
-           text) - the two are independent and can show simultaneously
-           (pointer unlocked while standing next to an actionable), so they
-           need distinct slots. The more urgent/frequent yellow prompt keeps
-           the spot nearer the controls line. */
-        #hud-mouse-hint { position:fixed; bottom:74px; left:50%; transform:translateX(-50%); font-size:12px; font-weight:600; color:#8aa; text-align:center; opacity:.65; background:rgba(0,0,0,.35); padding:4px 10px; border-radius:6px; display:none; }
-        #hud-prompt { position:fixed; bottom:38px; left:50%; transform:translateX(-50%); font-size:16px; font-weight:700; color:#ffff66; text-align:center; ${strokeThin} display:none; }
-        /* Bottom-right corner, small and translucent - the old top-center
-           240px opaque block sat exactly where the action is. */
-        #hud-minimap-wrap { position:fixed; right:10px; bottom:10px; background:rgba(0,0,0,.3); padding:3px; border-radius:4px; opacity:.82; }
-        #hud-minimap { display:block; border:1.5px solid #222; }
-        #hud-jail { position:fixed; top:50%; left:50%; transform:translate(-50%, 90px); font-size:20px; font-weight:700; color:#ffdd55; text-align:center; background:rgba(0,0,0,.65); padding:8px 12px; border-radius:8px; white-space:pre-line; display:none; }
-        #hud-overlay-bg { position:fixed; inset:0; background:rgba(0,0,0,.55); display:none; }
-        #hud-overlay-title { position:fixed; top:50%; left:50%; transform:translate(-50%, -56px); font-size:30px; font-weight:800; text-align:center; ${strokeStyle} display:none; }
-        #hud-overlay-sub { position:fixed; top:50%; left:50%; transform:translate(-50%, -4px); font-size:18px; text-align:center; ${strokeThin} display:none; }
-        /* #hud-root is pointer-events:none (see index.html) so the rest of the
-           overlay doesn't block clicks into the 3D view - this button needs
-           pointer-events:auto to opt back in and actually be clickable. */
-        #hud-rematch { position:fixed; top:50%; left:50%; transform:translate(-50%, 40px); font-size:16px; font-weight:700; padding:12px 28px; border:0; border-radius:8px; background:#2e7d32; color:#fff; cursor:pointer; pointer-events:auto; display:none; }
+        #hud-root * { font-family: system-ui, -apple-system, "Segoe UI", sans-serif; color:#fff; box-sizing:border-box; }
+        /* Top-left status panel: a team-accented left edge + timer, round line,
+           and a live cash scoreboard with round-win pips. */
+        #hud-topleft { position:fixed; top:16px; left:18px; padding:10px 16px 12px 14px; ${panel} border-left:4px solid var(--team); min-width:180px; }
+        #hud-timer { font-size:34px; font-weight:800; line-height:1; letter-spacing:.5px; font-variant-numeric:tabular-nums; }
+        #hud-round { font-size:12.5px; font-weight:600; opacity:.72; margin-top:3px; letter-spacing:.3px; }
+        #hud-score { display:flex; align-items:baseline; gap:8px; margin-top:8px; font-weight:800; font-variant-numeric:tabular-nums; }
+        #hud-score .lab { font-size:11px; font-weight:700; opacity:.85; letter-spacing:.5px; }
+        #hud-score-own { font-size:26px; color:var(--team); }
+        #hud-score-foe { font-size:26px; color:var(--foe); }
+        #hud-score .dash { font-size:18px; opacity:.5; font-weight:600; }
+        #hud-win-pips { display:flex; gap:5px; margin-top:7px; align-items:center; }
+        #hud-win-pips .pip { width:9px; height:9px; border-radius:50%; border:1.5px solid rgba(255,255,255,.35); }
+        #hud-win-pips .pip.own { background:var(--team); border-color:var(--team); }
+        #hud-win-pips .pip.foe { background:var(--foe); border-color:var(--foe); }
+        #hud-win-pips .plabel { font-size:10px; font-weight:700; opacity:.6; letter-spacing:.6px; margin-right:2px; }
+        /* Objective badge: team-tinted pill, top-right. */
+        #hud-objective { position:fixed; top:16px; right:16px; font-size:14px; font-weight:800; text-align:right; padding:8px 14px; ${panel} border-right:4px solid var(--team); letter-spacing:.3px; }
+        /* Controls: unobtrusive pill along the bottom. */
+        #hud-controls { position:fixed; bottom:12px; left:50%; transform:translateX(-50%); font-size:12.5px; font-weight:600; text-align:center; padding:6px 16px; ${panel} opacity:.9; white-space:nowrap; }
+        /* bottom:78px keeps this clear of #hud-prompt (bottom:44px) - both can
+           show at once (pointer unlocked next to an actionable). */
+        #hud-mouse-hint { position:fixed; bottom:78px; left:50%; transform:translateX(-50%); font-size:12px; font-weight:600; color:#bcd; text-align:center; opacity:.8; ${panel} padding:5px 12px; display:none; }
+        #hud-prompt { position:fixed; bottom:44px; left:50%; transform:translateX(-50%); font-size:16px; font-weight:800; color:#ffe14d; text-align:center; ${strokeThin} display:none; }
+        /* Minimap: framed panel with a small header strip. */
+        #hud-minimap-wrap { position:fixed; right:14px; bottom:14px; padding:6px; ${panel} }
+        #hud-minimap-hdr { font-size:9.5px; font-weight:800; letter-spacing:1.5px; opacity:.55; text-align:center; margin-bottom:4px; }
+        #hud-minimap { display:block; border-radius:6px; }
+        #hud-jail { position:fixed; top:50%; left:50%; transform:translate(-50%, 96px); font-size:19px; font-weight:800; color:#ffdd55; text-align:center; ${panel} border:1px solid rgba(255,221,85,.4); padding:10px 16px; white-space:pre-line; display:none; }
+        #hud-overlay-bg { position:fixed; inset:0; background:radial-gradient(ellipse at center, rgba(0,0,0,.45), rgba(0,0,0,.72)); display:none; }
+        #hud-overlay-title { position:fixed; top:50%; left:50%; transform:translate(-50%, -60px); font-size:34px; font-weight:900; text-align:center; letter-spacing:.5px; paint-order:stroke fill; -webkit-text-stroke:4px #000; text-shadow:0 3px 14px rgba(0,0,0,.7); display:none; }
+        #hud-overlay-sub { position:fixed; top:50%; left:50%; transform:translate(-50%, -6px); font-size:17px; font-weight:600; text-align:center; opacity:.9; ${strokeThin} display:none; }
+        /* #hud-root is pointer-events:none (see index.html); this button opts
+           back in so it's actually clickable. */
+        #hud-rematch { position:fixed; top:50%; left:50%; transform:translate(-50%, 44px); font-size:16px; font-weight:800; letter-spacing:.5px; padding:13px 34px; border:0; border-radius:10px; background:linear-gradient(180deg,#3ba641,#2e7d32); color:#fff; cursor:pointer; pointer-events:auto; box-shadow:0 5px 16px rgba(0,0,0,.45); transition:transform .08s ease, filter .12s ease; display:none; }
+        #hud-rematch:hover { filter:brightness(1.12); transform:translate(-50%, 42px); }
+        #hud-rematch:active { transform:translate(-50%, 46px); }
       </style>
       <div id="hud-topleft">
         <div id="hud-timer">05:00</div>
         <div id="hud-round">Round 1 of 3</div>
+        <div id="hud-score">
+          <span class="lab" style="color:var(--team)">${localTeam}</span>
+          <span id="hud-score-own">0</span>
+          <span class="dash">-</span>
+          <span id="hud-score-foe">0</span>
+          <span class="lab" style="color:var(--foe)">${localTeam === "B" ? "A" : "B"}</span>
+        </div>
+        <div id="hud-win-pips"></div>
       </div>
       <div id="hud-objective"></div>
       <div id="hud-controls">Mouse : Look &nbsp; W/A/S/D or Arrows : Move &nbsp;&nbsp; SPACE : Action &nbsp;&nbsp; (cash deposits automatically at home)</div>
       <div id="hud-mouse-hint">Click the game to enable mouse look &nbsp;•&nbsp; ESC frees the mouse</div>
       <div id="hud-prompt"></div>
-      <div id="hud-minimap-wrap"><canvas id="hud-minimap"></canvas></div>
+      <div id="hud-minimap-wrap"><div id="hud-minimap-hdr">MAP</div><canvas id="hud-minimap"></canvas></div>
       <div id="hud-jail"></div>
       <div id="hud-overlay-bg"></div>
       <div id="hud-overlay-title"></div>
@@ -131,6 +169,22 @@ export class HudOverlay {
   private objectiveMessage(carrying: boolean): string {
     const teamLabel = `TEAM ${this.localTeam}`;
     return carrying ? `${teamLabel}  •  Bring the cash HOME` : `${teamLabel}  •  Steal the enemy's cash`;
+  }
+
+  // Best-of-3 tally: WINS_NEEDED (2) pips per side, filled as rounds are won,
+  // own team's on the left. Rebuilt only when the counts change, so it isn't
+  // churning DOM every frame.
+  private lastPips = "";
+  private renderWinPips(ownWins: number, foeWins: number) {
+    const key = `${ownWins}:${foeWins}`;
+    if (key === this.lastPips) return;
+    this.lastPips = key;
+    const NEEDED = 2;
+    const pip = (filled: boolean, side: "own" | "foe") =>
+      `<span class="pip ${filled ? side : ""}"></span>`;
+    const own = Array.from({ length: NEEDED }, (_, i) => pip(i < ownWins, "own")).join("");
+    const foe = Array.from({ length: NEEDED }, (_, i) => pip(i < foeWins, "foe")).join("");
+    this.winPipsEl.innerHTML = `<span class="plabel">WINS</span>${own}<span class="dash" style="opacity:.4;margin:0 2px;">/</span>${foe}`;
   }
 
   private drawMinimap(room: Room) {
@@ -178,7 +232,16 @@ export class HudOverlay {
     const mins = Math.floor(t / 60).toString().padStart(2, "0");
     const secs = (t % 60).toString().padStart(2, "0");
     this.timerEl.textContent = `${mins}:${secs}`;
+    // Timer turns urgent red inside the final 30 seconds.
+    this.timerEl.style.color = t <= 30 ? "#ff5a4d" : "#fff";
     this.roundEl.textContent = `Round ${state.roundNumber} of 3  •  First to ${state.winScore || 5}`;
+
+    // Live cash scoreboard, own team first, and best-of-3 round-win pips.
+    const ownScore = this.localTeam === "B" ? state.scoreB : state.scoreA;
+    const foeScore = this.localTeam === "B" ? state.scoreA : state.scoreB;
+    this.scoreOwnEl.textContent = String(ownScore ?? 0);
+    this.scoreFoeEl.textContent = String(foeScore ?? 0);
+    this.renderWinPips(this.localTeam === "B" ? state.winsB : state.winsA, this.localTeam === "B" ? state.winsA : state.winsB);
 
     const self = room.state.players.get(room.sessionId);
     this.objectiveEl.textContent = this.objectiveMessage(!!self?.isCarryingCash);

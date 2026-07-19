@@ -1,16 +1,16 @@
 # Graph Report - SAP_Game  (2026-07-19)
 
 ## Corpus Check
-- 164 files · ~115,047 words
+- 164 files · ~115,503 words
 - Verdict: corpus is large enough that graph structure adds value.
 
 ## Summary
-- 1606 nodes · 2156 edges · 138 communities (101 shown, 37 thin omitted)
+- 1607 nodes · 2159 edges · 138 communities (101 shown, 37 thin omitted)
 - Extraction: 99% EXTRACTED · 1% INFERRED · 0% AMBIGUOUS · INFERRED: 29 edges (avg confidence: 0.55)
 - Token cost: 0 input · 0 output
 
 ## Graph Freshness
-- Built from commit: `a402c6a4`
+- Built from commit: `0ab0c041`
 - Run `git rev-parse HEAD` and compare to check if the graph is stale.
 - Run `graphify update .` after code changes (no API cost).
 
