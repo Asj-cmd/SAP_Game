@@ -1,16 +1,16 @@
 # Graph Report - SAP_Game  (2026-07-19)
 
 ## Corpus Check
-- 164 files · ~116,667 words
+- 164 files · ~116,730 words
 - Verdict: corpus is large enough that graph structure adds value.
 
 ## Summary
-- 1613 nodes · 2176 edges · 138 communities (101 shown, 37 thin omitted)
+- 1614 nodes · 2183 edges · 140 communities (102 shown, 38 thin omitted)
 - Extraction: 99% EXTRACTED · 1% INFERRED · 0% AMBIGUOUS · INFERRED: 30 edges (avg confidence: 0.55)
 - Token cost: 0 input · 0 output
 
 ## Graph Freshness
-- Built from commit: `a950dcfc`
+- Built from commit: `7f43ec2b`
 - Run `git rev-parse HEAD` and compare to check if the graph is stale.
 - Run `graphify update .` after code changes (no API cost).
 
@@ -139,6 +139,7 @@
 - visual-test-harness.md
 - visual-verification.md
 - What You Must Do When Invoked
+- CharacterModel.ts
 - graphify reference: extra exports and benchmark
 - Cash Grab — Project Memory (auto-loaded)
 - graphify reference: query, path, explain
@@ -148,15 +149,16 @@
 - graphify reference: GitHub clone and cross-repo merge
 - graphify reference: transcribe video and audio
 - extraction-spec.md
+- SceneManager
 
 ## God Nodes (most connected - your core abstractions)
-1. `GameRoom` - 48 edges
+1. `GameRoom` - 49 edges
 2. `GameController` - 25 edges
 3. `Quick Reference` - 24 edges
 4. `Rule Sections` - 24 edges
 5. `heightAt()` - 22 edges
-6. `Game` - 20 edges
-7. `Team` - 20 edges
+6. `Team` - 21 edges
+7. `Game` - 20 edges
 8. `buildEnvironment()` - 19 edges
 9. `TSL Complete Reference` - 19 edges
 10. `InputController` - 18 edges
@@ -170,13 +172,13 @@
   .claude/skills/threejs-gameplay-systems/assets/threejs-vite-game/src/game/Game.ts → .claude/skills/threejs-gameplay-systems/assets/threejs-vite-game/src/systems/DebugTools.ts
 - `Game` --references--> `DebugTuning`  [EXTRACTED]
   .claude/skills/threejs-gameplay-systems/assets/threejs-vite-game/src/game/Game.ts → .claude/skills/threejs-gameplay-systems/assets/threejs-vite-game/src/systems/DebugTools.ts
-- `buildWindows()` --calls--> `teamSideAt()`  [EXTRACTED]
-  client/src/three/world/WindowBuilder.ts → client/src/constants.ts
+- `doorFrameGeoms()` --calls--> `teamSideAt()`  [EXTRACTED]
+  client/src/three/EnvironmentBuilder.ts → client/src/constants.ts
 
 ## Import Cycles
 - None detected.
 
-## Communities (138 total, 37 thin omitted)
+## Communities (140 total, 38 thin omitted)
 
 ### Community 0 - "GameRoom"
 Cohesion: 0.06
@@ -199,8 +201,8 @@ Cohesion: 0.06
 Nodes (31): dependencies, lil-gui, three, devDependencies, @playwright/test, pngjs, @types/node, @types/pngjs (+23 more)
 
 ### Community 6 - "HouseDresser.ts"
-Cohesion: 0.14
-Nodes (24): dressHouses(), mirrorPlacement(), mirrorRot(), placeIndividually(), solidRect(), buildInstancedProps(), dummy, applyMaterialRoles() (+16 more)
+Cohesion: 0.12
+Nodes (26): dressHouses(), mirrorPlacement(), mirrorRot(), placeIndividually(), solidRect(), buildInstancedProps(), dummy, applyMaterialRoles() (+18 more)
 
 ### Community 7 - "package.json"
 Cohesion: 0.06
@@ -209,10 +211,6 @@ Nodes (30): colyseus, @colyseus/schema, @colyseus/ws-transport, cors, express, d
 ### Community 8 - "Migration Checklist"
 Cohesion: 0.07
 Nodes (27): Aliases Removed, BAD - Deprecated, BAD - Old API, Color Management (r151+), Common Migration Issues, Geometry Changes (r125+), GOOD - Current, GOOD - Current API (+19 more)
-
-### Community 9 - "CharacterModel.ts"
-Cohesion: 0.24
-Nodes (5): DEFAULT_PITCH, FOLLOW_DISTANCE, CameraRig, clamp(), ceilingHeight()
 
 ### Community 10 - "Rule Sections"
 Cohesion: 0.08
@@ -231,8 +229,8 @@ Cohesion: 0.09
 Nodes (22): dependencies, colyseus.js, three, devDependencies, playwright-core, @types/three, typescript, vite (+14 more)
 
 ### Community 14 - "EnvironmentBuilder.ts"
-Cohesion: 0.16
-Nodes (30): teamSideAt(), Door, DOORS, Rect, buildEnvironment(), coloredBox(), doorBase(), doorFrameBase() (+22 more)
+Cohesion: 0.20
+Nodes (25): DOORS, buildEnvironment(), coloredBox(), doorBase(), doorFrameBase(), doorFrameGeoms(), foundationGeoms(), intersectRect() (+17 more)
 
 ### Community 15 - "compilerOptions"
 Cohesion: 0.10
@@ -247,12 +245,12 @@ Cohesion: 0.19
 Nodes (18): has_audio_blocker(), has_audio_output_evidence(), has_external_blocker(), has_external_output_evidence(), main(), marker_pattern(), missing_markers(), normalize() (+10 more)
 
 ### Community 18 - "floorplan.ts"
-Cohesion: 0.10
-Nodes (24): COLORS, getZoneAt(), isEnemyBedroom(), isOwnHome(), jailBasementForTeam(), Team, ZONE_RECTS, ZoneId (+16 more)
+Cohesion: 0.19
+Nodes (16): COLORS, DEFAULT_PITCH, FOLLOW_DISTANCE, getZoneAt(), isEnemyBedroom(), isOwnHome(), jailBasementForTeam(), ZONE_RECTS (+8 more)
 
 ### Community 19 - "HeightField.ts"
-Cohesion: 0.16
-Nodes (11): CashBundleView, CharacterController, Axis, clamp01(), corridorHeight(), heightAt(), inCorridor(), probeSpan() (+3 more)
+Cohesion: 0.13
+Nodes (15): Door, Rect, CashBundleView, CharacterController, Environment, Axis, clamp01(), corridorHeight() (+7 more)
 
 ### Community 20 - "build_nature.py"
 Cohesion: 0.24
@@ -347,8 +345,8 @@ Cohesion: 0.14
 Nodes (13): Anti-Patterns, Audio Feel Coupling, Camera Kick / FOV Punch, Determinism, Game Feel, Gamepad Rumble, Hitstop, Impact Flash (+5 more)
 
 ### Community 44 - "WindowBuilder.ts"
-Cohesion: 0.24
-Nodes (12): WALLS, WINDOWS, WindowSpec, buildWindows(), findWallIndex(), plainBox(), proudRunRect(), runRect() (+4 more)
+Cohesion: 0.29
+Nodes (11): teamSideAt(), WALLS, buildWindows(), findWallIndex(), plainBox(), proudRunRect(), runRect(), ScaledWindow (+3 more)
 
 ### Community 45 - "Animation System"
 Cohesion: 0.15
@@ -454,6 +452,10 @@ Nodes (9): AAA Graphics Production Pass Prompt, Before/After Visual Critique Pro
 Cohesion: 0.20
 Nodes (9): Automatic Failures, Calibration Anchors, Categories, Fresh-Eyes Review, Measured Evidence, Report Format, Scoring Scale, Thresholds (+1 more)
 
+### Community 72 - "HudOverlay"
+Cohesion: 0.30
+Nodes (3): Team, HudOverlay, toHex()
+
 ### Community 73 - "build_cashbundle.py"
 Cohesion: 0.39
 Nodes (8): _add_camera(), build_bundle(), clear_scene(), export_glb(), main(), make_material(), Builds the cash bundle prop: a small stack of bills with a paper band and a coup, render_preview()
@@ -538,6 +540,10 @@ Nodes (3): Release Pass Prompt, Three.js QA/Release Prompt Templates, Visual Tes
 Cohesion: 0.08
 Nodes (24): For /graphify add and --watch, For /graphify query, For the commit hook and native CLAUDE.md integration, For --update and --cluster-only, /graphify, Honesty Rules, Interpreter guard for subcommands, Part A - Structural extraction for code files (+16 more)
 
+### Community 129 - "CharacterModel.ts"
+Cohesion: 0.14
+Nodes (10): CharacterModel, FAMILY_ORDER, FamilyVariant, loadBundleTemplate(), pickFamilyVariant(), VARIANT_TOP, VARIANT_URL(), lerpAngle() (+2 more)
+
 ### Community 130 - "graphify reference: extra exports and benchmark"
 Cohesion: 0.22
 Nodes (8): graphify reference: extra exports and benchmark, Step 6b - Wiki (only if --wiki flag), Step 7 - Neo4j export (only if --neo4j or --neo4j-push flag), Step 7a - FalkorDB export (only if --falkordb or --falkordb-push flag), Step 7b - SVG export (only if --svg flag), Step 7c - GraphML export (only if --graphml flag), Step 7d - MCP server (only if --mcp flag), Step 8 - Token reduction benchmark (only if total_words > 5000)
@@ -565,21 +571,21 @@ Nodes (3): For --cluster-only, For --update (incremental re-extraction), graphif
 ## Knowledge Gaps
 - **849 isolated node(s):** `probe_asset_credentials.sh script`, `name`, `version`, `private`, `type` (+844 more)
   These have ≤1 connection - possible missing edges or undocumented components.
-- **37 thin communities (<3 nodes) omitted from report** — run `graphify query` to explore isolated nodes.
+- **38 thin communities (<3 nodes) omitted from report** — run `graphify query` to explore isolated nodes.
 
 ## Suggested Questions
 _Questions this graph is uniquely positioned to answer:_
 
-- **Why does `heightAt()` connect `HeightField.ts` to `CharacterModel.ts`, `floorplan.ts`, `EnvironmentBuilder.ts`, `HouseDresser.ts`?**
+- **Why does `heightAt()` connect `HeightField.ts` to `CharacterModel.ts`, `HouseDresser.ts`, `CharacterModel.ts`, `EnvironmentBuilder.ts`, `floorplan.ts`?**
   _High betweenness centrality (0.002) - this node is a cross-community bridge._
-- **Why does `SceneManager` connect `GameController` to `floorplan.ts`?**
+- **Why does `SceneManager` connect `SceneManager` to `floorplan.ts`, `GameController`?**
   _High betweenness centrality (0.002) - this node is a cross-community bridge._
-- **Why does `GameController` connect `GameController` to `HudOverlay`, `CharacterModel.ts`, `floorplan.ts`, `HeightField.ts`, `LobbyView`?**
+- **Why does `GameController` connect `GameController` to `CharacterModel.ts`, `HudOverlay`, `CharacterModel.ts`, `SceneManager`, `floorplan.ts`, `HeightField.ts`, `LobbyView`?**
   _High betweenness centrality (0.001) - this node is a cross-community bridge._
 - **What connects `probe_asset_credentials.sh script`, `name`, `version` to the rest of the system?**
   _849 weakly-connected nodes found - possible documentation gaps or missing edges._
 - **Should `GameRoom` be split into smaller, more focused modules?**
-  _Cohesion score 0.06124357176250585 - nodes in this community are weakly interconnected._
+  _Cohesion score 0.06154198123999085 - nodes in this community are weakly interconnected._
 - **Should `build_family.py` be split into smaller, more focused modules?**
   _Cohesion score 0.1226890756302521 - nodes in this community are weakly interconnected._
 - **Should `Quick Reference` be split into smaller, more focused modules?**
