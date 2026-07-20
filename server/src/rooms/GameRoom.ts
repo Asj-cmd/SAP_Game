@@ -7,8 +7,10 @@ import {
   jailBasementForTeam,
   SPAWN_POINTS,
   JAIL_POSITIONS,
-  bundlePositions,
-  scoreSlotPositions,
+  randomBedroomPoint,
+  randomBedroomPoints,
+  resolveFloor,
+  connectorBlocks,
   WORLD_WIDTH,
   WORLD_HEIGHT,
   WORLD_SCALE,
@@ -18,8 +20,6 @@ import {
   findBotPath,
   nearestBotNode,
   WALLS,
-  SEALED_DOORS,
-  type Rect,
 } from "../zones";
 
 // Server ranges are a touch more generous than the client's prompt range so an
@@ -153,8 +153,10 @@ export class GameRoom extends Room<GameState> {
 
   private teamSize = 2;
   private bundlesPerBedroom = 5;
+  // Each round the originals are scattered at random across the owning team's two
+  // bedrooms (floor +1); kept here so a dropped bundle can return to its exact
+  // starting spot (originPosition), while every DEPOSIT re-randomises afresh.
   private bundlePos: Record<"bedroomB" | "bedroomA", { x: number; y: number }[]> = { bedroomB: [], bedroomA: [] };
-  private scoreSlots: Record<Team, { x: number; y: number }[]> = { A: [], B: [] };
 
   private slots = new Map<string, { team: Team; slot: number }>();
   // Tracks bundles that were carried away from an enemy's SCORED pile, so that if the
@@ -183,15 +185,8 @@ export class GameRoom extends Room<GameState> {
     this.maxClients = this.teamSize * 2;
 
     this.bundlePos = {
-      bedroomB: bundlePositions("bedroomB", this.bundlesPerBedroom),
-      bedroomA: bundlePositions("bedroomA", this.bundlesPerBedroom),
-    };
-    // A team can end up banking every bundle in the match (its enemy's N plus its
-    // own N stolen back), so the visible score stack needs 2N distinct slots - not
-    // N, which made the 4th+ pile overlap the 3rd and "disappear".
-    this.scoreSlots = {
-      B: scoreSlotPositions("B", this.bundlesPerBedroom * 2),
-      A: scoreSlotPositions("A", this.bundlesPerBedroom * 2),
+      bedroomB: randomBedroomPoints("B", this.bundlesPerBedroom),
+      bedroomA: randomBedroomPoints("A", this.bundlesPerBedroom),
     };
 
     this.setState(new GameState());
@@ -239,6 +234,7 @@ export class GameRoom extends Room<GameState> {
     player.team = team;
     player.x = spawn.x;
     player.y = spawn.y;
+    player.floor = 0; // spawn in the ground-floor living room
     this.state.players.set(client.sessionId, player);
   }
 
@@ -335,6 +331,7 @@ export class GameRoom extends Room<GameState> {
     const spawn = SPAWN_POINTS[team][slot];
     target.x = spawn.x;
     target.y = spawn.y;
+    target.floor = 0;
   }
 
   private countHumansOnTeam(team: Team): number {
@@ -371,6 +368,7 @@ export class GameRoom extends Room<GameState> {
     bot.isBot = true;
     bot.x = spawn.x;
     bot.y = spawn.y;
+    bot.floor = 0;
     this.state.players.set(id, bot);
   }
 
@@ -447,24 +445,16 @@ export class GameRoom extends Room<GameState> {
       bundle.x = pos.x;
       bundle.y = pos.y;
     }
+    bundle.floor = 1; // whether restored to a pile or returned to origin, it's a bedroom
     this.stolenFrom.delete(bundle.id);
   }
 
-  // First score-stack slot not already occupied by one of `team`'s scored bundles.
-  // Placing into a free slot (rather than slot[count]) means no two piles can ever
-  // land on the same position - previously a deposit past the slot capacity, or a
-  // bundle returned after its thief was jailed, rendered exactly underneath an
-  // existing pile and looked like it had vanished.
+  // A fresh random spot in `team`'s OWN two bedrooms (floor +1) for a banked
+  // bundle. Deposits re-scatter cash into the bedrooms exactly like the initial
+  // placement, so an enemy stealing it back faces the same "find it somewhere in
+  // the bedrooms" hunt each time, rather than a tidy predictable score stack.
   private freeScoreSlot(team: Team): { x: number; y: number } {
-    const slots = this.scoreSlots[team];
-    const occupied = new Set<string>();
-    this.state.cashBundles.forEach((b) => {
-      if (b.location === `scored:${team}`) occupied.add(`${b.x},${b.y}`);
-    });
-    for (const pos of slots) {
-      if (!occupied.has(`${pos.x},${pos.y}`)) return pos;
-    }
-    return slots[slots.length - 1];
+    return randomBedroomPoint(team === "B" ? "B" : "A");
   }
 
   // ---- message handlers ----
@@ -475,6 +465,11 @@ export class GameRoom extends Room<GameState> {
     if (typeof msg?.x !== "number" || typeof msg?.y !== "number") return;
     player.x = clamp(msg.x, 0, WORLD_WIDTH);
     player.y = clamp(msg.y, 0, WORLD_HEIGHT);
+    // Floor is authoritative and DERIVED, not trusted from the client: whichever
+    // floor the player was on, moving onto a (usable) staircase/ladder flips it.
+    // The client runs the identical resolveFloor for its own rendering, so the
+    // two stay in lock-step from the shared spawn floor.
+    player.floor = resolveFloor(player.x, player.y, player.floor, player.team as Team);
     player.vx = msg.vx ?? 0;
     player.vy = msg.vy ?? 0;
   }
@@ -487,11 +482,12 @@ export class GameRoom extends Room<GameState> {
 
     const enemyBedroom = player.team === "B" ? "bedroomA" : "bedroomB";
     if (bundle.location !== enemyBedroom) return;
-    if (!isEnemyBedroom(player.team as Team, player.x, player.y)) return;
+    if (!isEnemyBedroom(player.team as Team, player.x, player.y, player.floor)) return;
     if (distance(player, bundle) > PICKUP_RANGE) return;
 
     bundle.location = `carried:${player.id}`;
     bundle.isScored = false;
+    bundle.floor = player.floor; // a carried bundle rides at the carrier's floor
     this.stolenFrom.delete(bundle.id);
     player.isCarryingCash = true;
     this.deriveScores(); // the victim's bedroom count drops the moment it's grabbed
@@ -505,11 +501,12 @@ export class GameRoom extends Room<GameState> {
 
     const enemyTeam: Team = player.team === "B" ? "A" : "B";
     if (bundle.location !== `scored:${enemyTeam}`) return;
-    if (!isEnemyBedroom(player.team as Team, player.x, player.y)) return;
+    if (!isEnemyBedroom(player.team as Team, player.x, player.y, player.floor)) return;
     if (distance(player, bundle) > PICKUP_RANGE) return;
 
     bundle.location = `carried:${player.id}`;
     bundle.isScored = false;
+    bundle.floor = player.floor;
     this.stolenFrom.set(bundle.id, enemyTeam); // remember to restore if the thief is caught
     player.isCarryingCash = true;
     this.deriveScores(); // enemy's count drops immediately on pickup (per checklist)
@@ -520,7 +517,7 @@ export class GameRoom extends Room<GameState> {
     if (!player || this.state.phase !== "playing" || !player.isCarryingCash) return;
     const bundle = this.state.cashBundles.get(msg?.bundleId);
     if (!bundle || bundle.location !== `carried:${player.id}`) return;
-    if (!isOwnHome(player.team as Team, player.x, player.y)) return;
+    if (!isOwnHome(player.team as Team, player.x, player.y, player.floor)) return;
 
     const team = player.team as Team;
     const pos = this.freeScoreSlot(team);
@@ -528,6 +525,7 @@ export class GameRoom extends Room<GameState> {
     bundle.isScored = true;
     bundle.x = pos.x;
     bundle.y = pos.y;
+    bundle.floor = 1; // banked cash sits up in the owner's bedrooms
     this.stolenFrom.delete(bundle.id); // deposit completed - no longer restorable
     player.isCarryingCash = false;
 
@@ -542,10 +540,10 @@ export class GameRoom extends Room<GameState> {
     if (player.team === target.team) return;
     if (player.isJailed || target.isJailed) return;
 
-    const myZone = getZoneAt(player.x, player.y);
-    const targetZone = getZoneAt(target.x, target.y);
-    if (myZone !== targetZone) return;
-    if (!isOwnHome(player.team as Team, player.x, player.y)) return;
+    const myZone = getZoneAt(player.x, player.y, player.floor);
+    const targetZone = getZoneAt(target.x, target.y, target.floor);
+    if (myZone !== targetZone) return; // same room AND same floor
+    if (!isOwnHome(player.team as Team, player.x, player.y, player.floor)) return;
     if (distance(player, target) > LOCK_RESCUE_RANGE) return;
 
     if (target.isCarryingCash) {
@@ -560,6 +558,7 @@ export class GameRoom extends Room<GameState> {
     const jailPos = JAIL_POSITIONS[jailZone];
     target.x = jailPos.x;
     target.y = jailPos.y;
+    target.floor = -1; // jail is in the basement
     target.vx = 0;
     target.vy = 0;
 
@@ -576,7 +575,7 @@ export class GameRoom extends Room<GameState> {
     if (!target.isJailed) return;
 
     const requiredZone = jailBasementForTeam(player.team as Team);
-    if (getZoneAt(player.x, player.y) !== requiredZone) return;
+    if (getZoneAt(player.x, player.y, player.floor) !== requiredZone) return;
     if (distance(player, target) > LOCK_RESCUE_RANGE) return;
 
     target.isJailed = false;
@@ -626,6 +625,11 @@ export class GameRoom extends Room<GameState> {
     this.state.roundWinner = "";
     this.stolenFrom.clear();
 
+    // Re-scatter every round so the hiding spots are never the same twice.
+    this.bundlePos = {
+      bedroomB: randomBedroomPoints("B", this.bundlesPerBedroom),
+      bedroomA: randomBedroomPoints("A", this.bundlesPerBedroom),
+    };
     this.state.cashBundles.clear();
     this.initCashBundles();
     this.deriveScores();
@@ -641,6 +645,7 @@ export class GameRoom extends Room<GameState> {
         const spawn = SPAWN_POINTS[slot.team][slot.slot];
         player.x = spawn.x;
         player.y = spawn.y;
+        player.floor = 0;
       }
     });
   }
@@ -651,6 +656,7 @@ export class GameRoom extends Room<GameState> {
       bundle.id = `b${i + 1}`;
       bundle.x = pos.x;
       bundle.y = pos.y;
+      bundle.floor = 1;
       bundle.location = "bedroomB";
       bundle.isScored = false;
       this.state.cashBundles.set(bundle.id, bundle);
@@ -660,6 +666,7 @@ export class GameRoom extends Room<GameState> {
       bundle.id = `a${i + 1}`;
       bundle.x = pos.x;
       bundle.y = pos.y;
+      bundle.floor = 1;
       bundle.location = "bedroomA";
       bundle.isScored = false;
       this.state.cashBundles.set(bundle.id, bundle);
@@ -777,7 +784,7 @@ export class GameRoom extends Room<GameState> {
         }
         // Grace window: a raider hopping in and out of a doorway shouldn't
         // toggle the defender's whole plan every tick.
-        if (isOwnHome(team, t.x, t.y)) mind.lastSeenHomeAt = now;
+        if (isOwnHome(team, t.x, t.y, t.floor)) mind.lastSeenHomeAt = now;
         else if (now - mind.lastSeenHomeAt > BOT_DEFEND_GRACE_MS) mind.task = null;
         break;
       }
@@ -830,7 +837,7 @@ export class GameRoom extends Room<GameState> {
         if (pid === id || p.team !== team || !p.isJailed) return;
         const coord = this.someBotTasked(team, "rescue", pid, id) ? BOT_COORD_PENALTY * 2 : 0;
         for (const via of routes) {
-          const plan = this.routePlan(bot, team, via, jailZone, p);
+          const plan = this.routePlan(bot, team, via, jailZone, p, -1);
           if (!plan) continue;
           options.push({
             task: "rescue",
@@ -847,7 +854,7 @@ export class GameRoom extends Room<GameState> {
       // keep raiding.
       this.state.players.forEach((p, pid) => {
         if (pid === id || p.team === team || p.isJailed) return;
-        if (!isOwnHome(team, p.x, p.y)) return;
+        if (!isOwnHome(team, p.x, p.y, p.floor)) return;
         const { node, aim } = this.defendApproach(team, p, id);
         const cost = this.botPathCost(bot, team, node, aim);
         if (!Number.isFinite(cost)) return;
@@ -865,12 +872,15 @@ export class GameRoom extends Room<GameState> {
       // routePlan's path-aware threat is what makes a bot actually pick the
       // yard stairs when the interior stairs are guarded, without flatly
       // forbidding either.
-      const bedroom = this.enemyBedroomOf(team) as BotNodeId;
+      const bedroomLoc = this.enemyBedroomOf(team);
       this.state.cashBundles.forEach((b) => {
-        if (b.location !== bedroom) return;
+        if (b.location !== bedroomLoc) return;
+        // The bedroom spans two rooms on the top floor; route to whichever room
+        // node is nearest the bundle itself.
+        const bedroomNode = nearestBotNode(b.x, b.y, 1);
         const coord = this.someBotTasked(team, "raid", b.id, id) ? BOT_COORD_PENALTY : 0;
         for (const via of routes) {
-          const plan = this.routePlan(bot, team, via, bedroom, b);
+          const plan = this.routePlan(bot, team, via, bedroomNode, b, 1);
           if (!plan) continue;
           options.push({
             task: "raid",
@@ -909,12 +919,13 @@ export class GameRoom extends Room<GameState> {
     return team === "B" ? "bedroomA" : "bedroomB";
   }
 
-  // How threatened `point` is for `team`'s bots: each living enemy inside
-  // BOT_VISION_RADIUS contributes linearly with proximity (0..1 each).
-  private threatAt(team: Team, point: { x: number; y: number }): number {
+  // How threatened `point` is for `team`'s bots: each living enemy ON THE SAME
+  // FLOOR and inside BOT_VISION_RADIUS contributes linearly with proximity
+  // (0..1 each). An enemy a floor above/below can't lock you, so they don't count.
+  private threatAt(team: Team, point: { x: number; y: number }, floor: number): number {
     let threat = 0;
     this.state.players.forEach((p) => {
-      if (p.team === team || p.isJailed) return;
+      if (p.team === team || p.isJailed || p.floor !== floor) return;
       const d = distance(p, point);
       if (d < BOT_VISION_RADIUS) threat += 1 - d / BOT_VISION_RADIUS;
     });
@@ -925,7 +936,7 @@ export class GameRoom extends Room<GameState> {
   // cost term reflects how far the bot would actually travel. Infinity =
   // unreachable for this team (its own sealed gates).
   private botPathCost(bot: PlayerState, team: Team, targetNode: BotNodeId, targetPoint: { x: number; y: number }): number {
-    const startNode = nearestBotNode(bot.x, bot.y);
+    const startNode = nearestBotNode(bot.x, bot.y, bot.floor);
     if (startNode === targetNode) return distance(bot, targetPoint);
     const path = findBotPath(team, startNode, targetNode);
     if (path.length < 2) return Infinity;
@@ -948,9 +959,10 @@ export class GameRoom extends Room<GameState> {
     team: Team,
     via: BotNodeId | null,
     targetNode: BotNodeId,
-    targetPoint: { x: number; y: number }
+    targetPoint: { x: number; y: number },
+    targetFloor: number
   ): { cost: number; threat: number } | null {
-    const start = nearestBotNode(bot.x, bot.y);
+    const start = nearestBotNode(bot.x, bot.y, bot.floor);
     const nodes: BotNodeId[] = [];
     if (via && via !== targetNode && via !== start) {
       const p1 = findBotPath(team, start, via);
@@ -964,10 +976,14 @@ export class GameRoom extends Room<GameState> {
       nodes.push(...p);
     }
     let cost = distance(bot, BOT_WAYPOINTS[nodes[0]]);
-    let threat = this.threatAt(team, targetPoint);
+    // Threat is sampled per waypoint on the waypoint's OWN floor - so a guard on
+    // the interior stairs (floor 0) penalises the front route without a raider
+    // already up in the bedroom (floor +1) counting against it, and vice versa.
+    let threat = this.threatAt(team, targetPoint, targetFloor);
     for (let i = 0; i < nodes.length; i++) {
       if (i > 0) cost += distance(BOT_WAYPOINTS[nodes[i - 1]], BOT_WAYPOINTS[nodes[i]]);
-      threat = Math.max(threat, this.threatAt(team, BOT_WAYPOINTS[nodes[i]]));
+      const w = BOT_WAYPOINTS[nodes[i]];
+      threat = Math.max(threat, this.threatAt(team, w, w.floor));
     }
     cost += distance(BOT_WAYPOINTS[nodes[nodes.length - 1]], targetPoint);
     return { cost, threat };
@@ -985,26 +1001,31 @@ export class GameRoom extends Room<GameState> {
     return found;
   }
 
-  // Where to route a defender: chase directly in the living room and (now
-  // that the yard is on the waypoint graph) in the OWN BACKYARD too. Only
-  // the own bedroom stays a guard-the-exits case - this team can't enter it
-  // at all. It has TWO exits (interior stairs and the yard door), so the
-  // first defender covers the living-side stairs and any pile-on defender
-  // covers the yard-side door from inside the yard.
+  // Where to route a defender. The defender is stuck on the ground floor (it
+  // can't use its own sealed stairs), so an intruder up in the bedroom (+1) or
+  // down in the basement (-1) can't be reached directly - the bot instead
+  // guards the foot of the connector the raider must come back down. A first
+  // defender covers the interior stairs; a pile-on defender covers the backyard
+  // ladder/cellar. Intruders still on the ground floor (living or yard) get
+  // chased straight down.
   private defendApproach(team: Team, intruder: PlayerState, selfId: string): { node: BotNodeId; aim: { x: number; y: number } } {
-    const S = WORLD_SCALE;
     const living: BotNodeId = team === "B" ? "livingB" : "livingA";
-    const yard: BotNodeId = team === "B" ? "backyardB" : "backyardA";
-    const zone = getZoneAt(intruder.x, intruder.y);
-    if (zone === "bedroomB" || zone === "bedroomA") {
-      if (this.someBotTasked(team, "defend", intruder.id, selfId)) {
-        const aim = team === "B" ? { x: 110 * S, y: 100 * S } : { x: 1490 * S, y: 100 * S };
-        return { node: yard, aim }; // in the yard, at the bedroom's yard door
-      }
-      const aim = team === "B" ? { x: 340 * S, y: 290 * S } : { x: 1260 * S, y: 290 * S };
-      return { node: living, aim }; // just past the stair corridor's living end
+    const zone = getZoneAt(intruder.x, intruder.y, intruder.floor);
+    const isBedroom = zone === "bedroomB" || zone === "bedroomA";
+    const isBasement = zone === "basementB" || zone === "basementA";
+    if (isBedroom || isBasement) {
+      const pileOn = this.someBotTasked(team, "defend", intruder.id, selfId);
+      const stairBase: BotNodeId = isBedroom
+        ? team === "B" ? "stairUpB_base" : "stairUpA_base"
+        : team === "B" ? "stairDownB_base" : "stairDownA_base";
+      const yardBase: BotNodeId = isBedroom
+        ? team === "B" ? "yardB_ladder" : "yardA_ladder"
+        : team === "B" ? "yardB_cellar" : "yardA_cellar";
+      const node = pileOn ? yardBase : stairBase;
+      return { node, aim: BOT_WAYPOINTS[node] };
     }
     if (zone === "backyardB" || zone === "backyardA") {
+      const yard: BotNodeId = team === "B" ? "backyardB" : "backyardA";
       return { node: yard, aim: intruder }; // chase them down in our own yard
     }
     return { node: living, aim: intruder };
@@ -1026,7 +1047,7 @@ export class GameRoom extends Room<GameState> {
         const target = this.state.players.get(mind.targetId)!;
         const jailZone = jailBasementForTeam(team);
         this.botMoveToward(bot, team, jailZone as BotNodeId, target, dt);
-        if (getZoneAt(bot.x, bot.y) === jailZone && distance(bot, target) <= LOCK_RESCUE_RANGE) {
+        if (getZoneAt(bot.x, bot.y, bot.floor) === jailZone && distance(bot, target) <= LOCK_RESCUE_RANGE) {
           this.handleRescue(id, { targetId: target.id });
         }
         return;
@@ -1035,7 +1056,7 @@ export class GameRoom extends Room<GameState> {
         const target = this.state.players.get(mind.targetId)!;
         const { node, aim } = this.defendApproach(team, target, id);
         this.botMoveToward(bot, team, node, aim, dt);
-        if (isOwnHome(team, bot.x, bot.y) && distance(bot, target) <= LOCK_RESCUE_RANGE) {
+        if (isOwnHome(team, bot.x, bot.y, bot.floor) && distance(bot, target) <= LOCK_RESCUE_RANGE) {
           this.handleLock(id, { targetId: target.id });
         }
         return;
@@ -1044,16 +1065,16 @@ export class GameRoom extends Room<GameState> {
         const homeNode: BotNodeId = team === "B" ? "livingB" : "livingA";
         const bundle = this.findCarriedBundle(id);
         this.botMoveToward(bot, team, homeNode, BOT_WAYPOINTS[homeNode], dt);
-        if (bundle && isOwnHome(team, bot.x, bot.y)) {
+        if (bundle && isOwnHome(team, bot.x, bot.y, bot.floor)) {
           this.handleDeposit(id, { bundleId: bundle.id });
         }
         return;
       }
       case "raid": {
         const bundle = this.state.cashBundles.get(mind.targetId)!;
-        const bedroomNode = this.enemyBedroomOf(team) as BotNodeId;
+        const bedroomNode = nearestBotNode(bundle.x, bundle.y, 1);
         this.botMoveToward(bot, team, bedroomNode, bundle, dt);
-        if (isEnemyBedroom(team, bot.x, bot.y) && distance(bot, bundle) <= PICKUP_RANGE) {
+        if (isEnemyBedroom(team, bot.x, bot.y, bot.floor) && distance(bot, bundle) <= PICKUP_RANGE) {
           this.handlePickup(id, { bundleId: bundle.id });
         }
         return;
@@ -1086,7 +1107,7 @@ export class GameRoom extends Room<GameState> {
   // collision a human gets client-side. Bots therefore slide along walls
   // instead of passing through them.
   private botMoveToward(bot: PlayerState, team: Team, targetNode: BotNodeId, finalTarget: { x: number; y: number }, dt: number) {
-    const currentNode = nearestBotNode(bot.x, bot.y);
+    const currentNode = nearestBotNode(bot.x, bot.y, bot.floor);
     const speed = bot.isCarryingCash ? BOT_CARRY_SPEED : BOT_SPEED;
 
     let aim: { x: number; y: number };
@@ -1134,22 +1155,29 @@ export class GameRoom extends Room<GameState> {
       const oy = bot.y;
       bot.y = clamp(bot.y + sy, 0, WORLD_HEIGHT);
       if (this.botHitsWall(bot, team)) bot.y = oy;
+      // Crossing a staircase/ladder mid-step flips the bot's floor, so its
+      // collision switches to the destination floor's walls exactly as it
+      // arrives - same rule a human gets from resolveFloor in handleMove.
+      bot.floor = resolveFloor(bot.x, bot.y, bot.floor, team);
     }
   }
 
-  // True if the bot's body circle overlaps any WALL or its OWN sealed door -
-  // the exact colliders a human on this team gets client-side (the enemy's
-  // sealed doors are open to this team, so they are not colliders for it).
+  // True if the bot's body circle overlaps any wall ON ITS CURRENT FLOOR (or a
+  // world-boundary wall, which spans all floors) or one of its OWN sealed
+  // connectors - the exact colliders a human on this team gets client-side (the
+  // enemy's sealed stairs/ladders are open to this team, so not colliders for it).
   private botHitsWall(bot: PlayerState, team: Team): boolean {
-    const hits = (r: Rect) => {
+    const hits = (r: { x1: number; y1: number; x2: number; y2: number }) => {
       const cx = Math.max(r.x1, Math.min(bot.x, r.x2));
       const cy = Math.max(r.y1, Math.min(bot.y, r.y2));
       const dx = bot.x - cx;
       const dy = bot.y - cy;
       return dx * dx + dy * dy < BOT_RADIUS * BOT_RADIUS;
     };
-    for (const r of WALLS) if (hits(r)) return true;
-    for (const d of SEALED_DOORS) if (d.team === team && hits(d)) return true;
-    return false;
+    for (const r of WALLS) {
+      if (r.floor !== undefined && r.floor !== bot.floor) continue;
+      if (hits(r)) return true;
+    }
+    return connectorBlocks(bot.x, bot.y, team);
   }
 }

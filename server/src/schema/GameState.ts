@@ -6,6 +6,7 @@ export class PlayerState extends Schema {
   @type("string") team: string = ""; // "A" or "B"
   @type("number") x: number = 0;
   @type("number") y: number = 0;
+  @type("number") floor: number = 0; // -1 basement, 0 ground/living, +1 bedrooms
   @type("number") vx: number = 0;
   @type("number") vy: number = 0;
   @type("boolean") isCarryingCash: boolean = false;
@@ -19,6 +20,7 @@ export class CashBundleState extends Schema {
   @type("string") id: string = "";
   @type("number") x: number = 0;
   @type("number") y: number = 0;
+  @type("number") floor: number = 1; // bundles live on the top floor (+1); follows its carrier while carried
   @type("string") location: string = ""; // "bedroomA" | "bedroomB" | "carried:{playerId}" | "scored:{team}"
   @type("boolean") isScored: boolean = false;
 }

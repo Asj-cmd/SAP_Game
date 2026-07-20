@@ -1,11 +1,20 @@
 // Shared world geometry + zone lookup used by GameRoom for all server-authoritative
-// validation. Top-down floor plan: two mirrored houses (bedroom/living/basement
-// stacked per team), each with a private BACKYARD strip along its outer edge,
-// flanking a shared neutral garden in the middle. The backyard is part of the
-// property: it has second doors into the bedroom and basement (plus one from the
-// living room), and owners can jail intruders caught there. See
-// client/src/objects/Zone.ts for the matching wall/door geometry (kept in sync by
-// hand).
+// validation. This is a VERTICAL town-house model: two mirrored houses flank a
+// shared neutral garden, and each house STACKS three floors on the SAME (x,y)
+// footprint, disambiguated by a discrete `floor` axis:
+//
+//   floor +1  two bedrooms (both cash rooms, one logical zone)   <- top
+//   floor  0  living room (spawn) + the garden + the backyards   <- ground
+//   floor -1  basement (the jail)                                <- below
+//
+// The garden and the two private backyards exist only at ground level (floor 0).
+// A house's bedrooms and basement are reached by WALKING across a connector -
+// an interior staircase or a backyard ladder / cellar-steps - which flips the
+// player's floor as they cross it (see CONNECTORS / resolveFloor). There is no
+// button: you just walk, exactly like the old split-level, and the client
+// renders the ramp/ladder so the climb reads as continuous.
+//
+// client/src/geometry/floorplan.ts mirrors this by hand - keep both in sync.
 
 // Widens the whole floor plan relative to the original 2D layout (1600x900).
 // All tables in this file stay written in original coordinates and are scaled
@@ -18,14 +27,17 @@ const S = WORLD_SCALE;
 export const WORLD_WIDTH = 1600 * S;
 export const WORLD_HEIGHT = 900 * S;
 
-// Column boundaries, left to right: backyard B | house B | garden | house A | backyard A
-const YARD_B_MAX = 140 * S;
-const HOUSE_B_MAX = 540 * S;
-const HOUSE_A_MIN = 1060 * S;
-const YARD_A_MIN = 1460 * S;
-// Row boundaries within a house column: bedroom | living | basement
-const BEDROOM_MAX_Y = 200 * S;
-const BASEMENT_MIN_Y = 620 * S;
+// Column boundaries, left to right: backyard B | house B | garden | house A | backyard A.
+// Backyards were widened (was 140) so they don't feel cramped under the taller walls.
+const YARD_B_MAX = 240 * S;
+const HOUSE_B_MAX = 620 * S;
+const GARDEN_MAX = 980 * S; // == HOUSE_A_MIN
+const HOUSE_A_MAX = 1360 * S; // == YARD_A_MIN
+const HOUSE_B_MIN = YARD_B_MAX;
+const HOUSE_A_MIN = GARDEN_MAX;
+// The two bedrooms split the top floor north/south at this latitude (a partition
+// wall with a connecting door) - purely a layout split; both count as one zone.
+const BEDROOM_SPLIT_Y = 450 * S;
 
 export type Team = "A" | "B";
 export type ZoneId =
@@ -37,35 +49,42 @@ export type ZoneId =
   | "bedroomA"
   | "livingA"
   | "basementA"
-  | "backyardA";
+  | "backyardA"
+  | "void"; // floor +1/-1 only exist over a house; anywhere else off-ground is void
 
-export function getZoneAt(x: number, y: number): ZoneId {
+// Floor-aware zone lookup. `floor` is the player's authoritative floor
+// (-1 basement, 0 ground, +1 bedrooms); the same (x,y) maps to a different
+// room on each floor because the house is stacked.
+export function getZoneAt(x: number, y: number, floor: number): ZoneId {
+  if (floor >= 1) {
+    if (x >= HOUSE_B_MIN && x < HOUSE_B_MAX) return "bedroomB";
+    if (x >= HOUSE_A_MIN && x < HOUSE_A_MAX) return "bedroomA";
+    return "void";
+  }
+  if (floor <= -1) {
+    if (x >= HOUSE_B_MIN && x < HOUSE_B_MAX) return "basementB";
+    if (x >= HOUSE_A_MIN && x < HOUSE_A_MAX) return "basementA";
+    return "void";
+  }
+  // ground floor
   if (x < YARD_B_MAX) return "backyardB";
-  if (x < HOUSE_B_MAX) {
-    if (y < BEDROOM_MAX_Y) return "bedroomB";
-    if (y < BASEMENT_MIN_Y) return "livingB";
-    return "basementB";
-  }
-  if (x < HOUSE_A_MIN) return "garden";
-  if (x < YARD_A_MIN) {
-    if (y < BEDROOM_MAX_Y) return "bedroomA";
-    if (y < BASEMENT_MIN_Y) return "livingA";
-    return "basementA";
-  }
+  if (x < HOUSE_B_MAX) return "livingB";
+  if (x < GARDEN_MAX) return "garden";
+  if (x < HOUSE_A_MAX) return "livingA";
   return "backyardA";
 }
 
-export function isEnemyBedroom(team: Team, x: number, y: number): boolean {
-  const zone = getZoneAt(x, y);
+export function isEnemyBedroom(team: Team, x: number, y: number, floor: number): boolean {
+  const zone = getZoneAt(x, y, floor);
   return (team === "B" && zone === "bedroomA") || (team === "A" && zone === "bedroomB");
 }
 
-// Own home = own living room, own master bedroom, or own BACKYARD - the yard is
-// part of the property, so owners can lock intruders caught there too. (The bedroom
-// is normally unreachable by the owning team - blocked client-side - but the check
-// is kept for spec fidelity.)
-export function isOwnHome(team: Team, x: number, y: number): boolean {
-  const zone = getZoneAt(x, y);
+// Own home = own living room (floor 0), own bedrooms (floor +1), or own BACKYARD
+// (floor 0) - the yard is part of the property, so owners can lock intruders
+// caught there too. (The bedroom is normally unreachable by the owning team -
+// its connectors are sealed - but the check is kept for spec fidelity.)
+export function isOwnHome(team: Team, x: number, y: number, floor: number): boolean {
+  const zone = getZoneAt(x, y, floor);
   if (team === "B") return zone === "livingB" || zone === "bedroomB" || zone === "backyardB";
   return zone === "livingA" || zone === "bedroomA" || zone === "backyardA";
 }
@@ -75,20 +94,8 @@ export function jailBasementForTeam(team: Team): "basementB" | "basementA" {
   return team === "A" ? "basementB" : "basementA";
 }
 
-// Up to 4 spawn points per team (2v2 uses the first two, 3v3 the first three, 4v4
-// all four), arranged in a 2x2 grid inside the living room interior, clear of
-// every wall and door gap.
 const scalePoint = (p: { x: number; y: number }) => ({ x: p.x * S, y: p.y * S });
 
-// ---- collision geometry (bots) ----
-//
-// Hand-synced with client/src/geometry/floorplan.ts WALLS + DOORS (same
-// pre-scale numbers, scaled here at load) - keep both in sync. Humans collide
-// against these CLIENT-side in CharacterController; bots have no client, so
-// GameRoom.botTick resolves bot movement against the same rects server-side.
-// Only the SEALED doors are colliders (and only for the team they're sealed
-// for - the enemy walks through them); every open door gap is simply absent
-// from WALLS, exactly like the client.
 export interface Rect {
   x1: number;
   y1: number;
@@ -97,249 +104,336 @@ export interface Rect {
 }
 const scaleRect = (r: Rect): Rect => ({ x1: r.x1 * S, y1: r.y1 * S, x2: r.x2 * S, y2: r.y2 * S });
 
-export const WALLS: Rect[] = (
+function inRect(x: number, y: number, r: Rect): boolean {
+  return x >= r.x1 && x <= r.x2 && y >= r.y1 && y <= r.y2;
+}
+
+// ---- floor connectors (staircases / ladders / cellar-steps) ----
+//
+// A connector is a small footprint that joins two floors. While a player stands
+// on it, their floor is FORCED by which side of `mid` (along `axis`) they're on:
+// coord < mid -> floorLow, coord >= mid -> floorHigh. So walking across the
+// connector flips the floor - "just walk and it takes you". A connector only
+// acts on a player already on one of the two floors it joins (a bedroom player
+// over the basement stairwell, say, is unaffected). `sealedFor` marks the
+// connectors the OWNING team cannot use - its own bedroom/basement stairs and
+// ladders - exactly like the old sealed doors: the enemy raids/rescues through
+// them, the owner defends from the ground floor and can't camp its own cash/jail.
+export interface Connector {
+  id: string;
+  rect: Rect;
+  axis: "x" | "y";
+  mid: number;
+  floorLow: number; // floor when coord < mid
+  floorHigh: number; // floor when coord >= mid
+  sealedFor?: Team;
+}
+
+const scaleConnector = (c: Connector): Connector => ({
+  ...c,
+  rect: scaleRect(c.rect),
+  mid: c.mid * S,
+});
+
+export const CONNECTORS: Connector[] = (
   [
-    // world boundary
+    // ---- house B ----
+    // Interior staircase living(0) <-> bedrooms(+1), north side. Walk NORTH up it.
+    { id: "stairUpB", rect: { x1: 380, y1: 150, x2: 540, y2: 290 }, axis: "y", mid: 220, floorLow: 1, floorHigh: 0, sealedFor: "B" },
+    // Interior staircase living(0) <-> basement(-1), opposite (south) side. Walk SOUTH down it.
+    { id: "stairDownB", rect: { x1: 380, y1: 610, x2: 540, y2: 750 }, axis: "y", mid: 680, floorLow: 0, floorHigh: -1, sealedFor: "B" },
+    // Backyard ladder to the top floor: cross the west wall (x=240) going EAST.
+    { id: "ladderB", rect: { x1: 160, y1: 150, x2: 320, y2: 290 }, axis: "x", mid: 240, floorLow: 0, floorHigh: 1, sealedFor: "B" },
+    // Backyard cellar-steps to the basement: cross the west wall going EAST.
+    { id: "cellarB", rect: { x1: 160, y1: 610, x2: 320, y2: 750 }, axis: "x", mid: 240, floorLow: 0, floorHigh: -1, sealedFor: "B" },
+    // ---- house A (mirror across the map centre) ----
+    { id: "stairUpA", rect: { x1: 1060, y1: 150, x2: 1220, y2: 290 }, axis: "y", mid: 220, floorLow: 1, floorHigh: 0, sealedFor: "A" },
+    { id: "stairDownA", rect: { x1: 1060, y1: 610, x2: 1220, y2: 750 }, axis: "y", mid: 680, floorLow: 0, floorHigh: -1, sealedFor: "A" },
+    // Backyard A is on the EAST, so its ladder/cellar cross x=1360 going WEST:
+    // house side (x < 1360) is the room, yard side (x >= 1360) is ground.
+    { id: "ladderA", rect: { x1: 1280, y1: 150, x2: 1440, y2: 290 }, axis: "x", mid: 1360, floorLow: 1, floorHigh: 0, sealedFor: "A" },
+    { id: "cellarA", rect: { x1: 1280, y1: 610, x2: 1440, y2: 750 }, axis: "x", mid: 1360, floorLow: -1, floorHigh: 0, sealedFor: "A" },
+  ] as Connector[]
+).map(scaleConnector);
+
+// The floor a player ends up on after moving to (x,y), given the floor they
+// were on. Outside every (usable) connector the floor is unchanged; on one it's
+// forced by side. A connector sealed for `team` is skipped (the owner can't use
+// its own stairs), and one that joins neither of the current floors is ignored.
+export function resolveFloor(x: number, y: number, floor: number, team: Team): number {
+  for (const c of CONNECTORS) {
+    if (c.sealedFor === team) continue;
+    if (!inRect(x, y, c.rect)) continue;
+    if (floor !== c.floorLow && floor !== c.floorHigh) continue;
+    const coord = c.axis === "x" ? x : y;
+    return coord < c.mid ? c.floorLow : c.floorHigh;
+  }
+  return floor;
+}
+
+// True if (x,y) sits on a connector this team may NOT use - a solid obstacle for
+// the owner, mirroring the old sealed-door colliders. The enemy passes freely.
+export function connectorBlocks(x: number, y: number, team: Team): boolean {
+  for (const c of CONNECTORS) {
+    if (c.sealedFor === team && inRect(x, y, c.rect)) return true;
+  }
+  return false;
+}
+
+// ---- collision geometry (bots) ----
+//
+// Per-floor walls, hand-synced with client/src/geometry/floorplan.ts. Humans
+// collide against these CLIENT-side; bots have no client, so GameRoom resolves
+// bot movement against the walls of the bot's CURRENT floor plus its own sealed
+// connectors. `floor: undefined` = applies on every floor (the world boundary).
+export interface FloorRect extends Rect {
+  floor?: number;
+}
+const scaleFloorRect = (r: FloorRect): FloorRect => ({ ...scaleRect(r), floor: r.floor });
+
+export const WALLS: FloorRect[] = (
+  [
+    // world boundary (all floors)
     { x1: 0, y1: 0, x2: 1600, y2: 10 },
     { x1: 0, y1: 890, x2: 1600, y2: 900 },
     { x1: 0, y1: 0, x2: 10, y2: 900 },
     { x1: 1590, y1: 0, x2: 1600, y2: 900 },
-    // backyard B | house B (x=140)
-    { x1: 135, y1: 0, x2: 145, y2: 60 },
-    { x1: 135, y1: 140, x2: 145, y2: 370 },
-    { x1: 135, y1: 450, x2: 145, y2: 700 },
-    { x1: 135, y1: 780, x2: 145, y2: 900 },
-    // house B | garden (x=540)
-    { x1: 535, y1: 0, x2: 545, y2: 230 },
-    { x1: 535, y1: 290, x2: 545, y2: 380 },
-    { x1: 535, y1: 440, x2: 545, y2: 530 },
-    { x1: 535, y1: 590, x2: 545, y2: 900 },
-    // bedroom B | living B (y=200)
-    { x1: 140, y1: 195, x2: 300, y2: 205 },
-    { x1: 380, y1: 195, x2: 540, y2: 205 },
-    // living B | basement B (y=620)
-    { x1: 140, y1: 615, x2: 300, y2: 625 },
-    { x1: 380, y1: 615, x2: 540, y2: 625 },
-    // garden | house A (x=1060)
-    { x1: 1055, y1: 0, x2: 1065, y2: 230 },
-    { x1: 1055, y1: 290, x2: 1065, y2: 380 },
-    { x1: 1055, y1: 440, x2: 1065, y2: 530 },
-    { x1: 1055, y1: 590, x2: 1065, y2: 900 },
-    // house A | backyard A (x=1460)
-    { x1: 1455, y1: 0, x2: 1465, y2: 60 },
-    { x1: 1455, y1: 140, x2: 1465, y2: 370 },
-    { x1: 1455, y1: 450, x2: 1465, y2: 700 },
-    { x1: 1455, y1: 780, x2: 1465, y2: 900 },
-    // bedroom A | living A (y=200)
-    { x1: 1060, y1: 195, x2: 1220, y2: 205 },
-    { x1: 1300, y1: 195, x2: 1460, y2: 205 },
-    // living A | basement A (y=620)
-    { x1: 1060, y1: 615, x2: 1220, y2: 625 },
-    { x1: 1300, y1: 615, x2: 1460, y2: 625 },
-  ] as Rect[]
-).map(scaleRect);
 
-// The 8 sealed doors (4 per house), tagged with the team that CANNOT pass
-// them - so a bot collides only with its OWN sealed doors, mirroring the
-// client's colliderRects = WALLS + sealedDoors(localTeam).
-export const SEALED_DOORS: (Rect & { team: Team })[] = (
-  [
-    { x1: 133, y1: 60, x2: 147, y2: 140, team: "B" }, // bedroom <-> backyard
-    { x1: 300, y1: 193, x2: 380, y2: 207, team: "B" }, // bedroom <-> living
-    { x1: 300, y1: 613, x2: 380, y2: 627, team: "B" }, // basement <-> living
-    { x1: 133, y1: 700, x2: 147, y2: 780, team: "B" }, // basement <-> backyard
-    { x1: 1453, y1: 60, x2: 1467, y2: 140, team: "A" },
-    { x1: 1220, y1: 193, x2: 1300, y2: 207, team: "A" },
-    { x1: 1220, y1: 613, x2: 1300, y2: 627, team: "A" },
-    { x1: 1453, y1: 700, x2: 1467, y2: 780, team: "A" },
-  ] as (Rect & { team: Team })[]
-).map((d) => ({ ...scaleRect(d), team: d.team }));
+    // ===== floor 0 (ground): backyards | livings | garden =====
+    // backyard B | living B (x=240): gaps at ladder y[150,290], yard door y[370,450], cellar y[610,750]
+    { x1: 235, y1: 10, x2: 245, y2: 150, floor: 0 },
+    { x1: 235, y1: 290, x2: 245, y2: 370, floor: 0 },
+    { x1: 235, y1: 450, x2: 245, y2: 610, floor: 0 },
+    { x1: 235, y1: 750, x2: 245, y2: 890, floor: 0 },
+    // living B | garden (x=620): 3 door gaps y[230,290], y[380,440], y[530,590]
+    { x1: 615, y1: 10, x2: 625, y2: 230, floor: 0 },
+    { x1: 615, y1: 290, x2: 625, y2: 380, floor: 0 },
+    { x1: 615, y1: 440, x2: 625, y2: 530, floor: 0 },
+    { x1: 615, y1: 590, x2: 625, y2: 890, floor: 0 },
+    // garden | living A (x=980): mirror
+    { x1: 975, y1: 10, x2: 985, y2: 230, floor: 0 },
+    { x1: 975, y1: 290, x2: 985, y2: 380, floor: 0 },
+    { x1: 975, y1: 440, x2: 985, y2: 530, floor: 0 },
+    { x1: 975, y1: 590, x2: 985, y2: 890, floor: 0 },
+    // living A | backyard A (x=1360): gaps at ladder/yard-door/cellar (mirror of B)
+    { x1: 1355, y1: 10, x2: 1365, y2: 150, floor: 0 },
+    { x1: 1355, y1: 290, x2: 1365, y2: 370, floor: 0 },
+    { x1: 1355, y1: 450, x2: 1365, y2: 610, floor: 0 },
+    { x1: 1355, y1: 750, x2: 1365, y2: 890, floor: 0 },
 
+    // ===== floor +1 (top): two bedrooms per house =====
+    // house B perimeter: west x=240 (gap at ladder y[150,290]), east x=620 solid, N/S caps
+    { x1: 235, y1: 0, x2: 245, y2: 150, floor: 1 },
+    { x1: 235, y1: 290, x2: 245, y2: 900, floor: 1 },
+    { x1: 615, y1: 0, x2: 625, y2: 900, floor: 1 },
+    { x1: 240, y1: 0, x2: 620, y2: 10, floor: 1 },
+    { x1: 240, y1: 890, x2: 620, y2: 900, floor: 1 },
+    // house B partition y=450, door gap x[400,480]
+    { x1: 240, y1: 445, x2: 400, y2: 455, floor: 1 },
+    { x1: 480, y1: 445, x2: 620, y2: 455, floor: 1 },
+    // house A perimeter: east x=1360 (gap at ladder), west x=980 solid, N/S caps
+    { x1: 1355, y1: 0, x2: 1365, y2: 150, floor: 1 },
+    { x1: 1355, y1: 290, x2: 1365, y2: 900, floor: 1 },
+    { x1: 975, y1: 0, x2: 985, y2: 900, floor: 1 },
+    { x1: 980, y1: 0, x2: 1360, y2: 10, floor: 1 },
+    { x1: 980, y1: 890, x2: 1360, y2: 900, floor: 1 },
+    // house A partition y=450, door gap x[1130,1210]
+    { x1: 980, y1: 445, x2: 1130, y2: 455, floor: 1 },
+    { x1: 1210, y1: 445, x2: 1360, y2: 455, floor: 1 },
+
+    // ===== floor -1 (basement): one open room per house =====
+    // house B: west x=240 (gap at cellar y[610,750]), east x=620 solid, N/S caps
+    { x1: 235, y1: 0, x2: 245, y2: 610, floor: -1 },
+    { x1: 235, y1: 750, x2: 245, y2: 900, floor: -1 },
+    { x1: 615, y1: 0, x2: 625, y2: 900, floor: -1 },
+    { x1: 240, y1: 0, x2: 620, y2: 10, floor: -1 },
+    { x1: 240, y1: 890, x2: 620, y2: 900, floor: -1 },
+    // house A: east x=1360 (gap at cellar), west x=980 solid, N/S caps
+    { x1: 1355, y1: 0, x2: 1365, y2: 610, floor: -1 },
+    { x1: 1355, y1: 750, x2: 1365, y2: 900, floor: -1 },
+    { x1: 975, y1: 0, x2: 985, y2: 900, floor: -1 },
+    { x1: 980, y1: 0, x2: 1360, y2: 10, floor: -1 },
+    { x1: 980, y1: 890, x2: 1360, y2: 900, floor: -1 },
+  ] as FloorRect[]
+).map(scaleFloorRect);
+
+// Up to 4 spawn points per team, inside the ground-floor living room, clear of
+// the stair footprints and door gaps. Every spawn is floor 0.
 export const SPAWN_POINTS: Record<Team, { x: number; y: number }[]> = {
   B: [
-    { x: 280, y: 330 },
-    { x: 400, y: 330 },
-    { x: 280, y: 450 },
-    { x: 400, y: 450 },
+    { x: 300, y: 420 },
+    { x: 460, y: 420 },
+    { x: 300, y: 520 },
+    { x: 460, y: 520 },
   ].map(scalePoint),
   A: [
-    { x: 1200, y: 330 },
-    { x: 1320, y: 330 },
-    { x: 1200, y: 450 },
-    { x: 1320, y: 450 },
+    { x: 1100, y: 420 },
+    { x: 1260, y: 420 },
+    { x: 1100, y: 520 },
+    { x: 1260, y: 520 },
   ].map(scalePoint),
 };
 
+// Jail spot inside each basement (floor -1), clear of the stair/cellar footprints.
 export const JAIL_POSITIONS: Record<"basementB" | "basementA", { x: number; y: number }> = {
-  basementB: scalePoint({ x: 340, y: 760 }),
-  basementA: scalePoint({ x: 1260, y: 760 }),
+  basementB: scalePoint({ x: 430, y: 830 }),
+  basementA: scalePoint({ x: 1170, y: 830 }),
 };
 
-// Arrange `count` points in a compact grid inside [xMin,xMax] x [yMin,yMax].
-function grid(xMin: number, xMax: number, yMin: number, yMax: number, count: number): { x: number; y: number }[] {
-  const rows = count <= 5 ? 1 : 2;
-  const cols = Math.ceil(count / rows);
+// A house's bedroom safe area (floor +1) as two rects - the north room and the
+// south room - kept clear of the perimeter, the partition, and the stairwell so
+// randomly placed bundles never land inside a wall.
+const BEDROOM_AREAS: Record<"B" | "A", Rect[]> = {
+  B: [
+    { x1: 270, y1: 40, x2: 590, y2: 410 }, // north room (avoids the up-stair? see below)
+    { x1: 270, y1: 490, x2: 590, y2: 860 }, // south room
+  ],
+  A: [
+    { x1: 1010, y1: 40, x2: 1330, y2: 410 },
+    { x1: 1010, y1: 490, x2: 1330, y2: 860 },
+  ],
+};
+
+function randInt(min: number, max: number): number {
+  return min + Math.floor(Math.random() * (max - min + 1));
+}
+
+// One random point somewhere in `house`'s two bedrooms (floor +1). Used for both
+// the initial bundle scatter and every re-deposit, so banking cash feels like
+// the same "hidden somewhere in the enemy bedrooms" hunt each time.
+export function randomBedroomPoint(house: "B" | "A"): { x: number; y: number } {
+  const areas = BEDROOM_AREAS[house];
+  const a = areas[Math.floor(Math.random() * areas.length)];
+  return { x: randInt(a.x1 * S, a.x2 * S), y: randInt(a.y1 * S, a.y2 * S) };
+}
+
+export function randomBedroomPoints(house: "B" | "A", count: number): { x: number; y: number }[] {
   const out: { x: number; y: number }[] = [];
-  for (let i = 0; i < count; i++) {
-    const row = Math.floor(i / cols);
-    const col = i % cols;
-    const x = cols === 1 ? (xMin + xMax) / 2 : xMin + (col * (xMax - xMin)) / (cols - 1);
-    const y = rows === 1 ? (yMin + yMax) / 2 : yMin + (row * (yMax - yMin)) / (rows - 1);
-    out.push({ x: Math.round(x), y: Math.round(y) });
-  }
+  for (let i = 0; i < count; i++) out.push(randomBedroomPoint(house));
   return out;
 }
 
-// Starting positions for the `count` original bundles in a master bedroom.
-export function bundlePositions(bedroom: "bedroomB" | "bedroomA", count: number): { x: number; y: number }[] {
-  return bedroom === "bedroomB"
-    ? grid(180 * S, 500 * S, 40 * S, 100 * S, count)
-    : grid(1100 * S, 1420 * S, 40 * S, 100 * S, count);
-}
-
-// Where scored (deposited) bundles stack inside the scoring team's own bedroom
-// (offset to a lower band so they never overlap the original-bundle grid above).
-export function scoreSlotPositions(team: Team, count: number): { x: number; y: number }[] {
-  return team === "B"
-    ? grid(180 * S, 500 * S, 125 * S, 165 * S, count)
-    : grid(1100 * S, 1420 * S, 125 * S, 165 * S, count);
-}
-
 // ---- Bot pathing graph ----
-// A minimal waypoint graph AI bots use to route between rooms without
-// clipping through walls. Team B can never re-enter its own bedroomB/basementB
-// (those doors are sealedFor "B" - see the client's DOORS list) and never
-// needs to: it defends from livingB/backyardB and only ever *targets* the
-// enemy's bedroomA/basementA. So the graph only needs the door gates a bot's
-// own team can actually use - not every physical door in the house.
-export type BotNodeId =
-  | "livingB"
-  | "bedroomB"
-  | "basementB"
-  | "livingA"
-  | "bedroomA"
-  | "basementA"
-  | "garden"
-  | "gateB_bedroom"
-  | "gateB_basement"
-  | "gateB_garden"
-  | "gateA_bedroom"
-  | "gateA_basement"
-  | "gateA_garden"
-  // Backyard spur (per house). The yard is an open vertical STRIP, so it gets
-  // one node per door latitude (bedroom / living / basement) linked vertically,
-  // plus the three door gates - living<->yard (open to all), yard<->bedroom and
-  // yard<->basement (sealed for the OWNING team, like the interior stairs).
-  // Every edge is axis-aligned so a bot threads each door head-on instead of
-  // beelining diagonally into a jamb and wedging. Gives bots the alternative
-  // raid/rescue route humans always had, and lets a defender chase into its
-  // own yard. `backyardB`/`backyardA` are the living-latitude strip nodes (the
-  // hub the raid/rescue "via" and defence routing target).
-  | "backyardB"
-  | "yardB_bedroom"
-  | "yardB_basement"
-  | "gateB_yard"
-  | "gateB_yardBedroom"
-  | "gateB_yardBasement"
-  | "backyardA"
-  | "yardA_bedroom"
-  | "yardA_basement"
-  | "gateA_yard"
-  | "gateA_yardBedroom"
-  | "gateA_yardBasement";
+// A waypoint graph AI bots route through, now floor-aware: every node carries the
+// floor it lives on, and the edges that span a staircase/ladder are the ones the
+// bot's floor flips across (resolveFloor does the actual flip as it walks). As
+// before, the owner's own bedroom/basement connectors are `blockedFor` that team,
+// so a bot only ever routes through the gates its team can actually use.
+export type BotNodeId = string;
 
-export const BOT_WAYPOINTS: Record<BotNodeId, { x: number; y: number }> = {
-  livingB: scalePoint({ x: 340, y: 410 }),
-  bedroomB: scalePoint({ x: 340, y: 100 }),
-  basementB: scalePoint({ x: 340, y: 760 }),
-  livingA: scalePoint({ x: 1260, y: 410 }),
-  bedroomA: scalePoint({ x: 1260, y: 100 }),
-  basementA: scalePoint({ x: 1260, y: 760 }),
-  garden: scalePoint({ x: 800, y: 450 }),
-  gateB_bedroom: scalePoint({ x: 340, y: 200 }), // sealedFor B - only usable by team A
-  gateB_basement: scalePoint({ x: 340, y: 620 }), // sealedFor B - only usable by team A
-  gateB_garden: scalePoint({ x: 540, y: 410 }),
-  gateA_bedroom: scalePoint({ x: 1260, y: 200 }), // sealedFor A - only usable by team B
-  gateA_basement: scalePoint({ x: 1260, y: 620 }), // sealedFor A - only usable by team B
-  gateA_garden: scalePoint({ x: 1060, y: 410 }),
-  // Yard strip nodes: mid-strip (x=70 / x=1530), one per door latitude, so
-  // travel in the open yard is vertical and each door is entered straight-on.
-  backyardB: scalePoint({ x: 70, y: 410 }), // living latitude (the hub)
-  yardB_bedroom: scalePoint({ x: 70, y: 100 }),
-  yardB_basement: scalePoint({ x: 70, y: 740 }),
-  gateB_yard: scalePoint({ x: 140, y: 410 }), // living<->backyard door, open to all
-  gateB_yardBedroom: scalePoint({ x: 140, y: 100 }), // sealedFor B - only usable by team A
-  gateB_yardBasement: scalePoint({ x: 140, y: 740 }), // sealedFor B - only usable by team A
-  backyardA: scalePoint({ x: 1530, y: 410 }),
-  yardA_bedroom: scalePoint({ x: 1530, y: 100 }),
-  yardA_basement: scalePoint({ x: 1530, y: 740 }),
-  gateA_yard: scalePoint({ x: 1460, y: 410 }),
-  gateA_yardBedroom: scalePoint({ x: 1460, y: 100 }), // sealedFor A - only usable by team B
-  gateA_yardBasement: scalePoint({ x: 1460, y: 740 }), // sealedFor A - only usable by team B
+export const BOT_WAYPOINTS: Record<string, { x: number; y: number; floor: number }> = {
+  // ---- house B ----
+  livingB: { ...scalePoint({ x: 340, y: 470 }), floor: 0 },
+  gateB_garden: { ...scalePoint({ x: 620, y: 410 }), floor: 0 },
+  gateB_yard: { ...scalePoint({ x: 240, y: 410 }), floor: 0 },
+  backyardB: { ...scalePoint({ x: 110, y: 470 }), floor: 0 },
+  yardB_ladder: { ...scalePoint({ x: 150, y: 220 }), floor: 0 },
+  yardB_cellar: { ...scalePoint({ x: 150, y: 680 }), floor: 0 },
+  stairUpB_base: { ...scalePoint({ x: 460, y: 270 }), floor: 0 },
+  stairDownB_base: { ...scalePoint({ x: 460, y: 630 }), floor: 0 },
+  stairUpB_top: { ...scalePoint({ x: 460, y: 170 }), floor: 1 },
+  ladderB_top: { ...scalePoint({ x: 300, y: 220 }), floor: 1 },
+  bedroomB_N: { ...scalePoint({ x: 330, y: 110 }), floor: 1 },
+  bedroomB_mid: { ...scalePoint({ x: 440, y: 450 }), floor: 1 },
+  bedroomB_S: { ...scalePoint({ x: 330, y: 650 }), floor: 1 },
+  stairDownB_bot: { ...scalePoint({ x: 460, y: 770 }), floor: -1 },
+  cellarB_bot: { ...scalePoint({ x: 300, y: 680 }), floor: -1 },
+  basementB: { ...scalePoint({ x: 430, y: 700 }), floor: -1 },
+  // ---- garden (shared spine, floor 0) ----
+  garden: { ...scalePoint({ x: 800, y: 450 }), floor: 0 },
+  gateA_garden: { ...scalePoint({ x: 980, y: 410 }), floor: 0 },
+  // ---- house A (mirror) ----
+  livingA: { ...scalePoint({ x: 1260, y: 470 }), floor: 0 },
+  gateA_yard: { ...scalePoint({ x: 1360, y: 410 }), floor: 0 },
+  backyardA: { ...scalePoint({ x: 1490, y: 470 }), floor: 0 },
+  yardA_ladder: { ...scalePoint({ x: 1450, y: 220 }), floor: 0 },
+  yardA_cellar: { ...scalePoint({ x: 1450, y: 680 }), floor: 0 },
+  stairUpA_base: { ...scalePoint({ x: 1100, y: 270 }), floor: 0 },
+  stairDownA_base: { ...scalePoint({ x: 1100, y: 630 }), floor: 0 },
+  stairUpA_top: { ...scalePoint({ x: 1100, y: 170 }), floor: 1 },
+  ladderA_top: { ...scalePoint({ x: 1300, y: 220 }), floor: 1 },
+  bedroomA_N: { ...scalePoint({ x: 1270, y: 110 }), floor: 1 },
+  bedroomA_mid: { ...scalePoint({ x: 1170, y: 450 }), floor: 1 },
+  bedroomA_S: { ...scalePoint({ x: 1270, y: 650 }), floor: 1 },
+  stairDownA_bot: { ...scalePoint({ x: 1100, y: 770 }), floor: -1 },
+  cellarA_bot: { ...scalePoint({ x: 1300, y: 680 }), floor: -1 },
+  basementA: { ...scalePoint({ x: 1170, y: 700 }), floor: -1 },
 };
 
 interface BotEdge {
   a: BotNodeId;
   b: BotNodeId;
-  blockedFor?: Team; // the door here is sealed for this team
+  blockedFor?: Team; // the connector here is sealed for this team
 }
 
 const BOT_EDGES: BotEdge[] = [
+  // ---- house B ground floor ----
   { a: "livingB", b: "gateB_garden" },
+  { a: "livingB", b: "gateB_yard" },
+  { a: "livingB", b: "stairUpB_base" },
+  { a: "livingB", b: "stairDownB_base" },
+  { a: "gateB_yard", b: "backyardB" },
+  { a: "backyardB", b: "yardB_ladder" },
+  { a: "backyardB", b: "yardB_cellar" },
+  // B vertical transitions (sealed for B - only team A raids/rescues here)
+  { a: "stairUpB_base", b: "stairUpB_top", blockedFor: "B" },
+  { a: "stairUpB_top", b: "bedroomB_N" },
+  { a: "yardB_ladder", b: "ladderB_top", blockedFor: "B" },
+  { a: "ladderB_top", b: "bedroomB_N" },
+  { a: "bedroomB_N", b: "bedroomB_mid" },
+  { a: "bedroomB_mid", b: "bedroomB_S" },
+  { a: "stairDownB_base", b: "stairDownB_bot", blockedFor: "B" },
+  { a: "stairDownB_bot", b: "basementB" },
+  { a: "yardB_cellar", b: "cellarB_bot", blockedFor: "B" },
+  { a: "cellarB_bot", b: "basementB" },
+  // ---- garden ----
   { a: "gateB_garden", b: "garden" },
   { a: "garden", b: "gateA_garden" },
   { a: "gateA_garden", b: "livingA" },
-  { a: "livingB", b: "gateB_bedroom", blockedFor: "B" },
-  { a: "gateB_bedroom", b: "bedroomB", blockedFor: "B" },
-  { a: "livingB", b: "gateB_basement", blockedFor: "B" },
-  { a: "gateB_basement", b: "basementB", blockedFor: "B" },
-  { a: "livingA", b: "gateA_bedroom", blockedFor: "A" },
-  { a: "gateA_bedroom", b: "bedroomA", blockedFor: "A" },
-  { a: "livingA", b: "gateA_basement", blockedFor: "A" },
-  { a: "gateA_basement", b: "basementA", blockedFor: "A" },
-  // Backyard spurs. Living<->yard is open to everyone (owners chase intruders
-  // into their own yard); the yard<->bedroom/basement legs mirror the interior
-  // stair doors' seals. Every edge is axis-aligned: the strip nodes link
-  // vertically (open yard), each door gate links straight across to its strip
-  // node and straight in to the room, so a bot never beelines diagonally into
-  // a door jamb.
-  { a: "livingB", b: "gateB_yard" }, // straight W
-  { a: "gateB_yard", b: "backyardB" }, // straight W through the living door
-  { a: "backyardB", b: "yardB_bedroom" }, // straight N up the strip
-  { a: "backyardB", b: "yardB_basement" }, // straight S down the strip
-  { a: "yardB_bedroom", b: "gateB_yardBedroom", blockedFor: "B" }, // straight E to the door
-  { a: "gateB_yardBedroom", b: "bedroomB", blockedFor: "B" }, // straight E into the bedroom
-  { a: "yardB_basement", b: "gateB_yardBasement", blockedFor: "B" },
-  { a: "gateB_yardBasement", b: "basementB", blockedFor: "B" },
+  // ---- house A ground floor ----
   { a: "livingA", b: "gateA_yard" },
+  { a: "livingA", b: "stairUpA_base" },
+  { a: "livingA", b: "stairDownA_base" },
   { a: "gateA_yard", b: "backyardA" },
-  { a: "backyardA", b: "yardA_bedroom" },
-  { a: "backyardA", b: "yardA_basement" },
-  { a: "yardA_bedroom", b: "gateA_yardBedroom", blockedFor: "A" },
-  { a: "gateA_yardBedroom", b: "bedroomA", blockedFor: "A" },
-  { a: "yardA_basement", b: "gateA_yardBasement", blockedFor: "A" },
-  { a: "gateA_yardBasement", b: "basementA", blockedFor: "A" },
+  { a: "backyardA", b: "yardA_ladder" },
+  { a: "backyardA", b: "yardA_cellar" },
+  // A vertical transitions (sealed for A - only team B raids/rescues here)
+  { a: "stairUpA_base", b: "stairUpA_top", blockedFor: "A" },
+  { a: "stairUpA_top", b: "bedroomA_N" },
+  { a: "yardA_ladder", b: "ladderA_top", blockedFor: "A" },
+  { a: "ladderA_top", b: "bedroomA_N" },
+  { a: "bedroomA_N", b: "bedroomA_mid" },
+  { a: "bedroomA_mid", b: "bedroomA_S" },
+  { a: "stairDownA_base", b: "stairDownA_bot", blockedFor: "A" },
+  { a: "stairDownA_bot", b: "basementA" },
+  { a: "yardA_cellar", b: "cellarA_bot", blockedFor: "A" },
+  { a: "cellarA_bot", b: "basementA" },
 ];
 
-export function nearestBotNode(x: number, y: number): BotNodeId {
+// Nearest waypoint ON the given floor (a stacked house shares (x,y) across
+// floors, so the floor is what disambiguates which room's node is meant).
+export function nearestBotNode(x: number, y: number, floor: number): BotNodeId {
   let best: BotNodeId = "garden";
   let bestDist = Infinity;
-  (Object.keys(BOT_WAYPOINTS) as BotNodeId[]).forEach((id) => {
+  let fallback: BotNodeId = "garden";
+  let fallbackDist = Infinity;
+  for (const id of Object.keys(BOT_WAYPOINTS)) {
     const p = BOT_WAYPOINTS[id];
     const d = Math.hypot(p.x - x, p.y - y);
-    if (d < bestDist) {
+    if (d < fallbackDist) {
+      fallbackDist = d;
+      fallback = id;
+    }
+    if (p.floor === floor && d < bestDist) {
       bestDist = d;
       best = id;
     }
-  });
-  return best;
+  }
+  return bestDist === Infinity ? fallback : best;
 }
 
-// BFS shortest path (by hop count - the graph is small and roughly uniform in
-// edge length, so hop count is a fine stand-in for distance) between two
-// nodes, respecting which gates `team` is allowed to use. Falls back to
-// staying put if the destination is unreachable (should not happen given the
-// graph's fixed shape, but a bot standing still beats a crash).
+// BFS shortest path (by hop count) between two nodes, respecting which gates
+// `team` may use. Falls back to staying put if unreachable.
 export function findBotPath(team: Team, from: BotNodeId, to: BotNodeId): BotNodeId[] {
   if (from === to) return [from];
 
