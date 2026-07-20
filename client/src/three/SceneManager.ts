@@ -17,10 +17,15 @@ export class SceneManager {
   constructor(container: HTMLElement) {
     this.container = container;
 
-    this.camera = new THREE.PerspectiveCamera(60, container.clientWidth / container.clientHeight, 1, 5000);
+    // Far clip derives from WORLD_WIDTH so the whole map stays inside the
+    // frustum at any WORLD_SCALE (a fixed 5000 clipped the far house once the
+    // world grew past it). Set just beyond the fog's far distance below
+    // (WORLD_WIDTH * 1.75), so the far house fades fully to sky BEFORE it would
+    // clip - the pop is invisible either way.
+    this.camera = new THREE.PerspectiveCamera(60, container.clientWidth / container.clientHeight, 1, WORLD_WIDTH * 1.8);
     // Overview position for Milestone A's visual check - looking down at the
     // whole map from one corner.
-    this.camera.position.set(WORLD_WIDTH / 2, 1400, WORLD_HEIGHT * 1.4);
+    this.camera.position.set(WORLD_WIDTH / 2, WORLD_WIDTH * 0.35, WORLD_HEIGHT * 1.4);
     this.camera.lookAt(WORLD_WIDTH / 2, 0, WORLD_HEIGHT / 2);
 
     this.renderer = new THREE.WebGLRenderer({ antialias: true });
@@ -53,7 +58,11 @@ export class SceneManager {
     // Crisper near-white key (was amber 0xfff4e6, which read sunset).
     const sun = new THREE.DirectionalLight(0xfffbf2, 2.0);
     sun.name = "sun";
-    sun.position.set(WORLD_WIDTH * 0.3, 1400, WORLD_HEIGHT * 0.2);
+    // Sun HEIGHT scales with the world too (was a fixed 1400): a fixed height
+    // over a wider map reads as an ever-lower sun and pushes the far shadow
+    // corner past the shadow frustum. WORLD_WIDTH * 0.35 keeps the elevation
+    // angle constant across scales.
+    sun.position.set(WORLD_WIDTH * 0.3, WORLD_WIDTH * 0.35, WORLD_HEIGHT * 0.2);
     sun.target.position.set(WORLD_WIDTH / 2, 0, WORLD_HEIGHT / 2);
     sun.castShadow = true;
     sun.shadow.mapSize.set(2048, 2048);
@@ -71,7 +80,9 @@ export class SceneManager {
     shadowCam.top = WORLD_HEIGHT / 2 + SHADOW_MARGIN;
     shadowCam.bottom = -WORLD_HEIGHT / 2 - SHADOW_MARGIN;
     shadowCam.near = 10;
-    shadowCam.far = 3000;
+    // Far plane must reach from the (now scale-aware) light past the map's far
+    // corner, or distant shadows clip. WORLD_WIDTH covers it with headroom.
+    shadowCam.far = WORLD_WIDTH;
     shadowCam.updateProjectionMatrix();
     this.scene.add(sun, sun.target);
 
@@ -95,8 +106,10 @@ export class SceneManager {
     // light sits at ~66 degrees, which the camera's pitch clamp can never
     // frame, and a low sun is what "morning" looks like anyway. Unlit
     // material, excluded from fog so it never fades out at distance.
-    const SUN_DISC_DISTANCE = 3800;
-    const SUN_DISC_RADIUS = 170;
+    // Distance/radius scale with the world so the disc stays outside the map
+    // (a fixed 3800 fell INSIDE the widened world) and keeps its apparent size.
+    const SUN_DISC_DISTANCE = WORLD_WIDTH * 0.95;
+    const SUN_DISC_RADIUS = WORLD_WIDTH * 0.0425;
     const SUN_DISC_ELEVATION = 0.42; // radians
     const toSun = sun.position.clone().sub(sun.target.position);
     const azimuth = Math.atan2(toSun.x, toSun.z);

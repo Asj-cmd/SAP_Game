@@ -7,12 +7,15 @@
 // instead of corridors. Speeds and action ranges scale with it, which keeps
 // travel times and gameplay balance identical to the 2D-tuned values.
 // server/src/zones.ts applies the same factor - keep both in sync.
-// 2.5 (was 2.0, was 1.5): a bigger environment - larger garden, backyards, and
-// house footprint - for the world-expansion pass. Speeds/ranges scale with it
-// so travel time and balance stay put. Character, props, and vertical
-// proportions deliberately do NOT scale with this, so the bigger map reads as
-// genuinely roomier rather than everything just zooming.
-export const WORLD_SCALE = 2.5;
+// 5.0 (was 2.5, 2.0, 1.5): scaled up ~2x for the vertical town-house rework -
+// stacked floors, internal staircases, a mid-floor partition and backyard
+// ladders all need real floor area or the interiors feel cramped. Speeds/ranges
+// scale with it so travel time and balance stay put. Character, props, and the
+// chase camera's fixed follow distance do NOT scale, so the character keeps its
+// on-screen size and simply gains ~2x the room around it. STORY_HEIGHT is
+// bumped alongside this so the taller footprint stays a proportionate
+// multi-story building rather than a flat, wide box.
+export const WORLD_SCALE = 5.0;
 export const WORLD_WIDTH = 1600 * WORLD_SCALE;
 export const WORLD_HEIGHT = 900 * WORLD_SCALE;
 
@@ -41,7 +44,7 @@ export const ROUND_TIME_DEFAULT = 300;
 // (base = level * STORY_HEIGHT) and a ZONE_RECT; everything vertical - walls,
 // ceilings, roofs, stairs, the camera cap - already derives from this unit, so
 // the building is expandable upward without new height math.
-export const STORY_HEIGHT = 260;
+export const STORY_HEIGHT = 420;
 export const WALL_HEIGHT = STORY_HEIGHT; // room floor-to-ceiling
 export const FLOOR_HEIGHT = 4; // thin slab, purely visual
 export const DOOR_MAT_HEIGHT = 1; // flat mat, sits just above the floor slab
