@@ -70,9 +70,12 @@ export class RemoteCharacterSync {
 
       const speed = Math.hypot(p.vx, p.vy);
       if (!p.isJailed && speed > 1) {
+        // Heading whose (sin, -cos) equals the world velocity (vx, vy); routed
+        // through setFacingAngle so the -Z-forward rotation mapping is applied
+        // identically to the local player (see CharacterModel.setFacingAngle).
         const targetAngle = Math.atan2(p.vx, -p.vy);
         entry.facingAngle = lerpAngle(entry.facingAngle, targetAngle, ROTATION_LERP);
-        model.root.rotation.y = entry.facingAngle;
+        model.setFacingAngle(entry.facingAngle);
       }
 
       model.setCarrying(p.isCarryingCash);

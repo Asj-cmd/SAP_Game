@@ -142,17 +142,24 @@ export class CharacterModel {
     this.bodyMaterial?.color.setHex(team === "B" ? COLORS.teamB : COLORS.teamA);
   }
 
-  // Direct heading in radians, same convention as the camera's yaw (angle 0
-  // faces -z; forward = (sin, -cos)). The LOCAL player's facing is driven
-  // from CameraRig.getYaw() every frame - true third-person mouse-look, where
-  // turning the camera turns the character even at rest - rather than derived
-  // from movement velocity, which left a stationary character showing its
-  // face to a freely-orbiting camera. (Remote characters don't take this
-  // path: RemoteCharacterSync rotates their roots from server velocity, since
-  // there is no local camera for them to track.)
+  // Heading in radians, in the game's world convention: angle 0 means the
+  // character faces -z, and heading `a` means it faces (sin a, -cos a) - the
+  // SAME direction W-forward moves and the camera looks, so at any camera yaw
+  // the local player faces exactly where they walk (away from the camera, like
+  // any TPS).
+  //
+  // The rig sets root.rotation.y = -angle, NOT +angle. The GLB's authored
+  // forward is -Z (the family faces +Y in Blender, which the glTF export maps
+  // to -Z; verified by render), and for a -Z-forward model Three.js's
+  // right-handed Y-rotation only reaches (sin a, -cos a) at rotation.y = -a.
+  // The previous +angle faced (-sin a, -cos a): correct walking N/S but
+  // BACKWARDS walking E/W, so the character showed its face to the camera
+  // "more than half the time". Both the local player (this method, fed
+  // CameraRig.getYaw) and remotes (RemoteCharacterSync, fed the velocity
+  // heading) go through here so the mapping can't drift between them.
   setFacingAngle(angle: number) {
     this.facingAngle = angle;
-    this.root.rotation.y = this.facingAngle;
+    this.root.rotation.y = -angle;
   }
 
   setCarrying(carrying: boolean) {
