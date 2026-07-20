@@ -82,11 +82,11 @@ export class SceneManager {
     this.scene.background = new THREE.Color(SKY_COLOR);
     // Cheap depth cue (built-in fog, no post-processing): the far house fades
     // toward the sky color, separating "my room" from "across the map" scale.
-    // Distances tuned for WORLD_SCALE=2.0 (near house spans ~800-1600 units,
-    // cross-map views ~3000): starts past the whole near house so interiors
-    // are untouched, and the far house lands ~25-30% fogged - the same read
-    // the old 1500/4300 gave at the smaller map size.
-    this.scene.fog = new THREE.Fog(SKY_COLOR, 2000, 5600);
+    // Derived from WORLD_WIDTH so it stays correct at any WORLD_SCALE without
+    // retuning: near starts past the whole near house (interiors untouched) and
+    // far lands the opposite house ~25-30% fogged. The 0.625/1.75 factors
+    // reproduce the hand-tuned 2000/5600 that read well at the 2.0 map size.
+    this.scene.fog = new THREE.Fog(SKY_COLOR, WORLD_WIDTH * 0.625, WORLD_WIDTH * 1.75);
 
     // Visible sun disc: a DirectionalLight has no geometry, so without this
     // the light direction had no anchor anywhere in frame. Placed at the

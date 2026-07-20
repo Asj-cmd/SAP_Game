@@ -220,8 +220,8 @@
     "semantic_hash": ""
   },
   "client/src/three/CharacterModel.ts": {
-    "mtime": 1784292451.1346016,
-    "ast_hash": "ab69ea8c6b556025fa7c0860fb2d25a6",
+    "mtime": 1784511979.1404521,
+    "ast_hash": "9ea40000f9aaccdd46cf81b65d944d35",
     "semantic_hash": ""
   },
   "client/src/three/EnvironmentBuilder.ts": {
@@ -235,8 +235,8 @@
     "semantic_hash": ""
   },
   "client/src/three/RemoteCharacterSync.ts": {
-    "mtime": 1784094519.8231368,
-    "ast_hash": "45420a728e82150442508c3a2eb6b052",
+    "mtime": 1784511988.740452,
+    "ast_hash": "00bd2be86c304b6edd1b743ea58cad44",
     "semantic_hash": ""
   },
   "client/src/three/SceneManager.ts": {

@@ -7,11 +7,12 @@
 // instead of corridors. Speeds and action ranges scale with it, which keeps
 // travel times and gameplay balance identical to the 2D-tuned values.
 // server/src/zones.ts applies the same factor - keep both in sync.
-// 2.0 (was 1.5): rooms felt cramped - the character barely cleared doors and
-// the chase camera's wall avoidance pulled in tight indoors. At 2.0 the
-// camera sits at full FOLLOW_DISTANCE inside a living room. Character, props,
-// and vertical proportions deliberately do NOT scale with this.
-export const WORLD_SCALE = 2.0;
+// 2.5 (was 2.0, was 1.5): a bigger environment - larger garden, backyards, and
+// house footprint - for the world-expansion pass. Speeds/ranges scale with it
+// so travel time and balance stay put. Character, props, and vertical
+// proportions deliberately do NOT scale with this, so the bigger map reads as
+// genuinely roomier rather than everything just zooming.
+export const WORLD_SCALE = 2.5;
 export const WORLD_WIDTH = 1600 * WORLD_SCALE;
 export const WORLD_HEIGHT = 900 * WORLD_SCALE;
 

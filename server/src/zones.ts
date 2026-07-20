@@ -12,7 +12,7 @@
 // at module load. The client applies the same factor (client/src/constants.ts
 // WORLD_SCALE) - keep both in sync. Speeds and action ranges in GameRoom.ts
 // scale with it too, so travel times and balance match the 2D-tuned values.
-export const WORLD_SCALE = 2.0; // MUST match client/src/constants.ts WORLD_SCALE
+export const WORLD_SCALE = 2.5; // MUST match client/src/constants.ts WORLD_SCALE
 const S = WORLD_SCALE;
 
 export const WORLD_WIDTH = 1600 * S;

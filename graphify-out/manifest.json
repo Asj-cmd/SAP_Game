@@ -180,8 +180,8 @@
     "semantic_hash": ""
   },
   "client/src/constants.ts": {
-    "mtime": 1784490212.881161,
-    "ast_hash": "8f8cf5770e0d026964c09ed4d5d82e65",
+    "mtime": 1784521504.0369802,
+    "ast_hash": "b314c7bd44c1c86d75aab6ec5550ee11",
     "semantic_hash": ""
   },
   "client/src/geometry/floorplan.ts": {
@@ -240,8 +240,8 @@
     "semantic_hash": ""
   },
   "client/src/three/SceneManager.ts": {
-    "mtime": 1784349278.5244155,
-    "ast_hash": "c46526e9380bf541341dc231fd9fa978",
+    "mtime": 1784521533.932982,
+    "ast_hash": "2cc560547614e3086e797f92c9fb1ce6",
     "semantic_hash": ""
   },
   "client/src/three/world/HeightField.ts": {
@@ -335,8 +335,8 @@
     "semantic_hash": ""
   },
   "server/src/zones.ts": {
-    "mtime": 1784488285.1703286,
-    "ast_hash": "83b5277e41f5052680bb26ff7dc16751",
+    "mtime": 1784521514.8729808,
+    "ast_hash": "5275076dff53b001b0bbe768cea4b0c2",
     "semantic_hash": ""
   },
   "server/tsconfig.json": {
