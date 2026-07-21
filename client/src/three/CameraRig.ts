@@ -1,6 +1,6 @@
 import * as THREE from "three";
 import { DEFAULT_PITCH, FOLLOW_DISTANCE, LOOK_HEIGHT } from "../constants";
-import { heightAt, ceilingHeight } from "./world/HeightField";
+import { ceilingY } from "./world/HeightField";
 import type { ZoneRect } from "../geometry/floorplan";
 
 // Third-person spring-arm chase camera (PUBG / Meccha-Chameleon feel):
@@ -90,9 +90,9 @@ export class CameraRig {
   // ZONE_RECTS entry), or null outdoors. Indoors it caps the boom so the
   // camera stays inside the room and under its ceiling; outdoors only the
   // raycast against world geometry constrains it.
-  update(dt: number, targetX: number, targetZ: number, bounds: ZoneRect | null = null) {
+  update(dt: number, targetX: number, targetZ: number, groundY: number, bounds: ZoneRect | null = null) {
     // ---- pivot (look-at point), with eased vertical follow so stairs glide.
-    const targetGroundY = heightAt(targetX, targetZ);
+    const targetGroundY = groundY;
     if (!this.groundInitialized) {
       this.groundY = targetGroundY;
       this.groundInitialized = true;
@@ -151,7 +151,7 @@ export class CameraRig {
     else if (this.dir.z < -EPS) t = Math.min(t, (z1 - this.pivot.z) / this.dir.z);
     // Ceiling (camera is above the pivot whenever pitch > 0, i.e. dir.y > 0).
     if (this.dir.y > EPS) {
-      const cy = ceilingHeight(bounds.id) - CEILING_MARGIN;
+      const cy = ceilingY(bounds.floor) - CEILING_MARGIN;
       t = Math.min(t, (cy - this.pivot.y) / this.dir.y);
     }
     return Math.max(0, t);

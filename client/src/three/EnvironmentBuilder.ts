@@ -4,29 +4,21 @@ import {
   COLORS,
   WALL_HEIGHT,
   FLOOR_HEIGHT,
-  FLOOR_RISE,
   DOOR_MAT_HEIGHT,
-  DOOR_HEIGHT,
-  DOOR_JAMB,
   WORLD_WIDTH,
   WORLD_HEIGHT,
-  WORLD_SCALE,
-  teamSideAt,
 } from "../constants";
-import { ZONE_RECTS, WALLS, DOORS, getZoneAt, type Door, type Rect, type Team } from "../geometry/floorplan";
-import { buildWindows } from "./world/WindowBuilder";
-import { zoneBaseHeight, heightAt, STAIR_CORRIDORS, corridorBBox } from "./world/HeightField";
-import { buildWallBoxes } from "./world/WallHeightBuilder";
-import { buildStaircaseGeoms, buildStairwellWallGeoms, stairwellWallRects } from "./world/StaircaseBuilder";
+import { ZONE_RECTS, WALLS, DOORS, CONNECTORS, type Rect, type Team } from "../geometry/floorplan";
+import { floorY } from "./world/HeightField";
+import { buildStaircaseGeoms } from "./world/StaircaseBuilder";
 
-// Builds the 3D floor plan from the same rect data the server validates against.
-// Two draw calls total: one merged "walls" mesh (extruded wall boxes, wooden
-// door frames around every opening, and the current team's own sealed doors
-// rendered as closed door panels - what you see must match what you can walk
-// through) and one merged "floor" mesh (per-zone tinted floor slabs, door mats
-// for every door NOT sealed to you, and a lawn plane surrounding the whole
-// map). Colors are baked per-vertex so a single vertex-colored material can
-// render every rect.
+// Builds the 3D town-house from the same rect data the server validates against.
+// Two merged meshes: a "walls" mesh (per-floor wall boxes + the local team's own
+// sealed-connector panels so a staircase you can't use reads as a closed shaft)
+// and a "floor" mesh (per-floor tinted slabs with connector holes punched
+// through, connector ramps, ground-floor door mats, and a surrounding lawn).
+// Colours are baked per-vertex so a single vertex-coloured material renders
+// every rect. The roof lid over the top floor is added separately (RoofSystem).
 
 function coloredBox(w: number, h: number, d: number, cx: number, cy: number, cz: number, colorHex: number) {
   const geo = new THREE.BoxGeometry(w, h, d);
@@ -44,8 +36,6 @@ function coloredBox(w: number, h: number, d: number, cx: number, cy: number, cz:
 }
 
 // World (x, y) ground-plane rect -> Three.js (x, z) box, y is height/up.
-// Exported for WindowBuilder, which needs the same rect->box conversion to
-// split a wall rect around an opening.
 export function rectToBox(r: Rect, height: number, yCenter: number, colorHex: number) {
   const w = r.x2 - r.x1;
   const d = r.y2 - r.y1;
@@ -57,90 +47,11 @@ export function rectToBox(r: Rect, height: number, yCenter: number, colorHex: nu
 export interface Environment {
   wallsMesh: THREE.Mesh;
   floorMesh: THREE.Mesh;
-  // Real see-through window panes (Phase 3) - a separate mesh since it needs
-  // its own translucent material, not the walls' opaque vertex-colored one.
-  windowGlassMesh: THREE.Mesh;
-  // Collider rects for movement collision (Milestone B): every solid wall plus
-  // whichever doors are sealed for the local team. Deliberately the ORIGINAL
-  // WALLS rects, not WindowBuilder's split replacements - a window changes
-  // what you can see, never what you can walk through.
-  colliderRects: Rect[];
 }
 
-// Ground height the CLOSED DOOR PANEL sits on: the local height right at the
-// door line's center. For flat doors this is always 0 (unchanged from
-// before); for a sealed stair door it's the ramp's mid-height at that exact
-// line, which is where the door literally sits along the stairs.
-function doorBase(door: Door): number {
-  const cx = (door.x1 + door.x2) / 2;
-  const cy = (door.y1 + door.y2) / 2;
-  return heightAt(cx, cy);
-}
-
-// Ground height the door's FRAME (lintel + jambs) sits on: the HIGHER of the
-// two zones the door connects. A flat door's two sides are the same height,
-// so this is identical to doorBase there. A stair door's frame, unlike the
-// panel, spans the *entire* corridor width as one fixed-height opening - if
-// it sat at the door line's mid-ramp height (doorBase), the lintel would
-// pinch a climbing character's headroom on the raised side of the ramp
-// (verified: the chase camera's sightline clips through it there). Framing
-// at the taller side's height guarantees DOOR_HEIGHT of clearance everywhere
-// along the ramp, at the cost of the jambs looking a little deep on the
-// lower side - not a hand-authored exception, just probing outward past
-// RAMP_EXTENT so the samples land in the two flat zones on either side.
-function doorFrameBase(door: Door): number {
-  const cx = (door.x1 + door.x2) / 2;
-  const cy = (door.y1 + door.y2) / 2;
-  // Must probe past the corridor's ramp (RAMP_EXTENT = 100 pre-scale) so the
-  // samples land in the flat zones on either side, not mid-ramp: 130 pre-scale
-  // clears it with margin, scaled by WORLD_SCALE like every run-axis distance.
-  const PROBE = 130 * WORLD_SCALE;
-  // Probe ONLY across the door line (the traversal direction) - the frame
-  // belongs to the two zones the door CONNECTS. An earlier version also
-  // probed along the wall's run, which could cross into an unrelated room
-  // row: house A's top garden door (center y=260 pre-scale) picked up
-  // bedroomA's +140 from the y-185 probe and hung its whole frame a story
-  // above the opening. (Only house A: that probe point sits exactly on the
-  // x=1060 column line, which getZoneAt's half-open ranges put inside house
-  // A - the x=540 mirror landed in "garden" and masked the same bug.)
-  const gapRunsAlongY = door.x2 - door.x1 < door.y2 - door.y1;
-  const heights = gapRunsAlongY
-    ? [zoneBaseHeight(getZoneAt(cx - PROBE, cy)), zoneBaseHeight(getZoneAt(cx + PROBE, cy))]
-    : [zoneBaseHeight(getZoneAt(cx, cy - PROBE)), zoneBaseHeight(getZoneAt(cx, cy + PROBE))];
-  return Math.max(...heights);
-}
-
-// Wooden trim around a door opening: a lintel filling the gap from DOOR_HEIGHT
-// up to the wall top, plus a full-height jamb post just past each end of the
-// gap. The door rect is slightly "proud" of the wall's thickness on purpose
-// (it always was, for the 2D door mats), so the trim visibly wraps the wall.
-// `base` offsets every piece vertically - 0 for a flat door, the door line's
-// local ground height for a stair door.
-function doorFrameGeoms(door: Door, base: number): THREE.BufferGeometry[] {
-  const geoms: THREE.BufferGeometry[] = [];
-  const lintelHeight = WALL_HEIGHT - DOOR_HEIGHT;
-  // Trim picks up the owning house's team hue (west half = B, east = A) so
-  // each house reads as its family's from a distance.
-  const frameColor = teamSideAt((door.x1 + door.x2) / 2) === "B" ? COLORS.doorFrameB : COLORS.doorFrameA;
-  geoms.push(rectToBox(door, lintelHeight, base + DOOR_HEIGHT + lintelHeight / 2, frameColor));
-
-  const gapRunsAlongY = door.x2 - door.x1 < door.y2 - door.y1;
-  const jambA: Rect = gapRunsAlongY
-    ? { x1: door.x1, y1: door.y1 - DOOR_JAMB, x2: door.x2, y2: door.y1 }
-    : { x1: door.x1 - DOOR_JAMB, y1: door.y1, x2: door.x1, y2: door.y2 };
-  const jambB: Rect = gapRunsAlongY
-    ? { x1: door.x1, y1: door.y2, x2: door.x2, y2: door.y2 + DOOR_JAMB }
-    : { x1: door.x2, y1: door.y1, x2: door.x2 + DOOR_JAMB, y2: door.y2 };
-  geoms.push(rectToBox(jambA, WALL_HEIGHT, base + WALL_HEIGHT / 2, frameColor));
-  geoms.push(rectToBox(jambB, WALL_HEIGHT, base + WALL_HEIGHT / 2, frameColor));
-  return geoms;
-}
-
-// Rect `zone` minus every rect in `holes` (only the parts of a hole that
-// actually overlap zone matter) - a plain grid decomposition: cut along every
-// hole edge that falls strictly inside the zone, then keep every resulting
-// cell whose center isn't inside any hole. Small numbers of rects (a
-// bedroom's 2 stair holes), so the O(cells * holes) cost is negligible.
+// Rect `zone` minus every rect in `holes` - a plain grid decomposition (cut
+// along every hole edge strictly inside the zone, keep cells whose centre isn't
+// in a hole). Used to punch stairwell openings out of the slab above a ramp.
 function rectMinusRects(zone: Rect, holes: Rect[]): Rect[] {
   const xs = new Set<number>([zone.x1, zone.x2]);
   const ys = new Set<number>([zone.y1, zone.y2]);
@@ -152,7 +63,6 @@ function rectMinusRects(zone: Rect, holes: Rect[]): Rect[] {
   }
   const xArr = [...xs].sort((a, b) => a - b);
   const yArr = [...ys].sort((a, b) => a - b);
-
   const tiles: Rect[] = [];
   for (let i = 0; i < xArr.length - 1; i++) {
     for (let j = 0; j < yArr.length - 1; j++) {
@@ -174,169 +84,62 @@ function intersectRect(a: Rect, b: Rect): Rect | null {
   return { x1, y1, x2, y2 };
 }
 
-// Bedroom footprints (house B + mirrored house A) need a solid fill from
-// grade up to FLOOR_RISE underneath their floor slab, or the raised wing
-// would read as floating on stilts - the retaining walls close the sides,
-// this closes the underside. Not hand-authored per house: derived from
-// ZONE_RECTS' own bedroomB/bedroomA rects, the same data the floor slabs
-// use - MINUS whichever stair corridors cut through that same footprint (the
-// bedroom's own interior + exterior stair openings), or the "solid fill"
-// would literally wall off the stairwell it's supposed to leave open.
-function foundationGeoms(): THREE.BufferGeometry[] {
-  const geoms: THREE.BufferGeometry[] = [];
-  for (const zone of ZONE_RECTS) {
-    if (zone.id !== "bedroomB" && zone.id !== "bedroomA") continue;
-    const zoneRect: Rect = { x1: zone.xMin, y1: zone.yMin, x2: zone.xMax, y2: zone.yMax };
-    const holes = STAIR_CORRIDORS.map((c) => intersectRect(corridorBBox(c), zoneRect)).filter(
-      (r): r is Rect => r !== null
-    );
-    for (const tile of rectMinusRects(zoneRect, holes)) {
-      geoms.push(rectToBox(tile, FLOOR_RISE, FLOOR_RISE / 2, COLORS.foundation));
-    }
-  }
-  return geoms;
-}
-
-// A door counts as a "stair door" (ramped, no floor mat, furniture positioned
-// at the ramp's local height) exactly when it's sealed for someone -
-// geometry/floorplan.ts's DOORS table marks precisely the 4-per-house
-// bedroom/basement doors this way; every other door (living<->garden,
-// living<->backyard) is flat and unsealed for both teams.
-function isStairDoor(d: Door): boolean {
-  return d.sealedFor !== undefined;
-}
-
 export function buildEnvironment(localTeam: Team): Environment {
-  const sealedDoors = DOORS.filter((d) => d.sealedFor === localTeam);
-  const flatDoors = DOORS.filter((d) => !isStairDoor(d));
-
-  // ---- walls: WALLS (minus whichever rects have a window punched into them)
-  // + a wooden frame around every door AND window opening + this team's own
-  // sealed doors filled with a closed door panel (instead of blank wall, so a
-  // "door that won't open for you" reads as exactly that) ----
-  const windows = buildWindows();
-  const wallGeoms = WALLS.filter((_, i) => !windows.splitWallIndices.has(i)).flatMap((r) =>
-    buildWallBoxes(r, COLORS.wall)
-  );
-  const frameGeoms = [...DOORS.flatMap((d) => doorFrameGeoms(d, doorFrameBase(d))), ...windows.frameGeoms];
-  // Sealed fill: the closed panel sits on the door line's local ground
-  // (mid-ramp for a stair door), but the lintel above hangs off the TALLER
-  // side's base - on stair doors that left an open transom slit of sky
-  // between panel top and lintel bottom (visible from inside the basement
-  // pits). A second panel-colored box fills that band; on flat doors the two
-  // bases coincide and the fill is zero-height, so nothing is emitted.
-  const sealedGeoms = sealedDoors.flatMap((r) => {
-    const base = doorBase(r);
-    const geoms = [rectToBox(r, DOOR_HEIGHT, base + DOOR_HEIGHT / 2, COLORS.doorPanel)];
-    const transom = doorFrameBase(r) - base;
-    if (transom > 0.01) {
-      geoms.push(rectToBox(r, transom, base + DOOR_HEIGHT + transom / 2, COLORS.doorPanel));
-    }
-    return geoms;
-  });
-  const wallsMerged = mergeGeometries(
-    [
-      ...wallGeoms,
-      ...windows.wallReplacementGeoms,
-      ...frameGeoms,
-      ...sealedGeoms,
-      ...foundationGeoms(),
-      // Stairwell side walls come from StaircaseBuilder, which bottoms them
-      // on the exact tread curve - see buildStairwellWallGeoms for why they
-      // deliberately bypass buildWallBoxes.
-      ...buildStairwellWallGeoms(),
-    ],
-    false
-  );
-  const wallsMesh = new THREE.Mesh(wallsMerged, new THREE.MeshStandardMaterial({ vertexColors: true }));
+  // ---- walls: one box per per-floor wall rect (world-boundary walls, floor
+  // undefined, sit at the ground floor as a map fence) + the local team's own
+  // sealed connectors filled as a closed shaft panel so "stairs you can't use"
+  // reads as a wall.
+  const wallGeoms: THREE.BufferGeometry[] = [];
+  for (const w of WALLS) {
+    const base = floorY(w.floor ?? 0);
+    wallGeoms.push(rectToBox(w, WALL_HEIGHT, base + WALL_HEIGHT / 2, COLORS.wall));
+  }
+  for (const c of CONNECTORS) {
+    if (c.sealedFor !== localTeam) continue;
+    // Panel on the owner's ground floor over the connector footprint.
+    wallGeoms.push(rectToBox(c.rect, WALL_HEIGHT, WALL_HEIGHT / 2, COLORS.doorPanel));
+  }
+  const wallsMesh = new THREE.Mesh(mergeGeometries(wallGeoms, false), new THREE.MeshStandardMaterial({ vertexColors: true }));
   wallsMesh.castShadow = true;
   wallsMesh.receiveShadow = true;
 
-  const glassMerged = mergeGeometries(windows.glassGeoms, false);
-  const windowGlassMesh = new THREE.Mesh(
-    glassMerged,
-    new THREE.MeshStandardMaterial({
-      color: COLORS.glass,
-      transparent: true,
-      opacity: 0.35,
-      roughness: 0.1,
-      metalness: 0,
-      depthWrite: false,
-    })
-  );
-
-  // ---- floor: per-zone tinted slabs (garden split into its two cosmetic
-  // halves, each at its zone's base height) + door mats for every FLAT door
-  // open to this team + rendered staircases inside every stair corridor ----
-  //
-  // Every zone slab is carved (rectMinusRects) wherever a stair corridor's
-  // footprint overlaps it: the corridor's own step geometry already covers
-  // that exact footprint end-to-end (see buildStaircaseGeoms), so leaving the
-  // flat slab underneath would coincide with the corridor's own end steps -
-  // same top face, same height, a textbook z-fight.
+  // ---- floor: per-zone slabs (carved where a connector ramp punches through
+  // the slab above it) + connector ramps + ground door mats + lawn.
   const floorGeoms: THREE.BufferGeometry[] = [];
-  const zoneHoles = (zoneRect: Rect) =>
-    STAIR_CORRIDORS.map((c) => intersectRect(corridorBBox(c), zoneRect)).filter((r): r is Rect => r !== null);
+  // A connector cuts a hole in the slab of its HIGHER floor (the ceiling the
+  // ramp rises through), wherever that slab overlaps the connector footprint.
+  const holesForFloor = (zoneRect: Rect, floor: number): Rect[] =>
+    CONNECTORS.filter((c) => Math.max(c.floorLow, c.floorHigh) === floor)
+      .map((c) => intersectRect(c.rect, zoneRect))
+      .filter((r): r is Rect => r !== null);
+
   for (const zone of ZONE_RECTS) {
-    const base = zoneBaseHeight(zone.id);
+    const base = floorY(zone.floor);
+    const yc = base - FLOOR_HEIGHT / 2;
     if (zone.id === "garden") {
       const mid = (zone.xMin + zone.xMax) / 2;
       const left: Rect = { x1: zone.xMin, y1: zone.yMin, x2: mid, y2: zone.yMax };
       const right: Rect = { x1: mid, y1: zone.yMin, x2: zone.xMax, y2: zone.yMax };
-      for (const tile of rectMinusRects(left, zoneHoles(left))) {
-        floorGeoms.push(rectToBox(tile, FLOOR_HEIGHT, base - FLOOR_HEIGHT / 2, COLORS.garden));
-      }
-      for (const tile of rectMinusRects(right, zoneHoles(right))) {
-        floorGeoms.push(rectToBox(tile, FLOOR_HEIGHT, base - FLOOR_HEIGHT / 2, COLORS.gardenAlt));
-      }
-    } else {
-      const zoneRect: Rect = { x1: zone.xMin, y1: zone.yMin, x2: zone.xMax, y2: zone.yMax };
-      for (const tile of rectMinusRects(zoneRect, zoneHoles(zoneRect))) {
-        floorGeoms.push(rectToBox(tile, FLOOR_HEIGHT, base - FLOOR_HEIGHT / 2, zone.color));
-      }
+      floorGeoms.push(rectToBox(left, FLOOR_HEIGHT, yc, COLORS.garden));
+      floorGeoms.push(rectToBox(right, FLOOR_HEIGHT, yc, COLORS.gardenAlt));
+      continue;
     }
-  }
-  for (const door of flatDoors) {
-    floorGeoms.push(rectToBox(door, DOOR_MAT_HEIGHT, -FLOOR_HEIGHT + DOOR_MAT_HEIGHT / 2, COLORS.door));
+    const zoneRect: Rect = { x1: zone.xMin, y1: zone.yMin, x2: zone.xMax, y2: zone.yMax };
+    for (const tile of rectMinusRects(zoneRect, holesForFloor(zoneRect, zone.floor))) {
+      floorGeoms.push(rectToBox(tile, FLOOR_HEIGHT, yc, zone.color));
+    }
   }
   floorGeoms.push(...buildStaircaseGeoms());
-  // Lawn plane extending past the world bounds on every side, sitting just
-  // below the zone slabs, so the map edge isn't a cliff into black void.
-  // CARVED around the sunken basements and their below-grade stair corridors:
-  // the sheet predates the split-level and otherwise roofs the -140 pits at
-  // y~-6 - an unlit black ceiling from inside, a grade-level green cap from
-  // above, and stair steps knifing through its 4-unit band at corridor edges.
-  // (Above-grade corridors don't need carving: there the lawn hides under the
-  // living slabs, and step undersides merely overlap it invisibly.)
+  for (const door of DOORS) {
+    floorGeoms.push(rectToBox(door, DOOR_MAT_HEIGHT, -FLOOR_HEIGHT + DOOR_MAT_HEIGHT / 2, COLORS.door));
+  }
+  // Lawn plane past the world bounds, just below the ground slabs.
   const LAWN_MARGIN = 600;
-  const lawnRect: Rect = {
-    x1: -LAWN_MARGIN,
-    y1: -LAWN_MARGIN,
-    x2: WORLD_WIDTH + LAWN_MARGIN,
-    y2: WORLD_HEIGHT + LAWN_MARGIN,
-  };
-  const lawnHoles: Rect[] = [];
-  for (const zone of ZONE_RECTS) {
-    if (zone.id === "basementB" || zone.id === "basementA") {
-      lawnHoles.push({ x1: zone.xMin, y1: zone.yMin, x2: zone.xMax, y2: zone.yMax });
-    }
-  }
-  for (const c of STAIR_CORRIDORS) {
-    if (Math.min(c.heightAtMin, c.heightAtMax) < 0) lawnHoles.push(corridorBBox(c));
-  }
-  for (const tile of rectMinusRects(lawnRect, lawnHoles)) {
-    floorGeoms.push(rectToBox(tile, FLOOR_HEIGHT, -FLOOR_HEIGHT - FLOOR_HEIGHT / 2, COLORS.ground));
-  }
-  const floorMerged = mergeGeometries(floorGeoms, false);
-  const floorMesh = new THREE.Mesh(floorMerged, new THREE.MeshStandardMaterial({ vertexColors: true }));
+  const lawn: Rect = { x1: -LAWN_MARGIN, y1: -LAWN_MARGIN, x2: WORLD_WIDTH + LAWN_MARGIN, y2: WORLD_HEIGHT + LAWN_MARGIN };
+  floorGeoms.push(rectToBox(lawn, FLOOR_HEIGHT, -FLOOR_HEIGHT - FLOOR_HEIGHT / 2, COLORS.ground));
+
+  const floorMesh = new THREE.Mesh(mergeGeometries(floorGeoms, false), new THREE.MeshStandardMaterial({ vertexColors: true }));
   floorMesh.receiveShadow = true;
 
-  return {
-    wallsMesh,
-    floorMesh,
-    windowGlassMesh,
-    // Stairwell side walls collide too: they're the only thing standing
-    // between the ramp and the pit/void beside it.
-    colliderRects: [...WALLS, ...sealedDoors, ...stairwellWallRects()],
-  };
+  return { wallsMesh, floorMesh };
 }

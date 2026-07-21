@@ -7,7 +7,6 @@ import { CharacterController } from "./CharacterController";
 import { CameraRig } from "./CameraRig";
 import { RemoteCharacterSync } from "./RemoteCharacterSync";
 import { CashBundleView } from "./CashBundleView";
-import { dressHouses } from "./world/HouseDresser";
 import { RoofSystem, ROOFED_ZONES } from "./world/RoofSystem";
 import { HudOverlay } from "../ui/HudOverlay";
 import {
@@ -116,17 +115,17 @@ export class GameController {
     const selfState = room.state.players.get(gc.localId);
 
     const env = buildEnvironment(gc.localTeam);
-    gc.sceneManager.scene.add(env.wallsMesh, env.floorMesh, env.windowGlassMesh);
+    gc.sceneManager.scene.add(env.wallsMesh, env.floorMesh);
 
     const model = await CharacterModel.load(gc.localTeam, pickFamilyVariant(room.state.players, gc.localId));
     gc.sceneManager.scene.add(model.root);
 
-    const dresser = await dressHouses(gc.sceneManager.scene);
     gc.controller = new CharacterController(
       model,
-      [...env.colliderRects, ...dresser.solidRects],
+      gc.localTeam,
       selfState?.x ?? 0,
-      selfState?.y ?? 0
+      selfState?.y ?? 0,
+      selfState?.floor ?? 0
     );
     // Camera obstacles: walls + floor (slabs/foundation/lawn) so looking down
     // in the basement can't see through the slab into the void below it -
@@ -181,9 +180,9 @@ export class GameController {
   // null in the open-air garden/backyards. Same getZoneAt lookup the roof
   // reveal already does each frame.
   private cameraBounds(): ZoneRect | null {
-    const zone = getZoneAt(this.controller.x, this.controller.z);
+    const zone = getZoneAt(this.controller.x, this.controller.z, this.controller.floor);
     if (!ROOFED_ZONES.includes(zone)) return null;
-    return ZONE_RECTS.find((z) => z.id === zone) ?? null;
+    return ZONE_RECTS.find((z) => z.id === zone && z.floor === this.controller.floor) ?? null;
   }
 
   // Ports GameScene.updateLocalMovement: outside "playing" or while jailed,
@@ -194,11 +193,11 @@ export class GameController {
     const playing = this.room.state.phase === "playing";
 
     if (!playing || selfState.isJailed) {
-      this.controller.freeze(selfState.x, selfState.y);
+      this.controller.freeze(selfState.x, selfState.y, selfState.floor ?? 0);
       model.setJailed(selfState.isJailed);
       model.setCarrying(selfState.isCarryingCash);
       model.update(dt, 0);
-      this.cameraRig.update(dt, this.controller.x, this.controller.z, this.cameraBounds());
+      this.cameraRig.update(dt, this.controller.x, this.controller.z, model.root.position.y, this.cameraBounds());
       this.depositSent = false;
       return;
     }
@@ -220,7 +219,7 @@ export class GameController {
     // mouse-look. No smoothing: pointer-lock deltas arrive a few pixels per
     // frame, so the character turns exactly as fast as the view does.
     this.controller.model.setFacingAngle(yaw);
-    this.cameraRig.update(dt, this.controller.x, this.controller.z, this.cameraBounds());
+    this.cameraRig.update(dt, this.controller.x, this.controller.z, this.controller.model.root.position.y, this.cameraBounds());
 
     this.moveAccumulatorMs += dt * 1000;
     if (this.moveAccumulatorMs >= MOVE_SEND_INTERVAL_MS) {
@@ -246,13 +245,14 @@ export class GameController {
 
     const x = this.controller.x;
     const y = this.controller.z;
+    const floor = this.controller.floor;
     const team = this.localTeam;
     const enemyBedroom = team === "B" ? "bedroomA" : "bedroomB";
     const enemyTeam: Team = team === "B" ? "A" : "B";
 
     let action: Action = null;
 
-    if (!selfState.isCarryingCash && isEnemyBedroom(team, x, y)) {
+    if (!selfState.isCarryingCash && isEnemyBedroom(team, x, y, floor)) {
       room.state.cashBundles.forEach((b: any) => {
         if (action) return;
         if (b.location === enemyBedroom && dist(x, y, b.x, b.y) <= ACTION_RANGE) {
@@ -261,7 +261,7 @@ export class GameController {
       });
     }
 
-    if (!action && isOwnHome(team, x, y)) {
+    if (!action && isOwnHome(team, x, y, floor)) {
       let nearest: { id: string; name: string; d: number } | null = null;
       room.state.players.forEach((p: any, id: string) => {
         if (id === this.localId || p.team === team || p.isJailed) return;
@@ -274,7 +274,7 @@ export class GameController {
       }
     }
 
-    if (!action && getZoneAt(x, y) === jailBasementForTeam(team)) {
+    if (!action && getZoneAt(x, y, floor) === jailBasementForTeam(team)) {
       let nearest: { id: string; name: string; d: number } | null = null;
       room.state.players.forEach((p: any, id: string) => {
         if (id === this.localId || p.team !== team || !p.isJailed) return;
@@ -287,7 +287,7 @@ export class GameController {
       }
     }
 
-    if (!action && !selfState.isCarryingCash && isEnemyBedroom(team, x, y)) {
+    if (!action && !selfState.isCarryingCash && isEnemyBedroom(team, x, y, floor)) {
       room.state.cashBundles.forEach((b: any) => {
         if (action) return;
         if (b.location === `scored:${enemyTeam}` && dist(x, y, b.x, b.y) <= ACTION_RANGE) {
@@ -327,7 +327,7 @@ export class GameController {
       this.depositSent = false;
       return;
     }
-    if (!isOwnHome(this.localTeam, this.controller.x, this.controller.z)) {
+    if (!isOwnHome(this.localTeam, this.controller.x, this.controller.z, this.controller.floor)) {
       this.depositSent = false;
       return;
     }

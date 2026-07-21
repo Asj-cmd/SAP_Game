@@ -2,7 +2,7 @@ import * as THREE from "three";
 import { GLTFLoader } from "three/addons/loaders/GLTFLoader.js";
 import type { Room } from "colyseus.js";
 import { BUNDLE_SCALE } from "../constants";
-import { heightAt } from "./world/HeightField";
+import { visualHeight } from "./world/HeightField";
 
 const MODEL_URL = "/models/cashbundle.glb";
 
@@ -39,7 +39,7 @@ export class CashBundleView {
       }
       const carried = typeof b.location === "string" && b.location.startsWith("carried:");
       inst.visible = !carried;
-      if (!carried) inst.position.set(b.x, heightAt(b.x, b.y), b.y);
+      if (!carried) inst.position.set(b.x, visualHeight(b.x, b.y, b.floor ?? 1), b.y);
     });
 
     for (const [id, inst] of this.instances) {

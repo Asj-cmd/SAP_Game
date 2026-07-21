@@ -191,9 +191,14 @@ export class HudOverlay {
     const ctx = this.minimapCanvas.getContext("2d")!;
     ctx.clearRect(0, 0, MINIMAP_W, MINIMAP_H);
 
-    // Zone fills come straight from the floor plan's ZONE_RECTS, so the
-    // minimap can never drift out of sync with the world geometry.
+    // The town-house stacks floors on one footprint, so the minimap shows just
+    // the local player's CURRENT floor - its zones and only the dots of players
+    // on that same floor (someone a storey above/below isn't on your map).
+    const localFloor: number = room.state.players.get(room.sessionId)?.floor ?? 0;
+
+    // Zone fills come straight from the floor plan's ZONE_RECTS (this floor's).
     for (const z of ZONE_RECTS) {
+      if (z.floor !== localFloor) continue;
       ctx.fillStyle = toHex(z.color);
       ctx.fillRect(z.xMin * MM_SCALE, z.yMin * MM_SCALE, (z.xMax - z.xMin) * MM_SCALE, (z.yMax - z.yMin) * MM_SCALE);
     }
@@ -202,6 +207,7 @@ export class HudOverlay {
     ctx.strokeRect(0, 0, MINIMAP_W, MINIMAP_H);
 
     room.state.players.forEach((p: any, id: string) => {
+      if (id !== room.sessionId && p.floor !== localFloor) return; // other floor
       const px = p.x * MM_SCALE;
       const py = p.y * MM_SCALE;
       const color = toHex(p.team === "B" ? COLORS.teamB : COLORS.teamA);
@@ -223,6 +229,15 @@ export class HudOverlay {
         ctx.globalAlpha = 1;
       }
     });
+
+    // Floor label so the stacked layout is legible at a glance.
+    const label = localFloor > 0 ? "F1 · BEDROOMS" : localFloor < 0 ? "B1 · BASEMENT" : "GND · LIVING";
+    ctx.fillStyle = "rgba(0,0,0,.55)";
+    ctx.fillRect(0, 0, 96, 15);
+    ctx.fillStyle = "#fff";
+    ctx.font = "bold 9px sans-serif";
+    ctx.textBaseline = "middle";
+    ctx.fillText(label, 5, 8);
   }
 
   update(room: Room, promptText: string) {

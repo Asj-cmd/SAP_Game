@@ -1,90 +1,43 @@
 import * as THREE from "three";
-import { ZONE_RECTS, getZoneAt, type ZoneId } from "../../geometry/floorplan";
+import { ZONE_RECTS, type ZoneId } from "../../geometry/floorplan";
 import { COLORS, ROOF_THICKNESS, WORLD_SCALE } from "../../constants";
-import { ceilingHeight } from "./HeightField";
+import { ceilingY } from "./HeightField";
 
-// One flat slab per interior room - backyards/garden are open-air, so they're
-// deliberately excluded. Not added to CameraRig's obstacle list: the camera
-// never needs to raycast against a ceiling it can't rise above (CameraRig's
-// indoor Y clamp keeps it under ceilingHeight). Exported as THE definition of
-// "enclosed interior room" - that clamp keys off the same list, so a zone
-// can't be roofed but unclamped (or vice versa) by accident.
+// The interior (enclosed) rooms - used by GameController to decide when the
+// chase camera should be clamped inside a room vs. left free in the open-air
+// garden/backyards. Every floor of a house is enclosed; the garden and
+// backyards (floor 0 only) are not.
 export const ROOFED_ZONES: ZoneId[] = ["bedroomB", "livingB", "basementB", "bedroomA", "livingA", "basementA"];
 
-// Roof panels overhang the room's footprint by this much, so the slab tucks
-// OVER the top of the surrounding wall (walls are centred on the zone edge and
-// ~10 units thick) instead of meeting it at a hairline seam that leaks sky
-// when viewed edge-on - and it reads as a proper eave. Applied ONLY toward
-// open-air neighbours (garden/backyard/world edge): overhanging an edge shared
-// with another roofed room pushed the slab INTO that room, and because a raised
-// bedroom's floor sits exactly at the neighbouring living room's ceiling
-// height, the living roof's overhang punched up through the bedroom floor as a
-// bar of protruding roof. Per-edge overhang keeps the exterior eave without
-// the intrusion.
+// In the stacked town-house the ceiling of each lower floor IS the floor slab
+// of the one above it (built in EnvironmentBuilder), so the only actual ROOF is
+// the lid over the top floor (the bedrooms) of each house. One chunky slab per
+// house at the top-floor ceiling, tinted the house's team colour and overhung a
+// little past the footprint so it reads as an eave from the garden.
 const ROOF_OVERHANG = 14 * WORLD_SCALE;
-// The eave slab is deliberately chunky (vs the old thin sheet) so from ground
-// level the overhanging edge casts a readable lip, not a paper-thin line.
 const ROOF_SLAB_THICKNESS = ROOF_THICKNESS * 3;
-// Faint self-illumination on the underside so the ceiling reads as a dim
-// ceiling rather than a pitch-black void when the camera pitches up indoors
-// (the opaque slab casts no light through, so its underside gets only ambient).
 const ROOF_EMISSIVE = 0.22;
 
-// Solid, always-opaque ceilings. The old fade-the-local-room's-roof reveal
-// (and its ROOF_REVEAL_OPACITY translucency compromise) existed only because
-// the chase camera could climb above roof height; now that CameraRig clamps
-// indoor camera Y under the ceiling, a roof never stands between the camera
-// and the character, so every room keeps a plain solid lid - and no sky or
-// sun can ever bleed through it. ceilingHeight() puts a sunken basement's lid
-// at grade+WALL_HEIGHT (level with the exterior walls) rather than deep in
-// the pit, so the garden camera can't peer over the wall into the interior.
 export class RoofSystem {
   build(scene: THREE.Scene) {
-    const EPS = 2;
-    // Overhang an edge only if the zone just across it is NOT another roofed
-    // room (i.e. it faces the garden, a backyard, or the world edge).
-    const overhangIfOpen = (nx: number, nz: number) =>
-      ROOFED_ZONES.includes(getZoneAt(nx, nz)) ? 0 : ROOF_OVERHANG;
-
-    for (const zoneId of ROOFED_ZONES) {
+    for (const zoneId of ["bedroomB", "bedroomA"] as ZoneId[]) {
       const zone = ZONE_RECTS.find((z) => z.id === zoneId);
       if (!zone) continue;
 
-      const midX = (zone.xMin + zone.xMax) / 2;
-      const midZ = (zone.yMin + zone.yMax) / 2;
-      const west = overhangIfOpen(zone.xMin - EPS, midZ);
-      const east = overhangIfOpen(zone.xMax + EPS, midZ);
-      const north = overhangIfOpen(midX, zone.yMin - EPS);
-      const south = overhangIfOpen(midX, zone.yMax + EPS);
+      const x1 = zone.xMin - ROOF_OVERHANG;
+      const x2 = zone.xMax + ROOF_OVERHANG;
+      const z1 = zone.yMin - ROOF_OVERHANG;
+      const z2 = zone.yMax + ROOF_OVERHANG;
+      const top = ceilingY(zone.floor); // top-floor ceiling plane
 
-      const x1 = zone.xMin - west;
-      const x2 = zone.xMax + east;
-      const z1 = zone.yMin - north;
-      const z2 = zone.yMax + south;
-      const width = x2 - x1;
-      const depth = z2 - z1;
-      const cx = (x1 + x2) / 2;
-      const cz = (z1 + z2) / 2;
-      const top = ceilingHeight(zoneId);
-
-      // Roof color is the loudest per-house identity cue: terracotta over
-      // house B, slate blue over house A (ROOFED_ZONES ids end in their
-      // house letter), readable across the whole map.
       const color = zoneId.endsWith("B") ? COLORS.roofB : COLORS.roofA;
       const material = new THREE.MeshStandardMaterial({
         color,
         roughness: 0.85,
         emissive: new THREE.Color(color).multiplyScalar(ROOF_EMISSIVE),
       });
-
-      // The slab's UNDERSIDE sits at `top` (the ceiling plane) and its bulk
-      // rises above - so it never eats interior headroom, and the chunky
-      // overhang reads as an eave from the garden.
-      const slab = new THREE.Mesh(new THREE.BoxGeometry(width, ROOF_SLAB_THICKNESS, depth), material);
-      slab.position.set(cx, top + ROOF_SLAB_THICKNESS / 2, cz);
-      // Deliberately NOT a shadow caster: an opaque lid that also blocked the
-      // sun would plunge every interior into flat shadow, and the standing
-      // art direction is bright sunlit rooms.
+      const slab = new THREE.Mesh(new THREE.BoxGeometry(x2 - x1, ROOF_SLAB_THICKNESS, z2 - z1), material);
+      slab.position.set((x1 + x2) / 2, top + ROOF_SLAB_THICKNESS / 2, (z1 + z2) / 2);
       slab.castShadow = false;
       scene.add(slab);
     }

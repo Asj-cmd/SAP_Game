@@ -3,7 +3,7 @@ import type { Room } from "colyseus.js";
 import { CharacterModel, pickFamilyVariant } from "./CharacterModel";
 import { REMOTE_LERP, ROTATION_LERP } from "../constants";
 import type { Team } from "../geometry/floorplan";
-import { heightAt } from "./world/HeightField";
+import { visualHeight } from "./world/HeightField";
 
 function lerpAngle(a: number, b: number, t: number): number {
   let diff = b - a;
@@ -55,16 +55,15 @@ export class RemoteCharacterSync {
 
       const model = entry.model;
       const wasJailed = entry.lastJailed;
+      const team = p.team as Team;
       if (p.isJailed && !wasJailed) {
-        model.root.position.set(p.x, heightAt(p.x, p.y), p.y);
+        model.root.position.set(p.x, visualHeight(p.x, p.y, p.floor, team), p.y);
       } else {
         // Lerp the ground-plane position exactly as before, then read the
-        // height back off the lerped (x, z) - so the model's elevation is
-        // always a pure function of its rendered ground position, never
-        // lerped toward a stale target height on its own.
+        // height back off the lerped (x, z) at the player's networked floor.
         model.root.position.x = THREE.MathUtils.lerp(model.root.position.x, p.x, REMOTE_LERP);
         model.root.position.z = THREE.MathUtils.lerp(model.root.position.z, p.y, REMOTE_LERP);
-        model.root.position.y = heightAt(model.root.position.x, model.root.position.z);
+        model.root.position.y = visualHeight(model.root.position.x, model.root.position.z, p.floor, team);
       }
       entry.lastJailed = p.isJailed;
 

@@ -1,42 +1,37 @@
 import { CharacterModel } from "./CharacterModel";
-import type { Rect } from "../geometry/floorplan";
+import { WALLS, CONNECTORS, resolveFloor, type Rect, type Team } from "../geometry/floorplan";
 import { PLAYER_SPEED, CARRY_SPEED, WORLD_WIDTH, WORLD_HEIGHT } from "../constants";
-import { heightAt } from "./world/HeightField";
+import { visualHeight } from "./world/HeightField";
 
-// World units; tuned relative to the narrowest door gaps (90+ units at the
-// current WORLD_SCALE) so the character can pass through doors without
-// clipping the frame.
+// World units; tuned relative to the narrowest door gaps so the character can
+// pass through doors without clipping the frame.
 const CHAR_RADIUS = 20;
 
-// Moves the character along a caller-supplied world-space direction (the
-// GameController rotates raw WASD by the camera's yaw first, so controls are
-// camera-relative) plus a circle-vs-AABB collision resolve against the same
-// wall rects Arcade Physics used to collide against in the 2D build.
+// Moves the character along a caller-supplied world-space direction plus a
+// circle-vs-AABB collision resolve. Now FLOOR-AWARE: the character's floor is
+// derived from its position each frame (resolveFloor, mirroring the server), it
+// collides only against walls on that floor plus its own team's sealed
+// connectors, and its render height follows the floor / connector ramp.
 export class CharacterController {
   x: number;
   z: number;
-  // Last-applied velocity (world units/sec), mirroring what the 2D build read
-  // off Arcade Physics' body.velocity for the "move" network message.
+  floor = 0;
   vx = 0;
   vz = 0;
 
   constructor(
     readonly model: CharacterModel,
-    private colliderRects: Rect[],
+    private team: Team,
     startX: number,
-    startZ: number
+    startZ: number,
+    startFloor = 0
   ) {
     this.x = startX;
     this.z = startZ;
-    this.model.root.position.set(this.x, heightAt(this.x, this.z), this.z);
+    this.floor = startFloor;
+    this.model.root.position.set(this.x, visualHeight(this.x, this.z, this.floor, this.team), this.z);
   }
 
-  // (moveX, moveZ): desired world-space direction, any length (normalized
-  // here). Facing is NOT set here: the local character's heading tracks the
-  // camera yaw continuously (GameController calls model.setFacingAngle every
-  // frame), so turning the mouse turns the character even while stationary -
-  // deriving facing from velocity left a still character showing its face to
-  // a freely-orbiting camera.
   update(dt: number, moveX: number, moveZ: number, carrying: boolean) {
     const speed = carrying ? CARRY_SPEED : PLAYER_SPEED;
 
@@ -55,28 +50,47 @@ export class CharacterController {
       this.vz = 0;
     }
 
+    // Derive floor from the new position (a walked-onto staircase/ladder flips
+    // it), then collide against that floor's walls, exactly like the server.
+    this.floor = resolveFloor(this.x, this.z, this.floor, this.team);
     this.resolveCollisions();
     this.x = Math.max(0, Math.min(WORLD_WIDTH, this.x));
     this.z = Math.max(0, Math.min(WORLD_HEIGHT, this.z));
+    // Re-resolve after collision in case the slide pushed us across a midline.
+    this.floor = resolveFloor(this.x, this.z, this.floor, this.team);
 
-    // Ground height is a pure function of (x, z) - the 2D movement/collision
-    // math above is untouched; this only decides where the model sits.
-    this.model.root.position.set(this.x, heightAt(this.x, this.z), this.z);
+    this.model.root.position.set(this.x, visualHeight(this.x, this.z, this.floor, this.team), this.z);
     this.model.update(dt, speedFraction);
   }
 
-  // Server-authoritative snap for phases outside "playing" or while jailed -
-  // mirrors the 2D build's body.reset(x, y): hard-set position, zero velocity.
-  freeze(x: number, z: number) {
+  // Server-authoritative snap (phase changes / jail). Floor comes from the
+  // server so the character lands on the right level.
+  freeze(x: number, z: number, floor: number) {
     this.x = x;
     this.z = z;
+    this.floor = floor;
     this.vx = 0;
     this.vz = 0;
-    this.model.root.position.set(this.x, heightAt(this.x, this.z), this.z);
+    this.model.root.position.set(this.x, visualHeight(this.x, this.z, this.floor, this.team), this.z);
+  }
+
+  // Colliders active on the character's current floor: every wall on that floor
+  // (or a floor-less world-boundary wall) plus this team's own sealed connectors
+  // (its bedroom/basement stairs & ladders - solid to the owner, like the old
+  // sealed doors; the enemy walks through them).
+  private activeColliders(): Rect[] {
+    const rects: Rect[] = [];
+    for (const w of WALLS) {
+      if (w.floor === undefined || w.floor === this.floor) rects.push(w);
+    }
+    for (const c of CONNECTORS) {
+      if (c.sealedFor === this.team) rects.push(c.rect);
+    }
+    return rects;
   }
 
   private resolveCollisions() {
-    for (const r of this.colliderRects) {
+    for (const r of this.activeColliders()) {
       const closestX = Math.max(r.x1, Math.min(this.x, r.x2));
       const closestZ = Math.max(r.y1, Math.min(this.z, r.y2));
       const dx = this.x - closestX;

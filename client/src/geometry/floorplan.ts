@@ -1,11 +1,18 @@
 // Engine-agnostic floor plan data + zone logic - deliberately has no Phaser or
 // Three.js imports (constants.ts is plain data, safe to depend on), so this can
-// be shared by any renderer. Mirrors server/src/zones.ts by hand - keep both in
+// be shared by any renderer. Mirrors server/src/zones.ts BY HAND - keep both in
 // sync.
 //
-// All tables below are written in the ORIGINAL 2D layout's coordinates
-// (1600x900) and scaled by WORLD_SCALE at module load, exactly like the server
-// does - so the raw numbers stay hand-comparable between the two files.
+// VERTICAL town-house model: two mirrored houses flank a shared garden, and each
+// house stacks three floors on the SAME (x,y) footprint, told apart by a discrete
+// `floor` (-1 basement, 0 ground/living, +1 bedrooms). The garden and backyards
+// exist only at ground level. You move between floors by WALKING across a
+// connector (interior staircase / backyard ladder / cellar-steps), which flips
+// your floor as you cross it - see CONNECTORS / resolveFloor.
+//
+// All tables are written in the ORIGINAL 2D layout's coordinates (1600x900) and
+// scaled by WORLD_SCALE at module load, exactly like the server - so the raw
+// numbers stay hand-comparable between the two files.
 import { COLORS, WORLD_SCALE } from "../constants";
 
 export type Team = "A" | "B";
@@ -18,46 +25,49 @@ export type ZoneId =
   | "bedroomA"
   | "livingA"
   | "basementA"
-  | "backyardA";
+  | "backyardA"
+  | "void";
 
 const S = WORLD_SCALE;
 
 // ---- zone lookup ----
 
-// Columns, left to right: backyard B | house B | garden | house A | backyard A
-const YARD_B_MAX = 140 * S;
-const HOUSE_B_MAX = 540 * S;
-const HOUSE_A_MIN = 1060 * S;
-const YARD_A_MIN = 1460 * S;
-// Rows within a house column: bedroom | living | basement
-const BEDROOM_MAX_Y = 200 * S;
-const BASEMENT_MIN_Y = 620 * S;
+// Columns, left to right: backyard B | house B | garden | house A | backyard A.
+// Backyards widened (was 140) so they don't feel cramped under the taller walls.
+const YARD_B_MAX = 240 * S;
+const HOUSE_B_MAX = 620 * S;
+const GARDEN_MAX = 980 * S; // == HOUSE_A_MIN
+const HOUSE_A_MAX = 1360 * S; // == YARD_A_MIN
+const HOUSE_B_MIN = YARD_B_MAX;
+const HOUSE_A_MIN = GARDEN_MAX;
+// The two bedrooms split the top floor north/south here (a partition + door).
+export const BEDROOM_SPLIT_Y = 450 * S;
 
-export function getZoneAt(x: number, y: number): ZoneId {
+export function getZoneAt(x: number, y: number, floor: number): ZoneId {
+  if (floor >= 1) {
+    if (x >= HOUSE_B_MIN && x < HOUSE_B_MAX) return "bedroomB";
+    if (x >= HOUSE_A_MIN && x < HOUSE_A_MAX) return "bedroomA";
+    return "void";
+  }
+  if (floor <= -1) {
+    if (x >= HOUSE_B_MIN && x < HOUSE_B_MAX) return "basementB";
+    if (x >= HOUSE_A_MIN && x < HOUSE_A_MAX) return "basementA";
+    return "void";
+  }
   if (x < YARD_B_MAX) return "backyardB";
-  if (x < HOUSE_B_MAX) {
-    if (y < BEDROOM_MAX_Y) return "bedroomB";
-    if (y < BASEMENT_MIN_Y) return "livingB";
-    return "basementB";
-  }
-  if (x < HOUSE_A_MIN) return "garden";
-  if (x < YARD_A_MIN) {
-    if (y < BEDROOM_MAX_Y) return "bedroomA";
-    if (y < BASEMENT_MIN_Y) return "livingA";
-    return "basementA";
-  }
+  if (x < HOUSE_B_MAX) return "livingB";
+  if (x < GARDEN_MAX) return "garden";
+  if (x < HOUSE_A_MAX) return "livingA";
   return "backyardA";
 }
 
-export function isEnemyBedroom(team: Team, x: number, y: number): boolean {
-  const zone = getZoneAt(x, y);
+export function isEnemyBedroom(team: Team, x: number, y: number, floor: number): boolean {
+  const zone = getZoneAt(x, y, floor);
   return (team === "B" && zone === "bedroomA") || (team === "A" && zone === "bedroomB");
 }
 
-// Own home = own living room, own master bedroom, or own BACKYARD - the yard is
-// part of the property, so owners can lock intruders caught there too.
-export function isOwnHome(team: Team, x: number, y: number): boolean {
-  const zone = getZoneAt(x, y);
+export function isOwnHome(team: Team, x: number, y: number, floor: number): boolean {
+  const zone = getZoneAt(x, y, floor);
   if (team === "B") return zone === "livingB" || zone === "bedroomB" || zone === "backyardB";
   return zone === "livingA" || zone === "bedroomA" || zone === "backyardA";
 }
@@ -66,7 +76,15 @@ export function jailBasementForTeam(team: Team): ZoneId {
   return team === "A" ? "basementB" : "basementA";
 }
 
-// ---- static level geometry (top-down floor plan) ----
+// The discrete floor a zone lives on - the single knob the renderer multiplies
+// by STORY_HEIGHT to get the zone's floor elevation.
+export function zoneFloor(zone: ZoneId): number {
+  if (zone === "bedroomB" || zone === "bedroomA") return 1;
+  if (zone === "basementB" || zone === "basementA") return -1;
+  return 0;
+}
+
+// ---- static level geometry (per floor) ----
 
 export interface ZoneRect {
   id: ZoneId;
@@ -76,6 +94,7 @@ export interface ZoneRect {
   xMax: number;
   yMin: number;
   yMax: number;
+  floor: number;
   color: number;
 }
 
@@ -85,49 +104,18 @@ function scaleZone(z: ZoneRect): ZoneRect {
 
 export const ZONE_RECTS: ZoneRect[] = (
   [
-    { id: "backyardB", label: "BACKYARD B", xMin: 0, xMax: 140, yMin: 0, yMax: 900, color: COLORS.backyard },
-  { id: "bedroomB", label: "MASTER BEDROOM B", xMin: 140, xMax: 540, yMin: 0, yMax: 200, color: COLORS.bedroom },
-  {
-    id: "livingB",
-    label: "LIVING ROOM B",
-    labelColor: "#8c3f10",
-    xMin: 140,
-    xMax: 540,
-    yMin: 200,
-    yMax: 620,
-    color: COLORS.livingB,
-  },
-  {
-    id: "basementB",
-    label: "BASEMENT B (jail: Team A)",
-    xMin: 140,
-    xMax: 540,
-    yMin: 620,
-    yMax: 900,
-    color: COLORS.basement,
-  },
-  { id: "garden", label: "GARDEN", xMin: 540, xMax: 1060, yMin: 0, yMax: 900, color: COLORS.garden },
-  { id: "bedroomA", label: "MASTER BEDROOM A", xMin: 1060, xMax: 1460, yMin: 0, yMax: 200, color: COLORS.bedroom },
-  {
-    id: "livingA",
-    label: "LIVING ROOM A",
-    labelColor: "#12467c",
-    xMin: 1060,
-    xMax: 1460,
-    yMin: 200,
-    yMax: 620,
-    color: COLORS.livingA,
-  },
-  {
-    id: "basementA",
-    label: "BASEMENT A (jail: Team B)",
-    xMin: 1060,
-    xMax: 1460,
-    yMin: 620,
-    yMax: 900,
-    color: COLORS.basement,
-  },
-    { id: "backyardA", label: "BACKYARD A", xMin: 1460, xMax: 1600, yMin: 0, yMax: 900, color: COLORS.backyard },
+    // ---- floor 0 (ground) ----
+    { id: "backyardB", label: "BACKYARD B", xMin: 0, xMax: 240, yMin: 0, yMax: 900, floor: 0, color: COLORS.backyard },
+    { id: "livingB", label: "LIVING ROOM B", labelColor: "#8c3f10", xMin: 240, xMax: 620, yMin: 0, yMax: 900, floor: 0, color: COLORS.livingB },
+    { id: "garden", label: "GARDEN", xMin: 620, xMax: 980, yMin: 0, yMax: 900, floor: 0, color: COLORS.garden },
+    { id: "livingA", label: "LIVING ROOM A", labelColor: "#12467c", xMin: 980, xMax: 1360, yMin: 0, yMax: 900, floor: 0, color: COLORS.livingA },
+    { id: "backyardA", label: "BACKYARD A", xMin: 1360, xMax: 1600, yMin: 0, yMax: 900, floor: 0, color: COLORS.backyard },
+    // ---- floor +1 (top): two bedrooms per house, one logical cash zone ----
+    { id: "bedroomB", label: "BEDROOMS B", xMin: 240, xMax: 620, yMin: 0, yMax: 900, floor: 1, color: COLORS.bedroom },
+    { id: "bedroomA", label: "BEDROOMS A", xMin: 980, xMax: 1360, yMin: 0, yMax: 900, floor: 1, color: COLORS.bedroom },
+    // ---- floor -1 (basement): the jails ----
+    { id: "basementB", label: "BASEMENT B (jail: Team A)", xMin: 240, xMax: 620, yMin: 0, yMax: 900, floor: -1, color: COLORS.basement },
+    { id: "basementA", label: "BASEMENT A (jail: Team B)", xMin: 980, xMax: 1360, yMin: 0, yMax: 900, floor: -1, color: COLORS.basement },
   ] as ZoneRect[]
 ).map(scaleZone);
 
@@ -138,82 +126,142 @@ export interface Rect {
   y2: number;
 }
 
+export interface FloorRect extends Rect {
+  floor?: number; // undefined = every floor (the world boundary)
+}
+
 function scaleRect<T extends Rect>(r: T): T {
   return { ...r, x1: r.x1 * S, y1: r.y1 * S, x2: r.x2 * S, y2: r.y2 * S };
 }
 
-// Every solid wall segment in the map. Door gaps are simply left out of this list;
-// the DOORS list below fills each gap with either a visible mat (passable) or a
-// sealed block (the owning team can't use its own bedroom/basement doors).
-export const WALLS: Rect[] = [
-  // world boundary
-  { x1: 0, y1: 0, x2: 1600, y2: 10 },
-  { x1: 0, y1: 890, x2: 1600, y2: 900 },
-  { x1: 0, y1: 0, x2: 10, y2: 900 },
-  { x1: 1590, y1: 0, x2: 1600, y2: 900 },
-  // backyard B | house B (x=140): gaps bedroom y[60,140], living y[370,450], basement y[700,780]
-  { x1: 135, y1: 0, x2: 145, y2: 60 },
-  { x1: 135, y1: 140, x2: 145, y2: 370 },
-  { x1: 135, y1: 450, x2: 145, y2: 700 },
-  { x1: 135, y1: 780, x2: 145, y2: 900 },
-  // house B | garden (x=540): 3 living-room door gaps y[230,290], y[380,440], y[530,590]
-  { x1: 535, y1: 0, x2: 545, y2: 230 },
-  { x1: 535, y1: 290, x2: 545, y2: 380 },
-  { x1: 535, y1: 440, x2: 545, y2: 530 },
-  { x1: 535, y1: 590, x2: 545, y2: 900 },
-  // bedroom B | living B (y=200): gap x[300,380]
-  { x1: 140, y1: 195, x2: 300, y2: 205 },
-  { x1: 380, y1: 195, x2: 540, y2: 205 },
-  // living B | basement B (y=620): gap x[300,380]
-  { x1: 140, y1: 615, x2: 300, y2: 625 },
-  { x1: 380, y1: 615, x2: 540, y2: 625 },
-  // garden | house A (x=1060): 3 living-room door gaps (mirror)
-  { x1: 1055, y1: 0, x2: 1065, y2: 230 },
-  { x1: 1055, y1: 290, x2: 1065, y2: 380 },
-  { x1: 1055, y1: 440, x2: 1065, y2: 530 },
-  { x1: 1055, y1: 590, x2: 1065, y2: 900 },
-  // house A | backyard A (x=1460): gaps (mirror of B)
-  { x1: 1455, y1: 0, x2: 1465, y2: 60 },
-  { x1: 1455, y1: 140, x2: 1465, y2: 370 },
-  { x1: 1455, y1: 450, x2: 1465, y2: 700 },
-  { x1: 1455, y1: 780, x2: 1465, y2: 900 },
-  // bedroom A | living A (y=200): gap x[1220,1300]
-  { x1: 1060, y1: 195, x2: 1220, y2: 205 },
-  { x1: 1300, y1: 195, x2: 1460, y2: 205 },
-  // living A | basement A (y=620): gap x[1220,1300]
-  { x1: 1060, y1: 615, x2: 1220, y2: 625 },
-  { x1: 1300, y1: 615, x2: 1460, y2: 625 },
-].map(scaleRect);
+// Per-floor wall segments (door/connector gaps left out). Mirrors
+// server/src/zones.ts WALLS exactly (same pre-scale numbers). Used for the
+// wall geometry AND, filtered by the player's current floor, for collision.
+export const WALLS: FloorRect[] = (
+  [
+    // world boundary (all floors)
+    { x1: 0, y1: 0, x2: 1600, y2: 10 },
+    { x1: 0, y1: 890, x2: 1600, y2: 900 },
+    { x1: 0, y1: 0, x2: 10, y2: 900 },
+    { x1: 1590, y1: 0, x2: 1600, y2: 900 },
 
-// The 8 doors per house from the concept sketch: 3 house entry/exit (living <->
-// garden), 2 for the master bedroom (living side + backyard side), 2 for the
-// basement (living side + backyard side), 1 living <-> backyard. `sealedFor`
-// marks doors the OWNING team cannot pass (their own bedroom/basement doors), so
-// they can't camp the rooms the enemy needs to raid - the enemy walks through
-// freely.
-export interface Door extends Rect {
+    // ===== floor 0: backyards | livings | garden =====
+    // backyard B | living B (x=240): gaps ladder y[150,290], yard door y[370,450], cellar y[610,750]
+    { x1: 235, y1: 10, x2: 245, y2: 150, floor: 0 },
+    { x1: 235, y1: 290, x2: 245, y2: 370, floor: 0 },
+    { x1: 235, y1: 450, x2: 245, y2: 610, floor: 0 },
+    { x1: 235, y1: 750, x2: 245, y2: 890, floor: 0 },
+    // living B | garden (x=620): 3 door gaps y[230,290], y[380,440], y[530,590]
+    { x1: 615, y1: 10, x2: 625, y2: 230, floor: 0 },
+    { x1: 615, y1: 290, x2: 625, y2: 380, floor: 0 },
+    { x1: 615, y1: 440, x2: 625, y2: 530, floor: 0 },
+    { x1: 615, y1: 590, x2: 625, y2: 890, floor: 0 },
+    // garden | living A (x=980): mirror
+    { x1: 975, y1: 10, x2: 985, y2: 230, floor: 0 },
+    { x1: 975, y1: 290, x2: 985, y2: 380, floor: 0 },
+    { x1: 975, y1: 440, x2: 985, y2: 530, floor: 0 },
+    { x1: 975, y1: 590, x2: 985, y2: 890, floor: 0 },
+    // living A | backyard A (x=1360): mirror of B
+    { x1: 1355, y1: 10, x2: 1365, y2: 150, floor: 0 },
+    { x1: 1355, y1: 290, x2: 1365, y2: 370, floor: 0 },
+    { x1: 1355, y1: 450, x2: 1365, y2: 610, floor: 0 },
+    { x1: 1355, y1: 750, x2: 1365, y2: 890, floor: 0 },
+
+    // ===== floor +1: two bedrooms per house =====
+    { x1: 235, y1: 0, x2: 245, y2: 150, floor: 1 },
+    { x1: 235, y1: 290, x2: 245, y2: 900, floor: 1 },
+    { x1: 615, y1: 0, x2: 625, y2: 900, floor: 1 },
+    { x1: 240, y1: 0, x2: 620, y2: 10, floor: 1 },
+    { x1: 240, y1: 890, x2: 620, y2: 900, floor: 1 },
+    { x1: 240, y1: 445, x2: 400, y2: 455, floor: 1 }, // partition, door gap x[400,480]
+    { x1: 480, y1: 445, x2: 620, y2: 455, floor: 1 },
+    { x1: 1355, y1: 0, x2: 1365, y2: 150, floor: 1 },
+    { x1: 1355, y1: 290, x2: 1365, y2: 900, floor: 1 },
+    { x1: 975, y1: 0, x2: 985, y2: 900, floor: 1 },
+    { x1: 980, y1: 0, x2: 1360, y2: 10, floor: 1 },
+    { x1: 980, y1: 890, x2: 1360, y2: 900, floor: 1 },
+    { x1: 980, y1: 445, x2: 1130, y2: 455, floor: 1 }, // partition, door gap x[1130,1210]
+    { x1: 1210, y1: 445, x2: 1360, y2: 455, floor: 1 },
+
+    // ===== floor -1: one open basement per house =====
+    { x1: 235, y1: 0, x2: 245, y2: 610, floor: -1 },
+    { x1: 235, y1: 750, x2: 245, y2: 900, floor: -1 },
+    { x1: 615, y1: 0, x2: 625, y2: 900, floor: -1 },
+    { x1: 240, y1: 0, x2: 620, y2: 10, floor: -1 },
+    { x1: 240, y1: 890, x2: 620, y2: 900, floor: -1 },
+    { x1: 1355, y1: 0, x2: 1365, y2: 610, floor: -1 },
+    { x1: 1355, y1: 750, x2: 1365, y2: 900, floor: -1 },
+    { x1: 975, y1: 0, x2: 985, y2: 900, floor: -1 },
+    { x1: 980, y1: 0, x2: 1360, y2: 10, floor: -1 },
+    { x1: 980, y1: 890, x2: 1360, y2: 900, floor: -1 },
+  ] as FloorRect[]
+).map((r) => ({ ...scaleRect(r), floor: r.floor }));
+
+// ---- floor connectors (staircases / ladders / cellar-steps) ----
+// Mirror of server/src/zones.ts CONNECTORS. A connector forces the floor by
+// which side of `mid` (along `axis`) you're on; `sealedFor` marks the ones the
+// owning team can't use (its own bedroom/basement stairs & ladders).
+export interface Connector {
+  id: string;
+  rect: Rect;
+  axis: "x" | "y";
+  mid: number;
+  floorLow: number;
+  floorHigh: number;
   sealedFor?: Team;
 }
 
-export const DOORS: Door[] = (
+const scaleConnector = (c: Connector): Connector => ({ ...c, rect: scaleRect(c.rect), mid: c.mid * S });
+
+export const CONNECTORS: Connector[] = (
   [
-    // ---- house B ----
-    { x1: 133, y1: 60, x2: 147, y2: 140, sealedFor: "B" }, // bedroom <-> backyard
-    { x1: 300, y1: 193, x2: 380, y2: 207, sealedFor: "B" }, // bedroom <-> living
-    { x1: 133, y1: 370, x2: 147, y2: 450 }, // living <-> backyard
-    { x1: 533, y1: 230, x2: 547, y2: 290 }, // living <-> garden (top)
-    { x1: 533, y1: 380, x2: 547, y2: 440 }, // living <-> garden (middle)
-    { x1: 533, y1: 530, x2: 547, y2: 590 }, // living <-> garden (bottom)
-    { x1: 300, y1: 613, x2: 380, y2: 627, sealedFor: "B" }, // basement <-> living
-    { x1: 133, y1: 700, x2: 147, y2: 780, sealedFor: "B" }, // basement <-> backyard
-    // ---- house A (mirror) ----
-    { x1: 1453, y1: 60, x2: 1467, y2: 140, sealedFor: "A" }, // bedroom <-> backyard
-    { x1: 1220, y1: 193, x2: 1300, y2: 207, sealedFor: "A" }, // bedroom <-> living
-    { x1: 1453, y1: 370, x2: 1467, y2: 450 }, // living <-> backyard
-    { x1: 1053, y1: 230, x2: 1067, y2: 290 }, // living <-> garden (top)
-    { x1: 1053, y1: 380, x2: 1067, y2: 440 }, // living <-> garden (middle)
-    { x1: 1053, y1: 530, x2: 1067, y2: 590 }, // living <-> garden (bottom)
-    { x1: 1220, y1: 613, x2: 1300, y2: 627, sealedFor: "A" }, // basement <-> living
-    { x1: 1453, y1: 700, x2: 1467, y2: 780, sealedFor: "A" }, // basement <-> backyard
-  ] as Door[]
+    { id: "stairUpB", rect: { x1: 380, y1: 150, x2: 540, y2: 290 }, axis: "y", mid: 220, floorLow: 1, floorHigh: 0, sealedFor: "B" },
+    { id: "stairDownB", rect: { x1: 380, y1: 610, x2: 540, y2: 750 }, axis: "y", mid: 680, floorLow: 0, floorHigh: -1, sealedFor: "B" },
+    { id: "ladderB", rect: { x1: 160, y1: 150, x2: 320, y2: 290 }, axis: "x", mid: 240, floorLow: 0, floorHigh: 1, sealedFor: "B" },
+    { id: "cellarB", rect: { x1: 160, y1: 610, x2: 320, y2: 750 }, axis: "x", mid: 240, floorLow: 0, floorHigh: -1, sealedFor: "B" },
+    { id: "stairUpA", rect: { x1: 1060, y1: 150, x2: 1220, y2: 290 }, axis: "y", mid: 220, floorLow: 1, floorHigh: 0, sealedFor: "A" },
+    { id: "stairDownA", rect: { x1: 1060, y1: 610, x2: 1220, y2: 750 }, axis: "y", mid: 680, floorLow: 0, floorHigh: -1, sealedFor: "A" },
+    { id: "ladderA", rect: { x1: 1280, y1: 150, x2: 1440, y2: 290 }, axis: "x", mid: 1360, floorLow: 1, floorHigh: 0, sealedFor: "A" },
+    { id: "cellarA", rect: { x1: 1280, y1: 610, x2: 1440, y2: 750 }, axis: "x", mid: 1360, floorLow: -1, floorHigh: 0, sealedFor: "A" },
+  ] as Connector[]
+).map(scaleConnector);
+
+function inRect(x: number, y: number, r: Rect): boolean {
+  return x >= r.x1 && x <= r.x2 && y >= r.y1 && y <= r.y2;
+}
+
+export function resolveFloor(x: number, y: number, floor: number, team: Team): number {
+  for (const c of CONNECTORS) {
+    if (c.sealedFor === team) continue;
+    if (!inRect(x, y, c.rect)) continue;
+    if (floor !== c.floorLow && floor !== c.floorHigh) continue;
+    const coord = c.axis === "x" ? x : y;
+    return coord < c.mid ? c.floorLow : c.floorHigh;
+  }
+  return floor;
+}
+
+export function connectorBlocks(x: number, y: number, team: Team): boolean {
+  for (const c of CONNECTORS) {
+    if (c.sealedFor === team && inRect(x, y, c.rect)) return true;
+  }
+  return false;
+}
+
+// ---- passable ground-floor doors (flat mats, no floor change) ----
+// The vertical connectors above carry all the between-floor doorways; these are
+// the same-level openings: living<->garden (x3 per house) and living<->backyard.
+export const DOORS: Rect[] = (
+  [
+    // house B
+    { x1: 233, y1: 370, x2: 247, y2: 450 }, // living <-> backyard
+    { x1: 613, y1: 230, x2: 627, y2: 290 }, // living <-> garden (top)
+    { x1: 613, y1: 380, x2: 627, y2: 440 }, // living <-> garden (middle)
+    { x1: 613, y1: 530, x2: 627, y2: 590 }, // living <-> garden (bottom)
+    // house A (mirror)
+    { x1: 1353, y1: 370, x2: 1367, y2: 450 },
+    { x1: 973, y1: 230, x2: 987, y2: 290 },
+    { x1: 973, y1: 380, x2: 987, y2: 440 },
+    { x1: 973, y1: 530, x2: 987, y2: 590 },
+  ] as Rect[]
 ).map(scaleRect);
