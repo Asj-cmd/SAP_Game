@@ -54,7 +54,14 @@ const BOT_VALUE_RESCUE = 6000; // a freed teammate outweighs any single bundle
 const BOT_VALUE_DEFEND = 4000; // scaled by zeal per bot (see below)
 const BOT_VALUE_BUNDLE = 3000; // every bundle is worth the same base
 const BOT_VALUE_PATROL = 150; // fallback: wins only when everything else is bad
-const BOT_COST_WEIGHT = 0.6; // score lost per world-unit of graph path distance
+// Score lost per PRE-SCALE unit of graph path distance. Path costs are measured
+// in world units (which scale with WORLD_SCALE), so every use divides the cost
+// by WORLD_SCALE first - keeping this value/distance balance identical at any
+// map size. (At 0.6 against the old 2.5x map the far upstairs bedroom scored
+// below patrol once the map doubled, so bots never climbed to raid; expressing
+// cost in pre-scale units fixes that regardless of scale.)
+const BOT_COST_WEIGHT = 1.5;
+const botCost = (worldDistance: number) => (BOT_COST_WEIGHT * worldDistance) / WORLD_SCALE;
 const BOT_RISK_WEIGHT = 1400; // score lost per enemy sitting on a chokepoint/target
 const BOT_VISION_RADIUS = 420 * WORLD_SCALE; // how far away an enemy registers as a threat
 const BOT_COMMIT_BONUS = 700; // stickiness: current task wins ties and near-ties
@@ -827,7 +834,7 @@ export class GameRoom extends Room<GameState> {
       // is the only candidate while carrying (near-hard priority by value).
       const homeNode: BotNodeId = team === "B" ? "livingB" : "livingA";
       const cost = this.botPathCost(bot, team, homeNode, BOT_WAYPOINTS[homeNode]);
-      options.push({ task: "deposit", targetId: "", via: null, score: BOT_VALUE_DEPOSIT - BOT_COST_WEIGHT * cost });
+      options.push({ task: "deposit", targetId: "", via: null, score: BOT_VALUE_DEPOSIT - botCost(cost) });
     } else {
       // Rescue: each jailed teammate, scored on both routes. A teammate
       // already en route makes it near-worthless (double coord penalty - two
@@ -843,7 +850,7 @@ export class GameRoom extends Room<GameState> {
             task: "rescue",
             targetId: pid,
             via,
-            score: BOT_VALUE_RESCUE - BOT_COST_WEIGHT * plan.cost - BOT_RISK_WEIGHT * plan.threat - coord + noise(),
+            score: BOT_VALUE_RESCUE - botCost(plan.cost) - BOT_RISK_WEIGHT * plan.threat - coord + noise(),
           });
         }
       });
@@ -864,7 +871,7 @@ export class GameRoom extends Room<GameState> {
           task: "defend",
           targetId: pid,
           via: null,
-          score: value - BOT_COST_WEIGHT * cost - coord + noise(),
+          score: value - botCost(cost) - coord + noise(),
         });
       });
 
@@ -886,7 +893,7 @@ export class GameRoom extends Room<GameState> {
             task: "raid",
             targetId: b.id,
             via,
-            score: BOT_VALUE_BUNDLE - BOT_COST_WEIGHT * plan.cost - BOT_RISK_WEIGHT * plan.threat - coord + noise(),
+            score: BOT_VALUE_BUNDLE - botCost(plan.cost) - BOT_RISK_WEIGHT * plan.threat - coord + noise(),
           });
         }
       });
