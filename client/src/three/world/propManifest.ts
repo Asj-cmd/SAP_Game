@@ -1,12 +1,13 @@
-// Static placement data for Phase 3's house/garden dressing - plain data, no
-// Three.js imports, so it stays hand-comparable against the floor plan like
-// geometry/floorplan.ts's own tables. Every coordinate here is PRE-SCALE
-// (original 1600x900 layout); HouseDresser multiplies by WORLD_SCALE at
-// placement time, exactly like floorplan.ts's scaleRect pattern.
+// Static placement data for the house/garden dressing - plain data, no Three.js
+// imports, so it stays hand-comparable against the floor plan like
+// geometry/floorplan.ts. Every coordinate is PRE-SCALE (original 1600x900
+// layout); HouseDresser multiplies x by WORLD_SCALE and y by WORLD_SCALE *
+// MAP_DEPTH_SCALE at placement time, and lifts each prop to its FLOOR's height.
 //
-// House A is never listed directly: HouseDresser mirrors HOUSE_B_PROPS with
-// x' = 1600 - x, rot' = (360 - rot) % 360. GARDEN_PROPS sits on the shared
-// center column, so it's listed once and not mirrored.
+// Props are purely DECORATIVE (never collidable) so they signal each room's
+// purpose without eating the interior movement space. House A is mirrored from
+// HOUSE_B_PROPS (x' = 1600 - x, rot' = (360 - rot) % 360); GARDEN_PROPS sits on
+// the shared centre column and isn't mirrored.
 
 export type PropName =
   | "bed"
@@ -33,111 +34,59 @@ export interface PropPlacement {
   prop: PropName;
   x: number;
   y: number;
+  floor: number; // -1 basement, 0 living/ground, +1 bedrooms
   rot: Rot;
-  solid: boolean;
 }
 
+// House B footprint x[240,620]. Stacked floors share it. Props hug the walls,
+// clear of the stair footprints (x[380,540]), the ladder/cellar landings
+// (x[240,320]), the living spawns (x[300,460] y[420,520]) and the partition
+// door (x[400,480] y=450).
 export const HOUSE_B_PROPS: PropPlacement[] = [
-  // bedroom B (cash room): bundle row centers y=70, score rows y=125/165 -
-  // furniture stays in the y<55 north band, clear of both.
-  { prop: "bed", x: 265, y: 22, rot: 0, solid: true },
-  { prop: "nightstand", x: 310, y: 15, rot: 0, solid: true },
-  { prop: "dresser", x: 440, y: 14, rot: 0, solid: true },
-  { prop: "rug", x: 340, y: 110, rot: 0, solid: false },
-  // living B: spawns at (280,330),(400,330),(280,450),(400,450) - center stays clear.
-  { prop: "sofa", x: 163, y: 280, rot: 90, solid: true },
-  { prop: "tv", x: 521, y: 325, rot: 270, solid: true },
-  { prop: "coffee_table", x: 215, y: 275, rot: 0, solid: true },
-  { prop: "rug", x: 340, y: 390, rot: 0, solid: false },
-  // basement B: jail spot (340,760); cell = 3 bar panels open to the north.
-  { prop: "jail_bars", x: 335, y: 822, rot: 0, solid: true },
-  { prop: "jail_bars", x: 295, y: 785, rot: 90, solid: true },
-  { prop: "jail_bars", x: 385, y: 785, rot: 90, solid: true },
-  { prop: "crate", x: 170, y: 835, rot: 0, solid: true },
-  { prop: "crate", x: 205, y: 855, rot: 0, solid: true },
-  { prop: "crate", x: 180, y: 800, rot: 90, solid: true },
-  { prop: "shelf", x: 524, y: 700, rot: 90, solid: true },
-  { prop: "pipes", x: 460, y: 890, rot: 0, solid: false },
-  // backyard B
-  { prop: "shed", x: 55, y: 48, rot: 0, solid: true },
-  { prop: "bush", x: 70, y: 250, rot: 0, solid: false },
-  { prop: "bush", x: 40, y: 550, rot: 0, solid: false },
-  { prop: "bush", x: 90, y: 640, rot: 0, solid: false },
-  { prop: "fence", x: 16, y: 180, rot: 90, solid: false },
-  { prop: "fence", x: 16, y: 520, rot: 90, solid: false },
-  { prop: "fence", x: 16, y: 840, rot: 90, solid: false },
-  // Decorative-only density pass (graphics quality gate): clear open lawn
-  // between the door gaps, away from the shed/existing bushes/fences and
-  // every solid rect above - purely visual, not solid, doesn't touch any
-  // existing entry.
-  { prop: "bush", x: 110, y: 200, rot: 0, solid: false },
-  { prop: "bush", x: 100, y: 850, rot: 0, solid: false },
+  // ---- top floor, north bedroom (floor +1, y < 450) ----
+  { prop: "bed", x: 300, y: 90, floor: 1, rot: 0 },
+  { prop: "nightstand", x: 360, y: 70, floor: 1, rot: 0 },
+  { prop: "dresser", x: 570, y: 90, floor: 1, rot: 0 },
+  { prop: "rug", x: 430, y: 330, floor: 1, rot: 0 },
+  // ---- top floor, south bedroom (floor +1, y > 450) ----
+  { prop: "bed", x: 300, y: 830, floor: 1, rot: 0 },
+  { prop: "dresser", x: 570, y: 830, floor: 1, rot: 0 },
+  { prop: "rug", x: 430, y: 600, floor: 1, rot: 0 },
+  // ---- living room (floor 0) ----
+  { prop: "sofa", x: 300, y: 200, floor: 0, rot: 90 },
+  { prop: "tv", x: 575, y: 200, floor: 0, rot: 270 },
+  { prop: "coffee_table", x: 320, y: 260, floor: 0, rot: 0 },
+  { prop: "rug", x: 430, y: 470, floor: 0, rot: 0 },
+  // ---- basement (floor -1): a jail cell around the jail spot (430,830) ----
+  { prop: "jail_bars", x: 380, y: 800, floor: -1, rot: 90 },
+  { prop: "jail_bars", x: 490, y: 800, floor: -1, rot: 90 },
+  { prop: "jail_bars", x: 435, y: 885, floor: -1, rot: 0 },
+  { prop: "crate", x: 290, y: 820, floor: -1, rot: 0 },
+  { prop: "shelf", x: 575, y: 700, floor: -1, rot: 90 },
+  { prop: "pipes", x: 430, y: 90, floor: -1, rot: 0 },
+  // ---- backyard (floor 0, x[0,240]) ----
+  { prop: "shed", x: 60, y: 80, floor: 0, rot: 0 },
+  { prop: "bush", x: 70, y: 360, floor: 0, rot: 0 },
+  { prop: "bush", x: 50, y: 560, floor: 0, rot: 0 },
+  { prop: "bush", x: 90, y: 820, floor: 0, rot: 0 },
+  { prop: "fence", x: 16, y: 200, floor: 0, rot: 90 },
+  { prop: "fence", x: 16, y: 520, floor: 0, rot: 90 },
 ];
 
-const STONE_PATH_Y = 430;
-const STONE_PATH_X_START = 600;
-const STONE_PATH_X_END = 1020;
-const STONE_PATH_STEP = 60;
+const STONE_PATH_Y = 450;
 const stonePathTiles: PropPlacement[] = [];
-for (let x = STONE_PATH_X_START; x <= STONE_PATH_X_END; x += STONE_PATH_STEP) {
-  stonePathTiles.push({ prop: "stone_path", x, y: STONE_PATH_Y, rot: 0, solid: false });
+for (let x = 660; x <= 940; x += 60) {
+  stonePathTiles.push({ prop: "stone_path", x, y: STONE_PATH_Y, floor: 0, rot: 0 });
 }
 
+// Garden (floor 0, x[620,980]) - shared, not mirrored.
 export const GARDEN_PROPS: PropPlacement[] = [
-  { prop: "tree", x: 620, y: 120, rot: 0, solid: true },
-  { prop: "tree", x: 980, y: 150, rot: 0, solid: true },
-  { prop: "tree", x: 600, y: 800, rot: 0, solid: true },
-  { prop: "tree", x: 1000, y: 780, rot: 0, solid: true },
-  { prop: "bush", x: 700, y: 300, rot: 0, solid: false },
-  { prop: "bush", x: 900, y: 620, rot: 0, solid: false },
-  { prop: "bush", x: 760, y: 700, rot: 0, solid: false },
-  { prop: "fountain", x: 800, y: 180, rot: 0, solid: true },
-  // Decorative-only density pass: open lawn away from the path/trees/
-  // fountain/existing bushes above.
-  { prop: "bush", x: 650, y: 250, rot: 0, solid: false },
-  { prop: "bush", x: 900, y: 800, rot: 0, solid: false },
+  { prop: "tree", x: 660, y: 140, floor: 0, rot: 0 },
+  { prop: "tree", x: 940, y: 170, floor: 0, rot: 0 },
+  { prop: "tree", x: 660, y: 780, floor: 0, rot: 0 },
+  { prop: "tree", x: 940, y: 760, floor: 0, rot: 0 },
+  { prop: "fountain", x: 800, y: 250, floor: 0, rot: 0 },
+  { prop: "bush", x: 720, y: 560, floor: 0, rot: 0 },
+  { prop: "bush", x: 880, y: 640, floor: 0, rot: 0 },
   ...stonePathTiles,
 ];
-
-// ---- windows ----
-//
-// Pre-scale center-along-wall + a 60-unit PRE-SCALE width (WindowBuilder
-// multiplies it by WORLD_SCALE like every other run-axis dimension, so
-// windows stay proportional to their walls at any map scale), vertical extent
-// WINDOW_SILL..WINDOW_HEAD (see constants.ts). `axis` names which coordinate
-// of the wall is FIXED (the wall's own plane): "x" for the vertical walls
-// dividing backyard|house|garden (garden-side / backyard-side windows), "y"
-// for the horizontal world-boundary wall (the north-facing bedroom windows).
-// House B only; WindowBuilder finds the containing WALLS rect and mirrors
-// nothing here - the WINDOWS export below already includes both houses.
-export interface WindowSpec {
-  axis: "x" | "y";
-  plane: number;
-  center: number;
-  width: number;
-}
-
-const WINDOW_WIDTH = 60;
-
-const HOUSE_B_WINDOWS: WindowSpec[] = [
-  // east wall (garden side), plane x=540
-  { axis: "x", plane: 540, center: 100, width: WINDOW_WIDTH },
-  { axis: "x", plane: 540, center: 335, width: WINDOW_WIDTH },
-  { axis: "x", plane: 540, center: 485, width: WINDOW_WIDTH },
-  // west wall (backyard side), plane x=140
-  { axis: "x", plane: 140, center: 250, width: WINDOW_WIDTH },
-  { axis: "x", plane: 140, center: 320, width: WINDOW_WIDTH },
-  // north boundary wall, plane y=5
-  { axis: "y", plane: 5, center: 250, width: WINDOW_WIDTH },
-  { axis: "y", plane: 5, center: 430, width: WINDOW_WIDTH },
-];
-
-// House A mirror: vertical walls (axis "x") flip the wall's plane (x' = 1600
-// - x) and keep the run-direction center as-is; the shared north boundary
-// wall (axis "y") keeps its plane and flips the run-direction center instead
-// - exactly matching how WALLS/DOORS mirror across the map's centerline.
-function mirrorWindow(w: WindowSpec): WindowSpec {
-  return w.axis === "x" ? { ...w, plane: 1600 - w.plane } : { ...w, center: 1600 - w.center };
-}
-
-export const WINDOWS: WindowSpec[] = [...HOUSE_B_WINDOWS, ...HOUSE_B_WINDOWS.map(mirrorWindow)];

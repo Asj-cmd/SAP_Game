@@ -7,6 +7,7 @@ import { CharacterController } from "./CharacterController";
 import { CameraRig } from "./CameraRig";
 import { RemoteCharacterSync } from "./RemoteCharacterSync";
 import { CashBundleView } from "./CashBundleView";
+import { dressHouses } from "./world/HouseDresser";
 import { RoofSystem, ROOFED_ZONES } from "./world/RoofSystem";
 import { HudOverlay } from "../ui/HudOverlay";
 import {
@@ -137,6 +138,10 @@ export class GameController {
 
     gc.roofSystem = new RoofSystem();
     gc.roofSystem.build(gc.sceneManager.scene);
+
+    // Decorative furniture/dressing (non-collidable) - fire and forget; props
+    // stream in as their GLBs resolve without blocking the match start.
+    void dressHouses(gc.sceneManager.scene);
 
     gc.sceneManager.start((dt) => gc.tick(dt));
     return gc;
