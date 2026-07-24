@@ -60,9 +60,15 @@ const BOT_VALUE_PATROL = 150; // fallback: wins only when everything else is bad
 // map size. (At 0.6 against the old 2.5x map the far upstairs bedroom scored
 // below patrol once the map doubled, so bots never climbed to raid; expressing
 // cost in pre-scale units fixes that regardless of scale.)
-const BOT_COST_WEIGHT = 1.5;
+const BOT_COST_WEIGHT = 0.6;
 const botCost = (worldDistance: number) => (BOT_COST_WEIGHT * worldDistance) / WORLD_SCALE;
-const BOT_RISK_WEIGHT = 1400; // score lost per enemy sitting on a chokepoint/target
+// Score lost per enemy sitting on a route waypoint/target. Kept well below the
+// bundle/rescue values so a defended enemy house is still worth raiding (that's
+// the whole game) - threat only BIASES which route (front stairs vs backyard
+// ladder) a bot takes, it never vetoes the objective. (Was 1400: with the
+// scaled map's wider threat coverage, two home defenders made every raid score
+// negative and bots deadlocked into patrolling their own houses.)
+const BOT_RISK_WEIGHT = 450;
 const BOT_VISION_RADIUS = 420 * WORLD_SCALE; // how far away an enemy registers as a threat
 const BOT_COMMIT_BONUS = 700; // stickiness: current task wins ties and near-ties
 const BOT_COORD_PENALTY = 2600; // a teammate already handles it - usually pick something else
@@ -102,6 +108,7 @@ interface BotMind {
   task: BotTask | null;
   targetId: string; // player id (rescue/defend) or bundle id (raid)
   via: BotNodeId | null; // pending route waypoint (cleared on arrival)
+  moveTarget: BotNodeId | null; // committed next graph hop (hysteresis - see botMoveToward)
   nextDecideAt: number; // clock ms of the next scheduled re-score
   lastSeenHomeAt: number; // defend: last tick the target was inside our home turf
   patrolNode: BotNodeId | null;
@@ -739,6 +746,7 @@ export class GameRoom extends Room<GameState> {
         task: null,
         targetId: "",
         via: null,
+        moveTarget: null,
         nextDecideAt: 0,
         lastSeenHomeAt: 0,
         patrolNode: null,
@@ -809,6 +817,7 @@ export class GameRoom extends Room<GameState> {
     if (!mind.task) {
       mind.targetId = "";
       mind.via = null;
+      mind.moveTarget = null;
     }
   }
 
@@ -917,6 +926,7 @@ export class GameRoom extends Room<GameState> {
       mind.task = best.task;
       mind.targetId = best.targetId;
       mind.via = best.via;
+      mind.moveTarget = null; // fresh route for the new objective
       if (best.task === "defend") mind.lastSeenHomeAt = now;
       if (best.task !== "patrol") mind.patrolNode = null;
     }
@@ -1044,7 +1054,7 @@ export class GameRoom extends Room<GameState> {
     // enemy yard, BFS's fewest-hops path IS the yard door.
     if (mind.via && (mind.task === "rescue" || mind.task === "raid")) {
       if (distance(bot, BOT_WAYPOINTS[mind.via]) > BOT_VIA_ARRIVE) {
-        this.botMoveToward(bot, team, mind.via, BOT_WAYPOINTS[mind.via], dt);
+        this.botMoveToward(bot, team, mind, mind.via, BOT_WAYPOINTS[mind.via], dt);
         return;
       }
       mind.via = null;
@@ -1053,7 +1063,7 @@ export class GameRoom extends Room<GameState> {
       case "rescue": {
         const target = this.state.players.get(mind.targetId)!;
         const jailZone = jailBasementForTeam(team);
-        this.botMoveToward(bot, team, jailZone as BotNodeId, target, dt);
+        this.botMoveToward(bot, team, mind, jailZone as BotNodeId, target, dt);
         if (getZoneAt(bot.x, bot.y, bot.floor) === jailZone && distance(bot, target) <= LOCK_RESCUE_RANGE) {
           this.handleRescue(id, { targetId: target.id });
         }
@@ -1062,7 +1072,7 @@ export class GameRoom extends Room<GameState> {
       case "defend": {
         const target = this.state.players.get(mind.targetId)!;
         const { node, aim } = this.defendApproach(team, target, id);
-        this.botMoveToward(bot, team, node, aim, dt);
+        this.botMoveToward(bot, team, mind, node, aim, dt);
         if (isOwnHome(team, bot.x, bot.y, bot.floor) && distance(bot, target) <= LOCK_RESCUE_RANGE) {
           this.handleLock(id, { targetId: target.id });
         }
@@ -1071,7 +1081,7 @@ export class GameRoom extends Room<GameState> {
       case "deposit": {
         const homeNode: BotNodeId = team === "B" ? "livingB" : "livingA";
         const bundle = this.findCarriedBundle(id);
-        this.botMoveToward(bot, team, homeNode, BOT_WAYPOINTS[homeNode], dt);
+        this.botMoveToward(bot, team, mind, homeNode, BOT_WAYPOINTS[homeNode], dt);
         if (bundle && isOwnHome(team, bot.x, bot.y, bot.floor)) {
           this.handleDeposit(id, { bundleId: bundle.id });
         }
@@ -1080,7 +1090,7 @@ export class GameRoom extends Room<GameState> {
       case "raid": {
         const bundle = this.state.cashBundles.get(mind.targetId)!;
         const bedroomNode = nearestBotNode(bundle.x, bundle.y, 1);
-        this.botMoveToward(bot, team, bedroomNode, bundle, dt);
+        this.botMoveToward(bot, team, mind, bedroomNode, bundle, dt);
         if (isEnemyBedroom(team, bot.x, bot.y, bot.floor) && distance(bot, bundle) <= PICKUP_RANGE) {
           this.handlePickup(id, { bundleId: bundle.id });
         }
@@ -1096,7 +1106,7 @@ export class GameRoom extends Room<GameState> {
           mind.patrolNode = options[Math.floor(Math.random() * options.length)];
           mind.patrolUntil = now + BOT_PATROL_MIN_MS + Math.random() * BOT_PATROL_VAR_MS;
         }
-        this.botMoveToward(bot, team, mind.patrolNode, BOT_WAYPOINTS[mind.patrolNode], dt);
+        this.botMoveToward(bot, team, mind, mind.patrolNode, BOT_WAYPOINTS[mind.patrolNode], dt);
         return;
       }
       default:
@@ -1113,17 +1123,34 @@ export class GameRoom extends Room<GameState> {
   // circle-vs-AABB resolve after each (see moveBotWithCollision), the same
   // collision a human gets client-side. Bots therefore slide along walls
   // instead of passing through them.
-  private botMoveToward(bot: PlayerState, team: Team, targetNode: BotNodeId, finalTarget: { x: number; y: number }, dt: number) {
+  private botMoveToward(
+    bot: PlayerState,
+    team: Team,
+    mind: BotMind,
+    targetNode: BotNodeId,
+    finalTarget: { x: number; y: number },
+    dt: number
+  ) {
     const currentNode = nearestBotNode(bot.x, bot.y, bot.floor);
     const speed = bot.isCarryingCash ? BOT_CARRY_SPEED : BOT_SPEED;
 
     let aim: { x: number; y: number };
     if (currentNode === targetNode) {
       aim = finalTarget;
+      mind.moveTarget = null;
     } else {
-      const path = findBotPath(team, currentNode, targetNode);
-      const next = path.length > 1 ? path[1] : targetNode;
-      aim = BOT_WAYPOINTS[next];
+      // Waypoint HYSTERESIS: commit to a next hop and hold it until we actually
+      // reach it, instead of re-picking from nearestBotNode every tick. Without
+      // this a bot midway between two adjacent nodes whose shortest-path
+      // next-hops point opposite ways (e.g. a living room and its stairwell
+      // spur) ping-pongs in place and never sets out. Recompute only when the
+      // hop is unset or reached.
+      const arrive = 30 * WORLD_SCALE;
+      if (!mind.moveTarget || distance(bot, BOT_WAYPOINTS[mind.moveTarget]) < arrive) {
+        const path = findBotPath(team, currentNode, targetNode);
+        mind.moveTarget = path.length > 1 ? path[1] : targetNode;
+      }
+      aim = BOT_WAYPOINTS[mind.moveTarget];
     }
 
     const dx = aim.x - bot.x;

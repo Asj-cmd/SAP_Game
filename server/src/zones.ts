@@ -23,9 +23,14 @@
 // scale with it too, so travel times and balance match the 2D-tuned values.
 export const WORLD_SCALE = 5.0; // MUST match client/src/constants.ts WORLD_SCALE
 const S = WORLD_SCALE;
+// Depth (y-axis) squash - MUST match client/src/constants.ts MAP_DEPTH_SCALE.
+// Compresses ONLY the y-axis so each stacked floor is a compact room rather
+// than a long hall; x (the across-garden raid distance) is never squashed, so
+// balance is unchanged. Applied to every y coordinate and y-axis connector mid.
+const YS = 0.6;
 
 export const WORLD_WIDTH = 1600 * S;
-export const WORLD_HEIGHT = 900 * S;
+export const WORLD_HEIGHT = 900 * S * YS;
 
 // Column boundaries, left to right: backyard B | house B | garden | house A | backyard A.
 // Backyards were widened (was 140) so they don't feel cramped under the taller walls.
@@ -94,7 +99,7 @@ export function jailBasementForTeam(team: Team): "basementB" | "basementA" {
   return team === "A" ? "basementB" : "basementA";
 }
 
-const scalePoint = (p: { x: number; y: number }) => ({ x: p.x * S, y: p.y * S });
+const scalePoint = (p: { x: number; y: number }) => ({ x: p.x * S, y: p.y * S * YS });
 
 export interface Rect {
   x1: number;
@@ -102,7 +107,7 @@ export interface Rect {
   x2: number;
   y2: number;
 }
-const scaleRect = (r: Rect): Rect => ({ x1: r.x1 * S, y1: r.y1 * S, x2: r.x2 * S, y2: r.y2 * S });
+const scaleRect = (r: Rect): Rect => ({ x1: r.x1 * S, y1: r.y1 * S * YS, x2: r.x2 * S, y2: r.y2 * S * YS });
 
 function inRect(x: number, y: number, r: Rect): boolean {
   return x >= r.x1 && x <= r.x2 && y >= r.y1 && y <= r.y2;
@@ -132,7 +137,7 @@ export interface Connector {
 const scaleConnector = (c: Connector): Connector => ({
   ...c,
   rect: scaleRect(c.rect),
-  mid: c.mid * S,
+  mid: c.axis === "y" ? c.mid * S * YS : c.mid * S,
 });
 
 export const CONNECTORS: Connector[] = (
@@ -304,7 +309,7 @@ function randInt(min: number, max: number): number {
 export function randomBedroomPoint(house: "B" | "A"): { x: number; y: number } {
   const areas = BEDROOM_AREAS[house];
   const a = areas[Math.floor(Math.random() * areas.length)];
-  return { x: randInt(a.x1 * S, a.x2 * S), y: randInt(a.y1 * S, a.y2 * S) };
+  return { x: randInt(a.x1 * S, a.x2 * S), y: randInt(a.y1 * S * YS, a.y2 * S * YS) };
 }
 
 export function randomBedroomPoints(house: "B" | "A", count: number): { x: number; y: number }[] {

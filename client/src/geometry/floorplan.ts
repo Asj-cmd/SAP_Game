@@ -13,7 +13,7 @@
 // All tables are written in the ORIGINAL 2D layout's coordinates (1600x900) and
 // scaled by WORLD_SCALE at module load, exactly like the server - so the raw
 // numbers stay hand-comparable between the two files.
-import { COLORS, WORLD_SCALE } from "../constants";
+import { COLORS, WORLD_SCALE, MAP_DEPTH_SCALE } from "../constants";
 
 export type Team = "A" | "B";
 export type ZoneId =
@@ -29,6 +29,10 @@ export type ZoneId =
   | "void";
 
 const S = WORLD_SCALE;
+// Y-axis (depth) is squashed by this so rooms aren't long halls - see
+// constants.ts. Applied to EVERY y coordinate (and y-axis connector midlines)
+// at load; x is never squashed. Server/src/zones.ts mirrors it exactly.
+const YS = MAP_DEPTH_SCALE;
 
 // ---- zone lookup ----
 
@@ -41,7 +45,7 @@ const HOUSE_A_MAX = 1360 * S; // == YARD_A_MIN
 const HOUSE_B_MIN = YARD_B_MAX;
 const HOUSE_A_MIN = GARDEN_MAX;
 // The two bedrooms split the top floor north/south here (a partition + door).
-export const BEDROOM_SPLIT_Y = 450 * S;
+export const BEDROOM_SPLIT_Y = 450 * S * YS;
 
 export function getZoneAt(x: number, y: number, floor: number): ZoneId {
   if (floor >= 1) {
@@ -99,7 +103,7 @@ export interface ZoneRect {
 }
 
 function scaleZone(z: ZoneRect): ZoneRect {
-  return { ...z, xMin: z.xMin * S, xMax: z.xMax * S, yMin: z.yMin * S, yMax: z.yMax * S };
+  return { ...z, xMin: z.xMin * S, xMax: z.xMax * S, yMin: z.yMin * S * YS, yMax: z.yMax * S * YS };
 }
 
 export const ZONE_RECTS: ZoneRect[] = (
@@ -131,7 +135,7 @@ export interface FloorRect extends Rect {
 }
 
 function scaleRect<T extends Rect>(r: T): T {
-  return { ...r, x1: r.x1 * S, y1: r.y1 * S, x2: r.x2 * S, y2: r.y2 * S };
+  return { ...r, x1: r.x1 * S, y1: r.y1 * S * YS, x2: r.x2 * S, y2: r.y2 * S * YS };
 }
 
 // Per-floor wall segments (door/connector gaps left out). Mirrors
@@ -211,7 +215,11 @@ export interface Connector {
   sealedFor?: Team;
 }
 
-const scaleConnector = (c: Connector): Connector => ({ ...c, rect: scaleRect(c.rect), mid: c.mid * S });
+const scaleConnector = (c: Connector): Connector => ({
+  ...c,
+  rect: scaleRect(c.rect),
+  mid: c.axis === "y" ? c.mid * S * YS : c.mid * S,
+});
 
 export const CONNECTORS: Connector[] = (
   [

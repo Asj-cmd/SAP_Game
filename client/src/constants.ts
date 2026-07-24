@@ -16,8 +16,16 @@
 // bumped alongside this so the taller footprint stays a proportionate
 // multi-story building rather than a flat, wide box.
 export const WORLD_SCALE = 5.0;
+// Depth (y-axis) squash: the footprint spanned the full 900-deep map, making
+// each stacked floor a long hall rather than a compact town-house. Compressing
+// ONLY the y-axis by this factor (applied identically here, in
+// geometry/floorplan.ts, and in server/src/zones.ts) shrinks room DEPTH toward
+// the room's width so the 3-storey stack reads as a proportionate house, while
+// leaving the across-the-garden raid distance (x) - and thus balance -
+// untouched. server/src/zones.ts holds a matching copy: keep both in sync.
+export const MAP_DEPTH_SCALE = 0.6;
 export const WORLD_WIDTH = 1600 * WORLD_SCALE;
-export const WORLD_HEIGHT = 900 * WORLD_SCALE;
+export const WORLD_HEIGHT = 900 * WORLD_SCALE * MAP_DEPTH_SCALE;
 
 export const PLAYER_SPEED = 220 * WORLD_SCALE;
 export const CARRY_SPEED = 160 * WORLD_SCALE;
