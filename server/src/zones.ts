@@ -27,7 +27,7 @@ const S = WORLD_SCALE;
 // Compresses ONLY the y-axis so each stacked floor is a compact room rather
 // than a long hall; x (the across-garden raid distance) is never squashed, so
 // balance is unchanged. Applied to every y coordinate and y-axis connector mid.
-const YS = 0.6;
+const YS = 0.72;
 
 export const WORLD_WIDTH = 1600 * S;
 export const WORLD_HEIGHT = 900 * S * YS;
