@@ -1,6 +1,7 @@
 import * as THREE from "three";
 import { GLTFLoader } from "three/addons/loaders/GLTFLoader.js";
 import { PROP_SCALE } from "../../constants";
+import { MODEL_PATHS } from "../../assets";
 import type { PropName } from "./propManifest";
 
 const loader = new GLTFLoader();
@@ -46,7 +47,7 @@ function applyMaterialRoles(root: THREE.Object3D) {
 function loadTemplate(prop: PropName): Promise<THREE.Object3D> {
   let template = templates.get(prop);
   if (!template) {
-    template = loader.loadAsync(`/models/props/${prop}.glb`).then((gltf) => {
+    template = loader.loadAsync(MODEL_PATHS.prop(prop)).then((gltf) => {
       applyMaterialRoles(gltf.scene);
       return gltf.scene;
     });

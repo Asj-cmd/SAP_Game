@@ -3,14 +3,15 @@ import { GLTFLoader } from "three/addons/loaders/GLTFLoader.js";
 import { COLORS, CHARACTER_SCALE, BUNDLE_SCALE } from "../constants";
 import type { Team } from "../geometry/floorplan";
 
-const BUNDLE_URL = "/models/cashbundle.glb";
+import { MODEL_PATHS } from "../assets";
+const BUNDLE_URL = MODEL_PATHS.cashBundle;
 
 // The four family members (assets/blender/build_family.py). Every client
 // derives the same member for the same player (see pickFamilyVariant), so the
 // cast is consistent across all screens without any server involvement.
 export type FamilyVariant = "father" | "mother" | "son" | "daughter";
 const FAMILY_ORDER: FamilyVariant[] = ["father", "mother", "son", "daughter"];
-const VARIANT_URL = (v: FamilyVariant) => `/models/characters/${v}.glb`;
+const VARIANT_URL = (v: FamilyVariant) => MODEL_PATHS.character(v);
 
 // Head-top height per member in Blender units (from build_family.py's report,
 // hair included) - the carried bundle floats a fixed margin above whoever is

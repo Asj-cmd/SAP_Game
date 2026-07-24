@@ -4,7 +4,8 @@ import type { Room } from "colyseus.js";
 import { BUNDLE_SCALE } from "../constants";
 import { visualHeight } from "./world/HeightField";
 
-const MODEL_URL = "/models/cashbundle.glb";
+import { MODEL_PATHS } from "../assets";
+const MODEL_URL = MODEL_PATHS.cashBundle;
 
 // Ports GameScene.syncCashBundles onto the Blender-authored cashbundle.glb
 // prop (Milestone A2) instead of a 2D rectangle: spawns one clone per bundle
