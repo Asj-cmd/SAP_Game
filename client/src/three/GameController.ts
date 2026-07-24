@@ -115,7 +115,7 @@ export class GameController {
     const selfState = room.state.players.get(gc.localId);
 
     const env = buildEnvironment(gc.localTeam);
-    gc.sceneManager.scene.add(env.wallsMesh, env.floorMesh);
+    gc.sceneManager.scene.add(env.wallsMesh, env.floorMesh, env.glassMesh);
 
     const model = await CharacterModel.load(gc.localTeam, pickFamilyVariant(room.state.players, gc.localId));
     gc.sceneManager.scene.add(model.root);

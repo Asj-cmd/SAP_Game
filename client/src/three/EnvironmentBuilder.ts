@@ -11,6 +11,7 @@ import {
 import { ZONE_RECTS, WALLS, DOORS, CONNECTORS, type Rect, type Team } from "../geometry/floorplan";
 import { floorY } from "./world/HeightField";
 import { buildStaircaseGeoms } from "./world/StaircaseBuilder";
+import { buildWindows } from "./world/WindowBuilder";
 
 // Builds the 3D town-house from the same rect data the server validates against.
 // Two merged meshes: a "walls" mesh (per-floor wall boxes + the local team's own
@@ -47,6 +48,7 @@ export function rectToBox(r: Rect, height: number, yCenter: number, colorHex: nu
 export interface Environment {
   wallsMesh: THREE.Mesh;
   floorMesh: THREE.Mesh;
+  glassMesh: THREE.Mesh;
 }
 
 // Rect `zone` minus every rect in `holes` - a plain grid decomposition (cut
@@ -99,9 +101,24 @@ export function buildEnvironment(localTeam: Team): Environment {
     // Panel on the owner's ground floor over the connector footprint.
     wallGeoms.push(rectToBox(c.rect, WALL_HEIGHT, WALL_HEIGHT / 2, COLORS.doorPanel));
   }
+  // Windows: frames merge into the walls mesh, glass panes into their own mesh.
+  const windows = buildWindows();
+  wallGeoms.push(...windows.frameGeoms);
   const wallsMesh = new THREE.Mesh(mergeGeometries(wallGeoms, false), new THREE.MeshStandardMaterial({ vertexColors: true }));
   wallsMesh.castShadow = true;
   wallsMesh.receiveShadow = true;
+
+  const glassMesh = new THREE.Mesh(
+    mergeGeometries(windows.glassGeoms, false),
+    new THREE.MeshStandardMaterial({
+      color: COLORS.glass,
+      transparent: true,
+      opacity: 0.35,
+      roughness: 0.1,
+      metalness: 0,
+      depthWrite: false,
+    })
+  );
 
   // ---- floor: per-zone slabs (carved where a connector ramp punches through
   // the slab above it) + connector ramps + ground door mats + lawn.
@@ -141,5 +158,5 @@ export function buildEnvironment(localTeam: Team): Environment {
   const floorMesh = new THREE.Mesh(mergeGeometries(floorGeoms, false), new THREE.MeshStandardMaterial({ vertexColors: true }));
   floorMesh.receiveShadow = true;
 
-  return { wallsMesh, floorMesh };
+  return { wallsMesh, floorMesh, glassMesh };
 }
