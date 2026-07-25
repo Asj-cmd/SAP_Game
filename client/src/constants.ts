@@ -1,20 +1,16 @@
-// Central tunables for the whole client. The floor plan itself lives in
-// geometry/floorplan.ts (mirrored by server/src/zones.ts).
+// Central tunables for the whole client. The floor plan itself is defined once
+// in shared/worldGeometry.ts and re-exported by geometry/floorplan.ts.
 //
 // WORLD_SCALE scales the entire floor plan - and, with it, speeds and action
 // ranges, so travel times and gameplay balance stay put at any map size. The
 // CHARACTER, PROPS and the chase camera deliberately do NOT scale: they are
 // authored at true human proportion (character ~83 units tall, a bed ~90 long),
 // so raising WORLD_SCALE simply gives the player more room to move without
-// making the furniture look like toys. server/src/zones.ts holds a matching
-// copy of WORLD_SCALE and MAP_DEPTH_SCALE - keep both in sync.
-export const WORLD_SCALE = 1.25;
-// Depth (y) multiplier, applied ON TOP of WORLD_SCALE. 1.2 (so depth scales by
-// 1.25 * 1.2 = 1.5 while width scales 1.25): rooms were noticeably shallower
-// than they were wide, which is what made them feel cramped to move through.
-export const MAP_DEPTH_SCALE = 1.2;
-export const WORLD_WIDTH = 1900 * WORLD_SCALE;
-export const WORLD_HEIGHT = 700 * WORLD_SCALE * MAP_DEPTH_SCALE;
+// making the furniture look like toys.
+// Map scale + dimensions come from the shared geometry module, so the client
+// cannot drift out of step with the authoritative server.
+export { WORLD_SCALE, MAP_DEPTH_SCALE, WORLD_WIDTH, WORLD_HEIGHT } from "../../shared/worldGeometry";
+import { WORLD_SCALE, WORLD_WIDTH } from "../../shared/worldGeometry";
 
 export const PLAYER_SPEED = 220 * WORLD_SCALE;
 export const CARRY_SPEED = 160 * WORLD_SCALE;

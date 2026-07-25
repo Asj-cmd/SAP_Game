@@ -65,7 +65,23 @@ app.get("/health", (_req, res) => {
 // open one link" work: run `npm run build` in client/, then start this server.
 // (In local dev you instead run the Vite dev server on :5173; the client detects
 // dev mode and points itself back at this server on :2567.)
-const clientDist = path.resolve(__dirname, "../../client/dist");
+// Walk up from wherever this file ended up until we find the built client.
+// Resolving by a fixed number of "../" hops broke as soon as the compiled
+// output layout changed (it moved when shared/ joined the server's build), so
+// search instead - correct regardless of how deep dist/ nests.
+function findClientDist(from: string): string {
+  let dir = from;
+  for (let i = 0; i < 8; i++) {
+    const candidate = path.join(dir, "client", "dist");
+    if (fs.existsSync(candidate)) return candidate;
+    const parent = path.dirname(dir);
+    if (parent === dir) break;
+    dir = parent;
+  }
+  return path.resolve(from, "../../client/dist"); // best-effort fallback
+}
+
+const clientDist = findClientDist(__dirname);
 if (fs.existsSync(clientDist)) {
   app.use(express.static(clientDist));
   // SPA fallback for any non-API GET route.

@@ -9,15 +9,17 @@ place to touch.
 ## Layout
 
 ```
+shared/            THE canonical world geometry - no engine, no deps. Both
+                     sides re-export it; change the floor plan only here.
 server/            Colyseus, AUTHORITATIVE game logic. Renders nothing.
-  src/zones.ts        World geometry + zone/floor lookup + bot pathing graph.
+  src/zones.ts        Re-export of shared/worldGeometry.ts.
   src/rooms/GameRoom.ts  Rules, round/match flow, AI bots. (Tuning block up top.)
   src/schema/GameState.ts  Networked state (players, bundles, floor axis).
   src/index.ts        HTTP + WS transport; also serves the built client.
 client/            Three.js, RENDERING + input only. Sends intent, never mutates rules.
   src/constants.ts    ALL client tunables (the control panel).
   src/assets.ts       Central model-URL registry (asset swap seam).
-  src/geometry/floorplan.ts  Engine-agnostic world data — MIRROR of zones.ts.
+  src/geometry/floorplan.ts  Re-export of shared geometry + zone colours.
   src/three/          The renderer: scene, camera, character, environment, HUD.
   src/three/world/    Procedural geometry (walls, roofs, stairs, windows, props).
 assets/blender/    Headless bpy scripts that author the committed .glb models.
@@ -25,9 +27,8 @@ assets/blender/    Headless bpy scripts that author the committed .glb models.
 
 ## The two layers (this is what makes a Godot port feasible)
 
-- **Engine-agnostic core** — pure numbers, no Three.js: `server/src/zones.ts`,
-  `client/src/geometry/floorplan.ts`, `client/src/three/world/HeightField.ts`,
-  and all of `GameRoom.ts`. Zones, floors, distances, collision math, scoring,
+- **Engine-agnostic core** — pure numbers, no Three.js: `shared/worldGeometry.ts`,
+  `client/src/three/world/HeightField.ts`, and all of `GameRoom.ts`. Zones, floors, distances, collision math, scoring,
   jail/rescue, bot AI — nothing here imports a renderer. **A Godot (or any) port
   reuses this logic as-is and only re-implements the rendering layer.**
 - **Rendering layer** — everything else under `client/src/three/` + the HUD.
@@ -37,21 +38,35 @@ assets/blender/    Headless bpy scripts that author the committed .glb models.
 
 | Knob | File | Effect |
 |---|---|---|
-| `WORLD_SCALE` | `constants.ts` **and** `zones.ts` | Scales the whole floor plan (x & y); speeds/ranges scale with it so balance is invariant. |
-| `MAP_DEPTH_SCALE` | `constants.ts` **and** `zones.ts` (`YS`) | Squashes only the y-axis (room depth) — compact vs. roomy interiors. |
+| `WORLD_SCALE` | `shared/worldGeometry.ts` | Scales the whole floor plan (x & y); speeds/ranges scale with it so balance is invariant. |
+| `MAP_DEPTH_SCALE` | `shared/worldGeometry.ts` | Squashes only the y-axis (room depth) — compact vs. roomy interiors. |
 | `STORY_HEIGHT` | `constants.ts` | One vertical unit: wall height, floor rise, ceiling, roof, camera cap all derive from it. Client-only (server floor axis is discrete). |
 | Speeds / action ranges | `constants.ts` (client) + top of `GameRoom.ts` (server) | Movement + pickup/lock/rescue distances. |
 | Bot AI weights | top of `GameRoom.ts` (`BOT_*` block) | One labelled table = the AI's whole personality; a difficulty tier is a different table, never a logic edit. |
 
-## The one manual coupling: the geometry SYNC CONTRACT
+## Geometry: ONE canonical definition
 
-`client/src/geometry/floorplan.ts` is a **hand-kept mirror** of
-`server/src/zones.ts` (same pre-scale numbers: `WALLS`, `CONNECTORS`,
-`WORLD_SCALE`, `MAP_DEPTH_SCALE`/`YS`, zone boundaries, `getZoneAt`,
-`resolveFloor`). They are separate because client (Vite/ESM) and server
-(tsc/CommonJS) are separate packages. **If you change world geometry, change
-both files identically.** (A future cleanup could hoist this into a shared
-package; today the duplication is intentional and localized to these two files.)
+`shared/worldGeometry.ts` is the single source of truth for the world: scale,
+zone bounds, walls, connectors, doorways, balconies, spawns, jail spots, bundle
+areas and the bot graph, plus every helper (`getZoneAt`, `resolveFloor`,
+`connectorBlocks`, `findBotPath`). Both sides re-export it:
+
+- `server/src/zones.ts` → pure re-export.
+- `client/src/geometry/floorplan.ts` → re-export **plus** presentation only
+  (zone colours/labels, which the simulation has no opinion about).
+
+It is deliberately dependency-free — no Three.js, no Colyseus, no colours — so
+it is portable and could be dumped to JSON for another engine to load.
+
+This was previously two hand-synced copies, which drifted and caused real bugs
+(the client kept ladder railings the server had dropped: invisible walls only
+the client collided with). **Change geometry in `shared/worldGeometry.ts` only.**
+
+Build wiring: the server's `tsconfig.json` compiles `../shared` (so `rootDir` is
+the repo root and output is `server/dist/server/src/…`; `index.ts` locates the
+built client by searching upward rather than by fixed `../` hops). Vite is given
+`server.fs.allow: ['..']` so the dev server can serve a file above the client
+root; production builds inline it.
 
 ## Floor model (the stacked town-house)
 
