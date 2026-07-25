@@ -20,6 +20,8 @@ import {
   findBotPath,
   nearestBotNode,
   WALLS,
+  CONNECTORS,
+  type Rect,
 } from "../zones";
 
 // Server ranges are a touch more generous than the client's prompt range so an
@@ -1194,6 +1196,10 @@ export class GameRoom extends Room<GameState> {
     const sx = dx / steps;
     const sy = dy / steps;
     for (let i = 0; i < steps; i++) {
+      // Escape geometry first (see unstickBot): a floor flip changes WHICH walls
+      // are solid, so a bot can arrive standing inside one, and move-and-slide
+      // alone would revert every axis and leave it stuck forever.
+      this.unstickBot(bot, team);
       const ox = bot.x;
       bot.x = clamp(bot.x + sx, 0, WORLD_WIDTH);
       if (this.botHitsWall(bot, team)) bot.x = ox;
@@ -1211,6 +1217,51 @@ export class GameRoom extends Room<GameState> {
   // world-boundary wall, which spans all floors) or one of its OWN sealed
   // connectors - the exact colliders a human on this team gets client-side (the
   // enemy's sealed stairs/ladders are open to this team, so not colliders for it).
+  // Every collider active for `bot` right now: the walls of its CURRENT floor
+  // (plus floor-less world-boundary walls) and its own team's sealed connectors.
+  private *botColliders(bot: PlayerState, team: Team): Generator<Rect> {
+    for (const w of WALLS) {
+      if (w.floor === undefined || w.floor === bot.floor) yield w;
+    }
+    for (const c of CONNECTORS) {
+      if (c.sealedFor === team) yield c.rect;
+    }
+  }
+
+  // Push a bot out of anything it overlaps - a no-op unless it is genuinely
+  // stuck inside geometry, so it costs nothing in the normal case.
+  private unstickBot(bot: PlayerState, team: Team) {
+    for (let pass = 0; pass < 4; pass++) {
+      let corrected = false;
+      for (const r of this.botColliders(bot, team)) {
+        const cx = Math.max(r.x1, Math.min(bot.x, r.x2));
+        const cy = Math.max(r.y1, Math.min(bot.y, r.y2));
+        const dx = bot.x - cx;
+        const dy = bot.y - cy;
+        const distSq = dx * dx + dy * dy;
+        if (distSq >= BOT_RADIUS * BOT_RADIUS) continue;
+        const dist = Math.sqrt(distSq);
+        if (dist > 1e-6) {
+          const push = (BOT_RADIUS - dist) / dist;
+          bot.x += dx * push;
+          bot.y += dy * push;
+        } else {
+          const west = bot.x - r.x1;
+          const east = r.x2 - bot.x;
+          const north = bot.y - r.y1;
+          const south = r.y2 - bot.y;
+          const min = Math.min(west, east, north, south);
+          if (min === west) bot.x = r.x1 - BOT_RADIUS;
+          else if (min === east) bot.x = r.x2 + BOT_RADIUS;
+          else if (min === north) bot.y = r.y1 - BOT_RADIUS;
+          else bot.y = r.y2 + BOT_RADIUS;
+        }
+        corrected = true;
+      }
+      if (!corrected) break;
+    }
+  }
+
   private botHitsWall(bot: PlayerState, team: Team): boolean {
     const hits = (r: { x1: number; y1: number; x2: number; y2: number }) => {
       const cx = Math.max(r.x1, Math.min(bot.x, r.x2));

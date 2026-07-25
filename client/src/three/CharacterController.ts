@@ -86,6 +86,12 @@ export class CharacterController {
     const sx = dx / steps;
     const sz = dz / steps;
     for (let i = 0; i < steps; i++) {
+      // Escape first if we are ALREADY inside geometry. Crossing a connector's
+      // midline flips the floor, which changes WHICH walls are solid - so a body
+      // can be left standing inside a wall that only exists on the floor it just
+      // arrived on. Move-and-slide alone can never free it (every axis ends in a
+      // wall, so both get reverted) and the player is stuck for good.
+      this.unstick();
       const ox = this.x;
       this.x = Math.max(0, Math.min(WORLD_WIDTH, this.x + sx));
       if (this.hitsWall()) this.x = ox;
@@ -96,6 +102,51 @@ export class CharacterController {
       // switches to the destination floor's walls exactly as we arrive.
       this.floor = resolveFloor(this.x, this.z, this.floor, this.team);
     }
+    this.unstick();
+  }
+
+  // Push the body out of anything it overlaps, shallowest penetration first.
+  // A no-op in the normal case (nothing overlapping), so it costs nothing.
+  private unstick() {
+    for (let pass = 0; pass < 4; pass++) {
+      let corrected = false;
+      for (const r of this.activeColliders()) {
+        const cx = Math.max(r.x1, Math.min(this.x, r.x2));
+        const cz = Math.max(r.y1, Math.min(this.z, r.y2));
+        const dx = this.x - cx;
+        const dz = this.z - cz;
+        const distSq = dx * dx + dz * dz;
+        if (distSq >= CHAR_RADIUS * CHAR_RADIUS) continue;
+        const dist = Math.sqrt(distSq);
+        if (dist > 1e-6) {
+          const push = (CHAR_RADIUS - dist) / dist;
+          this.x += dx * push;
+          this.z += dz * push;
+        } else {
+          // Dead centre inside the rect - leave by the nearest face.
+          const west = this.x - r.x1;
+          const east = r.x2 - this.x;
+          const north = this.z - r.y1;
+          const south = r.y2 - this.z;
+          const min = Math.min(west, east, north, south);
+          if (min === west) this.x = r.x1 - CHAR_RADIUS;
+          else if (min === east) this.x = r.x2 + CHAR_RADIUS;
+          else if (min === north) this.z = r.y1 - CHAR_RADIUS;
+          else this.z = r.y2 + CHAR_RADIUS;
+        }
+        corrected = true;
+      }
+      if (!corrected) break;
+    }
+  }
+
+  private *activeColliders(): Generator<Rect> {
+    for (const w of WALLS) {
+      if (w.floor === undefined || w.floor === this.floor) yield w;
+    }
+    for (const c of CONNECTORS) {
+      if (c.sealedFor === this.team) yield c.rect;
+    }
   }
 
   // Colliders active right now: every wall on the current floor (or a
@@ -103,19 +154,12 @@ export class CharacterController {
   // its bedroom/basement stairs and balcony ladders, which are solid to the
   // owner and open to raiders.
   private hitsWall(): boolean {
-    const overlaps = (r: Rect) => {
+    for (const r of this.activeColliders()) {
       const cx = Math.max(r.x1, Math.min(this.x, r.x2));
       const cz = Math.max(r.y1, Math.min(this.z, r.y2));
       const dx = this.x - cx;
       const dz = this.z - cz;
-      return dx * dx + dz * dz < CHAR_RADIUS * CHAR_RADIUS;
-    };
-    for (const w of WALLS) {
-      if (w.floor !== undefined && w.floor !== this.floor) continue;
-      if (overlaps(w)) return true;
-    }
-    for (const c of CONNECTORS) {
-      if (c.sealedFor === this.team && overlaps(c.rect)) return true;
+      if (dx * dx + dz * dz < CHAR_RADIUS * CHAR_RADIUS) return true;
     }
     return false;
   }

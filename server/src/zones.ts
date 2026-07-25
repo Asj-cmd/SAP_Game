@@ -143,17 +143,17 @@ export interface Connector {
 // the walls, leaving a walkable ring around them on the ground floor.
 const HOUSE_B_CONNECTORS: Connector[] = [
   // Interior staircase living(0) <-> landing(+1), mid-room. Walk NORTH to climb.
-  { id: "stairUpB", rect: { x1: 450, y1: 260, x2: 570, y2: 420 }, axis: "y", mid: 340, floorLow: 1, floorHigh: 0, sealedFor: "B", kind: "stair" },
+  { id: "stairUpB", rect: { x1: 450, y1: 275, x2: 570, y2: 405 }, axis: "y", mid: 340, floorLow: 1, floorHigh: 0, sealedFor: "B", kind: "stair" },
   // Interior staircase living(0) <-> basement(-1), south-west. Walk SOUTH to descend.
   { id: "stairDownB", rect: { x1: 290, y1: 480, x2: 410, y2: 640 }, axis: "y", mid: 560, floorLow: 0, floorHigh: -1, sealedFor: "B", kind: "stair" },
   // Balcony LADDERS: short, steep runs from the yard up to each bedroom's
   // balcony. They stop at the balcony's outer edge (x=200) - the balcony itself
   // (x 200..260) is flat at floor +1, so you step off the ladder onto it.
-  { id: "ladderB_N", rect: { x1: 140, y1: 80, x2: 200, y2: 160 }, axis: "x", mid: 170, floorLow: 0, floorHigh: 1, sealedFor: "B", kind: "ladder" },
-  { id: "ladderB_S", rect: { x1: 140, y1: 540, x2: 200, y2: 620 }, axis: "x", mid: 170, floorLow: 0, floorHigh: 1, sealedFor: "B", kind: "ladder" },
+  { id: "ladderB_N", rect: { x1: 140, y1: 96, x2: 200, y2: 144 }, axis: "x", mid: 170, floorLow: 0, floorHigh: 1, sealedFor: "B", kind: "ladder" },
+  { id: "ladderB_S", rect: { x1: 140, y1: 556, x2: 200, y2: 604 }, axis: "x", mid: 170, floorLow: 0, floorHigh: 1, sealedFor: "B", kind: "ladder" },
   // Cellar steps: descend in the YARD (outside the wall) and enter the basement
   // through the floor -1 doorway, so they never pierce the living-room floor.
-  { id: "cellarB", rect: { x1: 150, y1: 440, x2: 260, y2: 520 }, axis: "x", mid: 205, floorLow: 0, floorHigh: -1, sealedFor: "B", kind: "stair" },
+  { id: "cellarB", rect: { x1: 150, y1: 456, x2: 260, y2: 504 }, axis: "x", mid: 205, floorLow: 0, floorHigh: -1, sealedFor: "B", kind: "stair" },
 ];
 
 const mirrorConnector = (c: Connector): Connector => ({

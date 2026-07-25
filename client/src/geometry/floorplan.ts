@@ -141,11 +141,11 @@ export interface Connector {
 }
 
 const HOUSE_B_CONNECTORS: Connector[] = [
-  { id: "stairUpB", rect: { x1: 450, y1: 260, x2: 570, y2: 420 }, axis: "y", mid: 340, floorLow: 1, floorHigh: 0, sealedFor: "B", kind: "stair" },
+  { id: "stairUpB", rect: { x1: 450, y1: 275, x2: 570, y2: 405 }, axis: "y", mid: 340, floorLow: 1, floorHigh: 0, sealedFor: "B", kind: "stair" },
   { id: "stairDownB", rect: { x1: 290, y1: 480, x2: 410, y2: 640 }, axis: "y", mid: 560, floorLow: 0, floorHigh: -1, sealedFor: "B", kind: "stair" },
-  { id: "ladderB_N", rect: { x1: 140, y1: 80, x2: 200, y2: 160 }, axis: "x", mid: 170, floorLow: 0, floorHigh: 1, sealedFor: "B", kind: "ladder" },
-  { id: "ladderB_S", rect: { x1: 140, y1: 540, x2: 200, y2: 620 }, axis: "x", mid: 170, floorLow: 0, floorHigh: 1, sealedFor: "B", kind: "ladder" },
-  { id: "cellarB", rect: { x1: 150, y1: 440, x2: 260, y2: 520 }, axis: "x", mid: 205, floorLow: 0, floorHigh: -1, sealedFor: "B", kind: "stair" },
+  { id: "ladderB_N", rect: { x1: 140, y1: 96, x2: 200, y2: 144 }, axis: "x", mid: 170, floorLow: 0, floorHigh: 1, sealedFor: "B", kind: "ladder" },
+  { id: "ladderB_S", rect: { x1: 140, y1: 556, x2: 200, y2: 604 }, axis: "x", mid: 170, floorLow: 0, floorHigh: 1, sealedFor: "B", kind: "ladder" },
+  { id: "cellarB", rect: { x1: 150, y1: 456, x2: 260, y2: 504 }, axis: "x", mid: 205, floorLow: 0, floorHigh: -1, sealedFor: "B", kind: "stair" },
 ];
 
 const mirrorConnector = (c: Connector): Connector => ({
