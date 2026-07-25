@@ -203,6 +203,15 @@ const HOUSE_B_WALLS: FloorRect[] = [
   { x1: 720 - T, y1: 200, x2: 720 + T, y2: 320, floor: 0 },
   { x1: 720 - T, y1: 400, x2: 720 + T, y2: 520, floor: 0 },
   { x1: 720 - T, y1: 600, x2: 720 + T, y2: 700, floor: 0 },
+  // north/south END walls, per floor. The map's world-boundary rects double as
+  // the house's end walls at GROUND level, but they carry no floor tag and are
+  // therefore only drawn at floor 0 - leaving the bedrooms and basement open to
+  // the sky (walls you could not walk through but could see straight past).
+  // These close both stacked floors properly.
+  { x1: 260, y1: 0, x2: 720, y2: T, floor: 1 },
+  { x1: 260, y1: 700 - T, x2: 720, y2: 700, floor: 1 },
+  { x1: 260, y1: 0, x2: 720, y2: T, floor: -1 },
+  { x1: 260, y1: 700 - T, x2: 720, y2: 700, floor: -1 },
   // ===== floor +1 (two bedrooms off a landing) =====
   { x1: 260 - T, y1: 0, x2: 260 + T, y2: 80, floor: 1 },
   { x1: 260 - T, y1: 160, x2: 260 + T, y2: 540, floor: 1 },
@@ -220,6 +229,11 @@ const HOUSE_B_WALLS: FloorRect[] = [
   // ===== floor -1 (basement) =====
   { x1: 260 - T, y1: 0, x2: 260 + T, y2: 440, floor: -1 },
   { x1: 260 - T, y1: 520, x2: 260 + T, y2: 700, floor: -1 },
+  // cellar-pit retaining walls (floor -1): the steps descend in the OPEN yard,
+  // so without these you could step sideways off them into the void at basement
+  // level. The pit's outer end needs none - past mid you are back on floor 0.
+  { x1: 150, y1: 440 - T, x2: 260, y2: 440, floor: -1 },
+  { x1: 150, y1: 520, x2: 260, y2: 520 + T, floor: -1 },
   { x1: 720 - T, y1: 0, x2: 720 + T, y2: 700, floor: -1 },
 ];
 

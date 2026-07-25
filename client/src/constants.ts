@@ -1,37 +1,18 @@
-// Top-down world (Brawl Stars style): a single flat plane, no gravity - see
-// server/src/zones.ts + client/src/geometry/floorplan.ts for the floor plan this
-// size matches (backyard | house | garden | house | backyard).
+// Central tunables for the whole client. The floor plan itself lives in
+// geometry/floorplan.ts (mirrored by server/src/zones.ts).
 //
-// WORLD_SCALE widens the whole floor plan relative to the original 2D layout
-// (1600x900) without touching the character's size, so rooms feel like rooms
-// instead of corridors. Speeds and action ranges scale with it, which keeps
-// travel times and gameplay balance identical to the 2D-tuned values.
-// server/src/zones.ts applies the same factor - keep both in sync.
-// 5.0 (was 2.5, 2.0, 1.5): scaled up ~2x for the vertical town-house rework -
-// stacked floors, internal staircases, a mid-floor partition and backyard
-// ladders all need real floor area or the interiors feel cramped. Speeds/ranges
-// scale with it so travel time and balance stay put. Character, props, and the
-// chase camera's fixed follow distance do NOT scale, so the character keeps its
-// on-screen size and simply gains ~2x the room around it. STORY_HEIGHT is
-// bumped alongside this so the taller footprint stays a proportionate
-// multi-story building rather than a flat, wide box.
-// 1.0: the floor plan is now authored directly in WORLD UNITS, sized against
-// the ~83-unit-tall character (rooms ~460x250, doors 80-90 wide, stairs 120
-// wide) instead of being a scaled-up copy of the old 1600x900 2D layout. Raise
-// this to grow the whole map uniformly - speeds and action ranges scale with
-// it, so travel times and balance stay put. server/src/zones.ts holds a
-// matching copy: keep both in sync.
-export const WORLD_SCALE = 1.0;
-// Depth (y-axis) squash: the footprint spanned the full 900-deep map, making
-// each stacked floor a long hall rather than a compact town-house. Compressing
-// ONLY the y-axis by this factor (applied identically here, in
-// geometry/floorplan.ts, and in server/src/zones.ts) shrinks room DEPTH toward
-// the room's width so the 3-storey stack reads as a proportionate house, while
-// leaving the across-the-garden raid distance (x) - and thus balance -
-// untouched. server/src/zones.ts holds a matching copy: keep both in sync.
-// Depth (y) multiplier, kept as a knob for reshaping the map's proportions.
-// The plan is authored at its true depth now, so it sits at 1.
-export const MAP_DEPTH_SCALE = 1.0;
+// WORLD_SCALE scales the entire floor plan - and, with it, speeds and action
+// ranges, so travel times and gameplay balance stay put at any map size. The
+// CHARACTER, PROPS and the chase camera deliberately do NOT scale: they are
+// authored at true human proportion (character ~83 units tall, a bed ~90 long),
+// so raising WORLD_SCALE simply gives the player more room to move without
+// making the furniture look like toys. server/src/zones.ts holds a matching
+// copy of WORLD_SCALE and MAP_DEPTH_SCALE - keep both in sync.
+export const WORLD_SCALE = 1.25;
+// Depth (y) multiplier, applied ON TOP of WORLD_SCALE. 1.2 (so depth scales by
+// 1.25 * 1.2 = 1.5 while width scales 1.25): rooms were noticeably shallower
+// than they were wide, which is what made them feel cramped to move through.
+export const MAP_DEPTH_SCALE = 1.2;
 export const WORLD_WIDTH = 1900 * WORLD_SCALE;
 export const WORLD_HEIGHT = 700 * WORLD_SCALE * MAP_DEPTH_SCALE;
 
@@ -49,32 +30,24 @@ export const ROUND_TIME_DEFAULT = 300;
 
 // 3D rendering constants (world-unit scale, same units as WORLD_WIDTH/HEIGHT).
 //
-// STORY_HEIGHT is the ONE vertical unit the whole building derives from: the
-// floor-to-ceiling height of a room AND the rise/sink of one split-level. Set
-// tall on purpose (the character is ~83 units) so rooms feel like real rooms
-// and, crucially, so the chase camera's default over-the-shoulder position
-// (~215 units above the character) fits UNDER the ceiling without the indoor
-// clamp fighting it - that clamp firing at normal play, and re-firing on every
-// floor change, is what made the camera feel snappy and boxed-in. To add an
-// upper floor later, give its zones a higher level in HeightField.zoneBaseHeight
-// (base = level * STORY_HEIGHT) and a ZONE_RECT; everything vertical - walls,
-// ceilings, roofs, stairs, the camera cap - already derives from this unit, so
-// the building is expandable upward without new height math.
-// 190 ~= 2.3x the character's ~83-unit height (a believable room, not a hangar).
+// STORY_HEIGHT is the ONE vertical unit the building derives from: a room's
+// floor-to-ceiling height AND the rise between stacked floors. Heights never
+// scale with WORLD_SCALE - they are fixed against the character. Everything
+// vertical (walls, ceilings, roofs, stair rises, the camera's indoor cap)
+// derives from this, so adding a floor needs no new height math.
+// 210 ~= 2.5x the character's ~83-unit height (a believable room, not a hangar).
 // The chase camera below is sized to sit UNDER this without the indoor clamp
-// fighting it: camera rides LOOK_HEIGHT + 95 = 140 above ground, clear of the
-// 190 ceiling minus CameraRig's margin.
-export const STORY_HEIGHT = 190;
+// fighting it: the camera rides LOOK_HEIGHT + 95 = 140 above ground, clear of
+// the 210 ceiling minus CameraRig's margin.
+export const STORY_HEIGHT = 210;
 export const WALL_HEIGHT = STORY_HEIGHT; // room floor-to-ceiling
 export const FLOOR_HEIGHT = 4; // thin slab, purely visual
 export const DOOR_MAT_HEIGHT = 1; // flat mat, sits just above the floor slab
 export const DOOR_HEIGHT = 130; // top of a door opening (~1.6x character height); lintel fills up to WALL_HEIGHT
 export const DOOR_JAMB = 12; // how far the frame trim extends past each side of an opening
 
-// Split-level rise/sink per story - EQUAL to STORY_HEIGHT by design, so a
-// character climbing into the raised bedroom clears the living room's ceiling
-// line exactly as they arrive, and a sunken basement drops one clean story.
-// Purely a client-side rendering height; the server/network model stays 2D.
+// Rise between adjacent floors - EQUAL to STORY_HEIGHT by design, so a stacked
+// floor's slab sits exactly on the ceiling line of the one below it.
 export const FLOOR_RISE = STORY_HEIGHT;
 
 // The Blender character rig (assets/blender/build_character.py) is ~1.85
@@ -83,20 +56,15 @@ export const FLOOR_RISE = STORY_HEIGHT;
 export const CHARACTER_SCALE = 45;
 
 // 3rd-person chase camera (see three/CameraRig.ts).
-// Spherical orbit radius around the look-at point. The pre-pitch rig sat 260
-// world units behind and 160 above the look-at point, so its TRUE distance
-// was the hypotenuse (~305.3) - using that exact value (not the old 260
-// horizontal component) keeps the untouched-mouse default view pixel-identical
-// to the pre-pitch camera, not merely angle-identical.
-// Sized to the real room now: the rig sits 200 behind and 95 above the look
-// point, so the camera rides 140 above ground - comfortably under the 190
-// ceiling, meaning the indoor clamp almost never fires during normal play.
+// Spherical orbit radius around the look-at point. Sized to the real room: the
+// rig sits 200 behind and 95 above the look point, so the camera rides 140
+// above ground - comfortably under the ceiling, meaning the indoor clamp almost
+// never fires during normal play.
 export const FOLLOW_DISTANCE = Math.hypot(200, 95); // ~221.4
 export const LOOK_HEIGHT = 45; // roughly chest height on the character
-// Default camera elevation (pitch, radians) above the horizontal: the same
-// atan2(vertical, horizontal) angle the old fixed offset implied. Together
-// with FOLLOW_DISTANCE above, dir(DEFAULT_PITCH) * FOLLOW_DISTANCE lands on
-// exactly the old camera position (260 behind, 160 up).
+// Default camera elevation (pitch, radians): the atan2(vertical, horizontal)
+// angle the offset above implies, so dir(DEFAULT_PITCH) * FOLLOW_DISTANCE lands
+// exactly 200 behind and 95 up.
 export const DEFAULT_PITCH = Math.atan2(95, 200); // ~0.44 rad
 export const MOUSE_SENSITIVITY = 0.003; // radians of camera yaw per pixel of mouse movement
 
@@ -108,16 +76,12 @@ export const BUNDLE_SCALE = 130;
 // meter" convention as the character/bundle rigs, scaled up to world units.
 export const PROP_SCALE = 45;
 
-// Phase 3 roof slabs (client/src/three/world/RoofSystem.ts). Always fully
-// opaque: CameraRig's indoor Y clamp keeps the camera under the ceiling, so
-// the old fade-to-translucent reveal is gone. The roof PLANE height is
-// derived per-zone by HeightField.ceilingHeight (grade+WALL_HEIGHT, so a
-// sunken basement's lid still caps the pit at grade); this is just slab trim.
+// Roof trim thickness (client/src/three/world/RoofSystem.ts). Roofs are always
+// fully opaque: CameraRig's indoor Y clamp keeps the camera under the ceiling.
 export const ROOF_THICKNESS = 8;
 
-// Window openings (client/src/three/world/WindowBuilder.ts), three-y units,
-// NOT scaled by WORLD_SCALE (heights never are - see floorplan.ts's header).
-// Raised to sit proportionally on the taller STORY_HEIGHT walls.
+// Window openings (client/src/three/world/WindowBuilder.ts). Heights, so never
+// scaled by WORLD_SCALE - sized against the character like everything vertical.
 export const WINDOW_SILL = 55;
 export const WINDOW_HEAD = 135;
 

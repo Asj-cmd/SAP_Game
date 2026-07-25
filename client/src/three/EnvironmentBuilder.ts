@@ -157,10 +157,17 @@ export function buildEnvironment(localTeam: Team): Environment {
     const base = floorY(door.floor ?? 0);
     floorGeoms.push(rectToBox(door, DOOR_MAT_HEIGHT, base - FLOOR_HEIGHT + DOOR_MAT_HEIGHT / 2, COLORS.door));
   }
-  // Lawn plane past the world bounds, just below the ground slabs.
+  // Lawn skirt AROUND the map, so its edge isn't a cliff into black void. It is
+  // carved to the region OUTSIDE the world bounds on purpose: every in-bounds
+  // zone already has its own floor slab, and a lawn sheet running under the
+  // houses would slice through the basements (which sit a storey below it) and
+  // show up as a false ceiling from inside.
   const LAWN_MARGIN = 600;
   const lawn: Rect = { x1: -LAWN_MARGIN, y1: -LAWN_MARGIN, x2: WORLD_WIDTH + LAWN_MARGIN, y2: WORLD_HEIGHT + LAWN_MARGIN };
-  floorGeoms.push(rectToBox(lawn, FLOOR_HEIGHT, -FLOOR_HEIGHT - FLOOR_HEIGHT / 2, COLORS.ground));
+  const worldRect: Rect = { x1: 0, y1: 0, x2: WORLD_WIDTH, y2: WORLD_HEIGHT };
+  for (const tile of rectMinusRects(lawn, [worldRect])) {
+    floorGeoms.push(rectToBox(tile, FLOOR_HEIGHT, -FLOOR_HEIGHT - FLOOR_HEIGHT / 2, COLORS.ground));
+  }
 
   const floorMesh = new THREE.Mesh(mergeGeometries(floorGeoms, false), new THREE.MeshStandardMaterial({ vertexColors: true }));
   floorMesh.receiveShadow = true;
