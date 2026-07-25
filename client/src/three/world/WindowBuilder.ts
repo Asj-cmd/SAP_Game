@@ -14,13 +14,13 @@ import { floorY } from "./HeightField";
 // A wall qualifies if it's a vertical side wall (runs along z, thin in x) sitting
 // on a house<->garden or house<->backyard boundary - the faces you see from the
 // garden/yard during play. Basement walls (floor -1) are below grade, so skipped.
-const BOUNDARY_XS = [240, 620, 980, 1360]; // pre-scale house side-wall lines
-const BOUNDARY_EPS = 30; // scaled slack when matching a wall's centre x
+const BOUNDARY_XS = [260, 720, 1180, 1640]; // pre-scale house side-wall lines
+const BOUNDARY_EPS = 20; // scaled slack when matching a wall's centre x
 
-const WINDOW_W = 95; // pane width along the wall (world units, unscaled like sills)
-const WINDOW_GAP = 150; // min clear run between panes
-const FRAME_BAND = 10;
-const MIN_SEG = 200; // don't window a wall run shorter than this (scaled)
+const WINDOW_W = 55; // pane width along the wall (world units, unscaled like sills)
+const WINDOW_GAP = 90; // min clear run between panes
+const FRAME_BAND = 6;
+const MIN_SEG = 140; // don't window a wall run shorter than this (scaled)
 
 function isExteriorSideWall(w: Rect & { floor?: number }): boolean {
   if (w.floor === -1) return false; // basement is underground

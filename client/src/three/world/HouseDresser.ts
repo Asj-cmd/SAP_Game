@@ -1,6 +1,7 @@
 import * as THREE from "three";
 import { WORLD_SCALE, MAP_DEPTH_SCALE } from "../../constants";
 import { createPropInstance } from "./PropLibrary";
+import { MIRROR_X } from "../../geometry/floorplan";
 import { HOUSE_B_PROPS, GARDEN_PROPS, type PropPlacement } from "./propManifest";
 import { floorY } from "./HeightField";
 
@@ -15,7 +16,7 @@ const YS = MAP_DEPTH_SCALE;
 
 // House A mirrors house B across the map centre: x' = 1600 - x, rot' flips.
 function mirror(p: PropPlacement): PropPlacement {
-  return { ...p, x: 1600 - p.x, rot: (((360 - p.rot) % 360) as PropPlacement["rot"]) };
+  return { ...p, x: MIRROR_X - p.x, rot: (((360 - p.rot) % 360) as PropPlacement["rot"]) };
 }
 
 async function place(scene: THREE.Scene, p: PropPlacement): Promise<void> {

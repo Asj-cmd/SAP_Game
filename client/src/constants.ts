@@ -15,7 +15,13 @@
 // on-screen size and simply gains ~2x the room around it. STORY_HEIGHT is
 // bumped alongside this so the taller footprint stays a proportionate
 // multi-story building rather than a flat, wide box.
-export const WORLD_SCALE = 5.0;
+// 1.0: the floor plan is now authored directly in WORLD UNITS, sized against
+// the ~83-unit-tall character (rooms ~460x250, doors 80-90 wide, stairs 120
+// wide) instead of being a scaled-up copy of the old 1600x900 2D layout. Raise
+// this to grow the whole map uniformly - speeds and action ranges scale with
+// it, so travel times and balance stay put. server/src/zones.ts holds a
+// matching copy: keep both in sync.
+export const WORLD_SCALE = 1.0;
 // Depth (y-axis) squash: the footprint spanned the full 900-deep map, making
 // each stacked floor a long hall rather than a compact town-house. Compressing
 // ONLY the y-axis by this factor (applied identically here, in
@@ -23,9 +29,11 @@ export const WORLD_SCALE = 5.0;
 // the room's width so the 3-storey stack reads as a proportionate house, while
 // leaving the across-the-garden raid distance (x) - and thus balance -
 // untouched. server/src/zones.ts holds a matching copy: keep both in sync.
-export const MAP_DEPTH_SCALE = 0.72;
-export const WORLD_WIDTH = 1600 * WORLD_SCALE;
-export const WORLD_HEIGHT = 900 * WORLD_SCALE * MAP_DEPTH_SCALE;
+// Depth (y) multiplier, kept as a knob for reshaping the map's proportions.
+// The plan is authored at its true depth now, so it sits at 1.
+export const MAP_DEPTH_SCALE = 1.0;
+export const WORLD_WIDTH = 1900 * WORLD_SCALE;
+export const WORLD_HEIGHT = 700 * WORLD_SCALE * MAP_DEPTH_SCALE;
 
 export const PLAYER_SPEED = 220 * WORLD_SCALE;
 export const CARRY_SPEED = 160 * WORLD_SCALE;
@@ -52,11 +60,15 @@ export const ROUND_TIME_DEFAULT = 300;
 // (base = level * STORY_HEIGHT) and a ZONE_RECT; everything vertical - walls,
 // ceilings, roofs, stairs, the camera cap - already derives from this unit, so
 // the building is expandable upward without new height math.
-export const STORY_HEIGHT = 420;
+// 190 ~= 2.3x the character's ~83-unit height (a believable room, not a hangar).
+// The chase camera below is sized to sit UNDER this without the indoor clamp
+// fighting it: camera rides LOOK_HEIGHT + 95 = 140 above ground, clear of the
+// 190 ceiling minus CameraRig's margin.
+export const STORY_HEIGHT = 190;
 export const WALL_HEIGHT = STORY_HEIGHT; // room floor-to-ceiling
 export const FLOOR_HEIGHT = 4; // thin slab, purely visual
 export const DOOR_MAT_HEIGHT = 1; // flat mat, sits just above the floor slab
-export const DOOR_HEIGHT = 170; // top of a door opening; lintel fills up to WALL_HEIGHT
+export const DOOR_HEIGHT = 130; // top of a door opening (~1.6x character height); lintel fills up to WALL_HEIGHT
 export const DOOR_JAMB = 12; // how far the frame trim extends past each side of an opening
 
 // Split-level rise/sink per story - EQUAL to STORY_HEIGHT by design, so a
@@ -76,13 +88,16 @@ export const CHARACTER_SCALE = 45;
 // was the hypotenuse (~305.3) - using that exact value (not the old 260
 // horizontal component) keeps the untouched-mouse default view pixel-identical
 // to the pre-pitch camera, not merely angle-identical.
-export const FOLLOW_DISTANCE = Math.hypot(260, 160); // ~305.3
-export const LOOK_HEIGHT = 55; // roughly chest height on the scaled character
+// Sized to the real room now: the rig sits 200 behind and 95 above the look
+// point, so the camera rides 140 above ground - comfortably under the 190
+// ceiling, meaning the indoor clamp almost never fires during normal play.
+export const FOLLOW_DISTANCE = Math.hypot(200, 95); // ~221.4
+export const LOOK_HEIGHT = 45; // roughly chest height on the character
 // Default camera elevation (pitch, radians) above the horizontal: the same
 // atan2(vertical, horizontal) angle the old fixed offset implied. Together
 // with FOLLOW_DISTANCE above, dir(DEFAULT_PITCH) * FOLLOW_DISTANCE lands on
 // exactly the old camera position (260 behind, 160 up).
-export const DEFAULT_PITCH = Math.atan2(160, 260); // ~0.55 rad
+export const DEFAULT_PITCH = Math.atan2(95, 200); // ~0.44 rad
 export const MOUSE_SENSITIVITY = 0.003; // radians of camera yaw per pixel of mouse movement
 
 // The Blender cash bundle prop (assets/blender/build_cashbundle.py) is ~0.3
@@ -103,8 +118,8 @@ export const ROOF_THICKNESS = 8;
 // Window openings (client/src/three/world/WindowBuilder.ts), three-y units,
 // NOT scaled by WORLD_SCALE (heights never are - see floorplan.ts's header).
 // Raised to sit proportionally on the taller STORY_HEIGHT walls.
-export const WINDOW_SILL = 70;
-export const WINDOW_HEAD = 190;
+export const WINDOW_SILL = 55;
+export const WINDOW_HEAD = 135;
 
 // Which family's half of the map a scaled world-x sits in - house B owns the
 // west half, house A the east. Used to give each house's trim (roof, door and

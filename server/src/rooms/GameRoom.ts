@@ -893,7 +893,7 @@ export class GameRoom extends Room<GameState> {
         if (b.location !== bedroomLoc) return;
         // The bedroom spans two rooms on the top floor; route to whichever room
         // node is nearest the bundle itself.
-        const bedroomNode = nearestBotNode(b.x, b.y, 1);
+        const bedroomNode = this.enemyBedroomNode(team, b);
         const coord = this.someBotTasked(team, "raid", b.id, id) ? BOT_COORD_PENALTY : 0;
         for (const via of routes) {
           const plan = this.routePlan(bot, team, via, bedroomNode, b, 1);
@@ -934,6 +934,17 @@ export class GameRoom extends Room<GameState> {
 
   private enemyBedroomOf(team: Team): "bedroomA" | "bedroomB" {
     return team === "B" ? "bedroomA" : "bedroomB";
+  }
+
+  // Which of the enemy's TWO bedroom waypoints to route a raid through. Must be
+  // a room node, never just the nearest floor-1 node: the landing/stairwell
+  // nodes also sit on floor +1, and heading for one of those leaves the bot
+  // beelining at the bundle through the partition wall between the rooms.
+  private enemyBedroomNode(team: Team, target: { x: number; y: number }): BotNodeId {
+    const house = team === "B" ? "A" : "B";
+    const north = `bedroom${house}_N`;
+    const south = `bedroom${house}_S`;
+    return distance(target, BOT_WAYPOINTS[north]) <= distance(target, BOT_WAYPOINTS[south]) ? north : south;
   }
 
   // How threatened `point` is for `team`'s bots: each living enemy ON THE SAME
@@ -1036,7 +1047,7 @@ export class GameRoom extends Room<GameState> {
         ? team === "B" ? "stairUpB_base" : "stairUpA_base"
         : team === "B" ? "stairDownB_base" : "stairDownA_base";
       const yardBase: BotNodeId = isBedroom
-        ? team === "B" ? "yardB_ladder" : "yardA_ladder"
+        ? team === "B" ? "yardB_ladderN" : "yardA_ladderN"
         : team === "B" ? "yardB_cellar" : "yardA_cellar";
       const node = pileOn ? yardBase : stairBase;
       return { node, aim: BOT_WAYPOINTS[node] };
@@ -1089,7 +1100,7 @@ export class GameRoom extends Room<GameState> {
       }
       case "raid": {
         const bundle = this.state.cashBundles.get(mind.targetId)!;
-        const bedroomNode = nearestBotNode(bundle.x, bundle.y, 1);
+        const bedroomNode = this.enemyBedroomNode(team, bundle);
         this.botMoveToward(bot, team, mind, bedroomNode, bundle, dt);
         if (isEnemyBedroom(team, bot.x, bot.y, bot.floor) && distance(bot, bundle) <= PICKUP_RANGE) {
           this.handlePickup(id, { bundleId: bundle.id });

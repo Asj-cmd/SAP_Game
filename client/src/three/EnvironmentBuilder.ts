@@ -8,7 +8,7 @@ import {
   WORLD_WIDTH,
   WORLD_HEIGHT,
 } from "../constants";
-import { ZONE_RECTS, WALLS, DOORS, CONNECTORS, type Rect, type Team } from "../geometry/floorplan";
+import { ZONE_RECTS, WALLS, DOORS, CONNECTORS, BALCONIES, type Rect, type Team } from "../geometry/floorplan";
 import { floorY } from "./world/HeightField";
 import { buildStaircaseGeoms } from "./world/StaircaseBuilder";
 import { buildWindows } from "./world/WindowBuilder";
@@ -147,8 +147,15 @@ export function buildEnvironment(localTeam: Team): Environment {
     }
   }
   floorGeoms.push(...buildStaircaseGeoms());
+  // Balcony platforms: flat slabs at floor +1 hanging off each bedroom's wall,
+  // where the ladder from the backyard arrives.
+  for (const b of BALCONIES) {
+    floorGeoms.push(rectToBox(b, FLOOR_HEIGHT, floorY(1) - FLOOR_HEIGHT / 2, COLORS.foundation));
+  }
+  // Door mats sit just above their OWN floor's slab.
   for (const door of DOORS) {
-    floorGeoms.push(rectToBox(door, DOOR_MAT_HEIGHT, -FLOOR_HEIGHT + DOOR_MAT_HEIGHT / 2, COLORS.door));
+    const base = floorY(door.floor ?? 0);
+    floorGeoms.push(rectToBox(door, DOOR_MAT_HEIGHT, base - FLOOR_HEIGHT + DOOR_MAT_HEIGHT / 2, COLORS.door));
   }
   // Lawn plane past the world bounds, just below the ground slabs.
   const LAWN_MARGIN = 600;

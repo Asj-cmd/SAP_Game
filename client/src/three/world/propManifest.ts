@@ -38,55 +38,54 @@ export interface PropPlacement {
   rot: Rot;
 }
 
-// House B footprint x[240,620]. Stacked floors share it. Props hug the walls,
-// clear of the stair footprints (x[380,540]), the ladder/cellar landings
-// (x[240,320]), the living spawns (x[300,460] y[420,520]) and the partition
-// door (x[400,480] y=450).
+// House B footprint x[260,720], y[0,700]. Stacked floors share it. Props hug
+// the walls, clear of the stairwell openings (up: x[580,700] y[255,425]; down:
+// x[300,420] y[430,600]), the living spawns (x 340/480, y 110/220) and every
+// doorway.
 export const HOUSE_B_PROPS: PropPlacement[] = [
-  // ---- top floor, north bedroom (floor +1, y < 450) ----
-  { prop: "bed", x: 300, y: 90, floor: 1, rot: 0 },
-  { prop: "nightstand", x: 360, y: 70, floor: 1, rot: 0 },
-  { prop: "dresser", x: 570, y: 90, floor: 1, rot: 0 },
-  { prop: "rug", x: 430, y: 330, floor: 1, rot: 0 },
-  // ---- top floor, south bedroom (floor +1, y > 450) ----
-  { prop: "bed", x: 300, y: 830, floor: 1, rot: 0 },
-  { prop: "dresser", x: 570, y: 830, floor: 1, rot: 0 },
-  { prop: "rug", x: 430, y: 600, floor: 1, rot: 0 },
+  // ---- top floor, NORTH bedroom (floor +1, y[0,250]) ----
+  { prop: "bed", x: 430, y: 70, floor: 1, rot: 0 },
+  { prop: "nightstand", x: 520, y: 60, floor: 1, rot: 0 },
+  { prop: "dresser", x: 660, y: 70, floor: 1, rot: 0 },
+  { prop: "rug", x: 480, y: 190, floor: 1, rot: 0 },
+  // ---- top floor, SOUTH bedroom (floor +1, y[430,700]) ----
+  { prop: "bed", x: 430, y: 660, floor: 1, rot: 0 },
+  { prop: "dresser", x: 660, y: 660, floor: 1, rot: 0 },
+  { prop: "rug", x: 480, y: 500, floor: 1, rot: 0 },
   // ---- living room (floor 0) ----
-  { prop: "sofa", x: 300, y: 200, floor: 0, rot: 90 },
-  { prop: "tv", x: 575, y: 200, floor: 0, rot: 270 },
-  { prop: "coffee_table", x: 320, y: 260, floor: 0, rot: 0 },
-  { prop: "rug", x: 430, y: 470, floor: 0, rot: 0 },
-  // ---- basement (floor -1): a jail cell around the jail spot (430,830) ----
-  { prop: "jail_bars", x: 380, y: 800, floor: -1, rot: 90 },
-  { prop: "jail_bars", x: 490, y: 800, floor: -1, rot: 90 },
-  { prop: "jail_bars", x: 435, y: 885, floor: -1, rot: 0 },
-  { prop: "crate", x: 290, y: 820, floor: -1, rot: 0 },
-  { prop: "shelf", x: 575, y: 700, floor: -1, rot: 90 },
-  { prop: "pipes", x: 430, y: 90, floor: -1, rot: 0 },
-  // ---- backyard (floor 0, x[0,240]) ----
-  { prop: "shed", x: 60, y: 80, floor: 0, rot: 0 },
-  { prop: "bush", x: 70, y: 360, floor: 0, rot: 0 },
-  { prop: "bush", x: 50, y: 560, floor: 0, rot: 0 },
-  { prop: "bush", x: 90, y: 820, floor: 0, rot: 0 },
-  { prop: "fence", x: 16, y: 200, floor: 0, rot: 90 },
-  { prop: "fence", x: 16, y: 520, floor: 0, rot: 90 },
+  { prop: "sofa", x: 300, y: 160, floor: 0, rot: 90 },
+  { prop: "coffee_table", x: 375, y: 160, floor: 0, rot: 0 },
+  { prop: "tv", x: 695, y: 160, floor: 0, rot: 270 },
+  { prop: "rug", x: 620, y: 330, floor: 0, rot: 0 },
+  // ---- basement (floor -1): a cell around the jail spot (560,560) ----
+  { prop: "jail_bars", x: 500, y: 500, floor: -1, rot: 90 },
+  { prop: "jail_bars", x: 620, y: 500, floor: -1, rot: 90 },
+  { prop: "jail_bars", x: 560, y: 640, floor: -1, rot: 0 },
+  { prop: "crate", x: 330, y: 120, floor: -1, rot: 0 },
+  { prop: "shelf", x: 695, y: 250, floor: -1, rot: 90 },
+  { prop: "pipes", x: 470, y: 50, floor: -1, rot: 0 },
+  // ---- backyard (floor 0, x[0,260]) ----
+  { prop: "shed", x: 65, y: 250, floor: 0, rot: 0 },
+  { prop: "bush", x: 55, y: 430, floor: 0, rot: 0 },
+  { prop: "bush", x: 60, y: 660, floor: 0, rot: 0 },
+  { prop: "fence", x: 22, y: 170, floor: 0, rot: 90 },
+  { prop: "fence", x: 22, y: 530, floor: 0, rot: 90 },
 ];
 
-const STONE_PATH_Y = 450;
+const STONE_PATH_Y = 350;
 const stonePathTiles: PropPlacement[] = [];
-for (let x = 660; x <= 940; x += 60) {
+for (let x = 780; x <= 1120; x += 60) {
   stonePathTiles.push({ prop: "stone_path", x, y: STONE_PATH_Y, floor: 0, rot: 0 });
 }
 
-// Garden (floor 0, x[620,980]) - shared, not mirrored.
+// Garden (floor 0, x[720,1180]) - shared, not mirrored.
 export const GARDEN_PROPS: PropPlacement[] = [
-  { prop: "tree", x: 660, y: 140, floor: 0, rot: 0 },
-  { prop: "tree", x: 940, y: 170, floor: 0, rot: 0 },
-  { prop: "tree", x: 660, y: 780, floor: 0, rot: 0 },
-  { prop: "tree", x: 940, y: 760, floor: 0, rot: 0 },
-  { prop: "fountain", x: 800, y: 250, floor: 0, rot: 0 },
-  { prop: "bush", x: 720, y: 560, floor: 0, rot: 0 },
-  { prop: "bush", x: 880, y: 640, floor: 0, rot: 0 },
+  { prop: "tree", x: 790, y: 90, floor: 0, rot: 0 },
+  { prop: "tree", x: 1110, y: 110, floor: 0, rot: 0 },
+  { prop: "tree", x: 790, y: 620, floor: 0, rot: 0 },
+  { prop: "tree", x: 1110, y: 600, floor: 0, rot: 0 },
+  { prop: "fountain", x: 950, y: 180, floor: 0, rot: 0 },
+  { prop: "bush", x: 850, y: 470, floor: 0, rot: 0 },
+  { prop: "bush", x: 1050, y: 500, floor: 0, rot: 0 },
   ...stonePathTiles,
 ];
