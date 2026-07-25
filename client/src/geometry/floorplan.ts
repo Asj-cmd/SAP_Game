@@ -141,11 +141,11 @@ export interface Connector {
 }
 
 const HOUSE_B_CONNECTORS: Connector[] = [
-  { id: "stairUpB", rect: { x1: 450, y1: 275, x2: 570, y2: 405 }, axis: "y", mid: 340, floorLow: 1, floorHigh: 0, sealedFor: "B", kind: "stair" },
-  { id: "stairDownB", rect: { x1: 290, y1: 480, x2: 410, y2: 640 }, axis: "y", mid: 560, floorLow: 0, floorHigh: -1, sealedFor: "B", kind: "stair" },
-  { id: "ladderB_N", rect: { x1: 140, y1: 96, x2: 200, y2: 144 }, axis: "x", mid: 170, floorLow: 0, floorHigh: 1, sealedFor: "B", kind: "ladder" },
-  { id: "ladderB_S", rect: { x1: 140, y1: 556, x2: 200, y2: 604 }, axis: "x", mid: 170, floorLow: 0, floorHigh: 1, sealedFor: "B", kind: "ladder" },
-  { id: "cellarB", rect: { x1: 150, y1: 456, x2: 260, y2: 504 }, axis: "x", mid: 205, floorLow: 0, floorHigh: -1, sealedFor: "B", kind: "stair" },
+  { id: "stairUpB", rect: { x1: 450, y1: 268, x2: 570, y2: 422 }, axis: "y", mid: 340, floorLow: 1, floorHigh: 0, sealedFor: "B", kind: "stair" },
+  { id: "stairDownB", rect: { x1: 290, y1: 520, x2: 410, y2: 675 }, axis: "y", mid: 597, floorLow: 0, floorHigh: -1, sealedFor: "B", kind: "stair" },
+  { id: "ladderB_N", rect: { x1: 140, y1: 85, x2: 200, y2: 155 }, axis: "x", mid: 170, floorLow: 0, floorHigh: 1, sealedFor: "B", kind: "ladder" },
+  { id: "ladderB_S", rect: { x1: 140, y1: 545, x2: 200, y2: 615 }, axis: "x", mid: 170, floorLow: 0, floorHigh: 1, sealedFor: "B", kind: "ladder" },
+  { id: "cellarB", rect: { x1: 150, y1: 430, x2: 260, y2: 500 }, axis: "x", mid: 205, floorLow: 0, floorHigh: -1, sealedFor: "B", kind: "stair" },
 ];
 
 const mirrorConnector = (c: Connector): Connector => ({
@@ -181,7 +181,16 @@ export function resolveFloor(x: number, y: number, floor: number, team: Team): n
     const coord = c.axis === "x" ? x : y;
     return coord < c.mid ? c.floorLow : c.floorHigh;
   }
+  // Off every connector: an upper/lower floor only EXISTS inside a house (plus
+  // the balconies hanging off one). Anywhere else, step off and you are simply
+  // back on the ground - which is what lets the ladders and cellar steps be bare
+  // steps with no flanking walls. Mirrors server/src/zones.ts.
+  if (floor !== 0 && getZoneAt(x, y, floor) === "void" && !onBalcony(x, y, floor)) return 0;
   return floor;
+}
+
+function onBalcony(x: number, y: number, floor: number): boolean {
+  return floor === 1 && BALCONIES.some((b) => inRect(x, y, b));
 }
 
 export function connectorBlocks(x: number, y: number, team: Team): boolean {
@@ -217,23 +226,13 @@ const HOUSE_B_WALLS: FloorRect[] = [
   { x1: 260 - T, y1: 160, x2: 260 + T, y2: 540, floor: 1 },
   { x1: 260 - T, y1: 620, x2: 260 + T, y2: 700, floor: 1 },
   { x1: 720 - T, y1: 0, x2: 720 + T, y2: 700, floor: 1 },
-  { x1: 260, y1: 250 - T, x2: 300, y2: 250 + T, floor: 1 },
-  { x1: 390, y1: 250 - T, x2: 720, y2: 250 + T, floor: 1 },
-  { x1: 260, y1: 430 - T, x2: 300, y2: 430 + T, floor: 1 },
-  { x1: 390, y1: 430 - T, x2: 720, y2: 430 + T, floor: 1 },
-  // balcony + ladder railings
-  { x1: 140, y1: 80 - T, x2: 260, y2: 80, floor: 1 },
-  { x1: 140, y1: 160, x2: 260, y2: 160 + T, floor: 1 },
-  { x1: 140, y1: 540 - T, x2: 260, y2: 540, floor: 1 },
-  { x1: 140, y1: 620, x2: 260, y2: 620 + T, floor: 1 },
+  { x1: 260, y1: 240 - T, x2: 300, y2: 240 + T, floor: 1 },
+  { x1: 390, y1: 240 - T, x2: 720, y2: 240 + T, floor: 1 },
+  { x1: 260, y1: 450 - T, x2: 300, y2: 450 + T, floor: 1 },
+  { x1: 390, y1: 450 - T, x2: 720, y2: 450 + T, floor: 1 },
   // ===== floor -1 (basement) =====
-  { x1: 260 - T, y1: 0, x2: 260 + T, y2: 440, floor: -1 },
+  { x1: 260 - T, y1: 0, x2: 260 + T, y2: 410, floor: -1 },
   { x1: 260 - T, y1: 520, x2: 260 + T, y2: 700, floor: -1 },
-  // cellar-pit retaining walls (floor -1): the steps descend in the OPEN yard,
-  // so without these you could step sideways off them into the void at basement
-  // level. The pit's outer end needs none - past mid you are back on floor 0.
-  { x1: 150, y1: 440 - T, x2: 260, y2: 440, floor: -1 },
-  { x1: 150, y1: 520, x2: 260, y2: 520 + T, floor: -1 },
   { x1: 720 - T, y1: 0, x2: 720 + T, y2: 700, floor: -1 },
 ];
 
@@ -253,11 +252,11 @@ const HOUSE_B_DOORS: FloorRect[] = [
   { x1: 720 - T, y1: 120, x2: 720 + T, y2: 200, floor: 0 }, // living <-> garden x3
   { x1: 720 - T, y1: 320, x2: 720 + T, y2: 400, floor: 0 },
   { x1: 720 - T, y1: 520, x2: 720 + T, y2: 600, floor: 0 },
-  { x1: 300, y1: 250 - T, x2: 390, y2: 250 + T, floor: 1 }, // landing <-> bedroom N
-  { x1: 300, y1: 430 - T, x2: 390, y2: 430 + T, floor: 1 }, // landing <-> bedroom S
+  { x1: 300, y1: 240 - T, x2: 390, y2: 240 + T, floor: 1 }, // landing <-> bedroom N
+  { x1: 300, y1: 450 - T, x2: 390, y2: 450 + T, floor: 1 }, // landing <-> bedroom S
   { x1: 260 - T, y1: 80, x2: 260 + T, y2: 160, floor: 1 }, // bedroom N <-> balcony
   { x1: 260 - T, y1: 540, x2: 260 + T, y2: 620, floor: 1 }, // bedroom S <-> balcony
-  { x1: 260 - T, y1: 440, x2: 260 + T, y2: 520, floor: -1 }, // basement <-> cellar steps
+  { x1: 260 - T, y1: 410, x2: 260 + T, y2: 520, floor: -1 }, // basement <-> cellar steps
 ];
 
 export const DOORS: FloorRect[] = [...HOUSE_B_DOORS, ...HOUSE_B_DOORS.map(mirrorRect)].map(scaleRect);

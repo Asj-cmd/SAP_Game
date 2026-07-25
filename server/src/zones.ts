@@ -143,17 +143,17 @@ export interface Connector {
 // the walls, leaving a walkable ring around them on the ground floor.
 const HOUSE_B_CONNECTORS: Connector[] = [
   // Interior staircase living(0) <-> landing(+1), mid-room. Walk NORTH to climb.
-  { id: "stairUpB", rect: { x1: 450, y1: 275, x2: 570, y2: 405 }, axis: "y", mid: 340, floorLow: 1, floorHigh: 0, sealedFor: "B", kind: "stair" },
+  { id: "stairUpB", rect: { x1: 450, y1: 268, x2: 570, y2: 422 }, axis: "y", mid: 340, floorLow: 1, floorHigh: 0, sealedFor: "B", kind: "stair" },
   // Interior staircase living(0) <-> basement(-1), south-west. Walk SOUTH to descend.
-  { id: "stairDownB", rect: { x1: 290, y1: 480, x2: 410, y2: 640 }, axis: "y", mid: 560, floorLow: 0, floorHigh: -1, sealedFor: "B", kind: "stair" },
+  { id: "stairDownB", rect: { x1: 290, y1: 520, x2: 410, y2: 675 }, axis: "y", mid: 597, floorLow: 0, floorHigh: -1, sealedFor: "B", kind: "stair" },
   // Balcony LADDERS: short, steep runs from the yard up to each bedroom's
   // balcony. They stop at the balcony's outer edge (x=200) - the balcony itself
   // (x 200..260) is flat at floor +1, so you step off the ladder onto it.
-  { id: "ladderB_N", rect: { x1: 140, y1: 96, x2: 200, y2: 144 }, axis: "x", mid: 170, floorLow: 0, floorHigh: 1, sealedFor: "B", kind: "ladder" },
-  { id: "ladderB_S", rect: { x1: 140, y1: 556, x2: 200, y2: 604 }, axis: "x", mid: 170, floorLow: 0, floorHigh: 1, sealedFor: "B", kind: "ladder" },
+  { id: "ladderB_N", rect: { x1: 140, y1: 85, x2: 200, y2: 155 }, axis: "x", mid: 170, floorLow: 0, floorHigh: 1, sealedFor: "B", kind: "ladder" },
+  { id: "ladderB_S", rect: { x1: 140, y1: 545, x2: 200, y2: 615 }, axis: "x", mid: 170, floorLow: 0, floorHigh: 1, sealedFor: "B", kind: "ladder" },
   // Cellar steps: descend in the YARD (outside the wall) and enter the basement
   // through the floor -1 doorway, so they never pierce the living-room floor.
-  { id: "cellarB", rect: { x1: 150, y1: 456, x2: 260, y2: 504 }, axis: "x", mid: 205, floorLow: 0, floorHigh: -1, sealedFor: "B", kind: "stair" },
+  { id: "cellarB", rect: { x1: 150, y1: 430, x2: 260, y2: 500 }, axis: "x", mid: 205, floorLow: 0, floorHigh: -1, sealedFor: "B", kind: "stair" },
 ];
 
 const mirrorConnector = (c: Connector): Connector => ({
@@ -181,6 +181,18 @@ export const CONNECTORS: Connector[] = [
 
 // The floor a player ends up on after moving to (x,y) from `floor`. Outside every
 // usable connector the floor is unchanged; on one it is forced by side.
+// Balconies: the only place an upper floor exists OUTSIDE a house's footprint.
+// Each hangs off a bedroom's west wall, and its ladder drops from the outer edge.
+const HOUSE_B_BALCONIES: Rect[] = [
+  { x1: 200, y1: 80, x2: 260, y2: 160 },
+  { x1: 200, y1: 540, x2: 260, y2: 620 },
+];
+
+export const BALCONIES: Rect[] = [
+  ...HOUSE_B_BALCONIES,
+  ...HOUSE_B_BALCONIES.map(mirrorRect),
+].map(scaleRect);
+
 export function resolveFloor(x: number, y: number, floor: number, team: Team): number {
   for (const c of CONNECTORS) {
     if (c.sealedFor === team) continue;
@@ -189,7 +201,17 @@ export function resolveFloor(x: number, y: number, floor: number, team: Team): n
     const coord = c.axis === "x" ? x : y;
     return coord < c.mid ? c.floorLow : c.floorHigh;
   }
+  // Off every connector: an upper/lower floor only EXISTS inside a house (plus
+  // the balconies hanging off one). Anywhere else, step off and you are simply
+  // back on the ground. This is what lets the ladders and cellar steps be bare
+  // steps with no flanking walls: walking off the side just puts you in the
+  // yard instead of leaving you stranded in mid-air on a floor that isn't there.
+  if (floor !== 0 && getZoneAt(x, y, floor) === "void" && !onBalcony(x, y, floor)) return 0;
   return floor;
+}
+
+function onBalcony(x: number, y: number, floor: number): boolean {
+  return floor === 1 && BALCONIES.some((b) => inRect(x, y, b));
 }
 
 // True if (x,y) sits on a connector this team may NOT use - solid for the owner.
@@ -234,27 +256,18 @@ const HOUSE_B_WALLS: FloorRect[] = [
   { x1: 260 - T, y1: 620, x2: 260 + T, y2: 700, floor: 1 },
   // east wall x=720 solid
   { x1: 720 - T, y1: 0, x2: 720 + T, y2: 700, floor: 1 },
-  // partition: bedroom N | landing at y=250, door gap x[300,390]
-  { x1: 260, y1: 250 - T, x2: 300, y2: 250 + T, floor: 1 },
-  { x1: 390, y1: 250 - T, x2: 720, y2: 250 + T, floor: 1 },
-  // partition: landing | bedroom S at y=430, door gap x[300,390]
-  { x1: 260, y1: 430 - T, x2: 300, y2: 430 + T, floor: 1 },
-  { x1: 390, y1: 430 - T, x2: 720, y2: 430 + T, floor: 1 },
-  // balcony + ladder railings (floor 1) - keep you on the balcony/ladder run
-  { x1: 140, y1: 80 - T, x2: 260, y2: 80, floor: 1 },
-  { x1: 140, y1: 160, x2: 260, y2: 160 + T, floor: 1 },
-  { x1: 140, y1: 540 - T, x2: 260, y2: 540, floor: 1 },
-  { x1: 140, y1: 620, x2: 260, y2: 620 + T, floor: 1 },
+  // partition: bedroom N | landing at y=240, door gap x[300,390]
+  { x1: 260, y1: 240 - T, x2: 300, y2: 240 + T, floor: 1 },
+  { x1: 390, y1: 240 - T, x2: 720, y2: 240 + T, floor: 1 },
+  // partition: landing | bedroom S at y=450, door gap x[300,390]
+  { x1: 260, y1: 450 - T, x2: 300, y2: 450 + T, floor: 1 },
+  { x1: 390, y1: 450 - T, x2: 720, y2: 450 + T, floor: 1 },
 
   // ===== floor -1 (basement) =====
-  // west wall x=260, gap = cellar doorway y[440,520]
-  { x1: 260 - T, y1: 0, x2: 260 + T, y2: 440, floor: -1 },
+  // west wall x=260, gap = cellar doorway y[410,520], wider than the steps so the
+  // doorway jambs never clip a body stepping through them
+  { x1: 260 - T, y1: 0, x2: 260 + T, y2: 410, floor: -1 },
   { x1: 260 - T, y1: 520, x2: 260 + T, y2: 700, floor: -1 },
-  // cellar-pit retaining walls (floor -1): the steps descend in the OPEN yard,
-  // so without these you could step sideways off them into the void at basement
-  // level. The pit's outer end needs none - past mid you are back on floor 0.
-  { x1: 150, y1: 440 - T, x2: 260, y2: 440, floor: -1 },
-  { x1: 150, y1: 520, x2: 260, y2: 520 + T, floor: -1 },
   // east wall x=720 solid
   { x1: 720 - T, y1: 0, x2: 720 + T, y2: 700, floor: -1 },
 ];
@@ -294,7 +307,7 @@ export const JAIL_POSITIONS: Record<"basementB" | "basementA", { x: number; y: n
 // randomly placed bundles never land inside geometry.
 const BEDROOM_AREAS_B: Rect[] = [
   { x1: 300, y1: 40, x2: 690, y2: 210 }, // north bedroom
-  { x1: 300, y1: 470, x2: 690, y2: 660 }, // south bedroom
+  { x1: 300, y1: 480, x2: 690, y2: 660 }, // south bedroom
 ];
 const BEDROOM_AREAS: Record<"B" | "A", Rect[]> = {
   B: BEDROOM_AREAS_B,
@@ -345,7 +358,7 @@ const HOUSE_B_NODES: Record<string, BotNode> = {
   backyardB: { x: 100, y: 350, floor: 0 },
   yardB_ladderN: { x: 120, y: 120, floor: 0 },
   yardB_ladderS: { x: 120, y: 580, floor: 0 },
-  yardB_cellar: { x: 170, y: 480, floor: 0 },
+  yardB_cellar: { x: 170, y: 465, floor: 0 },
   stairUpB_base: { x: 510, y: 450, floor: 0 },
   stairUpB_top: { x: 510, y: 300, floor: 1 },
   landingB: { x: 345, y: 340, floor: 1 },
@@ -353,10 +366,10 @@ const HOUSE_B_NODES: Record<string, BotNode> = {
   bedroomB_S: { x: 345, y: 560, floor: 1 },
   balconyB_N: { x: 230, y: 120, floor: 1 },
   balconyB_S: { x: 230, y: 580, floor: 1 },
-  stairDownB_base: { x: 350, y: 455, floor: 0 },
-  stairDownB_bot: { x: 350, y: 600, floor: -1 },
+  stairDownB_base: { x: 350, y: 495, floor: 0 },
+  stairDownB_bot: { x: 350, y: 640, floor: -1 },
   basementB: { x: 520, y: 500, floor: -1 },
-  cellarB_bot: { x: 300, y: 480, floor: -1 },
+  cellarB_bot: { x: 300, y: 465, floor: -1 },
 };
 
 const SHARED_NODES: Record<string, BotNode> = {
