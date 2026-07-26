@@ -387,10 +387,27 @@ export class GameController {
       }
     });
 
-    // Round / match boundary klaxon.
+    // Round / match result stingers, from the LOCAL team's point of view - a
+    // win and a loss must never sound the same.
     const phase = room.state.phase;
     if (phase !== this.prevPhase2) {
-      if (phase === "roundEnd" || phase === "matchEnd") this.audio.play("roundEnd");
+      if (phase === "roundEnd") {
+        const winner = room.state.roundWinner;
+        if (!winner) this.audio.play("roundEnd"); // drawn round
+        else if (winner === this.localTeam) {
+          this.audio.play("win");
+          this.particles.burst(pos.x, pos.y + 70, pos.z, COLORS.cash, 40, 320);
+        } else {
+          this.audio.play("lose");
+        }
+      } else if (phase === "matchEnd") {
+        const won = room.state.matchWinner === this.localTeam;
+        this.audio.play(won ? "matchWin" : "matchLose");
+        if (won) {
+          this.particles.burst(pos.x, pos.y + 80, pos.z, COLORS.cash, 60, 380);
+          this.cameraRig.addTrauma(0.35);
+        }
+      }
       this.prevPhase2 = phase;
     }
   }

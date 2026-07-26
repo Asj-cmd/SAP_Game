@@ -8,7 +8,16 @@ import {
   WORLD_WIDTH,
   WORLD_HEIGHT,
 } from "../constants";
-import { ZONE_RECTS, WALLS, DOORS, CONNECTORS, BALCONIES, type Rect, type Team } from "../geometry/floorplan";
+import {
+  ZONE_RECTS,
+  WALLS,
+  DOORS,
+  CONNECTORS,
+  BALCONIES,
+  connectorSealsOwner,
+  type Rect,
+  type Team,
+} from "../geometry/floorplan";
 import { floorY } from "./world/HeightField";
 import { buildStaircaseGeoms } from "./world/StaircaseBuilder";
 import { buildWindows } from "./world/WindowBuilder";
@@ -96,11 +105,13 @@ export function buildEnvironment(localTeam: Team): Environment {
     const base = floorY(w.floor ?? 0);
     wallGeoms.push(rectToBox(w, WALL_HEIGHT, base + WALL_HEIGHT / 2, COLORS.wall));
   }
-  for (const c of CONNECTORS) {
-    if (c.sealedFor !== localTeam) continue;
-    // Panel on the owner's ground floor over the connector footprint.
-    wallGeoms.push(rectToBox(c.rect, WALL_HEIGHT, WALL_HEIGHT / 2, COLORS.doorPanel));
-  }
+  // NOTE: a sealed connector is deliberately NOT filled with a floor-to-ceiling
+  // panel. Doing that put two huge dark columns in the middle of your own living
+  // room, which read as unfinished and made the space confusing. Instead:
+  //   - a sealed route UP keeps its visible staircase/ladder, which is itself
+  //     the obstacle (see connectorSealsOwner), so nothing extra is drawn;
+  //   - a sealed route DOWN gets its floor opening left SOLID below, so it reads
+  //     as a closed hatch you simply walk over.
   // Windows: frames merge into the walls mesh, glass panes into their own mesh.
   const windows = buildWindows();
   wallGeoms.push(...windows.frameGeoms);
@@ -127,6 +138,9 @@ export function buildEnvironment(localTeam: Team): Environment {
   // ramp rises through), wherever that slab overlaps the connector footprint.
   const holesForFloor = (zoneRect: Rect, floor: number): Rect[] =>
     CONNECTORS.filter((c) => Math.max(c.floorLow, c.floorHigh) === floor)
+      // Your OWN basement openings stay closed: leaving the slab intact is the
+      // lid you walk over, instead of a hole you can neither cross nor enter.
+      .filter((c) => !(c.sealedFor === localTeam && !connectorSealsOwner(c)))
       .map((c) => intersectRect(c.rect, zoneRect))
       .filter((r): r is Rect => r !== null);
 

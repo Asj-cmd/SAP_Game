@@ -17,10 +17,14 @@ function smoothstep(t: number): number {
   return c * c * (3 - 2 * c);
 }
 
+// Treads are drawn `visualPad` wider than the walkable rect on each side, so a
+// flight sunk into a pit meets its retaining walls instead of leaving a slot of
+// sky beside it. Purely visual - collision and floor flipping use c.rect.
 function stepRect(c: Connector, axisStart: number, axisEnd: number): Rect {
+  const pad = c.visualPad ?? 0;
   return c.axis === "x"
-    ? { x1: axisStart, x2: axisEnd, y1: c.rect.y1, y2: c.rect.y2 }
-    : { x1: c.rect.x1, x2: c.rect.x2, y1: axisStart, y2: axisEnd };
+    ? { x1: axisStart, x2: axisEnd, y1: c.rect.y1 - pad, y2: c.rect.y2 + pad }
+    : { x1: c.rect.x1 - pad, x2: c.rect.x2 + pad, y1: axisStart, y2: axisEnd };
 }
 
 function buildConnectorSteps(c: Connector): THREE.BufferGeometry[] {

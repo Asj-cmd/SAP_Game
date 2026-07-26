@@ -147,6 +147,13 @@ export interface Connector {
   floorHigh: number;
   sealedFor?: Team;
   kind: "stair" | "ladder"; // purely cosmetic hint for the renderer
+  // RENDER-ONLY widening of the step run across its cross axis, in pre-scale
+  // units. The walkable rect is deliberately inset from the surrounding walls
+  // (so a floor flip can never land a body inside one), which would otherwise
+  // leave a visible slot of open sky between the steps and the wall beside
+  // them. This pads the drawn treads out to meet that wall without touching
+  // the collision/floor-flip footprint.
+  visualPad?: number;
 }
 
 // House B connectors, authored once and mirrored for house A below.
@@ -166,7 +173,7 @@ const HOUSE_B_CONNECTORS: Connector[] = [
   { id: "ladderB_S", rect: { x1: 140, y1: 545, x2: 200, y2: 615 }, axis: "x", mid: 170, floorLow: 0, floorHigh: 1, sealedFor: "B", kind: "ladder" },
   // Cellar steps: descend in the YARD (outside the wall) and enter the basement
   // through the floor -1 doorway, so they never pierce the living-room floor.
-  { id: "cellarB", rect: { x1: 150, y1: 430, x2: 260, y2: 500 }, axis: "x", mid: 205, floorLow: 0, floorHigh: -1, sealedFor: "B", kind: "stair" },
+  { id: "cellarB", rect: { x1: 150, y1: 430, x2: 260, y2: 500 }, axis: "x", mid: 205, floorLow: 0, floorHigh: -1, sealedFor: "B", kind: "stair", visualPad: 20 },
 ];
 
 const mirrorConnector = (c: Connector): Connector => ({
@@ -185,6 +192,8 @@ const scaleConnector = (c: Connector): Connector => ({
   ...c,
   rect: scaleRect(c.rect),
   mid: c.axis === "x" ? c.mid * S : c.mid * S * YS,
+  // Cross axis of an x-axis connector is y (and vice versa).
+  visualPad: c.visualPad === undefined ? undefined : c.visualPad * (c.axis === "x" ? S * YS : S),
 });
 
 export const CONNECTORS: Connector[] = [
@@ -228,9 +237,18 @@ function onBalcony(x: number, y: number, floor: number): boolean {
 }
 
 // True if (x,y) sits on a connector this team may NOT use - solid for the owner.
+// True when a connector should be SOLID to the team that owns it.
+// Only the routes that climb are: their staircase/ladder geometry is visibly in
+// the way, so bumping into it reads correctly. A sealed route DOWN is instead
+// covered by a solid lid at floor level (see EnvironmentBuilder) - you walk over
+// your own basement hatch rather than being stopped by an invisible block.
+export function connectorSealsOwner(c: Connector): boolean {
+  return Math.max(c.floorLow, c.floorHigh) > 0;
+}
+
 export function connectorBlocks(x: number, y: number, team: Team): boolean {
   for (const c of CONNECTORS) {
-    if (c.sealedFor === team && inRect(x, y, c.rect)) return true;
+    if (c.sealedFor === team && connectorSealsOwner(c) && inRect(x, y, c.rect)) return true;
   }
   return false;
 }
@@ -283,6 +301,12 @@ const HOUSE_B_WALLS: FloorRect[] = [
   { x1: 260 - T, y1: 520, x2: 260 + T, y2: 700, floor: -1 },
   // east wall x=720 solid
   { x1: 720 - T, y1: 0, x2: 720 + T, y2: 700, floor: -1 },
+  // Cellar-pit sides. These are the EARTH walls of the sunken stairwell, not
+  // posts flanking the steps: they exist only on floor -1, so they span the pit
+  // depth and are entirely below ground - invisible from the yard, but without
+  // them you see open sky through the sides of the pit from inside the basement.
+  { x1: 150, y1: 410 - T, x2: 260, y2: 410, floor: -1 },
+  { x1: 150, y1: 520, x2: 260, y2: 520 + T, floor: -1 },
 ];
 
 export const WALLS: FloorRect[] = [

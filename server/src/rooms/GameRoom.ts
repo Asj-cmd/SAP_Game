@@ -92,6 +92,10 @@ const BOT_DEFEND_GRACE_MS = 1500;
 const BOT_PATROL_MIN_MS = 3000;
 const BOT_PATROL_VAR_MS = 4000;
 const BOT_PATROL_ARRIVE = 40 * WORLD_SCALE;
+// Progress watchdog on a committed graph hop: re-path after this long without
+// closing the distance, and abandon the task entirely at the longer bound.
+const BOT_HOP_STALL_MS = 1200;
+const BOT_TASK_STALL_MS = 3000;
 
 type BotTask = "rescue" | "defend" | "deposit" | "raid" | "patrol";
 
@@ -111,6 +115,8 @@ interface BotMind {
   targetId: string; // player id (rescue/defend) or bundle id (raid)
   via: BotNodeId | null; // pending route waypoint (cleared on arrival)
   moveTarget: BotNodeId | null; // committed next graph hop (hysteresis - see botMoveToward)
+  hopBestDist: number; // closest we have come to that hop (progress watchdog)
+  hopProgressAt: number; // clock ms of the last real progress toward it
   nextDecideAt: number; // clock ms of the next scheduled re-score
   lastSeenHomeAt: number; // defend: last tick the target was inside our home turf
   patrolNode: BotNodeId | null;
@@ -749,6 +755,8 @@ export class GameRoom extends Room<GameState> {
         targetId: "",
         via: null,
         moveTarget: null,
+        hopBestDist: Infinity,
+        hopProgressAt: 0,
         nextDecideAt: 0,
         lastSeenHomeAt: 0,
         patrolNode: null,
@@ -820,6 +828,7 @@ export class GameRoom extends Room<GameState> {
       mind.targetId = "";
       mind.via = null;
       mind.moveTarget = null;
+      mind.hopBestDist = Infinity;
     }
   }
 
@@ -929,6 +938,7 @@ export class GameRoom extends Room<GameState> {
       mind.targetId = best.targetId;
       mind.via = best.via;
       mind.moveTarget = null; // fresh route for the new objective
+      mind.hopBestDist = Infinity;
       if (best.task === "defend") mind.lastSeenHomeAt = now;
       if (best.task !== "patrol") mind.patrolNode = null;
     }
@@ -1159,9 +1169,36 @@ export class GameRoom extends Room<GameState> {
       // spur) ping-pongs in place and never sets out. Recompute only when the
       // hop is unset or reached.
       const arrive = 30 * WORLD_SCALE;
+      const now = this.clock.currentTime;
+
+      // Progress watchdog. Hysteresis alone could deadlock a bot forever: it
+      // commits to a hop, geometry stops it from ever reaching it, so the
+      // "arrived" test never fires and the hop is never recomputed - the bot
+      // walks into the obstruction for the rest of the match. (This is the
+      // intermittent multi-second stall seen in playtests.) If it has not
+      // actually closed the distance for a while, drop the hop and re-path; if
+      // it still cannot make headway, abandon the whole task and re-decide.
+      if (mind.moveTarget) {
+        const d = distance(bot, BOT_WAYPOINTS[mind.moveTarget]);
+        if (d < mind.hopBestDist - 1) {
+          mind.hopBestDist = d;
+          mind.hopProgressAt = now;
+        } else if (now - mind.hopProgressAt > BOT_HOP_STALL_MS) {
+          mind.moveTarget = null;
+          mind.hopBestDist = Infinity;
+          if (now - mind.hopProgressAt > BOT_TASK_STALL_MS) {
+            mind.task = null; // force a full re-score next tick
+            mind.targetId = "";
+            mind.via = null;
+          }
+        }
+      }
+
       if (!mind.moveTarget || distance(bot, BOT_WAYPOINTS[mind.moveTarget]) < arrive) {
         const path = findBotPath(team, currentNode, targetNode);
         mind.moveTarget = path.length > 1 ? path[1] : targetNode;
+        mind.hopBestDist = distance(bot, BOT_WAYPOINTS[mind.moveTarget]);
+        mind.hopProgressAt = now;
       }
       aim = BOT_WAYPOINTS[mind.moveTarget];
     }

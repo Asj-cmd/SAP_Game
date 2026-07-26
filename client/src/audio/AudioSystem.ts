@@ -10,7 +10,7 @@
 // Browsers refuse to start audio before a user gesture, so the context is
 // created lazily and resumed on the first interaction (see `unlock`).
 
-type Cue = "footstep" | "pickup" | "deposit" | "jail" | "rescue" | "roundEnd";
+type Cue = "footstep" | "pickup" | "deposit" | "jail" | "rescue" | "roundEnd" | "win" | "lose" | "matchWin" | "matchLose";
 
 const MASTER_VOLUME = 0.35;
 
@@ -73,10 +73,31 @@ export class AudioSystem {
         this.tone(t, "sine", 520, 1180, 0.22, 0.3);
         break;
       case "roundEnd":
-        // Three-blast klaxon.
+        // Neutral three-blast klaxon - only used for a drawn round.
         for (let i = 0; i < 3; i++) {
           this.tone(t + i * 0.22, "square", 440, 440, 0.16, 0.26);
         }
+        break;
+      case "win":
+        // Rising major arpeggio (C-E-G-C): unmistakably "you took that one".
+        this.arpeggio(t, [523, 659, 784, 1046], 0.13, 0.3, "triangle");
+        break;
+      case "lose":
+        // Falling minor arpeggio - the same shape inverted, so the two read as
+        // a matched pair rather than unrelated sounds.
+        this.arpeggio(t, [523, 440, 349, 262], 0.16, 0.26, "sine");
+        break;
+      case "matchWin":
+        // Longer fanfare: the win arpeggio, then a held triad on top.
+        this.arpeggio(t, [523, 659, 784, 1046], 0.12, 0.3, "triangle");
+        this.tone(t + 0.5, "triangle", 1046, 1046, 0.7, 0.26);
+        this.tone(t + 0.5, "sine", 659, 659, 0.7, 0.2);
+        this.tone(t + 0.5, "sine", 784, 784, 0.7, 0.2);
+        break;
+      case "matchLose":
+        // Slow descent onto a held low note.
+        this.arpeggio(t, [523, 415, 330], 0.2, 0.26, "sine");
+        this.tone(t + 0.62, "sine", 262, 247, 0.9, 0.24);
         break;
     }
   }
@@ -88,6 +109,10 @@ export class AudioSystem {
   }
 
   // ---- primitives ----
+
+  private arpeggio(start: number, freqs: number[], step: number, peak: number, type: OscillatorType) {
+    freqs.forEach((f, i) => this.tone(start + i * step, type, f, f, step * 1.7, peak));
+  }
 
   private tone(
     start: number,
