@@ -1,6 +1,17 @@
 import { CharacterModel } from "./CharacterModel";
 import { WALLS, CONNECTORS, resolveFloor, type Rect, type Team } from "../geometry/floorplan";
-import { PLAYER_SPEED, CARRY_SPEED, WORLD_WIDTH, WORLD_HEIGHT } from "../constants";
+import {
+  PLAYER_SPEED,
+  CARRY_SPEED,
+  WORLD_WIDTH,
+  WORLD_HEIGHT,
+  MOVE_ACCEL_RATE,
+  MOVE_STOP_RATE,
+  GRAVITY,
+  STEP_UP_RATE,
+  LANDING_IMPACT_MIN,
+  FOOTSTEP_STRIDE,
+} from "../constants";
 import { visualHeight } from "./world/HeightField";
 
 // Body radius in world units - deliberately NOT scaled by WORLD_SCALE, so the
@@ -22,9 +33,15 @@ const SUBSTEP = CHAR_RADIUS / 2;
 export class CharacterController {
   x: number;
   z: number;
+  y = 0; // render height - eased over stairs, gravity-driven in the air
   floor = 0;
   vx = 0;
   vz = 0;
+  vy = 0;
+  airborne = false;
+  private landingImpact = 0;
+  private footstepPending = false;
+  private strideAccumulator = 0;
 
   constructor(
     readonly model: CharacterModel,
@@ -36,28 +53,99 @@ export class CharacterController {
     this.x = startX;
     this.z = startZ;
     this.floor = startFloor;
+    this.y = visualHeight(this.x, this.z, this.floor, this.team);
     this.applyTransform();
   }
 
   update(dt: number, moveX: number, moveZ: number, carrying: boolean) {
-    const speed = carrying ? CARRY_SPEED : PLAYER_SPEED;
+    const maxSpeed = carrying ? CARRY_SPEED : PLAYER_SPEED;
 
-    let speedFraction = 0;
+    // ---- horizontal: ease velocity toward the desired direction ----
+    // Exponential approach, so identical feel at any frame rate. Accelerating
+    // and stopping use different rates: you get up to speed with a little ramp
+    // but pull up fairly sharply, which reads as controlled rather than icy.
+    let desiredX = 0;
+    let desiredZ = 0;
     if (moveX !== 0 || moveZ !== 0) {
       const len = Math.hypot(moveX, moveZ);
-      const ndx = moveX / len;
-      const ndz = moveZ / len;
-      this.vx = ndx * speed;
-      this.vz = ndz * speed;
-      this.moveWithCollision(this.vx * dt, this.vz * dt);
-      speedFraction = 1;
-    } else {
+      desiredX = (moveX / len) * maxSpeed;
+      desiredZ = (moveZ / len) * maxSpeed;
+    }
+    const rate = desiredX === 0 && desiredZ === 0 ? MOVE_STOP_RATE : MOVE_ACCEL_RATE;
+    const t = 1 - Math.exp(-rate * dt);
+    this.vx += (desiredX - this.vx) * t;
+    this.vz += (desiredZ - this.vz) * t;
+    if (Math.hypot(this.vx, this.vz) < 1) {
       this.vx = 0;
       this.vz = 0;
     }
 
-    this.applyTransform();
-    this.model.update(dt, speedFraction);
+    const beforeX = this.x;
+    const beforeZ = this.z;
+    this.moveWithCollision(this.vx * dt, this.vz * dt);
+
+    // Velocity reported to the server is what ACTUALLY happened, not what was
+    // asked for - so a character pressed into a wall reads as stopped (and its
+    // walk animation settles) instead of jogging on the spot.
+    const movedX = this.x - beforeX;
+    const movedZ = this.z - beforeZ;
+    if (dt > 0) {
+      this.vx = movedX / dt;
+      this.vz = movedZ / dt;
+    }
+
+    // ---- footsteps: one per stride of ground actually covered ----
+    this.strideAccumulator += Math.hypot(movedX, movedZ);
+    if (this.strideAccumulator >= FOOTSTEP_STRIDE && !this.airborne) {
+      this.strideAccumulator = 0;
+      this.footstepPending = true;
+    }
+
+    this.updateVertical(dt);
+
+    // Continuous 0..1 blend instead of a binary on/off, so the walk cycle fades
+    // in and out with the actual gait rather than popping.
+    this.model.update(dt, Math.min(1, Math.hypot(this.vx, this.vz) / maxSpeed));
+  }
+
+  // Ground height is a target, not an assignment: rising ground (stairs) is
+  // eased so you walk up it, while ground BELOW you is a fall under gravity.
+  // Previously the model's y was set straight from visualHeight, so walking off
+  // a balcony teleported the character down a whole storey in one frame.
+  private updateVertical(dt: number) {
+    const groundY = visualHeight(this.x, this.z, this.floor, this.team);
+    if (this.y > groundY + 0.5) {
+      this.airborne = true;
+      this.vy -= GRAVITY * dt;
+      this.y += this.vy * dt;
+      if (this.y <= groundY) {
+        // Landed. Impact speed drives the thud + camera kick.
+        this.landingImpact = Math.max(this.landingImpact, Math.abs(this.vy));
+        this.y = groundY;
+        this.vy = 0;
+        this.airborne = false;
+      }
+    } else {
+      this.y += (groundY - this.y) * Math.min(1, STEP_UP_RATE * dt);
+      if (Math.abs(groundY - this.y) < 0.5) this.y = groundY;
+      this.vy = 0;
+      this.airborne = false;
+    }
+    this.model.root.position.set(this.x, this.y, this.z);
+  }
+
+  // One-shot feedback events, consumed by the juice layer each frame.
+  consumeFootstep(): boolean {
+    const stepped = this.footstepPending;
+    this.footstepPending = false;
+    return stepped;
+  }
+
+  // Landing speed in world units/sec, or 0 if nothing worth reacting to.
+  consumeLandingImpact(): number {
+    const impact = this.landingImpact;
+    this.landingImpact = 0;
+    return impact < LANDING_IMPACT_MIN ? 0 : impact;
   }
 
   // Server-authoritative snap (phase changes / jail): position AND floor come
@@ -68,11 +156,16 @@ export class CharacterController {
     this.floor = floor;
     this.vx = 0;
     this.vz = 0;
+    this.vy = 0;
+    this.airborne = false;
+    this.landingImpact = 0;
+    this.strideAccumulator = 0;
+    this.y = visualHeight(this.x, this.z, this.floor, this.team);
     this.applyTransform();
   }
 
   private applyTransform() {
-    this.model.root.position.set(this.x, visualHeight(this.x, this.z, this.floor, this.team), this.z);
+    this.model.root.position.set(this.x, this.y, this.z);
   }
 
   // Axis-separated move-and-slide: each axis is attempted alone and reverted if

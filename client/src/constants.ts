@@ -21,6 +21,26 @@ export const REMOTE_LERP = 0.2;
 // factor, so remote facing gets its own (higher) lerp constant.
 export const ROTATION_LERP = 0.25;
 
+// ---- character motion feel ----
+// Velocity is eased toward the input direction instead of snapping to it, which
+// is what gave movement its "unfinished" feel: instant full speed and instant
+// dead stops read as a placeholder, and drove the walk animation as a binary
+// on/off. Rates are exponential-approach per second, so the feel is identical at
+// any frame rate. Tuned snappy (~0.1s to full tilt) - this is a party game, not
+// a sim - but with enough ramp to give the character weight.
+export const MOVE_ACCEL_RATE = 18;
+export const MOVE_STOP_RATE = 22;
+// Falling. Stepping off a balcony used to teleport you down a whole storey;
+// now you fall. Tuned against STORY_HEIGHT so a one-floor drop takes ~0.35s.
+export const GRAVITY = 3400;
+// Rising ground (stairs, ramps) is eased rather than simulated - you walk UP
+// stairs, you don't get launched by them.
+export const STEP_UP_RATE = 16;
+// Landing softer than this doesn't register as an impact (no thud, no shake).
+export const LANDING_IMPACT_MIN = 260;
+// World distance between footstep triggers at a full-speed walk.
+export const FOOTSTEP_STRIDE = 46;
+
 export const ACTION_RANGE = 60 * WORLD_SCALE;
 export const ROUND_TIME_DEFAULT = 300;
 

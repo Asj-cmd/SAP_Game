@@ -24,24 +24,24 @@ const VARIANT_TOP: Record<FamilyVariant, number> = {
 };
 const CARRY_BUNDLE_MARGIN = 0.28;
 
-// Deterministic per-player family member: players of a team get
-// father/mother/son/daughter in the order they appear in the state's players
-// map (Colyseus preserves insertion order in sync, so every client iterates
-// identically). No randomness, no server field needed.
-export function pickFamilyVariant(players: { forEach(cb: (p: any, id: string) => void): void }, playerId: string): FamilyVariant {
-  let indexInTeam = 0;
-  let team = "";
-  players.forEach((p: any, id: string) => {
-    if (id === playerId) team = p.team;
-  });
-  let counted = 0;
-  players.forEach((p: any, id: string) => {
-    if (p.team !== team) return;
-    if (id === playerId) indexInTeam = counted;
-    counted++;
-  });
-  return FAMILY_ORDER[indexInTeam % FAMILY_ORDER.length];
+// Deterministic per-player family member, derived from the player id alone.
+export function pickFamilyVariant(_players: unknown, playerId: string): FamilyVariant {
+  // Hash the player's OWN id - nothing else. The previous version indexed into
+  // the team's position in the players map, which meant the answer depended on
+  // who else happened to be in the room: a client that joined after someone
+  // left computed a different index for the same player, so two clients could
+  // render the same person as different family members. Deriving purely from
+  // the id makes it stable for that player forever, on every client, no matter
+  // who joins or leaves. (Two teammates can draw the same member; that is
+  // cosmetic and reads fine for a family.)
+  let hash = 2166136261;
+  for (let i = 0; i < playerId.length; i++) {
+    hash ^= playerId.charCodeAt(i);
+    hash = Math.imul(hash, 16777619);
+  }
+  return FAMILY_ORDER[(hash >>> 0) % FAMILY_ORDER.length];
 }
+
 // World-size fraction of a ground bundle: big enough to read at a glance,
 // small enough not to look like a hat from across the map.
 const CARRY_BUNDLE_WORLD_SCALE = (BUNDLE_SCALE / CHARACTER_SCALE) * 0.75;

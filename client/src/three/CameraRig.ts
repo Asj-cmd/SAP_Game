@@ -43,6 +43,10 @@ const MIN_DISTANCE = 16;
 // Boom EXTEND easing (1/s). Collapse is instant (see update) to prevent any
 // clip; only lengthening is eased, and this rate is the whole "smoothness".
 const BOOM_EXTEND_RATE = 7;
+// Screenshake: peak positional jitter at full trauma, and how fast trauma bleeds
+// off (1.0 -> 0 in ~1/TRAUMA_DECAY seconds).
+const SHAKE_MAX_OFFSET = 14;
+const TRAUMA_DECAY = 1.8;
 
 function clamp(v: number, lo: number, hi: number): number {
   return Math.max(lo, Math.min(hi, v));
@@ -56,6 +60,7 @@ export class CameraRig {
   // Smoothed ground height under the followed target (see GROUND_FOLLOW_RATE).
   private groundY = 0;
   private groundInitialized = false;
+  private trauma = 0;
   // Smoothed boom length - the only damped quantity in the whole rig.
   private boomLength = FOLLOW_DISTANCE;
   // Scratch vectors reused each frame (this runs every rendered frame; fresh
@@ -84,6 +89,14 @@ export class CameraRig {
   // the sign / invert-Y). Clamped instantly.
   addPitch(delta: number) {
     this.pitch = clamp(this.pitch + delta, PITCH_MIN, PITCH_MAX);
+  }
+
+  // Screenshake. Callers add "trauma" (0..1) on impacts; the offset scales with
+  // trauma SQUARED so small knocks stay subtle while big ones really hit, and it
+  // decays back to zero. Applied to the final camera position only, so it never
+  // perturbs the boom, the pivot, or where the character is aimed.
+  addTrauma(amount: number) {
+    this.trauma = Math.min(1, this.trauma + amount);
   }
 
   // `bounds`: the enclosed interior zone the character stands in (its
@@ -129,6 +142,17 @@ export class CameraRig {
     // ---- place the camera on the boom, always looking at the pivot (so the
     // character is always centred - no sideways displacement).
     this.camPos.copy(this.pivot).addScaledVector(this.dir, this.boomLength);
+
+    // ---- screenshake: jitter the camera position only, never the look-at, so
+    // the shot stays framed on the character while the world rattles.
+    if (this.trauma > 0) {
+      this.trauma = Math.max(0, this.trauma - TRAUMA_DECAY * dt);
+      const shake = this.trauma * this.trauma * SHAKE_MAX_OFFSET;
+      this.camPos.x += (Math.random() * 2 - 1) * shake;
+      this.camPos.y += (Math.random() * 2 - 1) * shake;
+      this.camPos.z += (Math.random() * 2 - 1) * shake;
+    }
+
     this.camera.position.copy(this.camPos);
     this.camera.lookAt(this.pivot);
   }

@@ -151,7 +151,7 @@ export class HudOverlay {
         <div id="hud-win-pips"></div>
       </div>
       <div id="hud-objective"></div>
-      <div id="hud-controls">Mouse : Look &nbsp; W/A/S/D or Arrows : Move &nbsp;&nbsp; SPACE : Action &nbsp;&nbsp; (cash deposits automatically at home)</div>
+      <div id="hud-controls">Mouse / Right stick : Look &nbsp; W/A/S/D or Left stick : Move &nbsp;&nbsp; SPACE or A : Action &nbsp;&nbsp; M : Mute &nbsp;&nbsp; (cash deposits automatically at home)</div>
       <div id="hud-mouse-hint">Click the game to enable mouse look &nbsp;•&nbsp; ESC frees the mouse</div>
       <div id="hud-prompt"></div>
       <div id="hud-minimap-wrap"><div id="hud-minimap-hdr">MAP</div><canvas id="hud-minimap"></canvas></div>

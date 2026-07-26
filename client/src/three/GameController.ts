@@ -10,6 +10,9 @@ import { CashBundleView } from "./CashBundleView";
 import { dressHouses } from "./world/HouseDresser";
 import { RoofSystem, ROOFED_ZONES } from "./world/RoofSystem";
 import { HudOverlay } from "../ui/HudOverlay";
+import { AudioSystem } from "../audio/AudioSystem";
+import { ParticleBurst } from "./juice/ParticleBurst";
+import { GamepadInput, type GamepadFrame } from "./input/GamepadInput";
 import {
   ZONE_RECTS,
   getZoneAt,
@@ -19,7 +22,7 @@ import {
   type Team,
   type ZoneRect,
 } from "../geometry/floorplan";
-import { MOVE_SEND_INTERVAL_MS, ACTION_RANGE, MOUSE_SENSITIVITY } from "../constants";
+import { MOVE_SEND_INTERVAL_MS, ACTION_RANGE, MOUSE_SENSITIVITY, COLORS, STORY_HEIGHT } from "../constants";
 
 type Action =
   | { kind: "pickupCash"; bundleId: string; prompt: string }
@@ -57,6 +60,15 @@ export class GameController {
   private cashView!: CashBundleView;
   private roofSystem!: RoofSystem;
   private hud: HudOverlay;
+  // ---- juice layer: reads server state + local motion and produces feedback.
+  // Strictly one-way (state -> feedback); nothing here can affect simulation.
+  private audio = new AudioSystem();
+  private particles!: ParticleBurst;
+  private gamepad = new GamepadInput();
+  private padFrame: GamepadFrame | null = null;
+  private wasCarrying = false;
+  private jailedLast = new Set<string>();
+  private prevPhase2 = "";
 
   private input: InputState = { left: false, right: false, up: false, down: false };
   private spaceJustPressed = false;
@@ -77,6 +89,8 @@ export class GameController {
   private keyupHandler = (e: KeyboardEvent) => this.onKey(e.key.toLowerCase(), false);
   // Browsers only allow pointer lock from a user gesture, hence the click.
   private clickHandler = () => {
+    // Browsers only allow audio to start from a user gesture.
+    this.audio.unlock();
     if (document.pointerLockElement !== this.canvasContainer) {
       this.canvasContainer.requestPointerLock();
     }
@@ -136,6 +150,8 @@ export class GameController {
 
     gc.cashView = await CashBundleView.create(gc.sceneManager.scene);
 
+    gc.particles = new ParticleBurst(gc.sceneManager.scene);
+
     gc.roofSystem = new RoofSystem();
     gc.roofSystem.build(gc.sceneManager.scene);
 
@@ -153,6 +169,7 @@ export class GameController {
     if (k === "w" || k === "arrowup") this.input.up = down;
     if (k === "s" || k === "arrowdown") this.input.down = down;
     if (k === " " && down) this.spaceJustPressed = true;
+    if (k === "m" && down) this.audio.setMuted(!this.audio.isMuted());
   }
 
   private tick(dt: number) {
@@ -169,12 +186,24 @@ export class GameController {
     }
     this.prevPhase = phase;
 
+    // Gamepad is polled before movement so stick input joins the same frame as
+    // the keyboard's, and the right stick feeds the camera like the mouse does.
+    const pad = this.gamepad.poll(dt);
+    if (pad.connected) {
+      this.cameraRig.addYaw(pad.lookX);
+      this.cameraRig.addPitch(pad.lookY * (this.invertY ? -1 : 1));
+      if (pad.actionPressed) this.spaceJustPressed = true;
+    }
+    this.padFrame = pad;
+
     this.updateLocalMovement(dt, selfState);
     this.remoteSync.sync(dt, room, this.localId);
     this.cashView.sync(room);
     this.updateAction(selfState);
     this.handleSpaceInput();
     this.maybeAutoDeposit(selfState);
+    this.updateFeedback(dt, room, selfState);
+    this.particles.update(dt);
 
     this.hud.update(room, this.currentAction?.prompt ?? "");
     this.spaceJustPressed = false;
@@ -214,8 +243,13 @@ export class GameController {
     // FPS-style controls: the mouse owns the camera heading (pointer lock ->
     // CameraRig.addYaw), and WASD/arrows move relative to it - W walks the
     // direction the camera faces, A/D strafe, S walks back toward the camera.
-    const f = (this.input.up ? 1 : 0) - (this.input.down ? 1 : 0);
-    const s = (this.input.right ? 1 : 0) - (this.input.left ? 1 : 0);
+    let f = (this.input.up ? 1 : 0) - (this.input.down ? 1 : 0);
+    let s = (this.input.right ? 1 : 0) - (this.input.left ? 1 : 0);
+    // Stick adds to the keys, so either (or both) drives the same motion.
+    if (this.padFrame?.connected) {
+      f = Math.max(-1, Math.min(1, f + this.padFrame.moveZ));
+      s = Math.max(-1, Math.min(1, s + this.padFrame.moveX));
+    }
     const yaw = this.cameraRig.getYaw();
     const moveX = Math.sin(yaw) * f + Math.cos(yaw) * s;
     const moveZ = -Math.cos(yaw) * f + Math.sin(yaw) * s;
@@ -302,6 +336,63 @@ export class GameController {
     }
 
     this.currentAction = action;
+  }
+
+  // Turns state changes + local motion into feedback. One-way: it only reads.
+  // Events are detected by diffing the previous frame's server state, so it
+  // works identically for things the local player did and things that happened
+  // to them (getting jailed, a teammate being freed).
+  private updateFeedback(dt: number, room: Room, selfState: any) {
+    const model = this.controller.model;
+    const pos = model.root.position;
+
+    // Footsteps + landings come from the motor, which knows what actually
+    // happened (ground covered, impact speed) rather than what was requested.
+    if (this.controller.consumeFootstep()) this.audio.play("footstep");
+    const impact = this.controller.consumeLandingImpact();
+    if (impact > 0) {
+      // Normalised against the speed reached falling one full storey.
+      const hardness = Math.min(1, impact / Math.sqrt(2 * 3400 * STORY_HEIGHT));
+      this.audio.play("footstep", 0.6 + hardness);
+      this.cameraRig.addTrauma(0.12 + hardness * 0.22);
+    }
+
+    // Local player picked up / banked cash.
+    const carrying = !!selfState.isCarryingCash;
+    if (carrying && !this.wasCarrying) {
+      this.audio.play("pickup");
+      this.particles.burst(pos.x, pos.y + 60, pos.z, COLORS.cash, 18, 210);
+    } else if (!carrying && this.wasCarrying && !selfState.isJailed) {
+      this.audio.play("deposit");
+      this.particles.burst(pos.x, pos.y + 50, pos.z, COLORS.cash, 34, 300);
+      this.cameraRig.addTrauma(0.3);
+    }
+    this.wasCarrying = carrying;
+
+    // Anyone jailed or freed, including remote players - the burst is drawn at
+    // their position so you see it happen across the room.
+    room.state.players.forEach((p: any, id: string) => {
+      const wasJailed = this.jailedLast.has(id);
+      if (p.isJailed && !wasJailed) {
+        this.jailedLast.add(id);
+        const self = id === this.localId;
+        this.audio.play("jail");
+        this.particles.burst(p.x, (p.floor ?? 0) * STORY_HEIGHT + 60, p.y, COLORS.teamA, 26, 260);
+        // Being jailed yourself hits much harder than watching it happen.
+        this.cameraRig.addTrauma(self ? 0.6 : 0.18);
+      } else if (!p.isJailed && wasJailed) {
+        this.jailedLast.delete(id);
+        this.audio.play("rescue");
+        this.particles.burst(p.x, (p.floor ?? 0) * STORY_HEIGHT + 60, p.y, COLORS.cash, 16, 200);
+      }
+    });
+
+    // Round / match boundary klaxon.
+    const phase = room.state.phase;
+    if (phase !== this.prevPhase2) {
+      if (phase === "roundEnd" || phase === "matchEnd") this.audio.play("roundEnd");
+      this.prevPhase2 = phase;
+    }
   }
 
   private handleSpaceInput() {
