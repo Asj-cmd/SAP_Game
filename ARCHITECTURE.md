@@ -9,8 +9,12 @@ place to touch.
 ## Layout
 
 ```
-shared/            THE canonical world geometry - no engine, no deps. Both
-                     sides re-export it; change the floor plan only here.
+shared/            THE canonical world - no engine, no deps. Both sides
+                     re-export it; change the floor plan only here.
+  worldGeometry.ts    Scale, zones, walls, connectors, spawns, bot graph.
+  props.ts            Furniture placements + the SOLID footprints derived
+                        from them (furniture is collidable, so the server
+                        needs the same numbers the renderer draws).
 server/            Colyseus, AUTHORITATIVE game logic. Renders nothing.
   src/zones.ts        Re-export of shared/worldGeometry.ts.
   src/rooms/GameRoom.ts  Rules, round/match flow, AI bots. (Tuning block up top.)
@@ -54,6 +58,13 @@ areas and the bot graph, plus every helper (`getZoneAt`, `resolveFloor`,
 - `server/src/zones.ts` → pure re-export.
 - `client/src/geometry/floorplan.ts` → re-export **plus** presentation only
   (zone colours/labels, which the simulation has no opinion about).
+
+`shared/props.ts` is the same arrangement for the furniture: the placement list
+lives there and `client/src/three/world/propManifest.ts` re-exports it, because
+props are solid now and a bot has to path around the same sofa a human cannot
+walk through. Anything in its `FOOTPRINTS` table is collidable; anything absent
+is deliberately walk-through (flat floor dressing, and the jail-cell bars, which
+must stay passable or a jailed player could never be rescued).
 
 It is deliberately dependency-free — no Three.js, no Colyseus, no colours — so
 it is portable and could be dumped to JSON for another engine to load.

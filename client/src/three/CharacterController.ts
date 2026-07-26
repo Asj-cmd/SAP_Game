@@ -1,8 +1,8 @@
 import { CharacterModel } from "./CharacterModel";
-import { WALLS, CONNECTORS, resolveFloor, type Rect, type Team } from "../geometry/floorplan";
+import { WALLS, CONNECTORS, connectorSealsOwner, resolveFloor, type Rect, type Team } from "../geometry/floorplan";
+import { PROP_COLLIDERS } from "../../../shared/props";
 import {
-  PLAYER_SPEED,
-  CARRY_SPEED,
+  MOVE_SPEED,
   WORLD_WIDTH,
   WORLD_HEIGHT,
   MOVE_ACCEL_RATE,
@@ -10,13 +10,21 @@ import {
   GRAVITY,
   STEP_UP_RATE,
   LANDING_IMPACT_MIN,
-  FOOTSTEP_STRIDE,
 } from "../constants";
 import { visualHeight } from "./world/HeightField";
 
 // Body radius in world units - deliberately NOT scaled by WORLD_SCALE, so the
 // character keeps a fixed size and every door gap (80+ units) stays passable.
-const CHAR_RADIUS = 20;
+export const CHAR_RADIUS = 20;
+
+// Another character standing on the same floor is solid too. Supplied by the
+// caller (GameController reads them off the remote-player sync) rather than
+// imported, so this class keeps knowing only about geometry.
+export interface BodyCollider {
+  x: number;
+  z: number;
+  floor: number;
+}
 // A single frame's movement can exceed a wall's thickness (walls are 14 units
 // thick; at the 1/20s dt cap the character covers ~11 at PLAYER_SPEED), so the
 // move is applied in sub-steps no longer than this with a collision resolve
@@ -40,8 +48,9 @@ export class CharacterController {
   vy = 0;
   airborne = false;
   private landingImpact = 0;
-  private footstepPending = false;
-  private strideAccumulator = 0;
+  // Other characters to treat as solid this frame. Re-supplied by the owner
+  // each update, so it always reflects where everyone actually is.
+  private bodies: readonly BodyCollider[] = [];
 
   constructor(
     readonly model: CharacterModel,
@@ -57,9 +66,11 @@ export class CharacterController {
     this.applyTransform();
   }
 
-  update(dt: number, moveX: number, moveZ: number, carrying: boolean) {
-    const maxSpeed = carrying ? CARRY_SPEED : PLAYER_SPEED;
+  setBodies(bodies: readonly BodyCollider[]) {
+    this.bodies = bodies;
+  }
 
+  update(dt: number, moveX: number, moveZ: number) {
     // ---- horizontal: ease velocity toward the desired direction ----
     // Exponential approach, so identical feel at any frame rate. Accelerating
     // and stopping use different rates: you get up to speed with a little ramp
@@ -68,8 +79,8 @@ export class CharacterController {
     let desiredZ = 0;
     if (moveX !== 0 || moveZ !== 0) {
       const len = Math.hypot(moveX, moveZ);
-      desiredX = (moveX / len) * maxSpeed;
-      desiredZ = (moveZ / len) * maxSpeed;
+      desiredX = (moveX / len) * MOVE_SPEED;
+      desiredZ = (moveZ / len) * MOVE_SPEED;
     }
     const rate = desiredX === 0 && desiredZ === 0 ? MOVE_STOP_RATE : MOVE_ACCEL_RATE;
     const t = 1 - Math.exp(-rate * dt);
@@ -94,18 +105,11 @@ export class CharacterController {
       this.vz = movedZ / dt;
     }
 
-    // ---- footsteps: one per stride of ground actually covered ----
-    this.strideAccumulator += Math.hypot(movedX, movedZ);
-    if (this.strideAccumulator >= FOOTSTEP_STRIDE && !this.airborne) {
-      this.strideAccumulator = 0;
-      this.footstepPending = true;
-    }
-
     this.updateVertical(dt);
 
     // Continuous 0..1 blend instead of a binary on/off, so the walk cycle fades
     // in and out with the actual gait rather than popping.
-    this.model.update(dt, Math.min(1, Math.hypot(this.vx, this.vz) / maxSpeed));
+    this.model.update(dt, Math.min(1, Math.hypot(this.vx, this.vz) / MOVE_SPEED));
   }
 
   // Ground height is a target, not an assignment: rising ground (stairs) is
@@ -134,13 +138,6 @@ export class CharacterController {
     this.model.root.position.set(this.x, this.y, this.z);
   }
 
-  // One-shot feedback events, consumed by the juice layer each frame.
-  consumeFootstep(): boolean {
-    const stepped = this.footstepPending;
-    this.footstepPending = false;
-    return stepped;
-  }
-
   // Landing speed in world units/sec, or 0 if nothing worth reacting to.
   consumeLandingImpact(): number {
     const impact = this.landingImpact;
@@ -159,7 +156,6 @@ export class CharacterController {
     this.vy = 0;
     this.airborne = false;
     this.landingImpact = 0;
-    this.strideAccumulator = 0;
     this.y = visualHeight(this.x, this.z, this.floor, this.team);
     this.applyTransform();
   }
@@ -203,6 +199,21 @@ export class CharacterController {
   private unstick() {
     for (let pass = 0; pass < 4; pass++) {
       let corrected = false;
+      // Bodies first - two circles separate along the line between centres.
+      for (const b of this.bodies) {
+        if (b.floor !== this.floor) continue;
+        const dx = this.x - b.x;
+        const dz = this.z - b.z;
+        const distSq = dx * dx + dz * dz;
+        const minDist = CHAR_RADIUS * 2;
+        if (distSq >= minDist * minDist) continue;
+        const dist = Math.sqrt(distSq);
+        const nx = dist > 1e-6 ? dx / dist : 1;
+        const nz = dist > 1e-6 ? dz / dist : 0;
+        this.x = b.x + nx * minDist;
+        this.z = b.z + nz * minDist;
+        corrected = true;
+      }
       for (const r of this.activeColliders()) {
         const cx = Math.max(r.x1, Math.min(this.x, r.x2));
         const cz = Math.max(r.y1, Math.min(this.z, r.y2));
@@ -233,19 +244,23 @@ export class CharacterController {
     }
   }
 
+  // Static colliders active right now: every wall on the current floor (or a
+  // floor-less world-boundary wall), the solid furniture on it, plus this
+  // team's own sealed connectors that actually block - its bedroom stairs and
+  // balcony ladders. A sealed route DOWN is a walk-over lid, not a block
+  // (connectorSealsOwner), which is what the server enforces too.
   private *activeColliders(): Generator<Rect> {
     for (const w of WALLS) {
       if (w.floor === undefined || w.floor === this.floor) yield w;
     }
+    for (const p of PROP_COLLIDERS) {
+      if (p.floor === this.floor) yield p;
+    }
     for (const c of CONNECTORS) {
-      if (c.sealedFor === this.team) yield c.rect;
+      if (c.sealedFor === this.team && connectorSealsOwner(c)) yield c.rect;
     }
   }
 
-  // Colliders active right now: every wall on the current floor (or a
-  // floor-less world-boundary wall) plus this team's own sealed connectors -
-  // its bedroom/basement stairs and balcony ladders, which are solid to the
-  // owner and open to raiders.
   private hitsWall(): boolean {
     for (const r of this.activeColliders()) {
       const cx = Math.max(r.x1, Math.min(this.x, r.x2));
@@ -254,6 +269,10 @@ export class CharacterController {
       const dz = this.z - cz;
       if (dx * dx + dz * dz < CHAR_RADIUS * CHAR_RADIUS) return true;
     }
+    // Bodies are deliberately NOT tested here - see unstick(). Blocking a move
+    // on another character deadlocks two bodies that touch (every axis of every
+    // move ends inside the other), so characters are made solid by separation
+    // instead: you shove past each other rather than stopping dead.
     return false;
   }
 }

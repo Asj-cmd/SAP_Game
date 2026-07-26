@@ -3,7 +3,7 @@ import { colyseusClient } from "../network/ColyseusClient";
 import { SceneManager } from "./SceneManager";
 import { buildEnvironment } from "./EnvironmentBuilder";
 import { CharacterModel, pickFamilyVariant } from "./CharacterModel";
-import { CharacterController } from "./CharacterController";
+import { CharacterController, type BodyCollider } from "./CharacterController";
 import { CameraRig } from "./CameraRig";
 import { RemoteCharacterSync } from "./RemoteCharacterSync";
 import { CashBundleView } from "./CashBundleView";
@@ -22,7 +22,7 @@ import {
   type Team,
   type ZoneRect,
 } from "../geometry/floorplan";
-import { MOVE_SEND_INTERVAL_MS, ACTION_RANGE, MOUSE_SENSITIVITY, COLORS, STORY_HEIGHT } from "../constants";
+import { MOVE_SEND_INTERVAL_MS, ACTION_RANGE, MOUSE_SENSITIVITY, COLORS, STORY_HEIGHT, GRAVITY } from "../constants";
 
 type Action =
   | { kind: "pickupCash"; bundleId: string; prompt: string }
@@ -69,6 +69,16 @@ export class GameController {
   private wasCarrying = false;
   private jailedLast = new Set<string>();
   private prevPhase2 = "";
+  // Where every player was on the PREVIOUS frame. A jail/rescue teleports the
+  // player before the client sees the transition, so the burst has to be drawn
+  // at the spot it happened, not at the cell it ended in.
+  private lastPos = new Map<string, { x: number; y: number; floor: number }>();
+  // The last player this client acted ON. Jail/rescue feedback is for the two
+  // people involved only - previously every jailing anywhere in the map threw
+  // sparks in front of whoever was watching.
+  private actedOnId = "";
+  // Reused each frame so treating other characters as solid allocates nothing.
+  private bodies: BodyCollider[] = [];
 
   private input: InputState = { left: false, right: false, up: false, down: false };
   private spaceJustPressed = false;
@@ -253,7 +263,15 @@ export class GameController {
     const yaw = this.cameraRig.getYaw();
     const moveX = Math.sin(yaw) * f + Math.cos(yaw) * s;
     const moveZ = -Math.cos(yaw) * f + Math.sin(yaw) * s;
-    this.controller.update(dt, moveX, moveZ, selfState.isCarryingCash);
+    // Other characters are solid: hand the motor everyone else's authoritative
+    // position so it slides around them like any other obstacle.
+    this.bodies.length = 0;
+    this.room.state.players.forEach((p: any, id: string) => {
+      if (id === this.localId || p.isJailed) return;
+      this.bodies.push({ x: p.x, z: p.y, floor: p.floor ?? 0 });
+    });
+    this.controller.setBodies(this.bodies);
+    this.controller.update(dt, moveX, moveZ);
     // Facing tracks the camera continuously, moving or not - true third-person
     // mouse-look. No smoothing: pointer-lock deltas arrive a few pixels per
     // frame, so the character turns exactly as fast as the view does.
@@ -346,14 +364,15 @@ export class GameController {
     const model = this.controller.model;
     const pos = model.root.position;
 
-    // Footsteps + landings come from the motor, which knows what actually
-    // happened (ground covered, impact speed) rather than what was requested.
-    if (this.controller.consumeFootstep()) this.audio.play("footstep");
+    // Landings come from the motor, which knows what actually happened (impact
+    // speed) rather than what was requested. Walking itself is silent by
+    // design - a tick per stride was the most-repeated sound in the game and
+    // read as grating rather than as feedback.
     const impact = this.controller.consumeLandingImpact();
     if (impact > 0) {
       // Normalised against the speed reached falling one full storey.
-      const hardness = Math.min(1, impact / Math.sqrt(2 * 3400 * STORY_HEIGHT));
-      this.audio.play("footstep", 0.6 + hardness);
+      const hardness = Math.min(1, impact / Math.sqrt(2 * GRAVITY * STORY_HEIGHT));
+      this.audio.play("land", 0.6 + hardness);
       this.cameraRig.addTrauma(0.12 + hardness * 0.22);
     }
 
@@ -369,22 +388,30 @@ export class GameController {
     }
     this.wasCarrying = carrying;
 
-    // Anyone jailed or freed, including remote players - the burst is drawn at
-    // their position so you see it happen across the room.
+    // Jail / rescue. The sound is a match-wide cue (you want to know a teammate
+    // went down), but the BURST is drawn only for the two people involved -
+    // whoever it happened to, and whoever did it. Everyone else used to get a
+    // shower of sparks in their face, drawn at the victim's post-teleport
+    // position, i.e. inside a basement they might not even be standing in.
     room.state.players.forEach((p: any, id: string) => {
       const wasJailed = this.jailedLast.has(id);
+      const involved = id === this.localId || id === this.actedOnId;
+      // Where it actually happened, before the server moved them to the cell.
+      const at = this.lastPos.get(id) ?? { x: p.x, y: p.y, floor: p.floor ?? 0 };
       if (p.isJailed && !wasJailed) {
         this.jailedLast.add(id);
-        const self = id === this.localId;
         this.audio.play("jail");
-        this.particles.burst(p.x, (p.floor ?? 0) * STORY_HEIGHT + 60, p.y, COLORS.teamA, 26, 260);
-        // Being jailed yourself hits much harder than watching it happen.
-        this.cameraRig.addTrauma(self ? 0.6 : 0.18);
+        if (involved) {
+          this.particles.burst(at.x, at.floor * STORY_HEIGHT + 60, at.y, COLORS.teamA, 26, 260);
+          // Being jailed yourself hits much harder than doing the jailing.
+          this.cameraRig.addTrauma(id === this.localId ? 0.6 : 0.18);
+        }
       } else if (!p.isJailed && wasJailed) {
         this.jailedLast.delete(id);
         this.audio.play("rescue");
-        this.particles.burst(p.x, (p.floor ?? 0) * STORY_HEIGHT + 60, p.y, COLORS.cash, 16, 200);
+        if (involved) this.particles.burst(at.x, at.floor * STORY_HEIGHT + 60, at.y, COLORS.cash, 16, 200);
       }
+      this.lastPos.set(id, { x: p.x, y: p.y, floor: p.floor ?? 0 });
     });
 
     // Round / match result stingers, from the LOCAL team's point of view - a
@@ -420,9 +447,13 @@ export class GameController {
         colyseusClient.send("pickupCash", { bundleId: this.currentAction.bundleId });
         break;
       case "lockPlayer":
+        // Remembered so the jail burst can be shown to the jailer as well as
+        // the jailed, and to nobody else (see updateFeedback).
+        this.actedOnId = this.currentAction.targetId;
         colyseusClient.send("lockPlayer", { targetId: this.currentAction.targetId });
         break;
       case "rescuePlayer":
+        this.actedOnId = this.currentAction.targetId;
         colyseusClient.send("rescuePlayer", { targetId: this.currentAction.targetId });
         break;
       case "stealScored":

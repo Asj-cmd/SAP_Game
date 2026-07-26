@@ -12,8 +12,10 @@
 export { WORLD_SCALE, MAP_DEPTH_SCALE, WORLD_WIDTH, WORLD_HEIGHT } from "../../shared/worldGeometry";
 import { WORLD_SCALE, WORLD_WIDTH } from "../../shared/worldGeometry";
 
-export const PLAYER_SPEED = 220 * WORLD_SCALE;
-export const CARRY_SPEED = 160 * WORLD_SCALE;
+// ONE speed for every character in every state. Carrying cash used to cut it to
+// 160, which testers read as the game breaking rather than as a trade-off, so
+// the penalty is gone and the base is a little quicker than it was.
+export const MOVE_SPEED = 250 * WORLD_SCALE;
 
 export const MOVE_SEND_INTERVAL_MS = 50; // 20 times/sec
 export const REMOTE_LERP = 0.2;
@@ -38,8 +40,6 @@ export const GRAVITY = 3400;
 export const STEP_UP_RATE = 16;
 // Landing softer than this doesn't register as an impact (no thud, no shake).
 export const LANDING_IMPACT_MIN = 260;
-// World distance between footstep triggers at a full-speed walk.
-export const FOOTSTEP_STRIDE = 46;
 
 export const ACTION_RANGE = 60 * WORLD_SCALE;
 export const ROUND_TIME_DEFAULT = 300;
@@ -66,6 +66,15 @@ export const DOOR_JAMB = 12; // how far the frame trim extends past each side of
 // floor's slab sits exactly on the ceiling line of the one below it.
 export const FLOOR_RISE = STORY_HEIGHT;
 
+// Two coplanar surfaces (a tread stopping exactly on a wall face, a door mat
+// flush with its slab, a wall top level with the floor above) tie in the depth
+// buffer, and the tie is broken differently every frame as the camera moves -
+// which is the shimmering the world used to show at every joint. The fix is
+// always the same: overlap the surfaces by this much instead of abutting them,
+// so the buried face is genuinely inside solid geometry and never rasterised.
+// Small enough to be invisible; large enough to beat depth precision.
+export const SURFACE_OVERLAP = 0.6;
+
 // The Blender character rig (assets/blender/build_character.py) is ~1.85
 // "Blender units" tall; scaled up so its ~0.84-unit arm span roughly matches
 // CharacterController's 40-unit (2x radius) collision circle.
@@ -88,9 +97,10 @@ export const MOUSE_SENSITIVITY = 0.003; // radians of camera yaw per pixel of mo
 // Blender units wide; scaled up to read clearly next to the character.
 export const BUNDLE_SCALE = 130;
 
-// House/garden props (client/src/three/world/) - same "1 Blender unit ~= 1
-// meter" convention as the character/bundle rigs, scaled up to world units.
-export const PROP_SCALE = 45;
+// House/garden props - same "1 Blender unit ~= 1 metre" convention as the
+// character/bundle rigs. Defined in shared/props.ts because the props are solid
+// now, so the server needs the same number to derive their colliders.
+export { PROP_SCALE } from "../../shared/props";
 
 // Roof trim thickness (client/src/three/world/RoofSystem.ts). Roofs are always
 // fully opaque: CameraRig's indoor Y clamp keeps the camera under the ceiling.
@@ -139,5 +149,13 @@ export const COLORS = {
   glass: 0xa8d8f0,
   stairsB: 0x9a7040, // warm wood treads (B house)
   stairsA: 0x5c6c85, // cool stone-blue treads (A house)
+  ladderRail: 0xa9743a, // backyard ladders - bare timber, warmer than any stair
+  ladderRung: 0x8a5a28,
   foundation: 0x655c50, // darker than wall - the solid fill under a raised bedroom wing
+  // A room's CEILING is the underside of the slab above it, which was therefore
+  // painted in the upper room's colour - so the blue house's living room looked
+  // up at a coral bedroom floor. These paint that underside per house instead,
+  // so each family's rooms read in its own hue from floor to ceiling.
+  ceilingB: 0xb8763c,
+  ceilingA: 0x3f6f9e,
 };

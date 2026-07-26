@@ -6,10 +6,13 @@ import { floorY } from "./HeightField";
 
 // Adds windows to the houses' exterior-facing SIDE walls so they read as homes,
 // not blank boxes. Floor-aware: each window sits at WINDOW_SILL..WINDOW_HEAD
-// above ITS wall's floor. Deliberately decorative (a glass pane + wooden frame
-// proud of the wall, no punched opening) - simple and robust; see-through
-// openings can come later. Frames merge into the walls mesh; glass panes are
-// returned separately for their own translucent material.
+// above ITS wall's floor.
+//
+// These are REAL openings. The panes used to be a sheet of glass stuck onto an
+// unbroken wall, so however translucent the material was you were still looking
+// at solid plaster behind it. This module now reports each pane's z-range back
+// to EnvironmentBuilder, which omits that stretch of wall between sill and head
+// - so a window is a hole with a pane of glass in it and you can see through.
 
 // A wall qualifies if it's a vertical side wall (runs along z, thin in x) sitting
 // on a house<->garden or house<->backyard boundary - the faces you see from the
@@ -30,22 +33,35 @@ function isExteriorSideWall(w: Rect & { floor?: number }): boolean {
   return BOUNDARY_XS.some((bx) => Math.abs(cx - bx * WORLD_SCALE) < BOUNDARY_EPS);
 }
 
+// One opening to cut out of a wall: a z-range along the run, between two
+// absolute world heights.
+export interface WindowOpening {
+  z1: number;
+  z2: number;
+  sillY: number;
+  headY: number;
+}
+
 export interface WindowBuildResult {
   frameGeoms: THREE.BufferGeometry[];
   glassGeoms: THREE.BufferGeometry[];
+  // Keyed by the wall's index in WALLS, so the wall pass can look its own
+  // openings up without re-deriving which walls got windows.
+  openings: Map<number, WindowOpening[]>;
 }
 
 export function buildWindows(): WindowBuildResult {
   const frameGeoms: THREE.BufferGeometry[] = [];
   const glassGeoms: THREE.BufferGeometry[] = [];
+  const openings = new Map<number, WindowOpening[]>();
 
-  for (const w of WALLS) {
-    if (!isExteriorSideWall(w)) continue;
+  WALLS.forEach((w, wallIndex) => {
+    if (!isExteriorSideWall(w)) return;
     const base = floorY(w.floor ?? 0);
     const cx = (w.x1 + w.x2) / 2;
     const halfX = (w.x2 - w.x1) / 2 + 4; // proud of the wall face on both sides
     const runLen = w.y2 - w.y1;
-    if (runLen < MIN_SEG) continue;
+    if (runLen < MIN_SEG) return;
 
     const count = Math.max(1, Math.min(4, Math.floor(runLen / (WINDOW_W + WINDOW_GAP))));
     const frameColor = teamSideAt(cx) === "B" ? COLORS.doorFrameB : COLORS.doorFrameA;
@@ -53,6 +69,7 @@ export function buildWindows(): WindowBuildResult {
     const headY = base + WINDOW_HEAD;
     const paneH = headY - sillY;
     const midY = (sillY + headY) / 2;
+    const wallOpenings: WindowOpening[] = [];
 
     for (let i = 0; i < count; i++) {
       // Evenly spaced pane centres along the run.
@@ -60,20 +77,26 @@ export function buildWindows(): WindowBuildResult {
       const zc = w.y1 + t * runLen;
       const z1 = zc - WINDOW_W / 2;
       const z2 = zc + WINDOW_W / 2;
+      wallOpenings.push({ z1, z2, sillY, headY });
+
       const paneRect: Rect = { x1: cx - halfX, y1: z1, x2: cx + halfX, y2: z2 };
       glassGeoms.push(rectToBox(paneRect, paneH, midY, COLORS.glass));
 
-      // Frame: four bars hugging the pane, a touch prouder.
+      // Frame: four bars around the opening, a touch prouder than the pane.
+      // They TILE around it (head and sill above/below, jambs to each side) so
+      // no two bars share a face - see the surface rule in EnvironmentBuilder.
       const fx = halfX + 2;
-      const top: Rect = { x1: cx - fx, y1: z1 - FRAME_BAND, x2: cx + fx, y2: z2 + FRAME_BAND };
-      frameGeoms.push(rectToBox(top, FRAME_BAND, headY + FRAME_BAND / 2, frameColor)); // header
-      frameGeoms.push(rectToBox(top, FRAME_BAND, sillY - FRAME_BAND / 2, frameColor)); // sill
+      const head: Rect = { x1: cx - fx, y1: z1 - FRAME_BAND, x2: cx + fx, y2: z2 + FRAME_BAND };
+      frameGeoms.push(rectToBox(head, FRAME_BAND, headY + FRAME_BAND / 2, frameColor));
+      frameGeoms.push(rectToBox(head, FRAME_BAND, sillY - FRAME_BAND / 2, frameColor));
       const left: Rect = { x1: cx - fx, y1: z1 - FRAME_BAND, x2: cx + fx, y2: z1 };
       const right: Rect = { x1: cx - fx, y1: z2, x2: cx + fx, y2: z2 + FRAME_BAND };
       frameGeoms.push(rectToBox(left, paneH, midY, frameColor));
       frameGeoms.push(rectToBox(right, paneH, midY, frameColor));
     }
-  }
 
-  return { frameGeoms, glassGeoms };
+    openings.set(wallIndex, wallOpenings);
+  });
+
+  return { frameGeoms, glassGeoms, openings };
 }

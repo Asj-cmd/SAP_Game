@@ -7,10 +7,8 @@ import {
   jailBasementForTeam,
   SPAWN_POINTS,
   JAIL_POSITIONS,
-  randomBedroomPoint,
-  randomBedroomPoints,
   resolveFloor,
-  connectorBlocks,
+  connectorSealsOwner,
   WORLD_WIDTH,
   WORLD_HEIGHT,
   WORLD_SCALE,
@@ -23,6 +21,7 @@ import {
   CONNECTORS,
   type Rect,
 } from "../zones";
+import { PROP_COLLIDERS, randomCashSpot, randomCashSpots } from "../../../shared/props";
 
 // Server ranges are a touch more generous than the client's prompt range so an
 // action never gets rejected right when the prompt says it's available. Ranges
@@ -35,10 +34,10 @@ const WINS_NEEDED = 2;
 const PRE_ROUND_COUNTDOWN = 3;
 const ROUND_END_PAUSE = 3;
 const JAIL_TIME = 60;
-// Matches the client's PLAYER_SPEED/CARRY_SPEED (world units/sec) so bots move
-// at the same pace a human would.
-const BOT_SPEED = 220 * WORLD_SCALE;
-const BOT_CARRY_SPEED = 160 * WORLD_SCALE;
+// Matches the client's MOVE_SPEED (world units/sec) so bots move at the pace a
+// human does. ONE speed for everyone in every state: carrying cash used to slow
+// you down, which read as the game breaking rather than as a trade-off.
+const MOVE_SPEED = 250 * WORLD_SCALE;
 const BOT_TICK_MS = 250;
 
 // ---- bot decision weights ----
@@ -207,8 +206,8 @@ export class GameRoom extends Room<GameState> {
     this.maxClients = this.teamSize * 2;
 
     this.bundlePos = {
-      bedroomB: randomBedroomPoints("B", this.bundlesPerBedroom),
-      bedroomA: randomBedroomPoints("A", this.bundlesPerBedroom),
+      bedroomB: randomCashSpots("B", this.bundlesPerBedroom),
+      bedroomA: randomCashSpots("A", this.bundlesPerBedroom),
     };
 
     this.setState(new GameState());
@@ -476,7 +475,7 @@ export class GameRoom extends Room<GameState> {
   // placement, so an enemy stealing it back faces the same "find it somewhere in
   // the bedrooms" hunt each time, rather than a tidy predictable score stack.
   private freeScoreSlot(team: Team): { x: number; y: number } {
-    return randomBedroomPoint(team === "B" ? "B" : "A");
+    return randomCashSpot(team === "B" ? "B" : "A");
   }
 
   // ---- message handlers ----
@@ -649,8 +648,8 @@ export class GameRoom extends Room<GameState> {
 
     // Re-scatter every round so the hiding spots are never the same twice.
     this.bundlePos = {
-      bedroomB: randomBedroomPoints("B", this.bundlesPerBedroom),
-      bedroomA: randomBedroomPoints("A", this.bundlesPerBedroom),
+      bedroomB: randomCashSpots("B", this.bundlesPerBedroom),
+      bedroomA: randomCashSpots("A", this.bundlesPerBedroom),
     };
     this.state.cashBundles.clear();
     this.initCashBundles();
@@ -976,7 +975,7 @@ export class GameRoom extends Room<GameState> {
   // cost term reflects how far the bot would actually travel. Infinity =
   // unreachable for this team (its own sealed gates).
   private botPathCost(bot: PlayerState, team: Team, targetNode: BotNodeId, targetPoint: { x: number; y: number }): number {
-    const startNode = nearestBotNode(bot.x, bot.y, bot.floor);
+    const startNode = nearestBotNode(bot.x, bot.y, bot.floor, team);
     if (startNode === targetNode) return distance(bot, targetPoint);
     const path = findBotPath(team, startNode, targetNode);
     if (path.length < 2) return Infinity;
@@ -1002,7 +1001,7 @@ export class GameRoom extends Room<GameState> {
     targetPoint: { x: number; y: number },
     targetFloor: number
   ): { cost: number; threat: number } | null {
-    const start = nearestBotNode(bot.x, bot.y, bot.floor);
+    const start = nearestBotNode(bot.x, bot.y, bot.floor, team);
     const nodes: BotNodeId[] = [];
     if (via && via !== targetNode && via !== start) {
       const p1 = findBotPath(team, start, via);
@@ -1154,8 +1153,7 @@ export class GameRoom extends Room<GameState> {
     finalTarget: { x: number; y: number },
     dt: number
   ) {
-    const currentNode = nearestBotNode(bot.x, bot.y, bot.floor);
-    const speed = bot.isCarryingCash ? BOT_CARRY_SPEED : BOT_SPEED;
+    const currentNode = nearestBotNode(bot.x, bot.y, bot.floor, team);
 
     let aim: { x: number; y: number };
     if (currentNode === targetNode) {
@@ -1196,7 +1194,15 @@ export class GameRoom extends Room<GameState> {
 
       if (!mind.moveTarget || distance(bot, BOT_WAYPOINTS[mind.moveTarget]) < arrive) {
         const path = findBotPath(team, currentNode, targetNode);
-        mind.moveTarget = path.length > 1 ? path[1] : targetNode;
+        // Skip past any leading hops the bot is ALREADY standing on. Its
+        // current node comes from which zone it is in, so a bot stopped exactly
+        // on a zone boundary - the garden/living-room doorway, say - resolves to
+        // the node BEHIND it, making the next hop the very spot it is standing.
+        // It would then aim at itself, measure zero distance, and idle there for
+        // the rest of the round while re-deriving the same hop every tick.
+        let next = 1;
+        while (next < path.length && distance(bot, BOT_WAYPOINTS[path[next]]) < arrive) next++;
+        mind.moveTarget = next < path.length ? path[next] : targetNode;
         mind.hopBestDist = distance(bot, BOT_WAYPOINTS[mind.moveTarget]);
         mind.hopProgressAt = now;
       }
@@ -1211,12 +1217,12 @@ export class GameRoom extends Room<GameState> {
       bot.vy = 0;
       return;
     }
-    const step = Math.min(dist, speed * dt);
+    const step = Math.min(dist, MOVE_SPEED * dt);
     const nx = dx / dist;
     const ny = dy / dist;
     this.moveBotWithCollision(bot, team, nx * step, ny * step);
-    bot.vx = nx * speed;
-    bot.vy = ny * speed;
+    bot.vx = nx * MOVE_SPEED;
+    bot.vy = ny * MOVE_SPEED;
   }
 
   // Move-and-SLIDE, axis-separated, in sub-steps (the sub-steps stop a fast
@@ -1250,18 +1256,33 @@ export class GameRoom extends Room<GameState> {
     }
   }
 
-  // True if the bot's body circle overlaps any wall ON ITS CURRENT FLOOR (or a
-  // world-boundary wall, which spans all floors) or one of its OWN sealed
-  // connectors - the exact colliders a human on this team gets client-side (the
-  // enemy's sealed stairs/ladders are open to this team, so not colliders for it).
-  // Every collider active for `bot` right now: the walls of its CURRENT floor
-  // (plus floor-less world-boundary walls) and its own team's sealed connectors.
+  // Every STATIC collider active for `bot` right now: the walls of its CURRENT
+  // floor (plus floor-less world-boundary walls), the solid furniture on that
+  // floor, and its own team's sealed connectors - the exact set a human on this
+  // team gets client-side. Only the connectors that seal their OWNER are solid:
+  // a sealed route DOWN is a walk-over lid, not a block (connectorSealsOwner).
   private *botColliders(bot: PlayerState, team: Team): Generator<Rect> {
     for (const w of WALLS) {
       if (w.floor === undefined || w.floor === bot.floor) yield w;
     }
+    for (const p of PROP_COLLIDERS) {
+      if (p.floor === bot.floor) yield p;
+    }
     for (const c of CONNECTORS) {
-      if (c.sealedFor === team) yield c.rect;
+      if (c.sealedFor === team && connectorSealsOwner(c)) yield c.rect;
+    }
+  }
+
+  // Other bodies are solid too: every other player standing on the same floor
+  // is a circle of BODY_RADIUS the bot has to go around. Only BOTS are pushed
+  // here - a human's position is authored client-side (which runs the same
+  // rule against everyone it can see), so the server never moves one.
+  private *bodyColliders(self: PlayerState): Generator<{ x: number; y: number }> {
+    const players = this.state.players;
+    for (const id of players.keys()) {
+      const p = players.get(id)!;
+      if (p.id === self.id || p.isJailed || p.floor !== self.floor) continue;
+      yield p;
     }
   }
 
@@ -1270,6 +1291,22 @@ export class GameRoom extends Room<GameState> {
   private unstickBot(bot: PlayerState, team: Team) {
     for (let pass = 0; pass < 4; pass++) {
       let corrected = false;
+      // Bodies first: two circles resolve by simply separating along the line
+      // between their centres.
+      for (const other of this.bodyColliders(bot)) {
+        const dx = bot.x - other.x;
+        const dy = bot.y - other.y;
+        const distSq = dx * dx + dy * dy;
+        const minDist = BOT_RADIUS * 2;
+        if (distSq >= minDist * minDist) continue;
+        const dist = Math.sqrt(distSq);
+        // Exactly coincident (a fresh spawn overlap): shove along +x.
+        const nx = dist > 1e-6 ? dx / dist : 1;
+        const ny = dist > 1e-6 ? dy / dist : 0;
+        bot.x = other.x + nx * minDist;
+        bot.y = other.y + ny * minDist;
+        corrected = true;
+      }
       for (const r of this.botColliders(bot, team)) {
         const cx = Math.max(r.x1, Math.min(bot.x, r.x2));
         const cy = Math.max(r.y1, Math.min(bot.y, r.y2));
@@ -1300,17 +1337,19 @@ export class GameRoom extends Room<GameState> {
   }
 
   private botHitsWall(bot: PlayerState, team: Team): boolean {
-    const hits = (r: { x1: number; y1: number; x2: number; y2: number }) => {
+    for (const r of this.botColliders(bot, team)) {
       const cx = Math.max(r.x1, Math.min(bot.x, r.x2));
       const cy = Math.max(r.y1, Math.min(bot.y, r.y2));
       const dx = bot.x - cx;
       const dy = bot.y - cy;
-      return dx * dx + dy * dy < BOT_RADIUS * BOT_RADIUS;
-    };
-    for (const r of WALLS) {
-      if (r.floor !== undefined && r.floor !== bot.floor) continue;
-      if (hits(r)) return true;
+      if (dx * dx + dy * dy < BOT_RADIUS * BOT_RADIUS) return true;
     }
-    return connectorBlocks(bot.x, bot.y, team);
+    // Bodies are deliberately NOT tested here. Static geometry blocks a move
+    // outright, but treating another character the same way deadlocks the
+    // instant two bots close to within a body width: every axis of every move
+    // lands "inside" the other, so both are frozen for the rest of the match.
+    // Characters are made solid by separation instead (see unstickBot), which
+    // cannot deadlock - you get shoved apart rather than stopped.
+    return false;
   }
 }

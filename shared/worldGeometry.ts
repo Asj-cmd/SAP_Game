@@ -152,7 +152,9 @@ export interface Connector {
   // (so a floor flip can never land a body inside one), which would otherwise
   // leave a visible slot of open sky between the steps and the wall beside
   // them. This pads the drawn treads out to meet that wall without touching
-  // the collision/floor-flip footprint.
+  // the collision/floor-flip footprint. Sized to run a little PAST the wall
+  // face rather than exactly onto it: two surfaces that stop on the same plane
+  // z-fight, so the treads are sunk into the wall instead.
   visualPad?: number;
 }
 
@@ -173,7 +175,7 @@ const HOUSE_B_CONNECTORS: Connector[] = [
   { id: "ladderB_S", rect: { x1: 140, y1: 545, x2: 200, y2: 615 }, axis: "x", mid: 170, floorLow: 0, floorHigh: 1, sealedFor: "B", kind: "ladder" },
   // Cellar steps: descend in the YARD (outside the wall) and enter the basement
   // through the floor -1 doorway, so they never pierce the living-room floor.
-  { id: "cellarB", rect: { x1: 150, y1: 430, x2: 260, y2: 500 }, axis: "x", mid: 205, floorLow: 0, floorHigh: -1, sealedFor: "B", kind: "stair", visualPad: 20 },
+  { id: "cellarB", rect: { x1: 150, y1: 430, x2: 260, y2: 500 }, axis: "x", mid: 205, floorLow: 0, floorHigh: -1, sealedFor: "B", kind: "stair", visualPad: 24 },
 ];
 
 const mirrorConnector = (c: Connector): Connector => ({
@@ -498,7 +500,11 @@ const HOUSE_B_EDGES: BotEdge[] = [
   // up the interior staircase to the landing, then a door into each bedroom
   { a: "livingB_S", b: "stairUpB_base" },
   { a: "stairUpB_base", b: "stairUpB_top", blockedFor: "B" },
-  { a: "stairUpB_top", b: "landingB" },
+  // stairUpB_top stands ON the staircase, which is SOLID to house B - so the
+  // whole leg is blocked for the owner, not just the climb. Without this a B
+  // bot could still legally route to the top node from the landing and would
+  // walk straight into its own stairs and wedge there.
+  { a: "stairUpB_top", b: "landingB", blockedFor: "B" },
   { a: "landingB", b: "bedroomB_N" },
   { a: "landingB", b: "bedroomB_S" },
   // balcony ladders: yard <-> balcony <-> bedroom
@@ -529,26 +535,50 @@ const BOT_EDGES: BotEdge[] = [
   { a: "gateA_garden", b: "livingA" },
 ];
 
-// Nearest waypoint ON the given floor (stacked floors share (x,y), so the floor
-// is what disambiguates which room's node is meant).
-export function nearestBotNode(x: number, y: number, floor: number): BotNodeId {
-  let best: BotNodeId = "garden";
-  let bestDist = Infinity;
-  let fallback: BotNodeId = "garden";
-  let fallbackDist = Infinity;
+// Which waypoint a body at (x, y, floor) counts as standing at - the start of
+// every route, and the node a chase/defend target is resolved to.
+//
+// Nearest by straight line is NOT good enough, because the nearest node can be
+// on the far side of a wall. A bot in house A's living room sits ~250 units
+// from the backyard ladder node but ~270 from the living-room node, so it
+// resolved to the yard - and then every path from there set off due EAST,
+// straight into the exterior wall, where it pressed until the round ended.
+// (Symmetrical in house B; it is why a bot appeared to have "the wrong
+// coordinates for the door".) Matching the ZONE first keeps the answer inside
+// the room the body is actually in, which is exactly the walled-off unit the
+// graph's edges are authored against.
+//
+// Nodes standing on a connector the team may not use (stairUpB_top is the head
+// of house B's own staircase) are skipped outright: handing one back would send
+// a defender walking into its own solid stairs.
+export function nearestBotNode(x: number, y: number, floor: number, team?: Team): BotNodeId {
+  const zone = getZoneAt(x, y, floor);
+  let sameZone: BotNodeId | null = null;
+  let sameZoneDist = Infinity;
+  let sameFloor: BotNodeId = "garden";
+  let sameFloorDist = Infinity;
+  let anywhere: BotNodeId = "garden";
+  let anywhereDist = Infinity;
   for (const id of Object.keys(BOT_WAYPOINTS)) {
     const p = BOT_WAYPOINTS[id];
+    if (team && connectorBlocks(p.x, p.y, team)) continue;
     const d = Math.hypot(p.x - x, p.y - y);
-    if (d < fallbackDist) {
-      fallbackDist = d;
-      fallback = id;
+    if (d < anywhereDist) {
+      anywhereDist = d;
+      anywhere = id;
     }
-    if (p.floor === floor && d < bestDist) {
-      bestDist = d;
-      best = id;
+    if (p.floor !== floor) continue;
+    if (d < sameFloorDist) {
+      sameFloorDist = d;
+      sameFloor = id;
+    }
+    if (getZoneAt(p.x, p.y, p.floor) === zone && d < sameZoneDist) {
+      sameZoneDist = d;
+      sameZone = id;
     }
   }
-  return bestDist === Infinity ? fallback : best;
+  if (sameZone) return sameZone;
+  return sameFloorDist === Infinity ? anywhere : sameFloor;
 }
 
 // BFS shortest path (hop count) respecting which gates `team` may use.

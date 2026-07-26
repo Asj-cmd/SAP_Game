@@ -1,23 +1,18 @@
 import * as THREE from "three";
 import { WORLD_SCALE, MAP_DEPTH_SCALE } from "../../constants";
 import { createPropInstance } from "./PropLibrary";
-import { MIRROR_X } from "../../geometry/floorplan";
-import { HOUSE_B_PROPS, GARDEN_PROPS, type PropPlacement } from "./propManifest";
+import { ALL_PROPS, type PropPlacement } from "./propManifest";
 import { floorY } from "./HeightField";
 
-// Dresses both houses + the garden with DECORATIVE props (beds mark the cash
-// bedrooms, a jail cell in the basement, sofa/TV in the living room, garden
-// trees/fountain, etc.). Every prop is non-collidable, so it signals a room's
-// purpose without eating the interior movement space. Pre-scale placement data
-// lives in propManifest.ts; here we scale (x by WORLD_SCALE, depth by
-// WORLD_SCALE*MAP_DEPTH_SCALE) and lift each prop to its floor's height.
+// Dresses both houses + the garden with props (beds mark the cash bedrooms, a
+// jail cell in the basement, sofa/TV in the living room, garden trees/fountain,
+// etc.). Placement data - including which props are SOLID and how big their
+// footprints are - lives in shared/props.ts, so the server collides bots
+// against exactly what is drawn here. This module only renders: it scales (x by
+// WORLD_SCALE, depth by WORLD_SCALE*MAP_DEPTH_SCALE) and lifts each prop to its
+// floor's height, using the same numbers the shared collider derivation does.
 const S = WORLD_SCALE;
 const YS = MAP_DEPTH_SCALE;
-
-// House A mirrors house B across the map centre: x' = 1600 - x, rot' flips.
-function mirror(p: PropPlacement): PropPlacement {
-  return { ...p, x: MIRROR_X - p.x, rot: (((360 - p.rot) % 360) as PropPlacement["rot"]) };
-}
 
 async function place(scene: THREE.Scene, p: PropPlacement): Promise<void> {
   const instance = await createPropInstance(p.prop);
@@ -26,13 +21,8 @@ async function place(scene: THREE.Scene, p: PropPlacement): Promise<void> {
   scene.add(instance);
 }
 
-// Loads and places every prop. Returns once all are in the scene. Purely
-// visual - no colliders are produced, so movement/collision is untouched.
+// Loads and places every prop (both houses + the garden). Returns once all are
+// in the scene.
 export async function dressHouses(scene: THREE.Scene): Promise<void> {
-  const placements: PropPlacement[] = [
-    ...HOUSE_B_PROPS,
-    ...HOUSE_B_PROPS.map(mirror), // house A
-    ...GARDEN_PROPS,
-  ];
-  await Promise.all(placements.map((p) => place(scene, p)));
+  await Promise.all(ALL_PROPS.map((p) => place(scene, p)));
 }

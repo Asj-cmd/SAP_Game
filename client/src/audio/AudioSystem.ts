@@ -10,7 +10,10 @@
 // Browsers refuse to start audio before a user gesture, so the context is
 // created lazily and resumed on the first interaction (see `unlock`).
 
-type Cue = "footstep" | "pickup" | "deposit" | "jail" | "rescue" | "roundEnd" | "win" | "lose" | "matchWin" | "matchLose";
+// NOTE: there is deliberately no per-step cue. A tick on every stride is the
+// single most repeated sound in the game and testers found it grating, so
+// walking is silent and only the landing after a real fall makes a noise.
+type Cue = "land" | "pickup" | "deposit" | "jail" | "rescue" | "roundEnd" | "win" | "lose" | "matchWin" | "matchLose";
 
 const MASTER_VOLUME = 0.35;
 
@@ -48,9 +51,11 @@ export class AudioSystem {
     if (!this.ctx || !this.master || this.muted) return;
     const t = this.ctx.currentTime;
     switch (cue) {
-      case "footstep":
-        // Dull, short noise thump - felt more than heard.
-        this.noise(t, 0.07, 900, 0.16 * intensity);
+      case "land":
+        // Soft body-weight thump on touchdown - a filtered noise burst with a
+        // little low-end under it, scaled by how hard the landing was.
+        this.noise(t, 0.13, 620, 0.2 * intensity);
+        this.tone(t, "sine", 150, 60, 0.16, 0.22 * intensity);
         break;
       case "pickup":
         // Cha-ching: two bright ascending blips.
