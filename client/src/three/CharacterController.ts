@@ -189,11 +189,12 @@ export class CharacterController {
       // arrived on. Move-and-slide alone can never free it (every axis ends in a
       // wall, so both get reverted) and the player is stuck for good.
       this.unstick();
+      const [mx, mz] = this.steerAroundBodies(sx, sz);
       const ox = this.x;
-      this.x = Math.max(0, Math.min(WORLD_WIDTH, this.x + sx));
+      this.x = Math.max(0, Math.min(WORLD_WIDTH, this.x + mx));
       if (this.hitsWall()) this.x = ox;
       const oz = this.z;
-      this.z = Math.max(0, Math.min(WORLD_HEIGHT, this.z + sz));
+      this.z = Math.max(0, Math.min(WORLD_HEIGHT, this.z + mz));
       if (this.hitsWall()) this.z = oz;
       // Crossing a staircase/ladder mid-step flips the floor, so collision
       // switches to the destination floor's walls exactly as we arrive.
@@ -283,10 +284,31 @@ export class CharacterController {
       const dz = this.z - cz;
       if (dx * dx + dz * dz < CHAR_RADIUS * CHAR_RADIUS) return true;
     }
-    // Bodies are deliberately NOT tested here - see unstick(). Blocking a move
-    // on another character deadlocks two bodies that touch (every axis of every
-    // move ends inside the other), so characters are made solid by separation
-    // instead: you shove past each other rather than stopping dead.
+    // Bodies are deliberately NOT tested here - see pushesIntoBody(). Blocking
+    // every move that touches one deadlocks two characters the moment they meet.
     return false;
+  }
+
+  // Steers a step AROUND another character rather than refusing it: the radial
+  // part of the move is dropped and the tangential part kept, so you slide past
+  // someone instead of stopping dead against them. Refusing the move outright
+  // would lock two characters together the moment they touch, since walking at
+  // each other is a purely radial step with no axis left to slide on.
+  private steerAroundBodies(sx: number, sz: number): [number, number] {
+    const minDist = CHAR_RADIUS * 2;
+    for (const b of this.bodies) {
+      if (b.floor !== this.floor) continue;
+      const dx = this.x - b.x;
+      const dz = this.z - b.z;
+      const d = Math.hypot(dx, dz);
+      if (d >= minDist || d < 1e-6) continue;
+      const nx = dx / d;
+      const nz = dz / d;
+      const radial = sx * nx + sz * nz;
+      if (radial >= 0) continue; // already moving away
+      sx -= radial * nx;
+      sz -= radial * nz;
+    }
+    return [sx, sz];
   }
 }

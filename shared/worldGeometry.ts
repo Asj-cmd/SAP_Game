@@ -156,6 +156,10 @@ export interface Connector {
   // face rather than exactly onto it: two surfaces that stop on the same plane
   // z-fight, so the treads are sunk into the wall instead.
   visualPad?: number;
+  // Draw this flight as a FILLED run of steps rather than the open-tread
+  // staircase. The cellar steps sit in a pit open to the sky, so an open flight
+  // let daylight through every tread and read as a set of blinds.
+  filled?: boolean;
 }
 
 // House B connectors, authored once and mirrored for house A below.
@@ -182,7 +186,7 @@ const HOUSE_B_CONNECTORS: Connector[] = [
   { id: "ladderB_S", rect: { x1: 140, y1: 545, x2: 200, y2: 615 }, axis: "x", mid: 170, floorLow: 0, floorHigh: 1, sealedFor: "B", kind: "ladder" },
   // Cellar steps: descend in the YARD (outside the wall) and enter the basement
   // through the floor -1 doorway, so they never pierce the living-room floor.
-  { id: "cellarB", rect: { x1: 150, y1: 430, x2: 260, y2: 500 }, axis: "x", mid: 205, floorLow: 0, floorHigh: -1, sealedFor: "B", kind: "stair", visualPad: 24 },
+  { id: "cellarB", rect: { x1: 150, y1: 430, x2: 260, y2: 500 }, axis: "x", mid: 205, floorLow: 0, floorHigh: -1, sealedFor: "B", kind: "stair", visualPad: 24, filled: true },
 ];
 
 const mirrorConnector = (c: Connector): Connector => ({

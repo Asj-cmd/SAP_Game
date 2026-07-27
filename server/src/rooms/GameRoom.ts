@@ -118,7 +118,8 @@ interface BotMind {
   targetId: string; // player id (rescue/defend) or bundle id (raid)
   via: BotNodeId | null; // pending route waypoint (cleared on arrival)
   moveTarget: BotNodeId | null; // committed next graph hop (hysteresis - see botMoveToward)
-  hopBestDist: number; // closest we have come to that hop (progress watchdog)
+  aimKey: string; // what the progress watchdog is currently measuring against
+  hopBestDist: number; // closest we have come to that aim (progress watchdog)
   hopProgressAt: number; // clock ms of the last real progress toward it
   nextDecideAt: number; // clock ms of the next scheduled re-score
   lastSeenHomeAt: number; // defend: last tick the target was inside our home turf
@@ -758,6 +759,7 @@ export class GameRoom extends Room<GameState> {
         targetId: "",
         via: null,
         moveTarget: null,
+        aimKey: "",
         hopBestDist: Infinity,
         hopProgressAt: 0,
         nextDecideAt: 0,
@@ -1160,6 +1162,7 @@ export class GameRoom extends Room<GameState> {
     const currentNode = nearestBotNode(bot.x, bot.y, bot.floor, team);
 
     let aim: { x: number; y: number };
+    const now = this.clock.currentTime;
     if (currentNode === targetNode) {
       aim = finalTarget;
       mind.moveTarget = null;
@@ -1171,31 +1174,6 @@ export class GameRoom extends Room<GameState> {
       // spur) ping-pongs in place and never sets out. Recompute only when the
       // hop is unset or reached.
       const arrive = 30 * WORLD_SCALE;
-      const now = this.clock.currentTime;
-
-      // Progress watchdog. Hysteresis alone could deadlock a bot forever: it
-      // commits to a hop, geometry stops it from ever reaching it, so the
-      // "arrived" test never fires and the hop is never recomputed - the bot
-      // walks into the obstruction for the rest of the match. (This is the
-      // intermittent multi-second stall seen in playtests.) If it has not
-      // actually closed the distance for a while, drop the hop and re-path; if
-      // it still cannot make headway, abandon the whole task and re-decide.
-      if (mind.moveTarget) {
-        const d = distance(bot, BOT_WAYPOINTS[mind.moveTarget]);
-        if (d < mind.hopBestDist - 1) {
-          mind.hopBestDist = d;
-          mind.hopProgressAt = now;
-        } else if (now - mind.hopProgressAt > BOT_HOP_STALL_MS) {
-          mind.moveTarget = null;
-          mind.hopBestDist = Infinity;
-          if (now - mind.hopProgressAt > BOT_TASK_STALL_MS) {
-            mind.task = null; // force a full re-score next tick
-            mind.targetId = "";
-            mind.via = null;
-          }
-        }
-      }
-
       if (!mind.moveTarget || distance(bot, BOT_WAYPOINTS[mind.moveTarget]) < arrive) {
         const path = findBotPath(team, currentNode, targetNode);
         // Skip past any leading hops the bot is ALREADY standing on. Its
@@ -1207,10 +1185,35 @@ export class GameRoom extends Room<GameState> {
         let next = 1;
         while (next < path.length && distance(bot, BOT_WAYPOINTS[path[next]]) < arrive) next++;
         mind.moveTarget = next < path.length ? path[next] : targetNode;
-        mind.hopBestDist = distance(bot, BOT_WAYPOINTS[mind.moveTarget]);
-        mind.hopProgressAt = now;
       }
       aim = BOT_WAYPOINTS[mind.moveTarget];
+    }
+
+    // PROGRESS WATCHDOG, on whatever we are currently walking at - the next
+    // graph hop OR, once we are in the target's own room, the target itself.
+    // It used to guard only the hops, so the last leg had no protection at all:
+    // a bot in the enemy bedroom beelining at a bundle, with a bed or another
+    // player in the way, pushed into the obstruction for the rest of the round
+    // because nothing ever re-decided. Progress is measured against the CURRENT
+    // aim and reset whenever the aim changes.
+    const aimKey = mind.moveTarget ?? `${Math.round(aim.x)},${Math.round(aim.y)}`;
+    if (aimKey !== mind.aimKey) {
+      mind.aimKey = aimKey;
+      mind.hopBestDist = Infinity;
+      mind.hopProgressAt = now;
+    }
+    const aimDist = distance(bot, aim);
+    if (aimDist < mind.hopBestDist - 1) {
+      mind.hopBestDist = aimDist;
+      mind.hopProgressAt = now;
+    } else if (now - mind.hopProgressAt > BOT_HOP_STALL_MS) {
+      mind.moveTarget = null; // re-path from here
+      mind.hopBestDist = Infinity;
+      if (now - mind.hopProgressAt > BOT_TASK_STALL_MS) {
+        mind.task = null; // force a full re-score next tick
+        mind.targetId = "";
+        mind.via = null;
+      }
     }
 
     const dx = aim.x - bot.x;
@@ -1250,11 +1253,12 @@ export class GameRoom extends Room<GameState> {
       // are solid, so a bot can arrive standing inside one, and move-and-slide
       // alone would revert every axis and leave it stuck forever.
       this.unstickBot(bot, team);
+      const [mx, my] = this.steerAroundBodies(bot, sx, sy);
       const ox = bot.x;
-      bot.x = clamp(bot.x + sx, 0, WORLD_WIDTH);
+      bot.x = clamp(bot.x + mx, 0, WORLD_WIDTH);
       if (this.botHitsWall(bot, team)) bot.x = ox;
       const oy = bot.y;
-      bot.y = clamp(bot.y + sy, 0, WORLD_HEIGHT);
+      bot.y = clamp(bot.y + my, 0, WORLD_HEIGHT);
       if (this.botHitsWall(bot, team)) bot.y = oy;
       // Crossing a staircase/ladder mid-step flips the bot's floor, so its
       // collision switches to the destination floor's walls exactly as it
@@ -1297,6 +1301,41 @@ export class GameRoom extends Room<GameState> {
       if (p.id === self.id || p.isJailed || p.floor !== self.floor) continue;
       yield p;
     }
+  }
+
+  // Steers a step AROUND any body it would push into, rather than refusing it.
+  //
+  // Bodies cannot be treated like walls. Refusing a blocked move deadlocks two
+  // characters the instant they meet: a bot always wants to go toward its
+  // objective, so when another body sits on that line the whole step is radial
+  // and BOTH axes get refused - it stands there for the rest of the round.
+  // Letting the step through is no better, since unstickBot then shoves it
+  // straight back out and it grinds in place. So the radial part of the step is
+  // removed and the tangential part kept, which walks the bot around the
+  // obstruction. Head-on, there is no tangential part to keep, so a nudge
+  // perpendicular to the contact gets it moving one way round.
+  private steerAroundBodies(bot: PlayerState, sx: number, sy: number): [number, number] {
+    const minDist = BOT_RADIUS * 2;
+    const stepLen = Math.hypot(sx, sy);
+    if (stepLen < 1e-6) return [sx, sy];
+    for (const other of this.bodyColliders(bot)) {
+      const dx = bot.x - other.x;
+      const dy = bot.y - other.y;
+      const d = Math.hypot(dx, dy);
+      if (d >= minDist || d < 1e-6) continue;
+      const nx = dx / d; // unit vector pointing AWAY from the other body
+      const ny = dy / d;
+      const radial = sx * nx + sy * ny;
+      if (radial >= 0) continue; // already moving away - nothing to do
+      sx -= radial * nx;
+      sy -= radial * ny;
+      if (Math.hypot(sx, sy) < stepLen * 0.15) {
+        // Dead-on: slide along the contact instead of stalling against it.
+        sx = -ny * stepLen;
+        sy = nx * stepLen;
+      }
+    }
+    return [sx, sy];
   }
 
   // Push a bot out of anything it overlaps - a no-op unless it is genuinely

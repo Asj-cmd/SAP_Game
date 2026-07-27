@@ -23,6 +23,7 @@ const RUNG_THICKNESS = 5;
 // end it was indistinguishable from a column. This is the same run with the mass
 // taken out: only the treads you stand on and the two beams holding them.
 const TREAD_THICKNESS = 9;
+const BOTTOM_MARGIN = 40; // filled flights: how far below the lower floor they sit
 const STRINGER_WIDTH = 12; // the beam under each side of the treads
 const STRINGER_DEPTH = 30; // how far it hangs below the tread line
 
@@ -82,6 +83,27 @@ function runOf(c: Connector): Run {
 // nosing, and the climber's feet are unaffected: they follow HeightField.
 function surfaceY(run: Run, t: number): number {
   return run.loY + (run.hiY - run.loY) * smoothstep(t) + SURFACE_OVERLAP;
+}
+
+// A FILLED flight: each step is a solid block from below the lower floor up to
+// its tread. Used where an open staircase would show what is under it - the
+// cellar steps sit in a pit open to the sky, and open treads let daylight
+// through every one of them.
+function buildFilledSteps(c: Connector): THREE.BufferGeometry[] {
+  const run = runOf(c);
+  const { lo, hi } = crossRange(c);
+  const dw = (run.axisEnd - run.axisStart) / STEP_COUNT;
+  const bottomY = Math.min(run.loY, run.hiY) - BOTTOM_MARGIN;
+  const geoms: THREE.BufferGeometry[] = [];
+  for (let i = 0; i < STEP_COUNT; i++) {
+    const a0 = run.axisStart + i * dw;
+    const a1 = run.axisStart + (i + 1) * dw;
+    const treadY = surfaceY(run, (i + 1) / STEP_COUNT);
+    const height = treadY - bottomY;
+    if (height <= 0) continue;
+    geoms.push(rectToBox(spanRect(c, a0, a1, lo, hi), height, bottomY + height / 2, run.color));
+  }
+  return geoms;
 }
 
 function buildSteps(c: Connector): THREE.BufferGeometry[] {
@@ -160,5 +182,7 @@ function buildLadder(c: Connector): THREE.BufferGeometry[] {
 
 // Merged connector geometry for every connector - folded into the floor mesh.
 export function buildStaircaseGeoms(): THREE.BufferGeometry[] {
-  return CONNECTORS.flatMap((c) => (c.kind === "ladder" ? buildLadder(c) : buildSteps(c)));
+  return CONNECTORS.flatMap((c) =>
+    c.kind === "ladder" ? buildLadder(c) : c.filled ? buildFilledSteps(c) : buildSteps(c)
+  );
 }
