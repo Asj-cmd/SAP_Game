@@ -94,7 +94,10 @@ export const HOUSE_B_PROPS: PropPlacement[] = [
   // ---- living room (floor 0) ----
   { prop: "sofa", x: 300, y: 160, floor: 0, rot: 90 },
   { prop: "coffee_table", x: 375, y: 160, floor: 0, rot: 0 },
-  { prop: "tv", x: 695, y: 160, floor: 0, rot: 270 },
+  // Against the east wall in the run BETWEEN the first two garden doors
+  // (y[120,200] and y[320,400]). It used to sit at y=160, dead centre of the
+  // first doorway, blocking it in both houses.
+  { prop: "tv", x: 695, y: 260, floor: 0, rot: 270 },
   { prop: "rug", x: 620, y: 330, floor: 0, rot: 0 },
   // ---- basement (floor -1) ----
   // The cell reads as an L around the jail spot (560,560) rather than a closed

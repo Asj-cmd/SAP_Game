@@ -163,11 +163,18 @@ export interface Connector {
 // may sit across a doorway or against a wall - that would trap the owner (and
 // its bots) in a dead pocket. Both interior staircases therefore stand clear of
 // the walls, leaving a walkable ring around them on the ground floor.
+// A flight also needs CLEAR FLOOR AT BOTH ENDS: its sides are solid (see
+// CONNECTOR_SIDES), so the only way on or off is the two ends, and a run that
+// stops short of a wall by less than a body width is a dead end.
 const HOUSE_B_CONNECTORS: Connector[] = [
   // Interior staircase living(0) <-> landing(+1), mid-room. Walk NORTH to climb.
-  { id: "stairUpB", rect: { x1: 450, y1: 268, x2: 570, y2: 422 }, axis: "y", mid: 340, floorLow: 1, floorHigh: 0, sealedFor: "B", kind: "stair" },
-  // Interior staircase living(0) <-> basement(-1), south-west. Walk SOUTH to descend.
-  { id: "stairDownB", rect: { x1: 290, y1: 520, x2: 410, y2: 675 }, axis: "y", mid: 597, floorLow: 0, floorHigh: -1, sealedFor: "B", kind: "stair" },
+  // The top stops 38 clear of the landing's north partition, so you can step off
+  // and walk west to the bedroom doors.
+  { id: "stairUpB", rect: { x1: 450, y1: 285, x2: 570, y2: 422 }, axis: "y", mid: 353, floorLow: 1, floorHigh: 0, sealedFor: "B", kind: "stair" },
+  // Interior staircase living(0) <-> basement(-1), south-west. Walk SOUTH to
+  // descend. It used to run to y=675, 18 short of the south wall - no room to
+  // step off, so the only way out of the basement was over the flight's side.
+  { id: "stairDownB", rect: { x1: 290, y1: 500, x2: 410, y2: 630 }, axis: "y", mid: 565, floorLow: 0, floorHigh: -1, sealedFor: "B", kind: "stair" },
   // Balcony LADDERS: short, steep runs from the yard up to each bedroom's
   // balcony. They stop at the balcony's outer edge (x=200) - the balcony itself
   // (x 200..260) is flat at floor +1, so you step off the ladder onto it.
@@ -248,12 +255,74 @@ export function connectorSealsOwner(c: Connector): boolean {
   return Math.max(c.floorLow, c.floorHigh) > 0;
 }
 
-export function connectorBlocks(x: number, y: number, team: Team): boolean {
+// A connector only EXISTS on the two floors it joins - the living room's
+// staircase is not present down in the basement, which shares its footprint.
+function connectorServesFloor(c: Connector, floor: number): boolean {
+  return floor === c.floorLow || floor === c.floorHigh;
+}
+
+// True where `team` is blocked by one of its OWN connectors. `floor` is optional
+// only so a caller with no floor to hand gets the conservative answer.
+export function connectorBlocks(x: number, y: number, team: Team, floor?: number): boolean {
   for (const c of CONNECTORS) {
-    if (c.sealedFor === team && connectorSealsOwner(c) && inRect(x, y, c.rect)) return true;
+    if (c.sealedFor !== team || !connectorSealsOwner(c)) continue;
+    if (floor !== undefined && !connectorServesFloor(c, floor)) continue;
+    if (inRect(x, y, c.rect)) return true;
   }
   return false;
 }
+
+// ---- connector side rails ----
+//
+// A flight is a SOLID OBJECT, and you may only get on or off it at its two
+// ends. Without this, walking into the flank of the staircase simply put you
+// on top of it: the floor height is a function of position alone, so crossing
+// the footprint from the side lifted the body straight up the ramp.
+//
+// The rails are collision-only - nothing is drawn for them. The flight's own
+// steps and stringers are the visible obstacle, and their footprint is exactly
+// this; adding drawn walls beside a flight was tried before and looked like
+// scaffolding.
+//
+// They are laid just OUTSIDE the walkable rect so the full width of the run
+// stays usable, and they are PER FLOOR, each stopping short of the end where
+// the climbing surface meets that floor. Over that last stretch the surface is
+// within a step of the floor it meets, so stepping on from the side there is a
+// step rather than a launch - and leaving it open is what keeps the floor
+// around the flight walkable at the top and the bottom.
+const SIDE_RAIL_INSET = 0.28; // fraction of the run left open at the meeting end
+const SIDE_RAIL_T = 10;
+
+export interface ConnectorSide extends FloorRect {
+  floor: number;
+  // The owner walks OVER this connector (a sealed route down is a lid, not a
+  // block), so its rails must not exist for them or they would bump into
+  // invisible geometry in the middle of their own room.
+  skipFor?: Team;
+}
+
+export const CONNECTOR_SIDES: ConnectorSide[] = CONNECTORS.flatMap((c) => {
+  const skipFor = connectorSealsOwner(c) ? undefined : c.sealedFor;
+  const alongX = c.axis === "x";
+  const a1 = alongX ? c.rect.x1 : c.rect.y1;
+  const a2 = alongX ? c.rect.x2 : c.rect.y2;
+  const inset = (a2 - a1) * SIDE_RAIL_INSET;
+  const sides: ConnectorSide[] = [];
+  for (const floor of [c.floorLow, c.floorHigh]) {
+    // Low axis end == floorLow, high end == floorHigh (see resolveFloor).
+    const from = floor === c.floorLow ? a1 + inset : a1;
+    const to = floor === c.floorHigh ? a2 - inset : a2;
+    if (to <= from) continue;
+    if (alongX) {
+      sides.push({ x1: from, y1: c.rect.y1 - SIDE_RAIL_T, x2: to, y2: c.rect.y1, floor, skipFor });
+      sides.push({ x1: from, y1: c.rect.y2, x2: to, y2: c.rect.y2 + SIDE_RAIL_T, floor, skipFor });
+    } else {
+      sides.push({ x1: c.rect.x1 - SIDE_RAIL_T, y1: from, x2: c.rect.x1, y2: to, floor, skipFor });
+      sides.push({ x1: c.rect.x2, y1: from, x2: c.rect.x2 + SIDE_RAIL_T, y2: to, floor, skipFor });
+    }
+  }
+  return sides;
+});
 
 // ---- walls ----
 // Per-floor solid segments; door/connector gaps are simply absent. Humans
@@ -444,15 +513,21 @@ const HOUSE_B_NODES: Record<string, BotNode> = {
   yardB_ladderS: { x: 120, y: 580, floor: 0 },
   yardB_cellar: { x: 170, y: 465, floor: 0 },
   stairUpB_base: { x: 510, y: 450, floor: 0 },
-  stairUpB_top: { x: 510, y: 300, floor: 1 },
-  landingB: { x: 345, y: 340, floor: 1 },
+  // Head of the flight, standing just NORTH of its footprint - not on it. The
+  // sides are solid, so the route off the top has to leave by the end and then
+  // run west along the landing's north strip.
+  stairUpB_top: { x: 510, y: 275, floor: 1 },
+  landingB: { x: 345, y: 275, floor: 1 },
   bedroomB_N: { x: 345, y: 140, floor: 1 },
   bedroomB_S: { x: 345, y: 560, floor: 1 },
   balconyB_N: { x: 230, y: 120, floor: 1 },
   balconyB_S: { x: 230, y: 580, floor: 1 },
-  stairDownB_base: { x: 350, y: 495, floor: 0 },
-  stairDownB_bot: { x: 350, y: 640, floor: -1 },
-  basementB: { x: 520, y: 500, floor: -1 },
+  stairDownB_base: { x: 350, y: 475, floor: 0 },
+  // Foot of the flight, on the strip SOUTH of it, and the corner that carries
+  // the route east before it turns north into the basement proper.
+  stairDownB_bot: { x: 350, y: 675, floor: -1 },
+  basementB_S: { x: 496, y: 675, floor: -1 },
+  basementB: { x: 520, y: 400, floor: -1 },
   cellarB_bot: { x: 300, y: 465, floor: -1 },
 };
 
@@ -515,7 +590,8 @@ const HOUSE_B_EDGES: BotEdge[] = [
   // down the interior staircase, and in from the yard by the cellar steps
   { a: "livingB_W", b: "stairDownB_base" },
   { a: "stairDownB_base", b: "stairDownB_bot", blockedFor: "B" },
-  { a: "stairDownB_bot", b: "basementB" },
+  { a: "stairDownB_bot", b: "basementB_S" },
+  { a: "basementB_S", b: "basementB" },
   { a: "yardB_cellar", b: "cellarB_bot", blockedFor: "B" },
   { a: "cellarB_bot", b: "basementB" },
 ];
@@ -553,6 +629,8 @@ const BOT_EDGES: BotEdge[] = [
 // a defender walking into its own solid stairs.
 export function nearestBotNode(x: number, y: number, floor: number, team?: Team): BotNodeId {
   const zone = getZoneAt(x, y, floor);
+  let visible: BotNodeId | null = null;
+  let visibleDist = Infinity;
   let sameZone: BotNodeId | null = null;
   let sameZoneDist = Infinity;
   let sameFloor: BotNodeId = "garden";
@@ -561,7 +639,7 @@ export function nearestBotNode(x: number, y: number, floor: number, team?: Team)
   let anywhereDist = Infinity;
   for (const id of Object.keys(BOT_WAYPOINTS)) {
     const p = BOT_WAYPOINTS[id];
-    if (team && connectorBlocks(p.x, p.y, team)) continue;
+    if (team && connectorBlocks(p.x, p.y, team, p.floor)) continue;
     const d = Math.hypot(p.x - x, p.y - y);
     if (d < anywhereDist) {
       anywhereDist = d;
@@ -572,13 +650,64 @@ export function nearestBotNode(x: number, y: number, floor: number, team?: Team)
       sameFloorDist = d;
       sameFloor = id;
     }
+    if (d < visibleDist && !segmentBlocked(x, y, p.x, p.y, floor, team)) {
+      visibleDist = d;
+      visible = id;
+    }
     if (getZoneAt(p.x, p.y, p.floor) === zone && d < sameZoneDist) {
       sameZoneDist = d;
       sameZone = id;
     }
   }
+  if (visible) return visible;
   if (sameZone) return sameZone;
   return sameFloorDist === Infinity ? anywhere : sameFloor;
+}
+
+// Does the straight line from (x1,y1) to (x2,y2) cross anything solid on
+// `floor`? Slab test per rect, so it costs a handful of comparisons each.
+// Furniture is deliberately NOT considered: a sofa between you and a waypoint
+// is something you walk around, not a different room.
+function segmentBlocked(x1: number, y1: number, x2: number, y2: number, floor: number, team?: Team): boolean {
+  for (const w of WALLS) {
+    if (w.floor !== undefined && w.floor !== floor) continue;
+    if (segmentHitsRect(x1, y1, x2, y2, w)) return true;
+  }
+  for (const s of CONNECTOR_SIDES) {
+    if (s.floor !== floor || (team && s.skipFor === team)) continue;
+    if (segmentHitsRect(x1, y1, x2, y2, s)) return true;
+  }
+  if (team) {
+    for (const c of CONNECTORS) {
+      if (c.sealedFor !== team || !connectorSealsOwner(c)) continue;
+      if (floor !== c.floorLow && floor !== c.floorHigh) continue;
+      if (segmentHitsRect(x1, y1, x2, y2, c.rect)) return true;
+    }
+  }
+  return false;
+}
+
+function segmentHitsRect(x1: number, y1: number, x2: number, y2: number, r: Rect): boolean {
+  let tMin = 0;
+  let tMax = 1;
+  const axes: [number, number, number][] = [
+    [x2 - x1, r.x1 - x1, r.x2 - x1],
+    [y2 - y1, r.y1 - y1, r.y2 - y1],
+  ];
+  for (const [delta, near, far] of axes) {
+    if (Math.abs(delta) < 1e-9) {
+      // Parallel to this axis: only crosses if it already lies inside the slab.
+      if (near > 0 || far < 0) return false;
+      continue;
+    }
+    let a = near / delta;
+    let b = far / delta;
+    if (a > b) [a, b] = [b, a];
+    tMin = Math.max(tMin, a);
+    tMax = Math.min(tMax, b);
+    if (tMin > tMax) return false;
+  }
+  return true;
 }
 
 // BFS shortest path (hop count) respecting which gates `team` may use.

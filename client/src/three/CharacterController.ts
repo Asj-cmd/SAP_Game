@@ -1,5 +1,13 @@
 import { CharacterModel } from "./CharacterModel";
-import { WALLS, CONNECTORS, connectorSealsOwner, resolveFloor, type Rect, type Team } from "../geometry/floorplan";
+import {
+  WALLS,
+  CONNECTORS,
+  CONNECTOR_SIDES,
+  connectorSealsOwner,
+  resolveFloor,
+  type Rect,
+  type Team,
+} from "../geometry/floorplan";
 import { PROP_COLLIDERS } from "../../../shared/props";
 import {
   MOVE_SPEED,
@@ -257,7 +265,13 @@ export class CharacterController {
       if (p.floor === this.floor) yield p;
     }
     for (const c of CONNECTORS) {
-      if (c.sealedFor === this.team && connectorSealsOwner(c)) yield c.rect;
+      if (c.sealedFor !== this.team || !connectorSealsOwner(c)) continue;
+      if (this.floor !== c.floorLow && this.floor !== c.floorHigh) continue;
+      yield c.rect;
+    }
+    // A staircase/ladder is a solid object you may only board at its ends.
+    for (const s of CONNECTOR_SIDES) {
+      if (s.floor === this.floor && s.skipFor !== this.team) yield s;
     }
   }
 

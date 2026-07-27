@@ -147,8 +147,12 @@ export const COLORS = {
   roofB: 0xc2502a, // hot terracotta - house B's crown, visible across the map
   roofA: 0x33628f, // deep slate blue - house A's
   glass: 0xa8d8f0,
-  stairsB: 0x9a7040, // warm wood treads (B house)
-  stairsA: 0x5c6c85, // cool stone-blue treads (A house)
+  // Staircases wear their family's colour, so which house you are standing in
+  // is readable from the flight alone: the red family's stairs are red.
+  stairsB: 0xe85d24, // == teamB
+  stairsA: 0x185fa5, // == teamA
+  stairTrimB: 0x8f3413, // stringers - the same hue, deep enough to read as shadow
+  stairTrimA: 0x0d3a6b,
   ladderRail: 0xa9743a, // backyard ladders - bare timber, warmer than any stair
   ladderRung: 0x8a5a28,
   foundation: 0x655c50, // darker than wall - the solid fill under a raised bedroom wing

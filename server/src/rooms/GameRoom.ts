@@ -19,6 +19,7 @@ import {
   nearestBotNode,
   WALLS,
   CONNECTORS,
+  CONNECTOR_SIDES,
   type Rect,
 } from "../zones";
 import { PROP_COLLIDERS, randomCashSpot, randomCashSpots } from "../../../shared/props";
@@ -91,6 +92,9 @@ const BOT_DEFEND_GRACE_MS = 1500;
 const BOT_PATROL_MIN_MS = 3000;
 const BOT_PATROL_VAR_MS = 4000;
 const BOT_PATROL_ARRIVE = 40 * WORLD_SCALE;
+// A bot stops once its aim is this close - a little over one body width, so
+// arriving somewhere another body already occupies settles instead of jostling.
+const BOT_ARRIVE_DEADZONE = BOT_RADIUS * 1.2;
 // Progress watchdog on a committed graph hop: re-path after this long without
 // closing the distance, and abandon the task entirely at the longer bound.
 const BOT_HOP_STALL_MS = 1200;
@@ -1212,7 +1216,10 @@ export class GameRoom extends Room<GameState> {
     const dx = aim.x - bot.x;
     const dy = aim.y - bot.y;
     const dist = Math.hypot(dx, dy);
-    if (dist < 1) {
+    if (dist < BOT_ARRIVE_DEADZONE) {
+      // Close enough. The old test was one unit, so two bots sent to the same
+      // guard post ground against each other forever: body separation shoved
+      // them apart, both walked straight back in, and neither ever "arrived".
       bot.vx = 0;
       bot.vy = 0;
       return;
@@ -1269,7 +1276,13 @@ export class GameRoom extends Room<GameState> {
       if (p.floor === bot.floor) yield p;
     }
     for (const c of CONNECTORS) {
-      if (c.sealedFor === team && connectorSealsOwner(c)) yield c.rect;
+      if (c.sealedFor !== team || !connectorSealsOwner(c)) continue;
+      if (bot.floor !== c.floorLow && bot.floor !== c.floorHigh) continue;
+      yield c.rect;
+    }
+    // A staircase/ladder is a solid object you may only board at its ends.
+    for (const s of CONNECTOR_SIDES) {
+      if (s.floor === bot.floor && s.skipFor !== team) yield s;
     }
   }
 

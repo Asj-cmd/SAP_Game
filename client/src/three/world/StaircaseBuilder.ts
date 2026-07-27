@@ -15,9 +15,16 @@ import { rectToBox } from "../EnvironmentBuilder";
 // steps stay stairs.
 const STEP_COUNT = 12;
 const RUNG_COUNT = 9;
-const BOTTOM_MARGIN = 40; // world units below the lower floor, so no step floats
 const RAIL_WIDTH = 7; // timber thickness of a ladder's side rails
 const RUNG_THICKNESS = 5;
+// Open-tread staircase: floating slabs carried on two stringers. The old
+// "wedding cake" flight filled everything under each tread down to below the
+// floor, which read as one huge dark block rather than as stairs - from the top
+// end it was indistinguishable from a column. This is the same run with the mass
+// taken out: only the treads you stand on and the two beams holding them.
+const TREAD_THICKNESS = 9;
+const STRINGER_WIDTH = 12; // the beam under each side of the treads
+const STRINGER_DEPTH = 30; // how far it hangs below the tread line
 
 function smoothstep(t: number): number {
   const c = Math.max(0, Math.min(1, t));
@@ -48,15 +55,18 @@ interface Run {
   loY: number;
   hiY: number;
   color: number;
+  trim: number;
 }
 
 function runOf(c: Connector): Run {
+  const houseB = teamSideAt((c.rect.x1 + c.rect.x2) / 2) === "B";
   return {
     axisStart: c.axis === "x" ? c.rect.x1 : c.rect.y1,
     axisEnd: c.axis === "x" ? c.rect.x2 : c.rect.y2,
     loY: c.floorLow * STORY_HEIGHT,
     hiY: c.floorHigh * STORY_HEIGHT,
-    color: teamSideAt((c.rect.x1 + c.rect.x2) / 2) === "B" ? COLORS.stairsB : COLORS.stairsA,
+    color: houseB ? COLORS.stairsB : COLORS.stairsA,
+    trim: houseB ? COLORS.stairTrimB : COLORS.stairTrimA,
   };
 }
 
@@ -79,20 +89,34 @@ function buildSteps(c: Connector): THREE.BufferGeometry[] {
   const { lo, hi } = crossRange(c);
   const span = run.axisEnd - run.axisStart;
   const dw = span / STEP_COUNT;
-  const bottomY = Math.min(run.loY, run.hiY) - BOTTOM_MARGIN;
-
   const geoms: THREE.BufferGeometry[] = [];
+
+  // Treads: one floating slab per step, spanning BETWEEN the two stringers so
+  // its ends are buried in them rather than sharing a face with them. Butted,
+  // not overlapped, along the run - see the surface rule in EnvironmentBuilder.
   for (let i = 0; i < STEP_COUNT; i++) {
-    // Steps are BUTTED, not overlapped. Two neighbouring risers meet on one
-    // plane but face opposite ways, so only ever one of them is rasterised;
-    // overlapping them instead would put their (same-facing) side walls on a
-    // shared plane and stripe the flight with shimmer down both edges.
     const a0 = run.axisStart + i * dw;
     const a1 = run.axisStart + (i + 1) * dw;
     const treadY = surfaceY(run, (i + 1) / STEP_COUNT);
-    const height = treadY - bottomY;
-    if (height <= 0) continue;
-    geoms.push(rectToBox(spanRect(c, a0, a1, lo, hi), height, bottomY + height / 2, run.color));
+    const rect = spanRect(c, a0, a1, lo + STRINGER_WIDTH / 2, hi - STRINGER_WIDTH / 2);
+    geoms.push(rectToBox(rect, TREAD_THICKNESS, treadY - TREAD_THICKNESS / 2, run.color));
+  }
+
+  // Stringers: the two raking beams the treads sit on, segmented so they follow
+  // the slope. They are the flight's whole visible mass, and their footprint is
+  // what CONNECTOR_SIDES makes solid - walk into the side of a flight and you
+  // walk into these.
+  const segments = STEP_COUNT * 2;
+  for (const side of [lo, hi - STRINGER_WIDTH]) {
+    for (let i = 0; i < segments; i++) {
+      const t0 = i / segments;
+      const t1 = (i + 1) / segments;
+      const a0 = run.axisStart + t0 * span;
+      const a1 = run.axisStart + t1 * span;
+      const top = (surfaceY(run, t0) + surfaceY(run, t1)) / 2 - TREAD_THICKNESS;
+      const rect = spanRect(c, a0, a1, side, side + STRINGER_WIDTH);
+      geoms.push(rectToBox(rect, STRINGER_DEPTH, top - STRINGER_DEPTH / 2, run.trim));
+    }
   }
   return geoms;
 }
