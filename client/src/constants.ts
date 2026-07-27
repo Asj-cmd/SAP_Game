@@ -215,6 +215,7 @@ export const TILE = {
   concrete: 210,
   turf: 130,
   painted: 70,
+  shingle: 120,
 };
 
 // Post-processing. Bloom is kept on the highlights only - a low threshold

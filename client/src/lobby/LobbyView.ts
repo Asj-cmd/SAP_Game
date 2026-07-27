@@ -1,8 +1,6 @@
 import { colyseusClient } from "../network/ColyseusClient";
 import type { Room } from "colyseus.js";
-
-const TEAM_B_COLOR = "#e85d24";
-const TEAM_A_COLOR = "#185fa5";
+import { installTheme, TEAM_B_COLOR, TEAM_A_COLOR } from "../ui/theme";
 
 // Plain-DOM port of the old Phaser LobbyScene (it was already just an HTML
 // form wrapped in a Phaser DOM GameObject, so dropping the wrapper is
@@ -20,21 +18,30 @@ export class LobbyView {
     private container: HTMLElement,
     private onGameStart: (room: Room) => void
   ) {
+    installTheme();
+    const scroller = document.createElement("div");
+    scroller.className = "cg-root";
+    scroller.style.cssText = "width:100%;height:100%;overflow-y:auto;overflow-x:hidden;";
     this.root = document.createElement("div");
     this.root.style.cssText =
-      "width:100%;height:100%;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:14px;font-family:system-ui,sans-serif;";
-    this.container.appendChild(this.root);
+      "min-height:100%;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:20px;padding:28px 20px;";
+    scroller.appendChild(this.root);
+    this.container.appendChild(scroller);
 
     // paint-order:stroke fill keeps the outline BEHIND the glyphs (a centered
     // stroke on top eats small text entirely - same fix as the HUD); the
     // layered soft shadow replaces the hard offset that read as a default.
     const title = document.createElement("div");
+    title.className = "cg-rise";
+    title.style.cssText = "text-align:center;";
     title.innerHTML = `
-      <div style="font-size:44px;font-weight:800;color:#fff;paint-order:stroke fill;-webkit-text-stroke:5px #000;
-                  text-shadow:0 2px 6px rgba(0,0,0,.5), 0 8px 24px rgba(0,0,0,.35);text-align:center;letter-spacing:2px;">CASH GRAB</div>
-      <div style="font-size:14px;font-weight:600;color:#f2f6fa;paint-order:stroke fill;-webkit-text-stroke:2.5px #000;
-                  text-shadow:0 1px 3px rgba(0,0,0,.5);text-align:center;margin-top:6px;">
-        2v2, 3v3, or 4v4 — steal the other family's cash, jail the intruders
+      <div class="cg-display">CASH GRAB</div>
+      <div class="cg-tagline" style="margin-top:10px;">
+        Two families. One street. Whoever ends the night with the most cash wins.
+      </div>
+      <div style="margin-top:12px;display:flex;gap:8px;justify-content:center;">
+        <span class="cg-chip cg-chip-b">Family B</span>
+        <span class="cg-chip cg-chip-a">Family A</span>
       </div>`;
     this.root.appendChild(title);
 
@@ -46,53 +53,47 @@ export class LobbyView {
     const panel = document.createElement("div");
     // Clamped width: without a max-width the long how-to-play copy stretched
     // the card toward full-bleed on wide screens.
-    panel.style.cssText =
-      "font-family:system-ui,sans-serif;background:#ffffffee;padding:22px 24px;border-radius:14px;" +
-      "width:min(92vw, 420px);box-sizing:border-box;box-shadow:0 6px 24px #0006;";
+    panel.className = "cg-panel cg-rise";
+    panel.style.cssText = "padding:22px 24px;width:min(92vw, 440px);";
     panel.innerHTML = `
         <div style="display:flex;flex-direction:column;gap:10px;align-items:stretch;">
-          <input id="nameInput" placeholder="Your name" maxlength="16"
-                 style="padding:10px;font-size:15px;border:1px solid #ccc;border-radius:8px;" />
+          <input id="nameInput" class="cg-input" placeholder="Your name" maxlength="16" />
           <div style="display:flex;gap:8px;">
-            <label style="flex:1;font-size:11px;color:#666;">Mode
-              <select id="modeInput" style="width:100%;padding:9px;font-size:14px;border:1px solid #ccc;border-radius:8px;margin-top:2px;">
+            <label style="flex:1;" class="cg-label">Mode
+              <select id="modeInput" class="cg-select" style="margin-top:5px;">
                 <option value="2">2 v 2</option>
                 <option value="3">3 v 3</option>
                 <option value="4">4 v 4</option>
               </select>
             </label>
-            <label style="flex:1;font-size:11px;color:#666;">Bundles per team
-              <select id="bundleInput" style="width:100%;padding:9px;font-size:14px;border:1px solid #ccc;border-radius:8px;margin-top:2px;">
+            <label style="flex:1;" class="cg-label">Bundles per team
+              <select id="bundleInput" class="cg-select" style="margin-top:5px;">
                 <option value="3">3</option><option value="4">4</option><option value="5">5</option>
               </select>
             </label>
           </div>
-          <div id="winInfo" style="font-size:12px;color:#555;text-align:center;font-weight:600;"></div>
-          <div style="font-size:11px;color:#999;text-align:center;margin-top:-2px;">Host sets these; they apply to everyone in the room.</div>
-          <button id="createBtn"
-                 style="padding:10px;font-size:15px;font-weight:600;cursor:pointer;border:0;border-radius:8px;background:#2e7d32;color:#fff;">
-            Create Room
-          </button>
-          <div style="display:flex;gap:8px;align-items:center;color:#888;font-size:12px;">
-            <div style="flex:1;height:1px;background:#ddd;"></div>OR<div style="flex:1;height:1px;background:#ddd;"></div>
-          </div>
+          <div id="winInfo" class="cg-hint" style="text-align:center;font-weight:600;color:var(--cg-cash);"></div>
+          <div class="cg-hint" style="text-align:center;margin-top:-4px;">Host sets these; they apply to everyone in the room.</div>
+          <button id="createBtn" class="cg-btn cg-btn-primary">Create Room</button>
+          <div class="cg-divider">OR</div>
           <div style="display:flex;gap:8px;">
-            <input id="codeInput" placeholder="ROOM CODE" maxlength="4"
-                 style="flex:1;padding:10px;font-size:15px;text-transform:uppercase;border:1px solid #ccc;border-radius:8px;letter-spacing:2px;" />
-            <button id="joinBtn"
-                 style="padding:10px 16px;font-size:15px;font-weight:600;cursor:pointer;border:0;border-radius:8px;background:#1565c0;color:#fff;">
-              Join
-            </button>
+            <input id="codeInput" class="cg-input" placeholder="ROOM CODE" maxlength="4"
+                   style="flex:1;text-transform:uppercase;letter-spacing:4px;font-weight:700;text-align:center;" />
+            <button id="joinBtn" class="cg-btn cg-btn-join" style="flex:0 0 auto;">Join</button>
           </div>
-          <div id="statusText" style="font-size:13px;color:#c62828;min-height:18px;text-align:center;"></div>
+          <div id="statusText" style="font-size:13px;color:var(--cg-danger);min-height:18px;text-align:center;"></div>
         </div>
-        <div style="margin-top:14px;padding-top:12px;border-top:1px solid #eee;font-size:12px;color:#555;line-height:1.5;">
-          <b>How to play:</b> Click the game to grab the mouse — the mouse looks around and
-          WASD/arrows move (W walks where you're looking). Sneak into the enemy
-          bedroom, grab cash and carry it home (it banks automatically). Catch intruders anywhere
-          on your property — house or backyard — with <b>SPACE</b> to jail them. Your score is the
-          cash in your bedroom — what you've kept plus what you've banked. First to the target
-          (shown above) wins the round — best of 3.
+        <div style="margin-top:16px;padding-top:14px;border-top:1px solid var(--cg-line);">
+          <div class="cg-label" style="margin-bottom:7px;">How to play</div>
+          <div class="cg-hint">
+            Click the game to grab the mouse — mouse looks, WASD moves.
+            Sneak into the other family's bedrooms, grab a bundle and carry it home;
+            it banks the moment you are back on your own property.
+            Catch an intruder anywhere on YOUR property with <b>SPACE</b> and they go to
+            your basement until a family member frees them or the clock runs out.
+            Your score is the cash sitting in your bedrooms. First to the target wins
+            the round — best of three.
+          </div>
         </div>`;
     this.root.appendChild(panel);
     this.panel = panel;
@@ -121,7 +122,7 @@ export class LobbyView {
       const name = nameInput.value.trim() || "Player";
       const teamSize = parseInt(modeInput.value, 10) || 2;
       const bundles = parseInt(bundleInput.value, 10) || 5;
-      status.style.color = "#555";
+      status.style.color = "var(--cg-text-dim)";
       status.textContent = "Connecting...";
       try {
         const { room, code } = await colyseusClient.createRoom(name, { teamSize, bundles });
@@ -141,7 +142,7 @@ export class LobbyView {
         status.textContent = "Enter a room code to join.";
         return;
       }
-      status.style.color = "#555";
+      status.style.color = "var(--cg-text-dim)";
       status.textContent = "Connecting...";
       try {
         const room = await colyseusClient.joinRoomByCode(code, name);
@@ -167,25 +168,25 @@ export class LobbyView {
 
     const shareUrl = window.location.href.split("?")[0];
     const codeBlock = this.roomCode
-      ? `<div style="text-align:center;margin-bottom:12px;">
-           <div style="font-size:12px;color:#666;">ROOM CODE</div>
-           <div style="font-size:40px;font-weight:800;letter-spacing:6px;color:#111;">${this.roomCode}</div>
-           <div style="font-size:12px;color:#666;margin-top:6px;">Share this page's link + the code with your friends:</div>
-           <div style="font-size:12px;color:#1565c0;word-break:break-all;margin-top:2px;">${shareUrl}</div>
+      ? `<div style="text-align:center;margin-bottom:16px;">
+           <div class="cg-label">Room code</div>
+           <div class="cg-num" style="font-size:46px;font-weight:800;letter-spacing:10px;margin:4px 0 2px;
+                       background:linear-gradient(180deg,#fff,#ffd98a);-webkit-background-clip:text;background-clip:text;color:transparent;">${this.roomCode}</div>
+           <div class="cg-hint">Send your friends this link and the code</div>
+           <div class="cg-hint" style="color:var(--cg-a);word-break:break-all;">${shareUrl}</div>
          </div>`
       : "";
 
     const panel = document.createElement("div");
-    panel.style.cssText =
-      "font-family:system-ui,sans-serif;background:#ffffffee;padding:22px 26px;border-radius:14px;" +
-      "width:min(92vw, 440px);box-sizing:border-box;box-shadow:0 6px 24px #0006;";
+    panel.className = "cg-panel cg-rise";
+    panel.style.cssText = "padding:22px 26px;width:min(92vw, 460px);";
     panel.innerHTML = `
         ${codeBlock}
-        <div id="waitCount" style="text-align:center;font-size:16px;font-weight:600;color:#111;">Waiting for players...</div>
-        <div id="modeInfo" style="text-align:center;font-size:12px;color:#777;margin-top:2px;"></div>
-        <div id="playerList" style="margin-top:12px;display:flex;flex-direction:column;gap:6px;"></div>
-        <div id="youAre" style="text-align:center;margin-top:12px;font-size:13px;color:#555;"></div>
-        <div id="hostControls" style="margin-top:14px;padding-top:12px;border-top:1px solid #eee;"></div>`;
+        <div id="waitCount" style="text-align:center;font-size:17px;font-weight:700;">Waiting for players…</div>
+        <div id="modeInfo" class="cg-hint" style="text-align:center;margin-top:3px;"></div>
+        <div id="playerList" style="margin-top:14px;display:flex;flex-direction:column;gap:7px;"></div>
+        <div id="youAre" class="cg-hint" style="text-align:center;margin-top:14px;"></div>
+        <div id="hostControls" style="margin-top:16px;padding-top:14px;border-top:1px solid var(--cg-line);"></div>`;
     this.root.appendChild(panel);
     this.panel = panel;
 
@@ -232,15 +233,15 @@ export class LobbyView {
           const botTag = p.isBot ? " (BOT)" : "";
           const otherTeam = p.team === "B" ? "A" : "B";
           const swapBtn = isHost
-            ? `<button data-swap="${p.id}" data-team="${otherTeam}"
-                 style="margin-left:8px;font-size:11px;padding:3px 7px;border-radius:5px;border:1px solid #ccc;background:#fff;cursor:pointer;">
-                 → Team ${otherTeam}
-               </button>`
+            ? `<button class="cg-btn" data-swap="${p.id}" data-team="${otherTeam}"
+                 style="margin-left:8px;font-size:11px;padding:4px 9px;font-weight:600;">→ ${otherTeam}</button>`
             : "";
-          rows += `<div style="display:flex;align-items:center;gap:8px;font-size:14px;">
-              <span style="width:12px;height:12px;border-radius:50%;background:${color};display:inline-block;"></span>
-              <span style="color:#222;">${p.name}${you}${botTag}</span>
-              <span style="margin-left:auto;color:${color};font-weight:600;">Team ${p.team}</span>
+          rows += `<div style="display:flex;align-items:center;gap:10px;font-size:14px;padding:7px 10px;
+                        background:rgba(0,0,0,.22);border:1px solid var(--cg-line);border-radius:var(--cg-r-sm);">
+              <span style="width:9px;height:9px;border-radius:50%;background:${color};box-shadow:0 0 10px ${color};display:inline-block;"></span>
+              <span style="font-weight:600;">${p.name}${you}</span>
+              ${p.isBot ? `<span class="cg-label" style="color:var(--cg-text-faint);">bot</span>` : ""}
+              <span style="margin-left:auto;color:${color};font-weight:800;font-size:12px;letter-spacing:.06em;">${p.team}</span>
               ${swapBtn}
             </div>`;
         });
@@ -282,24 +283,18 @@ export class LobbyView {
                 .map(
                   (team) => `
                 <div style="text-align:center;flex:1;">
-                  <div style="font-size:11px;color:#666;">Team ${team} bots</div>
-                  <div style="display:flex;align-items:center;justify-content:center;gap:8px;margin-top:4px;">
-                    <button data-bot-dec="${team}"
-                      style="width:26px;height:26px;border-radius:6px;border:1px solid #ccc;background:#fff;cursor:pointer;">−</button>
-                    <span style="min-width:14px;font-weight:600;">${countBotsOnTeam(state, team)}</span>
-                    <button data-bot-inc="${team}"
-                      style="width:26px;height:26px;border-radius:6px;border:1px solid #ccc;background:#fff;cursor:pointer;">+</button>
+                  <div class="cg-label">Team ${team} bots</div>
+                  <div style="display:flex;align-items:center;justify-content:center;gap:10px;margin-top:6px;">
+                    <button class="cg-btn" data-bot-dec="${team}" style="width:30px;height:30px;padding:0;font-size:17px;">−</button>
+                    <span class="cg-num" style="min-width:16px;font-weight:800;font-size:16px;">${countBotsOnTeam(state, team)}</span>
+                    <button class="cg-btn" data-bot-inc="${team}" style="width:30px;height:30px;padding:0;font-size:17px;">+</button>
                   </div>
                 </div>`
                 )
                 .join("")}
             </div>
-            <button id="startGameBtn" ${canStart ? "" : "disabled"}
-              style="width:100%;padding:10px;font-size:14px;font-weight:700;border:0;border-radius:8px;
-                     cursor:${canStart ? "pointer" : "not-allowed"};
-                     background:${canStart ? "#2e7d32" : "#aaa"};color:#fff;">
-              ${startLabel}
-            </button>`;
+            <button id="startGameBtn" class="cg-btn ${canStart ? "cg-btn-go" : ""}" ${canStart ? "" : "disabled"}
+              style="width:100%;">${startLabel}</button>`;
 
           hostControls.querySelectorAll<HTMLButtonElement>("[data-bot-inc]").forEach((btn) => {
             btn.addEventListener("click", () => {

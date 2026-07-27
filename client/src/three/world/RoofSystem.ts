@@ -2,6 +2,8 @@ import * as THREE from "three";
 import { ZONE_RECTS, type ZoneId } from "../../geometry/floorplan";
 import { COLORS, WORLD_SCALE } from "../../constants";
 import { ceilingY } from "./HeightField";
+import { surfaces, applyWorldUVs } from "./Textures";
+import { TILE } from "../../constants";
 
 // The interior (enclosed) rooms - used by GameController to decide when the
 // chase camera should be clamped inside a room vs. left free in the open-air
@@ -59,13 +61,22 @@ export class RoofSystem {
       const geo = new THREE.BufferGeometry();
       geo.setAttribute("position", new THREE.BufferAttribute(positions, 3));
       geo.computeVertexNormals();
+      // World-projected UVs, same rule as every other surface, so the tile
+      // courses are the same size on both roofs and match the scale of the
+      // brickwork and boards below them.
+      applyWorldUVs(geo, TILE.shingle);
 
       const color = zoneId.endsWith("B") ? COLORS.roofB : COLORS.roofA;
+      const skin = surfaces().shingle;
       const material = new THREE.MeshStandardMaterial({
         color,
-        roughness: 0.78,
+        map: skin.map,
+        normalMap: skin.normalMap,
+        roughnessMap: skin.roughnessMap,
+        normalScale: new THREE.Vector2(1.1, 1.1),
+        roughness: 0.8,
         metalness: 0.02,
-        envMapIntensity: 0.8,
+        envMapIntensity: 0.7,
         side: THREE.DoubleSide,
         emissive: new THREE.Color(color).multiplyScalar(ROOF_EMISSIVE),
       });

@@ -97,15 +97,15 @@ export class HudOverlay {
     // soft drop shadow, blurred where the browser supports it. Keeps the HUD
     // legible over both the bright garden and the dark basement.
     const panel =
-      "background:linear-gradient(180deg,rgba(18,22,30,.62),rgba(10,13,18,.72)); border:1px solid rgba(255,255,255,.14); border-radius:14px; box-shadow:0 6px 20px rgba(0,0,0,.4); backdrop-filter:blur(7px); -webkit-backdrop-filter:blur(7px);";
+      "background:linear-gradient(180deg,rgba(30,40,54,.90),rgba(20,27,38,.80)); border:1px solid rgba(255,255,255,.10); border-radius:12px; box-shadow:0 10px 30px rgba(0,0,0,.45), inset 0 1px 0 rgba(255,255,255,.07); backdrop-filter:blur(14px) saturate(1.15); -webkit-backdrop-filter:blur(14px) saturate(1.15);";
     return `
       <style>
-        #hud-root * { font-family: system-ui, -apple-system, "Segoe UI", sans-serif; color:#fff; box-sizing:border-box; }
+        #hud-root * { font-family: ui-sans-serif, system-ui, -apple-system, "Segoe UI", Roboto, sans-serif; color:#eef3f8; box-sizing:border-box; }
         /* Top-left status panel: a team-accented left edge + timer, round line,
            and a live cash scoreboard with round-win pips. */
         #hud-topleft { position:fixed; top:16px; left:18px; padding:10px 16px 12px 14px; ${panel} border-left:4px solid var(--team); min-width:180px; }
-        #hud-timer { font-size:34px; font-weight:800; line-height:1; letter-spacing:.5px; font-variant-numeric:tabular-nums; }
-        #hud-round { font-size:12.5px; font-weight:600; opacity:.72; margin-top:3px; letter-spacing:.3px; }
+        #hud-timer { font-size:36px; font-weight:800; line-height:1; letter-spacing:-.02em; font-variant-numeric:tabular-nums; }
+        #hud-round { font-size:10.5px; font-weight:700; opacity:.5; margin-top:5px; letter-spacing:.14em; text-transform:uppercase; }
         #hud-score { display:flex; align-items:baseline; gap:8px; margin-top:8px; font-weight:800; font-variant-numeric:tabular-nums; }
         #hud-score .lab { font-size:11px; font-weight:700; opacity:.85; letter-spacing:.5px; }
         #hud-score-own { font-size:26px; color:var(--team); }
@@ -115,26 +115,26 @@ export class HudOverlay {
         #hud-win-pips .pip { width:9px; height:9px; border-radius:50%; border:1.5px solid rgba(255,255,255,.35); }
         #hud-win-pips .pip.own { background:var(--team); border-color:var(--team); }
         #hud-win-pips .pip.foe { background:var(--foe); border-color:var(--foe); }
-        #hud-win-pips .plabel { font-size:10px; font-weight:700; opacity:.6; letter-spacing:.6px; margin-right:2px; }
+        #hud-win-pips .plabel { font-size:9.5px; font-weight:700; opacity:.45; letter-spacing:.14em; margin-right:3px; text-transform:uppercase; }
         /* Objective badge: team-tinted pill, top-right. */
-        #hud-objective { position:fixed; top:16px; right:16px; font-size:14px; font-weight:800; text-align:right; padding:8px 14px; ${panel} border-right:4px solid var(--team); letter-spacing:.3px; }
+        #hud-objective { position:fixed; top:16px; right:16px; font-size:13px; font-weight:800; text-align:right; padding:9px 15px; ${panel} border-right:3px solid var(--team); letter-spacing:.02em; }
         /* Controls: unobtrusive pill along the bottom. */
-        #hud-controls { position:fixed; bottom:12px; left:50%; transform:translateX(-50%); font-size:12.5px; font-weight:600; text-align:center; padding:6px 16px; ${panel} opacity:.9; white-space:nowrap; }
+        #hud-controls { position:fixed; bottom:12px; left:50%; transform:translateX(-50%); font-size:11.5px; font-weight:600; text-align:center; padding:7px 18px; ${panel} opacity:.78; white-space:nowrap; letter-spacing:.01em; }
         /* bottom:78px keeps this clear of #hud-prompt (bottom:44px) - both can
            show at once (pointer unlocked next to an actionable). */
         #hud-mouse-hint { position:fixed; bottom:78px; left:50%; transform:translateX(-50%); font-size:12px; font-weight:600; color:#bcd; text-align:center; opacity:.8; ${panel} padding:5px 12px; display:none; }
-        #hud-prompt { position:fixed; bottom:44px; left:50%; transform:translateX(-50%); font-size:16px; font-weight:800; color:#ffe14d; text-align:center; ${strokeThin} display:none; }
+        #hud-prompt { position:fixed; bottom:46px; left:50%; transform:translateX(-50%); font-size:16px; font-weight:800; color:#ffc93c; text-align:center; ${strokeThin} display:none; }
         /* Minimap: framed panel with a small header strip. */
         #hud-minimap-wrap { position:fixed; right:14px; bottom:14px; padding:6px; ${panel} }
-        #hud-minimap-hdr { font-size:9.5px; font-weight:800; letter-spacing:1.5px; opacity:.55; text-align:center; margin-bottom:4px; }
+        #hud-minimap-hdr { font-size:9px; font-weight:800; letter-spacing:.18em; opacity:.45; text-align:center; margin-bottom:5px; text-transform:uppercase; }
         #hud-minimap { display:block; border-radius:6px; }
-        #hud-jail { position:fixed; top:50%; left:50%; transform:translate(-50%, 96px); font-size:19px; font-weight:800; color:#ffdd55; text-align:center; ${panel} border:1px solid rgba(255,221,85,.4); padding:10px 16px; white-space:pre-line; display:none; }
+        #hud-jail { position:fixed; top:50%; left:50%; transform:translate(-50%, 96px); font-size:18px; font-weight:800; color:#ffc93c; text-align:center; ${panel} border:1px solid rgba(255,201,60,.35); padding:12px 20px; white-space:pre-line; display:none; }
         #hud-overlay-bg { position:fixed; inset:0; background:radial-gradient(ellipse at center, rgba(0,0,0,.45), rgba(0,0,0,.72)); display:none; }
-        #hud-overlay-title { position:fixed; top:50%; left:50%; transform:translate(-50%, -60px); font-size:34px; font-weight:900; text-align:center; letter-spacing:.5px; paint-order:stroke fill; -webkit-text-stroke:4px #000; text-shadow:0 3px 14px rgba(0,0,0,.7); display:none; }
+        #hud-overlay-title { position:fixed; top:50%; left:50%; transform:translate(-50%, -60px); font-size:clamp(30px,5vw,46px); font-weight:900; text-align:center; letter-spacing:-.02em; paint-order:stroke fill; -webkit-text-stroke:4px #000; text-shadow:0 6px 30px rgba(0,0,0,.7); display:none; }
         #hud-overlay-sub { position:fixed; top:50%; left:50%; transform:translate(-50%, -6px); font-size:17px; font-weight:600; text-align:center; opacity:.9; ${strokeThin} display:none; }
         /* #hud-root is pointer-events:none (see index.html); this button opts
            back in so it's actually clickable. */
-        #hud-rematch { position:fixed; top:50%; left:50%; transform:translate(-50%, 44px); font-size:16px; font-weight:800; letter-spacing:.5px; padding:13px 34px; border:0; border-radius:10px; background:linear-gradient(180deg,#3ba641,#2e7d32); color:#fff; cursor:pointer; pointer-events:auto; box-shadow:0 5px 16px rgba(0,0,0,.45); transition:transform .08s ease, filter .12s ease; display:none; }
+        #hud-rematch { position:fixed; top:50%; left:50%; transform:translate(-50%, 44px); font-size:15px; font-weight:800; letter-spacing:.01em; padding:13px 36px; border:0; border-radius:10px; background:linear-gradient(180deg,#4ec96a,#2b9948); color:#fff; cursor:pointer; pointer-events:auto; box-shadow:0 10px 30px rgba(0,0,0,.45), inset 0 1px 0 rgba(255,255,255,.2); transition:transform .08s ease, filter .12s ease; display:none; }
         #hud-rematch:hover { filter:brightness(1.12); transform:translate(-50%, 42px); }
         #hud-rematch:active { transform:translate(-50%, 46px); }
       </style>

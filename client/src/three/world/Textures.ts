@@ -204,7 +204,7 @@ function turf(): SurfaceMaps {
 // Built once and shared by every mesh that wants them.
 let cache: Record<string, SurfaceMaps> | null = null;
 
-export function surfaces(): Record<"plaster" | "floorboards" | "concrete" | "turf" | "painted", SurfaceMaps> {
+export function surfaces(): Record<"plaster" | "floorboards" | "concrete" | "turf" | "painted" | "shingle", SurfaceMaps> {
   if (!cache) {
     cache = {
       plaster: plaster(),
@@ -214,9 +214,13 @@ export function surfaces(): Record<"plaster" | "floorboards" | "concrete" | "tur
       // Painted timber - the same board layout, much finer grain and tighter
       // tone variation, so stairs and trim read as painted rather than raw.
       painted: boards(4, 31),
+      // Roof tiles: many narrow courses. A roof is the largest single plane in
+      // the game and the first thing seen from outside, so leaving it flat
+      // undoes the rest of the surface work on its own.
+      shingle: boards(14, 51),
     };
   }
-  return cache as Record<"plaster" | "floorboards" | "concrete" | "turf" | "painted", SurfaceMaps>;
+  return cache as Record<"plaster" | "floorboards" | "concrete" | "turf" | "painted" | "shingle", SurfaceMaps>;
 }
 
 // ---------------------------------------------------------------------------
