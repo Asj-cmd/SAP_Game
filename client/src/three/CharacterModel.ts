@@ -115,7 +115,25 @@ export class CharacterModel {
         mesh.receiveShadow = true;
         const mats = Array.isArray(mesh.material) ? mesh.material : [mesh.material];
         for (const mat of mats as THREE.MeshStandardMaterial[]) {
-          if (mat?.name === "Team") bodyMaterial = mat;
+          if (!mat) continue;
+          if (mat.name === "Team") bodyMaterial = mat;
+          // Every material out of Blender arrives at the same flat 0.75
+          // roughness, so a character reads as one lump of the same plastic.
+          // A small MATERIAL ROLE kit separates them: skin and hair take the
+          // light softly, cloth is matte, shoes have a slight sheen. Each also
+          // gets a real share of the environment map, which is what lets the
+          // rim light draw an edge down a character standing against a wall.
+          mat.envMapIntensity = 0.75;
+          if (/skin|face/i.test(mat.name)) {
+            mat.roughness = 0.72;
+          } else if (/hair/i.test(mat.name)) {
+            mat.roughness = 0.58;
+          } else if (/shoe|boot/i.test(mat.name)) {
+            mat.roughness = 0.42;
+            mat.metalness = 0.05;
+          } else {
+            mat.roughness = 0.88; // cloth
+          }
         }
       }
     });

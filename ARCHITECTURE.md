@@ -24,8 +24,11 @@ client/            Three.js, RENDERING + input only. Sends intent, never mutates
   src/constants.ts    ALL client tunables (the control panel).
   src/assets.ts       Central model-URL registry (asset swap seam).
   src/geometry/floorplan.ts  Re-export of shared geometry + zone colours.
+  src/ui/theme.ts     THE visual identity - one token set for every screen.
   src/three/          The renderer: scene, camera, character, environment, HUD.
-  src/three/world/    Procedural geometry (walls, roofs, stairs, windows, props).
+  src/three/world/    Procedural geometry (walls, roofs, stairs, windows, props)
+                        + Textures.ts (generated surfaces & world UVs) and
+                        TrimBuilder.ts (skirting, architraves, sills, fascia).
 assets/blender/    Headless bpy scripts that author the committed .glb models.
 ```
 
@@ -47,6 +50,35 @@ assets/blender/    Headless bpy scripts that author the committed .glb models.
 | `STORY_HEIGHT` | `constants.ts` | One vertical unit: wall height, floor rise, ceiling, roof, camera cap all derive from it. Client-only (server floor axis is discrete). |
 | Speeds / action ranges | `constants.ts` (client) + top of `GameRoom.ts` (server) | Movement + pickup/lock/rescue distances. |
 | Bot AI weights | top of `GameRoom.ts` (`BOT_*` block) | One labelled table = the AI's whole personality; a difficulty tier is a different table, never a logic edit. |
+
+## How the picture is made
+
+The render is four layers, in the order they matter:
+
+1. **Sky + image-based lighting.** `world/SkyDome.ts` is a procedural gradient
+   sky, baked once into a cube texture used both as the background AND (via
+   PMREM) as `scene.environment`. Every surface therefore has something to
+   reflect; without that, physically-based materials have no gradient across
+   them and the world reads as untextured boxes however well it is lit. It is
+   baked rather than left as a dome mesh because a dome lands in the depth
+   buffer and the ambient-occlusion pass then darkens the whole frame against it.
+2. **A three-light rig** (`SceneManager`, driven by the `LIGHTING` table): warm
+   key with its shadow camera framed to the world, warm hemisphere fill, low
+   back rim. The fill has its OWN colours rather than the sky's - a hemisphere
+   light puts sky colour on every up-facing surface, which indoors is a blue
+   wash across every floor.
+3. **Surfaces** (`world/Textures.ts`): procedurally generated tiling detail and
+   normal maps - plaster, floorboards, concrete, turf, painted timber, roof
+   tiles - multiplied by the per-vertex colour the builder bakes. UVs are
+   reprojected from WORLD POSITION after merging, so texel density is constant
+   and a floorboard is the same width everywhere. Meshes are split by surface
+   role, one draw call each.
+4. **Post**: SSAO, then a restrained bloom on highlights, then `OutputPass` for
+   tone mapping and colour space.
+
+Palette, light rig, tiling rates and post are all tables in `constants.ts`
+(`COLORS`, `SKY`, `LIGHTING`, `TILE`, `POST`) - the render files hold no tuning
+numbers of their own.
 
 ## Geometry: ONE canonical definition
 
