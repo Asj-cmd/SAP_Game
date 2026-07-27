@@ -232,12 +232,19 @@ export function buildEnvironment(localTeam: Team): Environment {
     const lintelBottom = base + DOOR_HEIGHT;
     const lintelHeight = WALL_HEIGHT + SURFACE_OVERLAP - DOOR_HEIGHT;
     wallGeoms.push(
-      rectToBox(door, lintelHeight, lintelBottom + lintelHeight / 2, COLORS.wall)
+      rectToBox(door, lintelHeight, lintelBottom + lintelHeight / 2, COLORS.wall, COLORS.wallShade)
     );
   }
   // Window frames merge into the walls mesh; glass panes get their own mesh.
   wallGeoms.push(...windows.frameGeoms);
-  const wallsMesh = new THREE.Mesh(mergeGeometries(wallGeoms, false), new THREE.MeshStandardMaterial({ vertexColors: true }));
+  // Plaster: rough, barely reflective, but it still samples the environment map
+  // so a wall facing the sky is cooler than one facing the ground. That gradient
+  // across a flat surface is most of what separates "a lit wall" from "a
+  // coloured rectangle".
+  const wallsMesh = new THREE.Mesh(
+    mergeGeometries(wallGeoms, false),
+    new THREE.MeshStandardMaterial({ vertexColors: true, roughness: 0.93, metalness: 0.0, envMapIntensity: 0.4 })
+  );
   wallsMesh.castShadow = true;
   wallsMesh.receiveShadow = true;
 
@@ -249,9 +256,10 @@ export function buildEnvironment(localTeam: Team): Environment {
     new THREE.MeshStandardMaterial({
       color: COLORS.glass,
       transparent: true,
-      opacity: 0.16,
-      roughness: 0.05,
-      metalness: 0,
+      opacity: 0.18,
+      roughness: 0.04,
+      metalness: 0.1,
+      envMapIntensity: 2.2, // the sky reflection IS the window
       depthWrite: false,
       side: THREE.DoubleSide,
     })
@@ -314,7 +322,12 @@ export function buildEnvironment(localTeam: Team): Environment {
     floorGeoms.push(rectToBox(tile, FLOOR_HEIGHT, -FLOOR_HEIGHT - FLOOR_HEIGHT / 2, COLORS.ground));
   }
 
-  const floorMesh = new THREE.Mesh(mergeGeometries(floorGeoms, false), new THREE.MeshStandardMaterial({ vertexColors: true }));
+  // Floors are satin rather than matte - a slight sheen catches the key light
+  // and gives every room a soft highlight running away from the windows.
+  const floorMesh = new THREE.Mesh(
+    mergeGeometries(floorGeoms, false),
+    new THREE.MeshStandardMaterial({ vertexColors: true, roughness: 0.66, metalness: 0.02, envMapIntensity: 0.45 })
+  );
   floorMesh.receiveShadow = true;
 
   return { wallsMesh, floorMesh, glassMesh };

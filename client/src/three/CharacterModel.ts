@@ -19,8 +19,8 @@ const VARIANT_URL = (v: FamilyVariant) => MODEL_PATHS.character(v);
 const VARIANT_TOP: Record<FamilyVariant, number> = {
   father: 1.97,
   mother: 1.8,
-  son: 1.48,
-  daughter: 1.29,
+  son: 1.55,
+  daughter: 1.3,
 };
 const CARRY_BUNDLE_MARGIN = 0.28;
 
@@ -112,6 +112,7 @@ export class CharacterModel {
       const mesh = obj as THREE.Mesh;
       if (mesh.isMesh) {
         mesh.castShadow = true;
+        mesh.receiveShadow = true;
         const mats = Array.isArray(mesh.material) ? mesh.material : [mesh.material];
         for (const mat of mats as THREE.MeshStandardMaterial[]) {
           if (mat?.name === "Team") bodyMaterial = mat;

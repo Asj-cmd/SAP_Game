@@ -120,46 +120,89 @@ export function teamSideAt(x: number): "A" | "B" {
   return x < WORLD_WIDTH / 2 ? "B" : "A";
 }
 
-// Palette conventions (do not break): bedroom stays a warm salmon/coral family
-// on BOTH sides so "this room = cash" reads instantly; teamB and everything
-// B-flavored leans orange, teamA leans blue; door/foundation/stairs stay
-// mutually distinct. Deliberately vivid (Fall Guys / Overcooked energy, not
-// pastel): ACES tone mapping compresses midtones, so pastels grey out - the
-// palette has to arrive saturated for the render to leave it readable.
+// ---- ART DIRECTION -------------------------------------------------------
+//
+// The old palette was flat cartoon primaries lit by a single lamp, which is why
+// the game read as a blocky toy. This one is built as a real scheme instead:
+// a narrow, slightly desaturated range of warm neutrals for the ARCHITECTURE,
+// so the eye reads form and light rather than colour; and a small set of
+// saturated ACCENTS reserved for the things the player must find instantly -
+// the two families, the cash, the doors. Nothing else is allowed to shout.
+//
+// Values are authored as linear-ish sRGB and pass through ACES tone mapping,
+// so they arrive on screen a little softer and darker than they look here.
+
 export const COLORS = {
-  bedroom: 0xef8054, // cash rooms - vivid coral, same on both sides
-  livingB: 0xe3a45c, // Team B's living room, saturated amber
-  livingA: 0x6ea6d8, // Team A's living room, saturated steel blue
-  garden: 0xa8d178,
-  gardenAlt: 0x97c464,
-  backyard: 0x8dbd5e, // grassier green than the garden - reads as private yard
-  basement: 0x8d8b83,
-  door: 0xe6c964, // door mats drawn in every passable wall gap
-  doorFrameB: 0x9a5a28, // honey-oak trim, hinting team B's orange
-  doorFrameA: 0x4d6280, // slate-blue walnut trim, hinting team A's blue
-  doorPanel: 0x5c3d24, // closed-door fill for the local team's own sealed doors
-  ground: 0x3b5231, // lawn plane surrounding the whole map (replaces black void)
-  teamB: 0xe85d24,
-  teamA: 0x185fa5,
-  cash: 0xffd700,
-  wall: 0x9b8a74, // warm plaster, richer than the old grey-beige
-  void: 0x0d1926,
-  roofB: 0xc2502a, // hot terracotta - house B's crown, visible across the map
-  roofA: 0x33628f, // deep slate blue - house A's
-  glass: 0xa8d8f0,
-  // Staircases wear their family's colour, so which house you are standing in
-  // is readable from the flight alone: the red family's stairs are red.
-  stairsB: 0xe85d24, // == teamB
-  stairsA: 0x185fa5, // == teamA
-  stairTrimB: 0x8f3413, // stringers - the same hue, deep enough to read as shadow
+  // --- team accents. Everything a family owns wears one of these.
+  teamB: 0xff6b35, // ember orange
+  teamA: 0x2e86de, // signal blue
+
+  // --- architecture: warm plaster and timber, low saturation on purpose.
+  wall: 0xc4ac8c, // sunlit plaster - warm enough to survive a cool sky fill
+  wallShade: 0x8f7c62, // the underside of a lintel/soffit - reads as a real shadow
+  foundation: 0x6d5f4c,
+
+  // --- floors, one per room so a glance tells you where you are.
+  livingB: 0xcf9048, // warm oak
+  livingA: 0x6e94b5, // cool slate
+  bedroom: 0xe8865a, // terracotta - same in both houses: "this room = cash"
+  basement: 0x5c5f63, // poured concrete
+  ceilingB: 0xb8875c,
+  ceilingA: 0x577693,
+
+  // --- outdoors.
+  garden: 0x86b054,
+  gardenAlt: 0x79a248,
+  backyard: 0x729a45,
+  ground: 0x3f5233,
+  roofB: 0xb0442a,
+  roofA: 0x2f5570,
+
+  // --- accents, used sparingly.
+  cash: 0xffc93c,
+  door: 0xe8c86a,
+  doorFrameB: 0x8a4a2b,
+  doorFrameA: 0x2f5a7a,
+  glass: 0xbfe3f5,
+  stairsB: 0xff6b35,
+  stairsA: 0x2e86de,
+  stairTrimB: 0x8f3413,
   stairTrimA: 0x0d3a6b,
-  ladderRail: 0xa9743a, // backyard ladders - bare timber, warmer than any stair
-  ladderRung: 0x8a5a28,
-  foundation: 0x655c50, // darker than wall - the solid fill under a raised bedroom wing
-  // A room's CEILING is the underside of the slab above it, which was therefore
-  // painted in the upper room's colour - so the blue house's living room looked
-  // up at a coral bedroom floor. These paint that underside per house instead,
-  // so each family's rooms read in its own hue from floor to ceiling.
-  ceilingB: 0xb8763c,
-  ceilingA: 0x3f6f9e,
+  ladderRail: 0xb0793d,
+  ladderRung: 0x8d5a26,
+};
+
+// Sky gradient + the sun disc smear (three/world/SkyDome.ts). Also feeds the
+// environment map and the hemisphere fill, so changing these re-lights the
+// entire world in one edit.
+export const SKY = {
+  top: 0x3f7fc4, // zenith
+  horizon: 0xbcd3e4, // haze band
+  ground: 0x8f7a58, // what the world bounces back up - warm, so interiors are not grey
+  sun: 0xfff2cf,
+};
+
+// The light rig. Ratios matter more than absolutes: a ~4:1 key-to-fill is what
+// gives shape, and the rim is deliberately low - just enough to draw an edge.
+export const LIGHTING = {
+  sunDirection: [0.55, 0.72, 0.42] as [number, number, number],
+  sunColor: 0xfff4e2,
+  sunIntensity: 1.85,
+  fillIntensity: 0.85,
+  rimColor: 0xbcd8ff,
+  rimIntensity: 0.55,
+  environmentIntensity: 1.15,
+  exposure: 1.02,
+  shadowMapSize: 2048,
+  shadowSoftness: 4,
+};
+
+// Post-processing. Bloom is kept on the highlights only - a low threshold
+// smears the whole image and reads as fog on the lens rather than as light.
+export const POST = {
+  bloomStrength: 0.34,
+  bloomRadius: 0.7,
+  bloomThreshold: 0.82,
+  fogNear: 0.85,
+  fogFar: 2.1,
 };

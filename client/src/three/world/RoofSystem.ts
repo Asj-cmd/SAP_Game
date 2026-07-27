@@ -63,7 +63,9 @@ export class RoofSystem {
       const color = zoneId.endsWith("B") ? COLORS.roofB : COLORS.roofA;
       const material = new THREE.MeshStandardMaterial({
         color,
-        roughness: 0.85,
+        roughness: 0.78,
+        metalness: 0.02,
+        envMapIntensity: 0.8,
         side: THREE.DoubleSide,
         emissive: new THREE.Color(color).multiplyScalar(ROOF_EMISSIVE),
       });

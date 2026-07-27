@@ -1,132 +1,138 @@
 import * as THREE from "three";
-import { WORLD_WIDTH, WORLD_HEIGHT } from "../constants";
+import { EffectComposer } from "three/addons/postprocessing/EffectComposer.js";
+import { RenderPass } from "three/addons/postprocessing/RenderPass.js";
+import { UnrealBloomPass } from "three/addons/postprocessing/UnrealBloomPass.js";
+import { OutputPass } from "three/addons/postprocessing/OutputPass.js";
+import { WORLD_WIDTH, WORLD_HEIGHT, SKY, LIGHTING, POST } from "../constants";
+import { buildSkyDome } from "./world/SkyDome";
 
-// Minimal Three.js bootstrap: scene + renderer + a resize-aware camera + a
-// render loop. Milestone A only needs an overview camera to verify the floor
-// plan visually; Milestone B replaces `camera` usage with the real 3rd-person
-// chase rig (CameraRig owns the camera from that point on, this class just
-// keeps rendering whatever camera it's handed).
+// Scene + renderer + lighting + post-processing, and the render loop.
+//
+// The look is built out of four things, in order of how much they matter:
+//
+//   1. A real gradient SKY (world/SkyDome), baked to an environment map with
+//      PMREM. Every MeshStandardMaterial in the game then has something to
+//      reflect, which is the single biggest reason the world stopped reading as
+//      untextured boxes: image-based lighting gives curved surfaces a gradient
+//      and flat ones a subtle sheen, for one texture and no per-frame cost.
+//   2. A three-light rig - warm key with tightly-framed shadows, cool sky fill,
+//      and a back rim that separates characters from the wall behind them.
+//   3. ACES tone mapping with a deliberate exposure, so saturated colours roll
+//      off filmically instead of clipping.
+//   4. A restrained bloom on the highlights only, which is what sells "lit"
+//      rather than "coloured".
+//
+// Everything here is driven by the LIGHTING / SKY / POST tables in constants.ts
+// - this file has no tuning numbers of its own.
+
 export class SceneManager {
   readonly scene = new THREE.Scene();
   camera: THREE.PerspectiveCamera;
   readonly renderer: THREE.WebGLRenderer;
+  private composer: EffectComposer;
+  private sky: THREE.Mesh;
   private container: HTMLElement;
   private onFrame?: (dt: number) => void;
   private lastTime = performance.now();
+  private disposed = false;
 
   constructor(container: HTMLElement) {
     this.container = container;
 
     // Far clip derives from WORLD_WIDTH so the whole map stays inside the
-    // frustum at any WORLD_SCALE (a fixed 5000 clipped the far house once the
-    // world grew past it). Set just beyond the fog's far distance below
-    // (WORLD_WIDTH * 1.75), so the far house fades fully to sky BEFORE it would
-    // clip - the pop is invisible either way.
-    this.camera = new THREE.PerspectiveCamera(60, container.clientWidth / container.clientHeight, 1, WORLD_WIDTH * 1.8);
-    // Overview position for Milestone A's visual check - looking down at the
-    // whole map from one corner.
+    // frustum at any WORLD_SCALE. Near is deliberately not 0.1: depth precision
+    // is a ratio, and a tight near plane is what makes distant coplanar
+    // surfaces fight.
+    this.camera = new THREE.PerspectiveCamera(58, container.clientWidth / container.clientHeight, 4, WORLD_WIDTH * 2.2);
     this.camera.position.set(WORLD_WIDTH / 2, WORLD_WIDTH * 0.35, WORLD_HEIGHT * 1.4);
     this.camera.lookAt(WORLD_WIDTH / 2, 0, WORLD_HEIGHT / 2);
 
-    this.renderer = new THREE.WebGLRenderer({ antialias: true });
+    this.renderer = new THREE.WebGLRenderer({ antialias: true, powerPreference: "high-performance" });
     this.renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
     this.renderer.setSize(container.clientWidth, container.clientHeight);
     this.renderer.shadowMap.enabled = true;
-    // PCFSoftShadowMap was silently downgraded to hard-edged PCFShadowMap by
-    // this Three.js version (with a console warning) - VSMShadowMap is the
-    // current supported way to get soft shadow edges, tuned via
-    // light.shadow.radius/blurSamples below instead of the shadow type alone.
     this.renderer.shadowMap.type = THREE.VSMShadowMap;
-    // Deliberate tone mapping + exposure (previously unset/NoToneMapping,
-    // which read as flat and muddy indoors): ACES gives filmic roll-off on
-    // the sunlit exteriors while exposure keeps the window-lit interiors
-    // readable instead of crushed toward black.
     this.renderer.toneMapping = THREE.ACESFilmicToneMapping;
-    this.renderer.toneMappingExposure = 1.2;
+    this.renderer.toneMappingExposure = LIGHTING.exposure;
     this.renderer.outputColorSpace = THREE.SRGBColorSpace;
     container.appendChild(this.renderer.domElement);
 
-    // Key-to-fill ratio is the whole game here: the old 0.7 hemisphere + 0.35
-    // ambient (~1.05 combined) nearly matched the 1.3 sun, so shadowed and lit
-    // faces collapsed into one flat midtone band. Fill totals ~0.6 against a
-    // 2.0 key (~3.3:1) - the hemisphere is a touch above the look-pass's 0.35
-    // to lean "sunny morning" rather than "moody", without flattening the
-    // contrast that pass earned; shadow sides still read clearly darker.
-    this.scene.add(new THREE.HemisphereLight(0xcfe3f5, 0x4a5442, 0.45));
-    this.scene.add(new THREE.AmbientLight(0xfff2e0, 0.15));
+    // ---- sun direction drives the sky, the key light and the shadows, so all
+    // three always agree about where the light is coming from.
+    const sunDir = new THREE.Vector3(...LIGHTING.sunDirection).normalize();
 
-    // Crisper near-white key (was amber 0xfff4e6, which read sunset).
-    const sun = new THREE.DirectionalLight(0xfffbf2, 2.0);
+    // The dome RIDES THE CAMERA and is sized well inside the far plane. A dome
+    // big enough to enclose the world gets clipped by that plane wherever it is
+    // further away than the far clip, which punched a black hole in the sky.
+    // Following the camera makes it unreachable and always fully in frustum.
+    this.sky = buildSkyDome(this.camera.far * 0.4, SKY, sunDir);
+    this.scene.add(this.sky);
+    this.renderer.setClearColor(SKY.horizon, 1); // anything the dome misses
+
+    // ---- image-based lighting, rendered once from the sky dome itself.
+    const pmrem = new THREE.PMREMGenerator(this.renderer);
+    pmrem.compileEquirectangularShader();
+    const envScene = new THREE.Scene();
+    envScene.add(buildSkyDome(10, SKY, sunDir));
+    this.scene.environment = pmrem.fromScene(envScene, 0.04).texture;
+    this.scene.environmentIntensity = LIGHTING.environmentIntensity;
+    pmrem.dispose();
+
+    // ---- key: the sun. Its shadow camera is framed to the WORLD, not to some
+    // arbitrary margin, so the shadow texels are spent on the play area.
+    const sun = new THREE.DirectionalLight(LIGHTING.sunColor, LIGHTING.sunIntensity);
     sun.name = "sun";
-    // Sun HEIGHT scales with the world too (was a fixed 1400): a fixed height
-    // over a wider map reads as an ever-lower sun and pushes the far shadow
-    // corner past the shadow frustum. WORLD_WIDTH * 0.35 keeps the elevation
-    // angle constant across scales.
-    sun.position.set(WORLD_WIDTH * 0.3, WORLD_WIDTH * 0.35, WORLD_HEIGHT * 0.2);
-    sun.target.position.set(WORLD_WIDTH / 2, 0, WORLD_HEIGHT / 2);
+    const centre = new THREE.Vector3(WORLD_WIDTH / 2, 0, WORLD_HEIGHT / 2);
+    sun.position.copy(centre).addScaledVector(sunDir, WORLD_WIDTH * 0.8);
+    sun.target.position.copy(centre);
     sun.castShadow = true;
-    sun.shadow.mapSize.set(2048, 2048);
-    sun.shadow.bias = -0.0005;
-    // VSM softness: normalBias avoids the light-leak VSM otherwise causes on
-    // thin geometry (window sills/prop edges), radius controls blur width.
-    sun.shadow.normalBias = 0.6;
-    sun.shadow.radius = 3;
-    // Orthographic shadow frustum sized to cover the whole world plus a
-    // margin, since the sun's rays are parallel (no perspective falloff).
-    const SHADOW_MARGIN = 400;
+    sun.shadow.mapSize.set(LIGHTING.shadowMapSize, LIGHTING.shadowMapSize);
+    sun.shadow.bias = -0.0004;
+    sun.shadow.normalBias = 0.5;
+    sun.shadow.radius = LIGHTING.shadowSoftness;
+    sun.shadow.blurSamples = 12;
+    const half = Math.max(WORLD_WIDTH, WORLD_HEIGHT) * 0.62;
     const shadowCam = sun.shadow.camera;
-    shadowCam.left = -WORLD_WIDTH / 2 - SHADOW_MARGIN;
-    shadowCam.right = WORLD_WIDTH / 2 + SHADOW_MARGIN;
-    shadowCam.top = WORLD_HEIGHT / 2 + SHADOW_MARGIN;
-    shadowCam.bottom = -WORLD_HEIGHT / 2 - SHADOW_MARGIN;
-    shadowCam.near = 10;
-    // Far plane must reach from the (now scale-aware) light past the map's far
-    // corner, or distant shadows clip. WORLD_WIDTH covers it with headroom.
-    shadowCam.far = WORLD_WIDTH;
+    shadowCam.left = -half;
+    shadowCam.right = half;
+    shadowCam.top = half;
+    shadowCam.bottom = -half;
+    shadowCam.near = WORLD_WIDTH * 0.1;
+    shadowCam.far = WORLD_WIDTH * 1.8;
     shadowCam.updateProjectionMatrix();
     this.scene.add(sun, sun.target);
 
-    // Bright morning sky (the old 0x0d1926 navy void made the sunlit world
-    // look like it was floating in night). Flat color + matching fog is
-    // deliberately cheap - a gradient dome isn't worth a draw call yet.
-    const SKY_COLOR = 0x8ecdf2;
-    this.scene.background = new THREE.Color(SKY_COLOR);
-    // Cheap depth cue (built-in fog, no post-processing): the far house fades
-    // toward the sky color, separating "my room" from "across the map" scale.
-    // Derived from WORLD_WIDTH so it stays correct at any WORLD_SCALE without
-    // retuning: near starts past the whole near house (interiors untouched) and
-    // far lands the opposite house ~25-30% fogged. The 0.625/1.75 factors
-    // reproduce the hand-tuned 2000/5600 that read well at the 2.0 map size.
-    this.scene.fog = new THREE.Fog(SKY_COLOR, WORLD_WIDTH * 0.625, WORLD_WIDTH * 1.75);
+    // ---- fill: cool sky above, warm bounce off the ground below. Keeps shadow
+    // sides readable without flattening the key/fill contrast.
+    this.scene.add(new THREE.HemisphereLight(SKY.top, SKY.ground, LIGHTING.fillIntensity));
 
-    // Visible sun disc: a DirectionalLight has no geometry, so without this
-    // the light direction had no anchor anywhere in frame. Placed at the
-    // light's exact AZIMUTH (so it agrees with every shadow's direction on
-    // the ground) but at a low ~24-degree morning elevation - the literal
-    // light sits at ~66 degrees, which the camera's pitch clamp can never
-    // frame, and a low sun is what "morning" looks like anyway. Unlit
-    // material, excluded from fog so it never fades out at distance.
-    // Distance/radius scale with the world so the disc stays outside the map
-    // (a fixed 3800 fell INSIDE the widened world) and keeps its apparent size.
-    const SUN_DISC_DISTANCE = WORLD_WIDTH * 0.95;
-    const SUN_DISC_RADIUS = WORLD_WIDTH * 0.0425;
-    const SUN_DISC_ELEVATION = 0.42; // radians
-    const toSun = sun.position.clone().sub(sun.target.position);
-    const azimuth = Math.atan2(toSun.x, toSun.z);
-    const sunDisc = new THREE.Mesh(
-      new THREE.SphereGeometry(SUN_DISC_RADIUS, 16, 12),
-      new THREE.MeshBasicMaterial({ color: 0xfff3c4, fog: false })
+    // ---- rim: a dim light from behind and opposite the key. Cheap separation -
+    // it draws a bright edge down characters and furniture so they lift off the
+    // surface behind them instead of merging into it.
+    const rim = new THREE.DirectionalLight(LIGHTING.rimColor, LIGHTING.rimIntensity);
+    rim.position.copy(centre).addScaledVector(sunDir, -WORLD_WIDTH * 0.6).setY(WORLD_WIDTH * 0.22);
+    rim.target.position.copy(centre);
+    this.scene.add(rim, rim.target);
+
+    // Aerial perspective: distant geometry fades toward the horizon colour, so
+    // the far house sits *behind* the near one instead of beside it.
+    this.scene.fog = new THREE.Fog(SKY.horizon, WORLD_WIDTH * POST.fogNear, WORLD_WIDTH * POST.fogFar);
+
+    // ---- post. An HDR multisampled target gives MSAA edges and lets bloom see
+    // real highlight energy above 1.0; OutputPass then applies the tone map and
+    // the sRGB conversion once, at the end.
+    const size = new THREE.Vector2(container.clientWidth, container.clientHeight);
+    const target = new THREE.WebGLRenderTarget(size.x, size.y, {
+      type: THREE.HalfFloatType,
+      samples: 4,
+    });
+    this.composer = new EffectComposer(this.renderer, target);
+    this.composer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
+    this.composer.addPass(new RenderPass(this.scene, this.camera));
+    this.composer.addPass(
+      new UnrealBloomPass(size, POST.bloomStrength, POST.bloomRadius, POST.bloomThreshold)
     );
-    sunDisc.position
-      .copy(sun.target.position)
-      .add(
-        new THREE.Vector3(
-          Math.sin(azimuth) * Math.cos(SUN_DISC_ELEVATION) * SUN_DISC_DISTANCE,
-          Math.sin(SUN_DISC_ELEVATION) * SUN_DISC_DISTANCE,
-          Math.cos(azimuth) * Math.cos(SUN_DISC_ELEVATION) * SUN_DISC_DISTANCE
-        )
-      );
-    this.scene.add(sunDisc);
+    this.composer.addPass(new OutputPass());
 
     window.addEventListener("resize", this.handleResize);
   }
@@ -136,6 +142,7 @@ export class SceneManager {
     this.camera.aspect = clientWidth / clientHeight;
     this.camera.updateProjectionMatrix();
     this.renderer.setSize(clientWidth, clientHeight);
+    this.composer.setSize(clientWidth, clientHeight);
   };
 
   start(onFrame?: (dt: number) => void) {
@@ -145,15 +152,19 @@ export class SceneManager {
   }
 
   private tick = (now: number) => {
+    if (this.disposed) return;
     const dt = Math.min((now - this.lastTime) / 1000, 1 / 20);
     this.lastTime = now;
     this.onFrame?.(dt);
-    this.renderer.render(this.scene, this.camera);
+    this.sky.position.copy(this.camera.position);
+    this.composer.render();
     requestAnimationFrame(this.tick);
   };
 
   dispose() {
+    this.disposed = true;
     window.removeEventListener("resize", this.handleResize);
+    this.composer.dispose();
     this.renderer.dispose();
     this.container.removeChild(this.renderer.domElement);
   }
