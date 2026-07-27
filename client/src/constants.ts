@@ -170,6 +170,20 @@ export const COLORS = {
   stairTrimA: 0x0d3a6b,
   ladderRail: 0xb0793d,
   ladderRung: 0x8d5a26,
+
+  // --- the world beyond the boundary wall. Never walked on, only ever seen
+  // over the wall or from a balcony, so it is deliberately duller and cooler
+  // than the play space: distance reads as desaturation, and the eye stays on
+  // the houses.
+  hedge: 0x4e7a3c,
+  hedgeAlt: 0x5b8845,
+  trunk: 0x6b4b32,
+  canopy: 0x568a3e,
+  canopyAlt: 0x6b9c48,
+  canopyDeep: 0x3f6b31,
+  coping: 0x8d8171, // the cap course along the top of the boundary wall
+  meadow: 0x475e37, // mown patches breaking up the outer lawn
+  meadowAlt: 0x516a3d,
 };
 
 // Sky gradient + the sun disc smear (three/world/SkyDome.ts). Also feeds the
@@ -224,8 +238,12 @@ export const POST = {
   bloomStrength: 0.34,
   bloomRadius: 0.7,
   bloomThreshold: 0.82,
-  fogNear: 0.85,
-  fogFar: 2.1,
+  // Fog distances as a fraction of WORLD_WIDTH. Tuned so the countryside
+  // outside the boundary wall dissolves into the sky haze instead of ending on
+  // a hard edge, while the far house - the thing a player must actually read
+  // across the map - picks up only a hint of aerial perspective.
+  fogNear: 0.8,
+  fogFar: 1.9,
   // Ambient occlusion. The radius is in WORLD units, so it is sized against the
   // room (a ~200-unit storey), not against the screen.
   aoRadius: 26,

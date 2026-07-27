@@ -27,6 +27,7 @@ import { buildStaircaseGeoms } from "./world/StaircaseBuilder";
 import { buildWindows, type WindowOpening } from "./world/WindowBuilder";
 import { surfaces, applyWorldUVs, type SurfaceMaps } from "./world/Textures";
 import { buildTrimGeoms, buildPlinthGeoms, buildBalconyRails, buildFasciaGeoms } from "./world/TrimBuilder";
+import { buildExteriorGeoms } from "./world/ExteriorBuilder";
 import { TILE } from "../constants";
 
 // Builds the 3D town-house from the same rect data the server validates against.
@@ -360,12 +361,20 @@ export function buildEnvironment(localTeam: Team): Environment {
   // zone already has its own floor slab, and a lawn sheet running under the
   // houses would slice through the basements (which sit a storey below it) and
   // show up as a false ceiling from inside.
-  const LAWN_MARGIN = 600;
+  const LAWN_MARGIN = 2600;
   const lawn: Rect = { x1: -LAWN_MARGIN, y1: -LAWN_MARGIN, x2: WORLD_WIDTH + LAWN_MARGIN, y2: WORLD_HEIGHT + LAWN_MARGIN };
   const worldRect: Rect = { x1: 0, y1: 0, x2: WORLD_WIDTH, y2: WORLD_HEIGHT };
   for (const tile of rectMinusRects(lawn, [worldRect])) {
     turfGeoms.push(rectToBox(tile, FLOOR_HEIGHT, -FLOOR_HEIGHT - FLOOR_HEIGHT / 2, COLORS.ground));
   }
+
+  // ---- everything beyond the boundary wall: coping and piers on the wall
+  // itself, hedging outside it, then a treeline and mown patches across the
+  // skirt. It rides in the SAME two buckets as the rest of the world, so all of
+  // it merges into meshes that already exist and adds no draw calls.
+  const exterior = buildExteriorGeoms();
+  paintedGeoms.push(...exterior.painted);
+  turfGeoms.push(...exterior.turf);
 
   const boardsMesh = roleMesh(boardGeoms, skin.floorboards, TILE.floorboards, {
     roughness: 0.55,

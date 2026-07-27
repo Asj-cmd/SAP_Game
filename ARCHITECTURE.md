@@ -27,8 +27,9 @@ client/            Three.js, RENDERING + input only. Sends intent, never mutates
   src/ui/theme.ts     THE visual identity - one token set for every screen.
   src/three/          The renderer: scene, camera, character, environment, HUD.
   src/three/world/    Procedural geometry (walls, roofs, stairs, windows, props)
-                        + Textures.ts (generated surfaces & world UVs) and
-                        TrimBuilder.ts (skirting, architraves, sills, fascia).
+                        + Textures.ts (generated surfaces & world UVs),
+                        TrimBuilder.ts (skirting, architraves, sills, fascia) and
+                        ExteriorBuilder.ts (everything beyond the boundary wall).
 assets/blender/    Headless bpy scripts that author the committed .glb models.
 ```
 
