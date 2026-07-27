@@ -2,6 +2,7 @@ import * as THREE from "three";
 import { EffectComposer } from "three/addons/postprocessing/EffectComposer.js";
 import { RenderPass } from "three/addons/postprocessing/RenderPass.js";
 import { UnrealBloomPass } from "three/addons/postprocessing/UnrealBloomPass.js";
+import { SSAOPass } from "three/addons/postprocessing/SSAOPass.js";
 import { OutputPass } from "three/addons/postprocessing/OutputPass.js";
 import { WORLD_WIDTH, WORLD_HEIGHT, SKY, LIGHTING, POST } from "../constants";
 import { buildSkyDome } from "./world/SkyDome";
@@ -30,7 +31,6 @@ export class SceneManager {
   camera: THREE.PerspectiveCamera;
   readonly renderer: THREE.WebGLRenderer;
   private composer: EffectComposer;
-  private sky: THREE.Mesh;
   private container: HTMLElement;
   private onFrame?: (dt: number) => void;
   private lastTime = performance.now();
@@ -51,7 +51,10 @@ export class SceneManager {
     this.renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
     this.renderer.setSize(container.clientWidth, container.clientHeight);
     this.renderer.shadowMap.enabled = true;
-    this.renderer.shadowMap.type = THREE.VSMShadowMap;
+    // PCF-soft rather than VSM: VSM's variance filter over a frustum this large
+    // washed every shadow out completely, and it light-leaks through the thin
+    // geometry (sills, treads, trim) this world is full of.
+    this.renderer.shadowMap.type = THREE.PCFSoftShadowMap;
     this.renderer.toneMapping = THREE.ACESFilmicToneMapping;
     this.renderer.toneMappingExposure = LIGHTING.exposure;
     this.renderer.outputColorSpace = THREE.SRGBColorSpace;
@@ -61,19 +64,21 @@ export class SceneManager {
     // three always agree about where the light is coming from.
     const sunDir = new THREE.Vector3(...LIGHTING.sunDirection).normalize();
 
-    // The dome RIDES THE CAMERA and is sized well inside the far plane. A dome
-    // big enough to enclose the world gets clipped by that plane wherever it is
-    // further away than the far clip, which punched a black hole in the sky.
-    // Following the camera makes it unreachable and always fully in frustum.
-    this.sky = buildSkyDome(this.camera.far * 0.4, SKY, sunDir);
-    this.scene.add(this.sky);
-    this.renderer.setClearColor(SKY.horizon, 1); // anything the dome misses
-
-    // ---- image-based lighting, rendered once from the sky dome itself.
-    const pmrem = new THREE.PMREMGenerator(this.renderer);
-    pmrem.compileEquirectangularShader();
+    // The sky is baked ONCE into a cube texture and used as the background,
+    // rather than being a dome mesh in the scene. A dome is geometry: it lands
+    // in the depth buffer, and the ambient-occlusion pass then sees a surface
+    // wrapped around the camera and darkens the whole frame against it. Baking
+    // it means the sky costs no geometry, cannot be clipped by the far plane,
+    // and is invisible to every pass that reasons about depth.
     const envScene = new THREE.Scene();
-    envScene.add(buildSkyDome(10, SKY, sunDir));
+    envScene.add(buildSkyDome(50, SKY, sunDir));
+    const cubeTarget = new THREE.WebGLCubeRenderTarget(512);
+    const cubeCam = new THREE.CubeCamera(1, 200, cubeTarget);
+    cubeCam.update(this.renderer, envScene);
+    this.scene.background = cubeTarget.texture;
+
+    // ---- image-based lighting, from that same sky.
+    const pmrem = new THREE.PMREMGenerator(this.renderer);
     this.scene.environment = pmrem.fromScene(envScene, 0.04).texture;
     this.scene.environmentIntensity = LIGHTING.environmentIntensity;
     pmrem.dispose();
@@ -87,10 +92,9 @@ export class SceneManager {
     sun.target.position.copy(centre);
     sun.castShadow = true;
     sun.shadow.mapSize.set(LIGHTING.shadowMapSize, LIGHTING.shadowMapSize);
-    sun.shadow.bias = -0.0004;
-    sun.shadow.normalBias = 0.5;
+    sun.shadow.bias = -0.0008;
+    sun.shadow.normalBias = 1.2;
     sun.shadow.radius = LIGHTING.shadowSoftness;
-    sun.shadow.blurSamples = 12;
     const half = Math.max(WORLD_WIDTH, WORLD_HEIGHT) * 0.62;
     const shadowCam = sun.shadow.camera;
     shadowCam.left = -half;
@@ -104,7 +108,7 @@ export class SceneManager {
 
     // ---- fill: cool sky above, warm bounce off the ground below. Keeps shadow
     // sides readable without flattening the key/fill contrast.
-    this.scene.add(new THREE.HemisphereLight(SKY.top, SKY.ground, LIGHTING.fillIntensity));
+    this.scene.add(new THREE.HemisphereLight(LIGHTING.fillSky, LIGHTING.fillGround, LIGHTING.fillIntensity));
 
     // ---- rim: a dim light from behind and opposite the key. Cheap separation -
     // it draws a bright edge down characters and furniture so they lift off the
@@ -129,6 +133,16 @@ export class SceneManager {
     this.composer = new EffectComposer(this.renderer, target);
     this.composer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
     this.composer.addPass(new RenderPass(this.scene, this.camera));
+    // Ambient occlusion. Sun shadows describe the big forms; AO describes the
+    // small ones - where a skirting meets a floor, where a step meets its
+    // stringer, where furniture sits on a rug. Without it every contact is a
+    // hard edge with no darkening and the room reads as parts floating next to
+    // each other rather than parts touching.
+    const ssao = new SSAOPass(this.scene, this.camera, size.x, size.y);
+    ssao.kernelRadius = POST.aoRadius;
+    ssao.minDistance = POST.aoMinDistance;
+    ssao.maxDistance = POST.aoMaxDistance;
+    this.composer.addPass(ssao);
     this.composer.addPass(
       new UnrealBloomPass(size, POST.bloomStrength, POST.bloomRadius, POST.bloomThreshold)
     );
@@ -156,7 +170,6 @@ export class SceneManager {
     const dt = Math.min((now - this.lastTime) / 1000, 1 / 20);
     this.lastTime = now;
     this.onFrame?.(dt);
-    this.sky.position.copy(this.camera.position);
     this.composer.render();
     requestAnimationFrame(this.tick);
   };

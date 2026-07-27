@@ -178,7 +178,7 @@ export const COLORS = {
 export const SKY = {
   top: 0x3f7fc4, // zenith
   horizon: 0xbcd3e4, // haze band
-  ground: 0x8f7a58, // what the world bounces back up - warm, so interiors are not grey
+  ground: 0xa8895f, // what the world bounces back up - warm, so interiors are not grey
   sun: 0xfff2cf,
 };
 
@@ -187,14 +187,34 @@ export const SKY = {
 export const LIGHTING = {
   sunDirection: [0.55, 0.72, 0.42] as [number, number, number],
   sunColor: 0xfff4e2,
-  sunIntensity: 1.85,
-  fillIntensity: 0.85,
+  sunIntensity: 2.15,
+  fillIntensity: 1.15,
+  // The hemisphere fill has its OWN colours rather than reusing the sky's. A
+  // hemisphere light is an outdoor approximation: it puts sky colour on every
+  // up-facing surface, which indoors means a saturated blue wash across every
+  // floor - and blue over a warm oak albedo lands on olive. Indoors the light
+  // arriving on a floor has bounced off warm walls, so the fill is warm and the
+  // blue is left to the environment map, which at least varies with direction.
+  fillSky: 0xf2e4cf,
+  fillGround: 0xb08d5c,
   rimColor: 0xbcd8ff,
   rimIntensity: 0.55,
-  environmentIntensity: 1.15,
+  environmentIntensity: 0.62,
   exposure: 1.02,
-  shadowMapSize: 2048,
-  shadowSoftness: 4,
+  shadowMapSize: 4096,
+  shadowSoftness: 2.5,
+};
+
+// How many world units one repeat of each surface texture covers. This is the
+// SIZE CUE: a floorboard is ~20 units wide against an 83-unit character, which
+// is what tells the eye how big a room is. Getting these wrong is what makes a
+// textured world look like a scale model.
+export const TILE = {
+  plaster: 95,
+  floorboards: 150,
+  concrete: 210,
+  turf: 130,
+  painted: 70,
 };
 
 // Post-processing. Bloom is kept on the highlights only - a low threshold
@@ -205,4 +225,9 @@ export const POST = {
   bloomThreshold: 0.82,
   fogNear: 0.85,
   fogFar: 2.1,
+  // Ambient occlusion. The radius is in WORLD units, so it is sized against the
+  // room (a ~200-unit storey), not against the screen.
+  aoRadius: 26,
+  aoMinDistance: 0.002,
+  aoMaxDistance: 0.12,
 };

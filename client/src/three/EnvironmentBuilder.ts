@@ -25,6 +25,9 @@ import {
 import { floorY } from "./world/HeightField";
 import { buildStaircaseGeoms } from "./world/StaircaseBuilder";
 import { buildWindows, type WindowOpening } from "./world/WindowBuilder";
+import { surfaces, applyWorldUVs, type SurfaceMaps } from "./world/Textures";
+import { buildTrimGeoms, buildPlinthGeoms, buildBalconyRails, buildFasciaGeoms } from "./world/TrimBuilder";
+import { TILE } from "../constants";
 
 // Builds the 3D town-house from the same rect data the server validates against.
 // Two merged meshes: a "walls" mesh (per-floor wall boxes, cut open where the
@@ -97,9 +100,36 @@ export function rectToBox(
 }
 
 export interface Environment {
-  wallsMesh: THREE.Mesh;
-  floorMesh: THREE.Mesh;
-  glassMesh: THREE.Mesh;
+  meshes: THREE.Mesh[]; // everything to add to the scene
+  occluders: THREE.Mesh[]; // what the chase camera pulls in against
+}
+
+// A merged, textured, world-UV'd mesh for one surface ROLE. Splitting by role
+// is what lets plaster, floorboards, concrete and turf each have their own
+// grain and tiling rate while the whole world still costs a handful of draw
+// calls - one per role, not one per rect.
+function roleMesh(
+  geoms: THREE.BufferGeometry[],
+  maps: SurfaceMaps,
+  tileSize: number,
+  extra: THREE.MeshStandardMaterialParameters
+): THREE.Mesh | null {
+  if (geoms.length === 0) return null;
+  const merged = mergeGeometries(geoms, false);
+  applyWorldUVs(merged, tileSize);
+  const mesh = new THREE.Mesh(
+    merged,
+    new THREE.MeshStandardMaterial({
+      vertexColors: true,
+      map: maps.map,
+      normalMap: maps.normalMap,
+      roughnessMap: maps.roughnessMap,
+      ...extra,
+    })
+  );
+  mesh.castShadow = true;
+  mesh.receiveShadow = true;
+  return mesh;
 }
 
 // Rect `zone` minus every rect in `holes` - a plain grid decomposition (cut
@@ -237,16 +267,15 @@ export function buildEnvironment(localTeam: Team): Environment {
   }
   // Window frames merge into the walls mesh; glass panes get their own mesh.
   wallGeoms.push(...windows.frameGeoms);
+  const skin = surfaces();
   // Plaster: rough, barely reflective, but it still samples the environment map
-  // so a wall facing the sky is cooler than one facing the ground. That gradient
-  // across a flat surface is most of what separates "a lit wall" from "a
-  // coloured rectangle".
-  const wallsMesh = new THREE.Mesh(
-    mergeGeometries(wallGeoms, false),
-    new THREE.MeshStandardMaterial({ vertexColors: true, roughness: 0.93, metalness: 0.0, envMapIntensity: 0.4 })
-  );
-  wallsMesh.castShadow = true;
-  wallsMesh.receiveShadow = true;
+  // so a wall facing the sky is cooler than one facing the ground.
+  const wallsMesh = roleMesh(wallGeoms, skin.plaster, TILE.plaster, {
+    roughness: 0.95,
+    metalness: 0.0,
+    envMapIntensity: 0.4,
+    normalScale: new THREE.Vector2(0.6, 0.6),
+  })!;
 
   // Real glass now that the wall behind it is actually open: barely tinted, lit
   // from both sides (you see it from inside and out), and never writing depth
@@ -265,9 +294,16 @@ export function buildEnvironment(localTeam: Team): Environment {
     })
   );
 
-  // ---- floor: per-zone slabs (carved where a connector ramp punches through
-  // the slab above it) + connector ramps + door mats + lawn.
-  const floorGeoms: THREE.BufferGeometry[] = [];
+  // ---- floors, split by SURFACE ROLE. Which material a slab gets is decided
+  // by what the room is, so a living room reads as boards, a basement as poured
+  // concrete and the garden as turf - three different grains and three
+  // different tiling rates, which is most of what tells the eye these are
+  // different places rather than differently-coloured rectangles.
+  const boardGeoms: THREE.BufferGeometry[] = []; // living rooms + bedrooms
+  const concreteGeoms: THREE.BufferGeometry[] = []; // basements + foundations
+  const turfGeoms: THREE.BufferGeometry[] = []; // garden, yards, lawn
+  const paintedGeoms: THREE.BufferGeometry[] = []; // stairs, ladders, door mats
+
   // A connector cuts a hole in the slab of its HIGHER floor (the ceiling the
   // ramp rises through), wherever that slab overlaps the connector footprint.
   const holesForFloor = (zoneRect: Rect, floor: number): Rect[] =>
@@ -278,29 +314,37 @@ export function buildEnvironment(localTeam: Team): Environment {
       .map((c) => intersectRect(c.rect, zoneRect))
       .filter((r): r is Rect => r !== null);
 
+  const OUTDOOR = new Set(["garden", "backyardA", "backyardB"]);
+  const bucketFor = (zoneId: string): THREE.BufferGeometry[] => {
+    if (OUTDOOR.has(zoneId)) return turfGeoms;
+    if (zoneId.startsWith("basement")) return concreteGeoms;
+    return boardGeoms;
+  };
+
   for (const zone of ZONE_RECTS) {
     const base = floorY(zone.floor);
     const yc = base - FLOOR_HEIGHT / 2;
     const ceiling = ceilingColorBelow(zone);
+    const bucket = bucketFor(zone.id);
     if (zone.id === "garden") {
+      // Two mown tones, so the lawn has a groundskeeper's stripe through it.
       const mid = (zone.xMin + zone.xMax) / 2;
       const left: Rect = { x1: zone.xMin, y1: zone.yMin, x2: mid, y2: zone.yMax };
       const right: Rect = { x1: mid, y1: zone.yMin, x2: zone.xMax, y2: zone.yMax };
-      floorGeoms.push(rectToBox(left, FLOOR_HEIGHT, yc, COLORS.garden));
-      floorGeoms.push(rectToBox(right, FLOOR_HEIGHT, yc, COLORS.gardenAlt));
+      bucket.push(rectToBox(left, FLOOR_HEIGHT, yc, COLORS.garden));
+      bucket.push(rectToBox(right, FLOOR_HEIGHT, yc, COLORS.gardenAlt));
       continue;
     }
     const zoneRect: Rect = { x1: zone.xMin, y1: zone.yMin, x2: zone.xMax, y2: zone.yMax };
     for (const tile of rectMinusRects(zoneRect, holesForFloor(zoneRect, zone.floor))) {
-      floorGeoms.push(rectToBox(tile, FLOOR_HEIGHT, yc, zone.color, ceiling));
+      bucket.push(rectToBox(tile, FLOOR_HEIGHT, yc, zone.color, ceiling));
     }
   }
-  floorGeoms.push(...buildStaircaseGeoms());
-  // Balcony platforms: flat slabs at floor +1 hanging off each bedroom's wall,
-  // where the ladder from the backyard arrives. Inflated so the inner edge runs
-  // under the bedroom slab rather than stopping level with it.
+
+  // Flights, ladders and balconies are painted timber.
+  paintedGeoms.push(...buildStaircaseGeoms());
   for (const b of BALCONIES) {
-    floorGeoms.push(rectToBox(b, FLOOR_HEIGHT, floorY(1) - FLOOR_HEIGHT / 2, COLORS.foundation));
+    paintedGeoms.push(rectToBox(b, FLOOR_HEIGHT, floorY(1) - FLOOR_HEIGHT / 2, COLORS.foundation));
   }
   // Door mats sit ON TOP of their own floor's slab. (They used to be placed at
   // the slab's UNDERSIDE, where they were invisible from the room AND exactly
@@ -308,8 +352,9 @@ export function buildEnvironment(localTeam: Team): Environment {
   // the basement and backyard doorways.)
   for (const door of DOORS) {
     const base = floorY(door.floor ?? 0);
-    floorGeoms.push(rectToBox(door, DOOR_MAT_HEIGHT + SURFACE_OVERLAP, base + DOOR_MAT_HEIGHT / 2, COLORS.door));
+    paintedGeoms.push(rectToBox(door, DOOR_MAT_HEIGHT + SURFACE_OVERLAP, base + DOOR_MAT_HEIGHT / 2, COLORS.door));
   }
+
   // Lawn skirt AROUND the map, so its edge isn't a cliff into black void. It is
   // carved to the region OUTSIDE the world bounds on purpose: every in-bounds
   // zone already has its own floor slab, and a lawn sheet running under the
@@ -319,16 +364,51 @@ export function buildEnvironment(localTeam: Team): Environment {
   const lawn: Rect = { x1: -LAWN_MARGIN, y1: -LAWN_MARGIN, x2: WORLD_WIDTH + LAWN_MARGIN, y2: WORLD_HEIGHT + LAWN_MARGIN };
   const worldRect: Rect = { x1: 0, y1: 0, x2: WORLD_WIDTH, y2: WORLD_HEIGHT };
   for (const tile of rectMinusRects(lawn, [worldRect])) {
-    floorGeoms.push(rectToBox(tile, FLOOR_HEIGHT, -FLOOR_HEIGHT - FLOOR_HEIGHT / 2, COLORS.ground));
+    turfGeoms.push(rectToBox(tile, FLOOR_HEIGHT, -FLOOR_HEIGHT - FLOOR_HEIGHT / 2, COLORS.ground));
   }
 
-  // Floors are satin rather than matte - a slight sheen catches the key light
-  // and gives every room a soft highlight running away from the windows.
-  const floorMesh = new THREE.Mesh(
-    mergeGeometries(floorGeoms, false),
-    new THREE.MeshStandardMaterial({ vertexColors: true, roughness: 0.66, metalness: 0.02, envMapIntensity: 0.45 })
-  );
-  floorMesh.receiveShadow = true;
+  const boardsMesh = roleMesh(boardGeoms, skin.floorboards, TILE.floorboards, {
+    roughness: 0.55,
+    metalness: 0.02,
+    envMapIntensity: 0.45,
+    normalScale: new THREE.Vector2(0.85, 0.85),
+  });
+  const concreteMesh = roleMesh(concreteGeoms, skin.concrete, TILE.concrete, {
+    roughness: 0.92,
+    metalness: 0.0,
+    envMapIntensity: 0.35,
+    normalScale: new THREE.Vector2(0.7, 0.7),
+  });
+  const turfMesh = roleMesh(turfGeoms, skin.turf, TILE.turf, {
+    roughness: 0.98,
+    metalness: 0.0,
+    envMapIntensity: 0.5,
+    normalScale: new THREE.Vector2(1.1, 1.1),
+  });
+  // ---- architectural trim. Skirting, cornices and architraves are what make a
+  // room read as a room; the plinth, fascia and balcony rails do the same for
+  // the exterior. All derived from the same rects the simulation uses, so none
+  // of it can drift from the floor plan or be collided with.
+  const footprints: Rect[] = (["bedroomB", "bedroomA"] as const)
+    .map((id) => ZONE_RECTS.find((z) => z.id === id))
+    .filter((z): z is ZoneRect => z !== undefined)
+    .map((z) => ({ x1: z.xMin, y1: z.yMin, x2: z.xMax, y2: z.yMax }));
+  paintedGeoms.push(...buildTrimGeoms());
+  paintedGeoms.push(...buildBalconyRails([...BALCONIES]));
+  concreteGeoms.push(...buildPlinthGeoms(footprints));
+  paintedGeoms.push(...buildFasciaGeoms(footprints));
 
-  return { wallsMesh, floorMesh, glassMesh };
+  const paintedMesh = roleMesh(paintedGeoms, skin.painted, TILE.painted, {
+    roughness: 0.48,
+    metalness: 0.03,
+    envMapIntensity: 0.55,
+    normalScale: new THREE.Vector2(0.5, 0.5),
+  });
+
+  const solids = [wallsMesh, boardsMesh, concreteMesh, turfMesh, paintedMesh].filter(
+    (m): m is THREE.Mesh => m !== null
+  );
+  // Glass is left OUT of the occluder list: it is translucent, so pulling the
+  // chase camera in against a window would be wrong.
+  return { meshes: [...solids, glassMesh], occluders: solids };
 }
