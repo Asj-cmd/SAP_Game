@@ -1,5 +1,5 @@
 import * as THREE from "three";
-import { WINDOW_SILL, WINDOW_HEAD, COLORS, teamSideAt, WORLD_SCALE } from "../../constants";
+import { WINDOW_SILL, WINDOW_HEAD, COLORS, teamSideAt, WORLD_SCALE, SURFACE_OVERLAP } from "../../constants";
 import { WALLS, type Rect } from "../../geometry/floorplan";
 import { rectToBox } from "../EnvironmentBuilder";
 import { floorY } from "./HeightField";
@@ -23,6 +23,7 @@ const BOUNDARY_EPS = 20; // scaled slack when matching a wall's centre x
 const WINDOW_W = 55; // pane width along the wall (world units, unscaled like sills)
 const WINDOW_GAP = 90; // min clear run between panes
 const FRAME_BAND = 6;
+const GLASS_HALF_T = 1.2; // half the pane thickness - glass, not a block of ice
 const MIN_SEG = 140; // don't window a wall run shorter than this (scaled)
 
 function isExteriorSideWall(w: Rect & { floor?: number }): boolean {
@@ -79,18 +80,33 @@ export function buildWindows(): WindowBuildResult {
       const z2 = zc + WINDOW_W / 2;
       wallOpenings.push({ z1, z2, sillY, headY });
 
-      const paneRect: Rect = { x1: cx - halfX, y1: z1, x2: cx + halfX, y2: z2 };
+      // A thin pane, not a block. It used to be built thicker than the wall it
+      // sat in, which meant a slab of glass poking out of both faces.
+      const paneRect: Rect = { x1: cx - GLASS_HALF_T, y1: z1, x2: cx + GLASS_HALF_T, y2: z2 };
       glassGeoms.push(rectToBox(paneRect, paneH, midY, COLORS.glass));
 
-      // Frame: four bars around the opening, a touch prouder than the pane.
-      // They TILE around it (head and sill above/below, jambs to each side) so
-      // no two bars share a face - see the surface rule in EnvironmentBuilder.
+      // Frame: four bars LINING the opening.
+      //
+      // They used to stop exactly on the wall's own reveal faces - the sill the
+      // opening is cut down to, the head it is cut up to, the jambs it is cut
+      // between. Since the frames merge into the SAME mesh as the walls, that
+      // put two identical same-facing surfaces on one plane at every one of
+      // those four edges, and the depth buffer picked a different winner as the
+      // camera moved: the shimmer around every window's inside surfaces.
+      //
+      // Each bar now runs SURFACE_OVERLAP past the reveal it meets, so the
+      // wall's face is buried inside the frame instead of tying with it. The
+      // bars are wider than the wall in both directions, so the buried face is
+      // covered completely rather than just mostly.
       const fx = halfX + 2;
-      const head: Rect = { x1: cx - fx, y1: z1 - FRAME_BAND, x2: cx + fx, y2: z2 + FRAME_BAND };
-      frameGeoms.push(rectToBox(head, FRAME_BAND, headY + FRAME_BAND / 2, frameColor));
-      frameGeoms.push(rectToBox(head, FRAME_BAND, sillY - FRAME_BAND / 2, frameColor));
-      const left: Rect = { x1: cx - fx, y1: z1 - FRAME_BAND, x2: cx + fx, y2: z1 };
-      const right: Rect = { x1: cx - fx, y1: z2, x2: cx + fx, y2: z2 + FRAME_BAND };
+      const band = FRAME_BAND + SURFACE_OVERLAP;
+      const across: Rect = { x1: cx - fx, y1: z1 - FRAME_BAND, x2: cx + fx, y2: z2 + FRAME_BAND };
+      frameGeoms.push(rectToBox(across, band, headY - SURFACE_OVERLAP + band / 2, frameColor));
+      frameGeoms.push(rectToBox(across, band, sillY + SURFACE_OVERLAP - band / 2, frameColor));
+      const left: Rect = { x1: cx - fx, y1: z1 - FRAME_BAND, x2: cx + fx, y2: z1 + SURFACE_OVERLAP };
+      const right: Rect = { x1: cx - fx, y1: z2 - SURFACE_OVERLAP, x2: cx + fx, y2: z2 + FRAME_BAND };
+      // The jambs run only between sill and head; their own ends finish inside
+      // those two bars, so they add no new junction of their own.
       frameGeoms.push(rectToBox(left, paneH, midY, frameColor));
       frameGeoms.push(rectToBox(right, paneH, midY, frameColor));
     }

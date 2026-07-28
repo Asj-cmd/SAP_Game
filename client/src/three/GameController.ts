@@ -180,6 +180,10 @@ export class GameController {
     if (k === "s" || k === "arrowdown") this.input.down = down;
     if (k === " " && down) this.spaceJustPressed = true;
     if (k === "m" && down) this.audio.setMuted(!this.audio.isMuted());
+    // The renderer picks a quality tier by measuring frame times, but the
+    // player gets the final say - and once they use this, measurement stops
+    // overriding them.
+    if (k === "g" && down) this.hud.showQuality(this.sceneManager.cycleQuality());
   }
 
   private tick(dt: number) {

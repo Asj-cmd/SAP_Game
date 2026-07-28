@@ -80,6 +80,22 @@ export class HudOverlay {
     this.q("hud-mouse-hint").style.display = show ? "block" : "none";
   }
 
+  // Confirms a graphics-quality change. It reuses the mouse-hint strip rather
+  // than adding a second floating panel - the two can never be wanted at the
+  // same time (one shows with the pointer free, the other on a keypress during
+  // play) and one strip is one thing for the eye to learn.
+  private qualityTimer?: number;
+  showQuality(tier: string) {
+    const strip = this.q("hud-mouse-hint");
+    strip.textContent = `Graphics: ${tier.toUpperCase()}`;
+    strip.style.display = "block";
+    window.clearTimeout(this.qualityTimer);
+    this.qualityTimer = window.setTimeout(() => {
+      strip.textContent = "Click the game to enable mouse look • ESC frees the mouse";
+      strip.style.display = "none";
+    }, 1600);
+  }
+
   private static template(localTeam: Team): string {
     // paint-order:stroke fill is the load-bearing part: without it the stroke
     // paints ON TOP of the glyph fill (centered on the outline), which at
@@ -151,7 +167,7 @@ export class HudOverlay {
         <div id="hud-win-pips"></div>
       </div>
       <div id="hud-objective"></div>
-      <div id="hud-controls">Mouse / Right stick : Look &nbsp; W/A/S/D or Left stick : Move &nbsp;&nbsp; SPACE or A : Action &nbsp;&nbsp; M : Mute &nbsp;&nbsp; (cash deposits automatically at home)</div>
+      <div id="hud-controls">Mouse / Right stick : Look &nbsp; W/A/S/D or Left stick : Move &nbsp;&nbsp; SPACE or A : Action &nbsp;&nbsp; M : Mute &nbsp;&nbsp; G : Graphics &nbsp;&nbsp; (cash deposits automatically at home)</div>
       <div id="hud-mouse-hint">Click the game to enable mouse look &nbsp;•&nbsp; ESC frees the mouse</div>
       <div id="hud-prompt"></div>
       <div id="hud-minimap-wrap"><div id="hud-minimap-hdr">MAP</div><canvas id="hud-minimap"></canvas></div>

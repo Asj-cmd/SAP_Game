@@ -6,6 +6,7 @@ import { SSAOPass } from "three/addons/postprocessing/SSAOPass.js";
 import { OutputPass } from "three/addons/postprocessing/OutputPass.js";
 import { WORLD_WIDTH, WORLD_HEIGHT, SKY, LIGHTING, POST } from "../constants";
 import { buildSkyDome } from "./world/SkyDome";
+import { AdaptiveQuality, TIERS, TIER_ORDER, loadTier, type QualityTier } from "./RenderQuality";
 
 // Scene + renderer + lighting + post-processing, and the render loop.
 //
@@ -36,8 +37,23 @@ export class SceneManager {
   private lastTime = performance.now();
   private disposed = false;
 
+  // Post passes are held so quality changes can switch them off without
+  // rebuilding the composer - the expensive ones are exactly the optional ones.
+  private ssaoPass!: SSAOPass;
+  private bloomPass!: UnrealBloomPass;
+  private sun!: THREE.DirectionalLight;
+  private readonly quality: AdaptiveQuality;
+  /** Fires whenever the tier changes, so the HUD can say so. */
+  onQualityChange?: (tier: QualityTier) => void;
+
   constructor(container: HTMLElement) {
     this.container = container;
+    const stored = loadTier();
+    // Nothing stored means no evidence about this machine: start in the middle
+    // and let AdaptiveQuality find the right tier from measured frames. A
+    // remembered AUTO tier is a better starting guess but still open to
+    // revision; only a tier the player chose pins adaptation off.
+    const startTier: QualityTier = stored?.tier ?? "medium";
 
     // Far clip derives from WORLD_WIDTH so the whole map stays inside the
     // frustum at any WORLD_SCALE. Near is deliberately not 0.1: depth precision
@@ -47,14 +63,18 @@ export class SceneManager {
     this.camera.position.set(WORLD_WIDTH / 2, WORLD_WIDTH * 0.35, WORLD_HEIGHT * 1.4);
     this.camera.lookAt(WORLD_WIDTH / 2, 0, WORLD_HEIGHT / 2);
 
-    this.renderer = new THREE.WebGLRenderer({ antialias: true, powerPreference: "high-performance" });
-    this.renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
+    // `antialias` is deliberately OFF. Everything is drawn through the
+    // composer's own multisampled target, so the renderer's antialiased back
+    // buffer was a second full-size MSAA surface that was allocated, resolved
+    // and never looked at.
+    this.renderer = new THREE.WebGLRenderer({ antialias: false, powerPreference: "high-performance" });
     this.renderer.setSize(container.clientWidth, container.clientHeight);
     this.renderer.shadowMap.enabled = true;
-    // PCF-soft rather than VSM: VSM's variance filter over a frustum this large
+    // PCF rather than VSM: VSM's variance filter over a frustum this large
     // washed every shadow out completely, and it light-leaks through the thin
-    // geometry (sills, treads, trim) this world is full of.
-    this.renderer.shadowMap.type = THREE.PCFSoftShadowMap;
+    // geometry (sills, treads, trim) this world is full of. Soft-PCF is the
+    // top tier only - it samples a wide fixed kernel per fragment.
+    this.renderer.shadowMap.type = THREE.PCFShadowMap;
     this.renderer.toneMapping = THREE.ACESFilmicToneMapping;
     this.renderer.toneMappingExposure = LIGHTING.exposure;
     this.renderer.outputColorSpace = THREE.SRGBColorSpace;
@@ -91,7 +111,6 @@ export class SceneManager {
     sun.position.copy(centre).addScaledVector(sunDir, WORLD_WIDTH * 0.8);
     sun.target.position.copy(centre);
     sun.castShadow = true;
-    sun.shadow.mapSize.set(LIGHTING.shadowMapSize, LIGHTING.shadowMapSize);
     sun.shadow.bias = -0.0008;
     sun.shadow.normalBias = 1.2;
     sun.shadow.radius = LIGHTING.shadowSoftness;
@@ -105,6 +124,7 @@ export class SceneManager {
     shadowCam.far = WORLD_WIDTH * 1.8;
     shadowCam.updateProjectionMatrix();
     this.scene.add(sun, sun.target);
+    this.sun = sun;
 
     // ---- fill: cool sky above, warm bounce off the ground below. Keeps shadow
     // sides readable without flattening the key/fill contrast.
@@ -128,27 +148,63 @@ export class SceneManager {
     const size = new THREE.Vector2(container.clientWidth, container.clientHeight);
     const target = new THREE.WebGLRenderTarget(size.x, size.y, {
       type: THREE.HalfFloatType,
-      samples: 4,
+      samples: TIERS[startTier].msaaSamples,
     });
     this.composer = new EffectComposer(this.renderer, target);
-    this.composer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
     this.composer.addPass(new RenderPass(this.scene, this.camera));
     // Ambient occlusion. Sun shadows describe the big forms; AO describes the
     // small ones - where a skirting meets a floor, where a step meets its
     // stringer, where furniture sits on a rug. Without it every contact is a
     // hard edge with no darkening and the room reads as parts floating next to
     // each other rather than parts touching.
-    const ssao = new SSAOPass(this.scene, this.camera, size.x, size.y);
-    ssao.kernelRadius = POST.aoRadius;
-    ssao.minDistance = POST.aoMinDistance;
-    ssao.maxDistance = POST.aoMaxDistance;
-    this.composer.addPass(ssao);
-    this.composer.addPass(
-      new UnrealBloomPass(size, POST.bloomStrength, POST.bloomRadius, POST.bloomThreshold)
-    );
+    this.ssaoPass = new SSAOPass(this.scene, this.camera, size.x, size.y);
+    this.ssaoPass.kernelRadius = POST.aoRadius;
+    this.ssaoPass.minDistance = POST.aoMinDistance;
+    this.ssaoPass.maxDistance = POST.aoMaxDistance;
+    this.composer.addPass(this.ssaoPass);
+    this.bloomPass = new UnrealBloomPass(size, POST.bloomStrength, POST.bloomRadius, POST.bloomThreshold);
+    this.composer.addPass(this.bloomPass);
     this.composer.addPass(new OutputPass());
 
+    this.quality = new AdaptiveQuality(startTier, (tier) => this.applyQuality(tier), stored?.manual ?? false);
+    this.applyQuality(startTier);
+
     window.addEventListener("resize", this.handleResize);
+  }
+
+  /** Everything a tier controls except the MSAA sample count, which is baked
+   *  into the render target and therefore only changes on the next load. */
+  private applyQuality(tier: QualityTier): void {
+    const q = TIERS[tier];
+    const ratio = Math.min(window.devicePixelRatio, q.maxPixelRatio);
+    this.renderer.setPixelRatio(ratio);
+    this.composer.setPixelRatio(ratio);
+    this.ssaoPass.enabled = q.ssao;
+    this.bloomPass.enabled = q.bloom;
+    this.renderer.shadowMap.type = q.softShadows ? THREE.PCFSoftShadowMap : THREE.PCFShadowMap;
+    // Soft-PCF samples its own fixed kernel and ignores `radius`; plain PCF is
+    // where the configured softness actually does something.
+    this.sun.shadow.radius = q.softShadows ? 1 : LIGHTING.shadowSoftness;
+    if (this.sun.shadow.mapSize.width !== q.shadowMapSize) {
+      this.sun.shadow.mapSize.set(q.shadowMapSize, q.shadowMapSize);
+      // The map is allocated at the old size; dropping it forces a rebuild.
+      this.sun.shadow.map?.dispose();
+      this.sun.shadow.map = null;
+    }
+    this.renderer.shadowMap.needsUpdate = true;
+    this.onQualityChange?.(tier);
+  }
+
+  get qualityTier(): QualityTier {
+    return this.quality.current;
+  }
+
+  /** Step to the next tier, wrapping. Also pins the tier: once the player has
+   *  an opinion, the adaptive controller stops overriding it. */
+  cycleQuality(): QualityTier {
+    const next = TIER_ORDER[(TIER_ORDER.indexOf(this.quality.current) + 1) % TIER_ORDER.length];
+    this.quality.setManual(next);
+    return next;
   }
 
   private handleResize = () => {
@@ -167,10 +223,14 @@ export class SceneManager {
 
   private tick = (now: number) => {
     if (this.disposed) return;
-    const dt = Math.min((now - this.lastTime) / 1000, 1 / 20);
+    const elapsed = now - this.lastTime;
+    const dt = Math.min(elapsed / 1000, 1 / 20);
     this.lastTime = now;
     this.onFrame?.(dt);
     this.composer.render();
+    // Wall-clock frame interval, which is what the player experiences - a
+    // GPU-time query would miss stalls in the browser's own compositor.
+    this.quality.sample(elapsed);
     requestAnimationFrame(this.tick);
   };
 

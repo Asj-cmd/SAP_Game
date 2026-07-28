@@ -291,7 +291,12 @@ export function buildEnvironment(localTeam: Team): Environment {
       metalness: 0.1,
       envMapIntensity: 2.2, // the sky reflection IS the window
       depthWrite: false,
-      side: THREE.DoubleSide,
+      // FrontSide, not DoubleSide. A pane is a closed box, so back-face culling
+      // leaves exactly ONE visible surface whichever side you view it from -
+      // the near one. DoubleSide drew the far face too, blending the tint twice
+      // and leaving two coincident translucent surfaces to sort against each
+      // other every frame.
+      side: THREE.FrontSide,
     })
   );
 
