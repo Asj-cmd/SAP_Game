@@ -64,11 +64,21 @@ export function buildTrimGeoms(): THREE.BufferGeometry[] {
 
     // Cornice: the same idea at the ceiling line. It reads as the room having a
     // finished top rather than the wall simply stopping.
+    //
+    // It stops SHORT of the wall top rather than level with it. Both used to end
+    // on exactly the same plane, which put two up-facing surfaces at one depth
+    // across the entire wall network on every floor - the single largest
+    // depth-buffer tie in the world, and the shimmer seen down into the basement
+    // and along every ceiling line. The wall now ends SURFACE_OVERLAP below the
+    // floor above, and the cornice another SURFACE_OVERLAP below that, so no two
+    // horizontal surfaces here share a height. It reads as a moulding with a
+    // reveal above it.
+    const corniceTop = base + WALL_HEIGHT - 2 * SURFACE_OVERLAP;
     geoms.push(
       rectToBox(
         proudOfWall(w, CORNICE_PROUD),
         CORNICE_HEIGHT,
-        base + WALL_HEIGHT - CORNICE_HEIGHT / 2 + SURFACE_OVERLAP,
+        corniceTop - CORNICE_HEIGHT / 2,
         COLORS.wallShade
       )
     );

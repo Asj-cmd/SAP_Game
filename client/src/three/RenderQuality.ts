@@ -25,7 +25,11 @@ export interface QualitySettings {
   ssao: boolean;
   /** Bloom: ~10 blur passes, already half-resolution internally. Mid-priced. */
   bloom: boolean;
-  /** Multisampling on the HDR target. Read once at startup - see note below. */
+  /** Multisampling on the HDR target, read once at startup (see note below).
+   *  Kept generous even on the cheap tiers: the stair flights are the highest
+   *  frequency geometry in the game - twelve light treads against dark beams -
+   *  and undersampled edges there crawl badly in motion. MSAA is a fraction of
+   *  what ambient occlusion costs, so it is the wrong place to economise. */
   msaaSamples: number;
   shadowMapSize: number;
   /** PCF-soft looks better but samples a fixed wide kernel and ignores
@@ -34,8 +38,8 @@ export interface QualitySettings {
 }
 
 export const TIERS: Record<QualityTier, QualitySettings> = {
-  low: { maxPixelRatio: 1, ssao: false, bloom: false, msaaSamples: 0, shadowMapSize: 1024, softShadows: false },
-  medium: { maxPixelRatio: 1.25, ssao: false, bloom: true, msaaSamples: 2, shadowMapSize: 2048, softShadows: false },
+  low: { maxPixelRatio: 1, ssao: false, bloom: false, msaaSamples: 2, shadowMapSize: 1024, softShadows: false },
+  medium: { maxPixelRatio: 1.25, ssao: false, bloom: true, msaaSamples: 4, shadowMapSize: 2048, softShadows: false },
   high: { maxPixelRatio: 2, ssao: true, bloom: true, msaaSamples: 4, shadowMapSize: 4096, softShadows: true },
 };
 

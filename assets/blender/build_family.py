@@ -262,11 +262,21 @@ def add_frustum(name, a, b, ra, rb, material, segments=10):
     return obj
 
 
-def add_flattened_hemisphere(name, center, radius, material, keep_frac=0.62, squash=1.0, offset=(0.0, 0.0, 0.0)):
+def add_flattened_hemisphere(
+    name, center, radius, material, keep_frac=0.62, squash=1.0, offset=(0.0, 0.0, 0.0), hairline_z=None
+):
     """A hair-cap: a UV sphere with the lower verts trimmed off (bmesh delete
     below a z threshold), used as the base "hair helmet" shape for every
     hairstyle. keep_frac controls how much of the sphere (from the top) is
-    kept - a bob keeps more, a short crop keeps less."""
+    kept - a bob keeps more, a short crop keeps less.
+
+    `hairline_z` additionally cuts the FRONT of the cap away below that height,
+    which is what stops the cap being a full-face helmet. The cap is slightly
+    LARGER than the head sphere it covers, so without this it wrapped right down
+    over the face and the eyes - which sit proud of the head - came through it
+    from the outside, reading as eyes stuck on top of the hair. Cutting only the
+    front leaves the sides and back intact, so the silhouette still reads as a
+    head of hair rather than a skullcap perched on the crown."""
     bpy.ops.mesh.primitive_uv_sphere_add(radius=radius, location=center, segments=12, ring_count=8)
     obj = bpy.context.active_object
     obj.name = name
@@ -274,7 +284,13 @@ def add_flattened_hemisphere(name, center, radius, material, keep_frac=0.62, squ
     bm = bmesh.new()
     bm.from_mesh(obj.data)
     threshold = radius * (1.0 - 2.0 * keep_frac)
-    to_delete = [v for v in bm.verts if v.co.z < threshold]
+    # Local coordinates: +y is the face, and the sphere is still centred on the
+    # origin at this point, so "front" is simply y > 0.
+    to_delete = [
+        v
+        for v in bm.verts
+        if v.co.z < threshold or (hairline_z is not None and v.co.y > 0.0 and v.co.z < hairline_z)
+    ]
     bmesh.ops.delete(bm, geom=to_delete, context="VERTS")
     bm.to_mesh(obj.data)
     bm.free()
@@ -584,10 +600,32 @@ def add_head_and_face(arm_obj, p, L, materials):
 
     front_y = r * 0.92
     eye_z = center.z + r * 0.12
+    # The eyeball is a sphere of radius 0.22r centred at 0.92r, so its front
+    # surface reaches 1.14r. The pupil used to be centred at 0.966r with radius
+    # 0.11r, which put the whole of it INSIDE the eyeball: what you actually saw
+    # was two blank pale spheres, which is most of why the faces read as creepy
+    # rather than funny. It now sits on the surface, poking out far enough to be
+    # unmistakable at chase-camera distance.
+    #
+    # The two pupils are also aimed slightly differently - one a touch outward
+    # and high, the other inward and low. Perfectly aligned eyes on a face this
+    # stylised look like a doll staring through you; a small mismatch reads as
+    # a cartoon character who is not entirely with us, which is the intent.
+    eye_r = r * 0.22
+    pupil_r = r * 0.115
+    googly = {"L": (-0.055, 0.045), "R": (0.05, -0.06)}
     for side, x in (("L", -0.36 * r), ("R", 0.36 * r)):
-        parts.append(add_sphere(f"EyeWhite.{side}", r * 0.22, (x, front_y, eye_z), eye_white, segments=8, rings=6))
+        parts.append(add_sphere(f"EyeWhite.{side}", eye_r, (x, front_y, eye_z), eye_white, segments=8, rings=6))
+        dx, dz = googly[side]
         parts.append(
-            add_sphere(f"Pupil.{side}", r * 0.11, (x, front_y * 1.05, eye_z), pupil, segments=6, rings=5)
+            add_sphere(
+                f"Pupil.{side}",
+                pupil_r,
+                (x + dx * r, front_y + eye_r * 0.82, eye_z + dz * r),
+                pupil,
+                segments=7,
+                rings=6,
+            )
         )
 
     # Eyebrows - sit just above the eyes, pushed out past the head sphere's
@@ -645,14 +683,17 @@ def add_head_and_face(arm_obj, p, L, materials):
     # Hair - shared "hair cap" base (partial sphere) plus a per-style
     # decoration.
     style = p["hair_style"]
+    # Clear of the eyebrows (whose tops reach ~0.42r above the head centre), so
+    # the whole face - brows, eyes, mouth - is outside the hair.
+    hairline = r * 0.46
     if style == "side_part":
-        parts.append(add_flattened_hemisphere("HairCap", center, r * 1.05, hair, keep_frac=0.55, squash=1.0))
+        parts.append(add_flattened_hemisphere("HairCap", center, r * 1.05, hair, keep_frac=0.55, squash=1.0, hairline_z=hairline))
     elif style == "bun":
-        parts.append(add_flattened_hemisphere("HairCap", center, r * 1.04, hair, keep_frac=0.50, squash=0.95))
+        parts.append(add_flattened_hemisphere("HairCap", center, r * 1.04, hair, keep_frac=0.50, squash=0.95, hairline_z=hairline))
         bun_center = (0, -r * 0.55, center.z + r * 0.35)
         parts.append(add_sphere("Bun", r * 0.34, bun_center, hair, segments=10, rings=8))
     elif style == "spiky":
-        parts.append(add_flattened_hemisphere("HairCap", center, r * 1.05, hair, keep_frac=0.42, squash=1.0))
+        parts.append(add_flattened_hemisphere("HairCap", center, r * 1.05, hair, keep_frac=0.42, squash=1.0, hairline_z=hairline))
         # Base of each spike sits on the crown (just above the cap's own
         # surface); the cone then sticks straight up/out from there so it
         # reads as a clear spike above the silhouette rather than a bump
@@ -678,7 +719,7 @@ def add_head_and_face(arm_obj, p, L, materials):
                 )
             )
     elif style == "pigtails":
-        parts.append(add_flattened_hemisphere("HairCap", center, r * 1.05, hair, keep_frac=0.58, squash=1.0))
+        parts.append(add_flattened_hemisphere("HairCap", center, r * 1.05, hair, keep_frac=0.58, squash=1.0, hairline_z=hairline))
         for side, x in (("L", -1.0), ("R", 1.0)):
             band_center = (x * r * 1.18, -r * 0.05, center.z - r * 0.05)
             parts.append(add_sphere(f"Pigtail.{side}", r * 0.38, band_center, hair, segments=9, rings=7))

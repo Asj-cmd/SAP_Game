@@ -113,6 +113,12 @@ function buildSteps(c: Connector): THREE.BufferGeometry[] {
   const dw = span / STEP_COUNT;
   const geoms: THREE.BufferGeometry[] = [];
 
+  // The floor this flight lands on. Nothing may hang below it: a flight that
+  // ends in a room with no stairwell opening under it (the interior stairs,
+  // whose opening is cut in the floor ABOVE) would otherwise push its lowest
+  // treads and beams straight through the slab and into the storey below.
+  const floorTop = Math.min(run.loY, run.hiY);
+
   // Treads: one floating slab per step, spanning BETWEEN the two stringers so
   // its ends are buried in them rather than sharing a face with them. Butted,
   // not overlapped, along the run - see the surface rule in EnvironmentBuilder.
@@ -120,14 +126,19 @@ function buildSteps(c: Connector): THREE.BufferGeometry[] {
     const a0 = run.axisStart + i * dw;
     const a1 = run.axisStart + (i + 1) * dw;
     const treadY = surfaceY(run, (i + 1) / STEP_COUNT);
+    const bottom = Math.max(treadY - TREAD_THICKNESS, floorTop);
+    const height = treadY - bottom;
+    if (height <= 0) continue;
     const rect = spanRect(c, a0, a1, lo + STRINGER_WIDTH / 2, hi - STRINGER_WIDTH / 2);
-    geoms.push(rectToBox(rect, TREAD_THICKNESS, treadY - TREAD_THICKNESS / 2, run.color));
+    geoms.push(rectToBox(rect, height, bottom + height / 2, run.color));
   }
 
   // Stringers: the two raking beams the treads sit on, segmented so they follow
   // the slope. They are the flight's whole visible mass, and their footprint is
   // what CONNECTOR_SIDES makes solid - walk into the side of a flight and you
-  // walk into these.
+  // walk into these. Clamped to the landing floor like the treads; where that
+  // leaves nothing there is nothing to draw, because the lowest tread rests on
+  // the floor and needs no beam under it.
   const segments = STEP_COUNT * 2;
   for (const side of [lo, hi - STRINGER_WIDTH]) {
     for (let i = 0; i < segments; i++) {
@@ -136,8 +147,11 @@ function buildSteps(c: Connector): THREE.BufferGeometry[] {
       const a0 = run.axisStart + t0 * span;
       const a1 = run.axisStart + t1 * span;
       const top = (surfaceY(run, t0) + surfaceY(run, t1)) / 2 - TREAD_THICKNESS;
+      const bottom = Math.max(top - STRINGER_DEPTH, floorTop);
+      const height = top - bottom;
+      if (height <= 0) continue;
       const rect = spanRect(c, a0, a1, side, side + STRINGER_WIDTH);
-      geoms.push(rectToBox(rect, STRINGER_DEPTH, top - STRINGER_DEPTH / 2, run.trim));
+      geoms.push(rectToBox(rect, height, bottom + height / 2, run.trim));
     }
   }
   return geoms;

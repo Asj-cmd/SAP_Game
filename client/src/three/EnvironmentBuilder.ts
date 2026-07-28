@@ -241,12 +241,15 @@ export function buildEnvironment(localTeam: Team): Environment {
   WALLS.forEach((w, i) => {
     const base = floorY(w.floor ?? 0);
     // A wall stands ON its own slab (its underside is hidden by the slab, so
-    // that end needs nothing) but runs a hair PAST the slab above: the two used
-    // to end on exactly the same plane, both facing up, which shimmered in
-    // every doorway threshold where the storey above has a gap rather than a
-    // wall of its own.
+    // that end needs nothing) and stops a hair SHORT of the slab above, ending
+    // buried inside it. Two things had to be true at once: the wall top must not
+    // land on exactly the plane of the floor above (two up-facing surfaces at
+    // one depth shimmer), and it must not stand PROUD of it either. It used to
+    // overshoot, which only hides where a slab actually exists - over the open
+    // backyard there is none, and every basement wall below pushed its top
+    // through the lawn as a grey strip lying in the grass.
     const bottom = base;
-    const height = WALL_HEIGHT + SURFACE_OVERLAP;
+    const height = WALL_HEIGHT - SURFACE_OVERLAP;
     for (const piece of wallPiecesWithOpenings(w, bottom, height, windows.openings.get(i) ?? [])) {
       wallGeoms.push(rectToBox(piece.rect, piece.height, piece.yCenter, COLORS.wall));
     }
@@ -261,7 +264,7 @@ export function buildEnvironment(localTeam: Team): Environment {
   for (const door of DOORS) {
     const base = floorY(door.floor ?? 0);
     const lintelBottom = base + DOOR_HEIGHT;
-    const lintelHeight = WALL_HEIGHT + SURFACE_OVERLAP - DOOR_HEIGHT;
+    const lintelHeight = WALL_HEIGHT - SURFACE_OVERLAP - DOOR_HEIGHT;
     wallGeoms.push(
       rectToBox(door, lintelHeight, lintelBottom + lintelHeight / 2, COLORS.wall, COLORS.wallShade)
     );
