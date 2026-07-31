@@ -33,8 +33,10 @@ A **graphify** knowledge graph of this codebase is committed at `graphify-out/`:
 
 ## Standing rules (do not break)
 
-1. **No test code / test files / test functions / automated test or QA harnesses.**
-   Verify by building + a manual checklist. Overrides any skill's default QA.
+1. **No test code / test files / test functions / automated test or QA harnesses**
+   — in `client/` and `server/` (the Three.js build). Verify by building + a
+   manual checklist. Overrides any skill's default QA. **Does not apply to
+   `godot/`**, which has its own narrower testing policy in `godot/CLAUDE.md`.
 2. **Keep code properly structured** — single-purpose files, named exports, no dead
    code; new world code under `client/src/three/world/`.
 3. **Server is authoritative** — client sends intent, never mutates game state.
