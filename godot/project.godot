@@ -20,6 +20,8 @@ config/icon="res://icon.svg"
 
 [autoload]
 
+WorldGeometry="*res://autoload/world_geometry.gd"
+MatchState="*res://autoload/match_state.gd"
 MCPRuntimeBridge="*res://addons/godot_mcp/services/mcp_runtime_bridge.gd"
 MCPInputBridge="*res://addons/godot_mcp/services/mcp_input_bridge.gd"
 MCPScreenshotBridge="*res://addons/godot_mcp/services/mcp_screenshot_bridge.gd"
