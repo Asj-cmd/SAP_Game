@@ -211,7 +211,7 @@ polish can be iterated freely without any risk to correctness.
 
 ---
 
-## 6. Two decisions that must be made now, not later
+## 6. Three decisions that must be made now, not later
 
 **Physics is not part of the deterministic simulation.** Jolt is not
 bit-identical across platforms and compilers, so a physics-driven world cannot
@@ -231,6 +231,38 @@ decided by the simulation.
 bolted-on `floor` axis, and every subsequent vertical feature fought that
 decision. `Vector3` and `AABB` cost nothing now and prevent a painful retrofit
 once the house is genuinely multi-storey.
+
+**Positions stay 32-bit float. The game does not need cross-platform
+bit-determinism.** `Vector3` components are `real_t`, which is 32-bit outside a
+double-precision build — measured resolution is ~5.12e-7 at magnitude 10 and
+~0.0002 at a world extent of 3200 units.
+
+That is ample for gameplay, and the alternative is not worth its price.
+Cross-platform bit-determinism is required by exactly two things: lockstep
+netcode, and replays that re-simulate on a different architecture than the one
+that recorded them. This game uses neither. It is server-authoritative with
+client prediction and reconciliation, so the server is the single source of
+truth and correcting client drift is not a failure mode — it is the mechanism
+working as designed. Fixed-point positions would tax every line of movement
+code, permanently, to buy a property the netcode never reads.
+
+Two weaker forms of determinism *are* required, and both survive this decision:
+
+- **Same-build determinism**, so a client can re-simulate its own recent past
+  during reconciliation or rollback. float32 provides this.
+- **Logic determinism** — no insertion-order dependence, no engine RNG, no wall
+  clock. This is what `state_digest()` actually protects, and what the §3 bans
+  exist for. The digest's real quarry is a system that iterates unsorted or
+  reads state it shouldn't, not float drift.
+
+For replay: seed plus input log reproduces a match exactly on the same build and
+architecture. Cross-platform sharing exports rendered video or a snapshot
+stream, never a re-simulation. A distribution feature must not levy a permanent
+tax on the simulation.
+
+Consequence for `sim/`: prefer the exactly-representable subset (`+`, `-`, `*`,
+comparison) and treat `sqrt`, `normalized()` and trigonometry as deliberate
+choices rather than reflexes — but no outright ban is warranted.
 
 ---
 
@@ -256,3 +288,91 @@ is the deliberate trade. The first playable will take longer to arrive, because
 return is that feature number twenty costs roughly what feature number two did,
 rather than an order of magnitude more — which is the actual difference between
 a prototype and something shippable.
+
+---
+
+## 9. Designed-for extension
+
+None of the features below are committed. What follows is not a set of hooks for
+them — it is the small number of *shapes* that keep them cheap if they happen and
+cost nothing if they never do.
+
+One test governs everything in this section: **if the feature is cut, does this
+become dead code?** If yes, it was a feature hook and does not belong in an
+architecture. If it merely becomes a smaller version of something the game needs
+regardless, it is a capability and it is safe. A "vent system" fails that test.
+"How two spaces connect, and under what rules" passes it, because a doorway
+needs the same thing.
+
+### Space connectivity is a graph, not a partition
+
+`ZoneDef.links` is already an adjacency list. It should carry *typed edges*
+rather than bare ids: each connection gets a traversal rule (who may pass, after
+what delay), a cost, and a noise profile.
+
+That single shape expresses a locked door, a one-way drop, a gap that only fits
+an unencumbered actor, and "you may follow an intruder into your own room after
+N seconds" — as content, not code. Cut every exotic traversal idea and it
+degrades to a plain doorway. Nothing is stranded.
+
+The simulation knows edge *rules*; content supplies the names. A crawlspace and
+a laundry chute are one mechanism with different labels and numbers — and the
+label is precisely where this game's identity lives. Keeping fiction in content
+lets the architecture stay generic while the game stays specific, which is the
+same reason zones carry roles instead of identities (§4).
+
+### Movement is a state machine inside the simulation
+
+Crouch, slide, jump, vault and carry are simulation state, not animation state.
+The presentation node reads that state and plays something; it never decides it.
+Let movement logic accumulate inside a `CharacterBody3D` and prediction breaks —
+after which every new movement verb is a netcode rewrite instead of a case in a
+state machine.
+
+### Loadout is a small fixed stat vector
+
+A handful of numbers per actor — move, carry, capture, escape — read by the
+systems that already exist. Not a plugin system, not scripted abilities. If the
+idea is dropped, what remains is per-character tuning values, which the game
+needs anyway.
+
+Two design constraints follow from the shape. The budget is spent per *team*
+rather than per player, so a roster is forced to diversify and the allocation
+becomes a conversation between friends. And every meaningful allocation needs a
+readable silhouette, because a stat the opponent cannot see has no counterplay.
+
+### Appearance never reaches the simulation
+
+The simulation knows a team, a slot, and a loadout. It must never know a mesh, a
+colour, a texture, or a display name. Everything visual resolves on the
+presentation side from those keys.
+
+This is what makes player-supplied appearance nearly free later: a texture swap
+in a layer the rules cannot observe, with no netcode consequence beyond an asset
+handshake. It also allows such assets to stay peer-shared inside a lobby rather
+than uploaded to a service — which keeps a shipping title clear of a
+content-moderation obligation it would not otherwise incur.
+
+### Uniform rules, never curated lists
+
+Where a behaviour could be either a general predicate or a hand-placed list, it
+must be the predicate. "Any container above a volume threshold can be hidden in"
+yields hiding places nobody designed and a strategy space that survives contact
+with players. Twelve hand-placed hiding spots yield twelve hand-placed hiding
+spots, and the game is solved in a week.
+
+The same applies to what can be climbed, carried, or thrown. The general rule is
+usually *less* code than the curated list, and it is the only version that
+produces emergent play. This has to be written down rather than left to habit,
+because each individual special case always looks reasonable on its own.
+
+### Replay is a product feature, not only a debugging aid
+
+Match state must remain reconstructable from seed plus input log. It already is,
+and it costs kilobytes.
+
+Protect that deliberately: it makes highlight export a rendering problem rather
+than a simulation one, and short shareable clips are the main distribution
+mechanism for a game of this kind. Anything that makes the simulation depend on
+un-recorded input destroys the property silently — which is the underlying
+reason for the §3 bans on wall clock, engine RNG, and scene state.
