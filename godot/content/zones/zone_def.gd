@@ -20,9 +20,33 @@ enum Role {
 @export var owner_team: StringName = &""
 ## 3D from the first commit (§6) - a multi-storey house must not need a retrofit.
 @export var bounds: AABB = AABB()
-## A safe room: no actor may be captured inside it. Cash sitting in a room
-## where you cannot be sent to lockup is simply role = CASH_ROOM, no_capture = true.
-@export var no_capture: bool = false
+## How long protection from capture lasts once an actor enters, in seconds.
+##
+##   < 0  this room offers no protection at all (the default, and what almost
+##        every zone wants)
+##   = 0  protection has no time limit
+##   > 0  protection lapses this many seconds after entry
+##
+## The negative sentinel is what lets "unlimited" keep the natural value of 0
+## while a plain unconfigured zone still defaults to offering nothing.
+@export var safe_duration_seconds: float = -1.0
+## When true, protection also ends the moment the actor picks something up -
+## a grab-and-you-are-fair-game rule, independent of any timer.
+##
+## The two conditions compose. Whichever fires first ends protection:
+##   duration 5, pickup false   protected for 5s regardless of carrying
+##   duration 0, pickup true    protected indefinitely until the grab
+##   duration 5, pickup true    5s, or until the grab, whichever comes first
+@export var safe_ends_on_pickup: bool = false
+
+## Does this room protect at all? Both conditions are inert without it.
+func grants_safety() -> bool:
+	return safe_duration_seconds >= 0.0
+
+## True when protection here lapses on a timer rather than lasting until some
+## other condition ends it.
+func safety_is_timed() -> bool:
+	return safe_duration_seconds > 0.0
 ## Connected zones, for navigation.
 @export var links: Array[StringName] = []
 ## Resolution order where zone bounds overlap: HIGHER WINS.

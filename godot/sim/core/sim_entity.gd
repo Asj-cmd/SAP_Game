@@ -41,6 +41,28 @@ var scored_for_team: StringName = &""
 var is_captured: bool = false
 ## Ticks of lockup remaining. Counted down by the capture system; never a clock (§3).
 var capture_ticks_remaining: int = 0
+## Tick on which this actor was seized, -1 when free.
+##
+## Commands resolve before per-tick updates, so without this the countdown
+## would take its first step on the very tick of the capture and a two-second
+## sentence would run 1.967s. The sentence starts the tick AFTER the grab.
+var captured_on_tick: int = -1
+
+## Sentinel for protection that has no time limit (ZoneDef.safe_duration_seconds == 0).
+const SAFE_UNLIMITED: int = -1
+
+## Safe-room protection, owned entirely by CaptureSystem.
+##
+## The zone currently granting protection, empty when unprotected. Held as an
+## id rather than a bool so that leaving and re-entering restarts the grant -
+## which is what makes a timed safe room a repeatable tactic rather than a
+## once-per-round consumable.
+var safe_zone_id: StringName = &""
+## Ticks of protection left: SAFE_UNLIMITED for no limit, 0 once lapsed.
+var safe_ticks_remaining: int = 0
+## Protection given up early (by pickup) rather than run out. Cleared on
+## re-entry, so it records this visit only.
+var safe_forfeited: bool = false
 
 func _init(entity_id: int = NO_ENTITY, entity_kind: Kind = Kind.ACTOR) -> void:
 	id = entity_id
@@ -62,6 +84,19 @@ func is_held() -> bool:
 func is_active() -> bool:
 	return not is_captured
 
+## Is this actor currently shielded from capture by a safe room?
+func is_protected() -> bool:
+	if safe_zone_id == &"" or safe_forfeited:
+		return false
+	return safe_ticks_remaining != 0
+
+## Drops all safe-room protection. Called on leaving a safe zone, and on being
+## captured, so a released actor never carries a stale grant back out.
+func clear_safety() -> void:
+	safe_zone_id = &""
+	safe_ticks_remaining = 0
+	safe_forfeited = false
+
 ## Field-by-field copy. SimWorld snapshots through this, so a stored state
 ## cannot alias the live one and drift as the simulation continues.
 func duplicate_entity() -> SimEntity:
@@ -77,6 +112,10 @@ func duplicate_entity() -> SimEntity:
 	copy.scored_for_team = scored_for_team
 	copy.is_captured = is_captured
 	copy.capture_ticks_remaining = capture_ticks_remaining
+	copy.captured_on_tick = captured_on_tick
+	copy.safe_zone_id = safe_zone_id
+	copy.safe_ticks_remaining = safe_ticks_remaining
+	copy.safe_forfeited = safe_forfeited
 	return copy
 
 ## Scratch buffer for float_bits(). Reused rather than allocated per call:
@@ -103,12 +142,13 @@ static func float_bits(value: float) -> int:
 ## Canonical text form, fed into SimWorld's state digest. Floats appear as raw
 ## bits; use to_debug_string() when a human needs to read it.
 func to_digest_string() -> String:
-	return "E%d|k%d|t%s|s%d|p%d,%d,%d|v%d,%d,%d|z%s|c%d|h%d|f%s|x%d|r%d" % [
+	return "E%d|k%d|t%s|s%d|p%d,%d,%d|v%d,%d,%d|z%s|c%d|h%d|f%s|x%d|r%d|o%d|S%s,%d,%d" % [
 		id, kind, team, slot,
 		float_bits(position.x), float_bits(position.y), float_bits(position.z),
 		float_bits(velocity.x), float_bits(velocity.y), float_bits(velocity.z),
 		zone_id, carrying_id, carried_by, scored_for_team,
-		1 if is_captured else 0, capture_ticks_remaining,
+		1 if is_captured else 0, capture_ticks_remaining, captured_on_tick,
+		safe_zone_id, safe_ticks_remaining, 1 if safe_forfeited else 0,
 	]
 
 ## Human-readable rendering for logs and debugging. Deliberately NOT what the

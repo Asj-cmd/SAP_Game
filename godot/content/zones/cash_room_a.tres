@@ -1,0 +1,14 @@
+[gd_resource type="Resource" script_class="ZoneDef" load_steps=2 format=3]
+
+[ext_resource type="Script" uid="uid://dpn0trmfo0qmv" path="res://content/zones/zone_def.gd" id="1_zonedef"]
+
+[resource]
+script = ExtResource("1_zonedef")
+id = &"cash_room_a"
+role = 2
+owner_team = &"team_a"
+bounds = AABB(1060, 0, 0, 400, 200, 200)
+safe_duration_seconds = 5.0
+safe_ends_on_pickup = false
+priority = 0
+links = Array[StringName]([&"home_a"])

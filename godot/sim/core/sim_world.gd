@@ -38,7 +38,14 @@ var tuning: TuningDef = null
 var zones: Dictionary[StringName, ZoneDef] = {}
 var teams: Dictionary[StringName, TeamDef] = {}
 
+## Rule modules, run in this exact order (§5). Order is part of the
+## simulation's definition, not an implementation detail: two machines running
+## the same systems in different orders are running different games.
+var systems: Array[SimSystem] = []
+
 var _next_entity_id: int = 1
+## Events accumulated during the current step(), drained by it.
+var _pending_events: Array[SimEvent] = []
 ## Zone ids in resolution order, rebuilt by configure(). Cached because
 ## zone_at() is called for every moving entity every tick, and re-sorting the
 ## whole zone table on each of those calls would be pure waste.
@@ -142,30 +149,57 @@ func zone_at(point: Vector3) -> ZoneDef:
 			return zone
 	return null
 
+## Zone ids in the same total order zone_at() resolves them by. Systems that
+## must pick "the first zone matching X" iterate this, so their choice is
+## deterministic and matches how containment resolves.
+func zone_ids_in_resolution_order() -> Array[StringName]:
+	return _zone_lookup_order.duplicate()
+
 func get_team(team_id: StringName) -> TeamDef:
 	return teams.get(team_id, null)
 
 # ---- the contract ----
 
+## Registers a rule module. Call order IS execution order (§5).
+func add_system(system: SimSystem) -> SimSystem:
+	systems.append(system)
+	return system
+
+## Records that something happened. Systems call this rather than returning
+## events, so a single command may produce several and a per-tick update may
+## produce them without being asked for anything.
+func emit(event: SimEvent) -> void:
+	_pending_events.append(event)
+
 ## Advance the world exactly one fixed step. Returns everything that happened,
 ## for presentation and networking to react to.
 ##
-## Commands are resolved against the tick they arrive on; the tick counter then
-## advances, and the TickAdvanced event announces the tick just reached.
+## Commands are resolved against the tick they arrive on, then every system
+## takes its per-tick update, then the tick counter advances and TickAdvanced
+## announces the tick just reached.
 func step(commands: Array[SimCommand]) -> Array[SimEvent]:
-	var events: Array[SimEvent] = []
+	_pending_events.clear()
 
 	for command: SimCommand in commands:
-		# System dispatch belongs here: each registered system is offered the
-		# command in the explicit order SimWorld defines (§5). Until systems
-		# exist, every command is by definition unhandled - and this stays the
-		# correct response to a malformed or stale command thereafter.
-		events.append(SimEvent.command_unhandled(tick, command))
+		var claimed: bool = false
+		for system: SimSystem in systems:
+			if system.handles(command.kind):
+				system.handle(self, command)
+				claimed = true
+		# Nobody claimed it: a malformed command, or one from a client running
+		# a build with a system this one does not have. Reporting it beats
+		# discarding it silently.
+		if not claimed:
+			emit(SimEvent.command_unhandled(tick, command))
 
-	# Per-tick system updates belong here, after command handling.
+	for system: SimSystem in systems:
+		system.step(self)
 
 	tick += 1
-	events.append(SimEvent.tick_advanced(tick))
+	emit(SimEvent.tick_advanced(tick))
+
+	var events: Array[SimEvent] = _pending_events.duplicate()
+	_pending_events.clear()
 	return events
 
 # ---- determinism instrumentation ----
