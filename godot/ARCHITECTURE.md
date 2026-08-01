@@ -366,6 +366,22 @@ usually *less* code than the curated list, and it is the only version that
 produces emergent play. This has to be written down rather than left to habit,
 because each individual special case always looks reasonable on its own.
 
+### Rooms mean; walls block
+
+`MovementSystem._is_passable()` currently treats the union of zones as the
+playable area, which is correct for an open plane and wrong for a building: two
+adjacent zones share a face, so the whole face is walkable and a doorway is not
+a thing an actor has to aim for.
+
+Zones answer *what rules apply here*; a separate collision set answers *can I
+physically be here*. Neither derives from the other, so a wall can move without
+changing what a room means, and a room can change owner without moving a wall.
+
+`WORLD_AUTHORING.md` carries the full plan — blockers as content, swept movement
+instead of point tests, kinematic ground for multi-storey, the Blender export
+convention, and the content validator that makes a malformed house fail to load
+rather than fail mid-match.
+
 ### Replay is a product feature, not only a debugging aid
 
 Match state must remain reconstructable from seed plus input log. It already is,
