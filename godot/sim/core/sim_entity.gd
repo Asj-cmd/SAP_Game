@@ -61,6 +61,10 @@ var carrying_id: int = NO_ENTITY
 var carried_by: int = NO_ENTITY
 ## CARRIABLE: zone whose score it currently counts toward, empty when in transit.
 var scored_for_team: StringName = &""
+## Where this entity belongs at the start of a round: an actor's spawn, a
+## carriable's home. MatchFlowSystem restores it between rounds, so a round
+## reset needs no knowledge of content layout beyond what was stamped here.
+var origin_position: Vector3 = Vector3.ZERO
 
 var is_captured: bool = false
 ## Ticks of lockup remaining. Counted down by the capture system; never a clock (§3).
@@ -136,6 +140,7 @@ func duplicate_entity() -> SimEntity:
 	copy.carrying_id = carrying_id
 	copy.carried_by = carried_by
 	copy.scored_for_team = scored_for_team
+	copy.origin_position = origin_position
 	copy.is_captured = is_captured
 	copy.capture_ticks_remaining = capture_ticks_remaining
 	copy.captured_on_tick = captured_on_tick
@@ -168,13 +173,14 @@ static func float_bits(value: float) -> int:
 ## Canonical text form, fed into SimWorld's state digest. Floats appear as raw
 ## bits; use to_debug_string() when a human needs to read it.
 func to_digest_string() -> String:
-	return "E%d|k%d|t%s|s%d|p%d,%d,%d|v%d,%d,%d|m%d|i%d,%d,%d|z%s|c%d|h%d|f%s|x%d|r%d|o%d|S%s,%d,%d" % [
+	return "E%d|k%d|t%s|s%d|p%d,%d,%d|v%d,%d,%d|m%d|i%d,%d,%d|z%s|c%d|h%d|f%s|g%d,%d,%d|x%d|r%d|o%d|S%s,%d,%d" % [
 		id, kind, team, slot,
 		float_bits(position.x), float_bits(position.y), float_bits(position.z),
 		float_bits(velocity.x), float_bits(velocity.y), float_bits(velocity.z),
 		motion_state,
 		float_bits(move_intent.x), float_bits(move_intent.y), float_bits(move_intent.z),
 		zone_id, carrying_id, carried_by, scored_for_team,
+		float_bits(origin_position.x), float_bits(origin_position.y), float_bits(origin_position.z),
 		1 if is_captured else 0, capture_ticks_remaining, captured_on_tick,
 		safe_zone_id, safe_ticks_remaining, 1 if safe_forfeited else 0,
 	]
@@ -183,10 +189,11 @@ func to_digest_string() -> String:
 ## digest hashes: rounded decimals are for eyes, exact bits are for
 ## correctness. Changing this cannot affect desync detection.
 func to_debug_string() -> String:
-	return "E%d|k%d|t%s|s%d|p%.4f,%.4f,%.4f|v%.4f,%.4f,%.4f|z%s|c%d|h%d|f%s|x%d|r%d" % [
+	return "E%d|k%d|t%s|s%d|p%.4f,%.4f,%.4f|v%.4f,%.4f,%.4f|z%s|c%d|h%d|f%s|g%d,%d,%d|x%d|r%d" % [
 		id, kind, team, slot,
 		position.x, position.y, position.z,
 		velocity.x, velocity.y, velocity.z,
 		zone_id, carrying_id, carried_by, scored_for_team,
+		float_bits(origin_position.x), float_bits(origin_position.y), float_bits(origin_position.z),
 		1 if is_captured else 0, capture_ticks_remaining,
 	]

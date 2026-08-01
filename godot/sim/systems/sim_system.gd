@@ -12,6 +12,34 @@ extends RefCounted
 ## otherwise have no way to tell a command that was processed from one that
 ## silently fell through every system.
 
+## When in a tick this system runs.
+##
+## Execution order is part of the simulation's definition - two machines
+## running the same systems in different orders are running different games -
+## so it is DECLARED here rather than left to the order someone happened to
+## call add_system() in. A caller cannot get the wiring wrong, because the
+## caller does not do the ordering.
+##
+## The sequence is the causal one: actors move, then act on where they ended
+## up, then the consequences are counted, then the match decides what that
+## means. Judging a capture range against where an actor STARTED the tick
+## would be wrong, and this is what makes that unrepresentable rather than
+## merely discouraged.
+enum Phase {
+	MOVEMENT, ## Positions settle.
+	INTERACTION, ## Actors act on the world and each other.
+	SCORING, ## Consequences are counted.
+	FLOW, ## The match reads the count and decides.
+}
+
+## Which phase this system belongs to. Every system declares one.
+##
+## INTERACTION is the default because it is where a rule that acts on the
+## world belongs; a system that needs to move things or count them is making a
+## deliberate claim and says so.
+func phase() -> Phase:
+	return Phase.INTERACTION
+
 ## Does this system act on commands of `kind`?
 func handles(_kind: StringName) -> bool:
 	return false

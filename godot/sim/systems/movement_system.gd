@@ -14,15 +14,18 @@ extends SimSystem
 ##   *      -> MOVING   intent, and somewhere to put the actor
 ##   *      -> BLOCKED  intent, but every axis is walled off
 ##
-## Register this BEFORE the interaction systems: capture ranges and safe-room
-## grants should be judged on where actors ended the tick, not where they
-## started it.
+## Runs in Phase.MOVEMENT, so capture ranges and safe-room grants are judged
+## on where actors ENDED the tick rather than where they started it. That
+## ordering is declared, not left to the order someone registered systems in.
 
 ## Intent shorter than this counts as no intent. Stick drift and a
 ## near-stationary analog input should read as standing still, not as a
 ## permanent 0.01-speed creep.
 const INTENT_DEADZONE: float = 0.05
 const INTENT_DEADZONE_SQUARED: float = INTENT_DEADZONE * INTENT_DEADZONE
+
+func phase() -> SimSystem.Phase:
+	return SimSystem.Phase.MOVEMENT
 
 func system_name() -> StringName:
 	return &"MovementSystem"
@@ -79,6 +82,12 @@ func _advance(world: SimWorld, actor: SimEntity) -> void:
 
 ## Runs one actor's transition and applies whatever displacement it earns.
 func _resolve(world: SimWorld, actor: SimEntity) -> SimEntity.MotionState:
+	# Frozen outside the live phase: nobody creeps forward during the
+	# countdown, and nobody keeps running after the final whistle.
+	if not world.is_live():
+		actor.velocity = Vector3.ZERO
+		return SimEntity.MotionState.HELD if actor.is_captured else SimEntity.MotionState.IDLE
+
 	if actor.is_captured:
 		actor.velocity = Vector3.ZERO
 		return SimEntity.MotionState.HELD
@@ -138,7 +147,20 @@ func _apply_displacement(world: SimWorld, actor: SimEntity, delta: Vector3) -> b
 			moved = true
 	return moved
 
-## The playable world is the union of its zones. Somewhere with no zone is
-## outside the map, and nothing may stand there.
+## PLACEHOLDER. See WORLD_AUTHORING.md §1 and §2 - this is the exact function
+## that document opens by naming, and it must not survive contact with a real
+## building.
+##
+## It asks only "is the destination inside some zone", which conflates two
+## things §2 requires be kept apart: a zone MEANS (ownership, role, safety), a
+## blocker BLOCKS (geometry, no rules). Because solidity is never represented,
+## two adjacent zones share an entire walkable face - an actor crosses between
+## bedroom and hallway anywhere along the wall, not only at the doorway. There
+## is nothing solid in this world.
+##
+## Do not build on this. Replacing it is §8's first item, and it needs a
+## WorldCollisionDef blocker set plus swept segment tests (§4) rather than the
+## endpoint sample below - at 30Hz a sprinting actor can already cross a thin
+## wall in one tick with neither endpoint inside it.
 func _is_passable(world: SimWorld, point: Vector3) -> bool:
 	return world.zone_at(point) != null

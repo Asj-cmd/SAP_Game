@@ -12,8 +12,13 @@ extends Resource
 
 @export_group("Movement")
 @export var move_speed: float = 440.0
-## Multiplier applied to move_speed while carrying (a laden actor is slower).
-@export var carry_speed_scale: float = 0.727
+## Multiplier applied to move_speed while carrying.
+##
+## 1.0 for now: carrying does not slow you down. The field and the
+## carry_speed() path stay live precisely so that this is a number a designer
+## dials rather than a code change - set it below 1.0 and laden actors are
+## slower with nothing recompiled.
+@export var carry_speed_scale: float = 1.0
 ## Actor body radius, for collision against level geometry.
 @export var actor_radius: float = 20.0
 

@@ -104,6 +104,8 @@ func _build_world(cash_variant: int) -> SimWorld:
 	var world: SimWorld = SimWorld.new(1)
 	world.configure(mode, tuning, zone_defs, [team_a, team_b])
 	world.add_system(CaptureSystem.new())
+	# These suites exercise in-round rules, which only run in the live phase.
+	world.match_phase = SimWorld.MatchPhase.PLAYING
 	return world
 
 func _add_actor(world: SimWorld, team: StringName, at: Vector3) -> SimEntity:

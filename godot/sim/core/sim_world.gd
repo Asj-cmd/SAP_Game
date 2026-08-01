@@ -22,8 +22,32 @@ const _HASH_OFFSET_BASIS: int = -3750763034362895579
 const _HASH_PRIME: int = 1099511628211
 const _HASH_MASK: int = 0x7FFFFFFFFFFFFFFF
 
+## Where the match is. Owned by MatchFlowSystem; everything else reads it.
+enum MatchPhase {
+	WAITING, ## Assembled but not started.
+	COUNTDOWN, ## Pre-round pause. Actors are placed but inert.
+	PLAYING, ## The only phase in which actions are accepted.
+	ROUND_END, ## Round decided, result on screen.
+	MATCH_END, ## Terminal.
+}
+
 ## Completed steps. Advances by exactly one per step().
 var tick: int = 0
+
+## ---- match state ----
+## All of it counted in TICKS, never seconds, and never a clock (§3).
+var match_phase: MatchPhase = MatchPhase.WAITING
+## Ticks left in the current phase. In PLAYING this is the round timer.
+var phase_ticks_remaining: int = 0
+var round_number: int = 1
+## team id -> carriables currently counting for that team. DERIVED by
+## ScoringSystem every tick, never incremented (see its notes).
+var scores: Dictionary[StringName, int] = {}
+## team id -> rounds won.
+var round_wins: Dictionary[StringName, int] = {}
+## Winner of the round just ended, empty for a draw or a round in progress.
+var round_winner: StringName = &""
+var match_winner: StringName = &""
 ## The only randomness permitted inside sim/ (§3).
 var rng: SimRandom = null
 
@@ -158,11 +182,46 @@ func zone_ids_in_resolution_order() -> Array[StringName]:
 func get_team(team_id: StringName) -> TeamDef:
 	return teams.get(team_id, null)
 
+## Team ids in a fixed order, so anything iterating teams is deterministic
+## regardless of the order content was loaded in.
+func sorted_team_ids() -> Array[StringName]:
+	var ids: Array[StringName] = teams.keys()
+	ids.sort()
+	return ids
+
+## Are actor actions accepted right now?
+##
+## Every rule that an actor can trigger gates on this, which is what stops
+## players moving during the countdown or being captured after the final
+## whistle. Systems read it off world state rather than asking MatchFlowSystem,
+## so nothing needs to depend on anything else (§5).
+func is_live() -> bool:
+	return match_phase == MatchPhase.PLAYING
+
+func score_for(team_id: StringName) -> int:
+	return scores.get(team_id, 0)
+
+func round_wins_for(team_id: StringName) -> int:
+	return round_wins.get(team_id, 0)
+
 # ---- the contract ----
 
-## Registers a rule module. Call order IS execution order (§5).
+## Registers a rule module, placing it by its DECLARED phase rather than by
+## when it happened to be registered (SimSystem.Phase).
+##
+## Insertion keeps the array sorted by phase, with registration order
+## preserved inside a phase. That gives a total order without relying on a
+## sort being stable, and it means a caller cannot mis-wire the simulation by
+## listing systems in the wrong sequence - the ordering is not the caller's to
+## get wrong.
 func add_system(system: SimSystem) -> SimSystem:
-	systems.append(system)
+	var incoming: SimSystem.Phase = system.phase()
+	var index: int = systems.size()
+	for i: int in systems.size():
+		if systems[i].phase() > incoming:
+			index = i
+			break
+	systems.insert(index, system)
 	return system
 
 ## Records that something happened. Systems call this rather than returning
@@ -218,6 +277,11 @@ func state_digest() -> String:
 	var parts: PackedStringArray = PackedStringArray()
 	parts.append("tick=%d" % tick)
 	parts.append("rng=%d" % rng.state)
+	parts.append("phase=%d,%d" % [match_phase, phase_ticks_remaining])
+	parts.append("round=%d,%s,%s" % [round_number, round_winner, match_winner])
+	# Sorted, like every other collection the digest walks.
+	for team_id: StringName in sorted_team_ids():
+		parts.append("T%s=%d/%d" % [team_id, score_for(team_id), round_wins_for(team_id)])
 	# Simulation state, not bookkeeping: two worlds holding identical entities
 	# can still disagree here after a remove-then-restore, and would then hand
 	# out different ids for the next spawn. That divergence is invisible until

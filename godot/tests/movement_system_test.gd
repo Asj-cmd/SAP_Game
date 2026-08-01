@@ -65,6 +65,8 @@ func _build_world() -> SimWorld:
 	var world: SimWorld = SimWorld.new(1)
 	world.configure(GameModeDef.new(), tuning, [room_a, room_b], [])
 	world.add_system(MovementSystem.new())
+	# These suites exercise in-round rules, which only run in the live phase.
+	world.match_phase = SimWorld.MatchPhase.PLAYING
 	return world
 
 func _add_actor(world: SimWorld, at: Vector3) -> SimEntity:
