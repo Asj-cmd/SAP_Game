@@ -13,6 +13,21 @@ extends Node
 
 const WorldGeometryScript = preload("res://autoload/world_geometry.gd")
 
+## REFERENCE IMPLEMENTATION - no longer booted. This file and
+## world_geometry.gd were autoloads while the port WAS the game; sim/ owns the
+## rules now (ARCHITECTURE.md §1) and two live rule implementations would be a
+## correctness hazard, so neither is registered in project.godot any more. They
+## are kept as the source the systems layer is ported against.
+##
+## Geometry used to arrive as the `WorldGeometry` autoload singleton. It is now
+## owned directly, which keeps all 56 call sites below reading exactly as they
+## did - and keeps this file parsing, since a bare reference to a
+## no-longer-registered autoload is a hard parse error.
+## Typed as the preloaded script rather than plain Node so the compiler still
+## knows every return type across those call sites, exactly as it did when this
+## was a registered autoload.
+var WorldGeometry: WorldGeometryScript = WorldGeometryScript.new()
+
 # Server ranges were a touch more generous than the client's prompt range so
 # an action never gets rejected right when the prompt says it's available.
 const PICKUP_RANGE: float = 72.0 * WorldGeometryScript.WORLD_SCALE

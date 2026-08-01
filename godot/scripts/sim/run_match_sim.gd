@@ -5,12 +5,14 @@ extends SceneTree
 ##   godot --headless --path godot --script res://scripts/sim/run_match_sim.gd
 ## Optional: -- --seed 12345   (reproducible run; omitted = random each time)
 ##
-## Fetches MatchState via get_node("/root/MatchState") rather than the bare
-## global identifier: a --script entry point is compiled BEFORE the engine
-## sets up the SceneTree's autoloads (autoloads compile each other's bare
-## identifiers fine, in project.godot order - but this file compiles even
-## earlier, as the MainLoop candidate itself), so the static name isn't
-## resolvable here yet.
+## REFERENCE RUNNER for the 1:1 TypeScript port, which sim/ now supersedes.
+## The live determinism/rules runner is tools/headless_sim.gd.
+##
+## MatchState is instantiated directly rather than fetched as an autoload: it
+## is no longer registered in project.godot, because a second live
+## implementation of the rules booting alongside sim/ is a correctness hazard
+## (ARCHITECTURE.md §1). Instantiating it keeps this runner working as a
+## behavioural reference to port systems against.
 
 const TEAM_SIZE := 2
 const BUNDLES_PER_BEDROOM := TEAM_SIZE + 1 # matches the client's default (3 for 2v2)
@@ -24,10 +26,12 @@ const BOT_TICK_MS := 250.0
 # backstop against an infinite loop if that invariant ever breaks.
 const MAX_SIM_MS := 50.0 * 310.0 * 1000.0
 
-var ms # MatchState autoload, fetched dynamically - see note above
+const MatchStateScript = preload("res://autoload/match_state.gd")
+
+var ms # MatchState instance - see note above
 
 func _initialize() -> void:
-	ms = get_root().get_node("MatchState")
+	ms = MatchStateScript.new()
 
 	var seed_value := _get_seed_from_args()
 	if seed_value != -1:
@@ -47,6 +51,12 @@ func _initialize() -> void:
 	print("2v2, %d bundles/bedroom, win a round by holding %d bundles, first to 2 round wins takes the match.\n" % [BUNDLES_PER_BEDROOM, ms.win_score])
 
 	_run_match()
+
+	# Both are plain Nodes never added to the tree, so nothing else will
+	# release them. Freeing keeps the run's exit clean rather than reporting
+	# leaked ObjectDB instances that look like a fault and are not one.
+	ms.WorldGeometry.free()
+	ms.free()
 	quit()
 
 func _run_match() -> void:

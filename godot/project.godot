@@ -20,8 +20,11 @@ config/icon="res://icon.svg"
 
 [autoload]
 
-WorldGeometry="*res://autoload/world_geometry.gd"
-MatchState="*res://autoload/match_state.gd"
+; The 1:1 TypeScript port (autoload/match_state.gd, autoload/world_geometry.gd)
+; is deliberately NOT registered here. sim/ owns the rules now, and a second
+; live implementation of them booting alongside it is a correctness hazard, not
+; a fallback. The files are kept as the reference the systems layer is ported
+; against - read, not run. See ARCHITECTURE.md §1.
 MCPRuntimeBridge="*res://addons/godot_mcp/services/mcp_runtime_bridge.gd"
 MCPInputBridge="*res://addons/godot_mcp/services/mcp_input_bridge.gd"
 MCPScreenshotBridge="*res://addons/godot_mcp/services/mcp_screenshot_bridge.gd"
