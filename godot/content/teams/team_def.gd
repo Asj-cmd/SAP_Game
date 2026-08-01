@@ -15,6 +15,10 @@ extends Resource
 @export var jail_zone: StringName = &""
 ## Where members enter the world, in slot order. One entry per team member.
 @export var spawn_points: Array[Vector3] = []
+## Where this team's cash starts. Authored beside the spawns because both
+## answer the same question - where does a round begin - and both must come
+## from content so that populating a match needs no code that knows the level.
+@export var cash_points: Array[Vector3] = []
 
 ## Spawn point for the given roster slot, clamped so an oversized roster still
 ## resolves rather than failing out of range.

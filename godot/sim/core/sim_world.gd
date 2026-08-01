@@ -81,14 +81,36 @@ var _zone_lookup_order: Array[StringName] = []
 func _init(seed_value: int = 0) -> void:
 	rng = SimRandom.new(seed_value)
 
+## Why the last configure() refused, empty when the content installed.
+##
+## Content that fails validation is NOT installed and the world will not step
+## (WORLD_AUTHORING.md §7). A broken house has to be impossible to play rather
+## than something discovered mid-match, and reporting a problem while loading
+## anyway is just a slower way of discovering it mid-match.
+var content_failures: PackedStringArray = PackedStringArray()
+
 ## Installs the content this world runs on. Call before the first step().
+##
+## Returns true when the content was accepted. Validation runs only when
+## collision geometry is present: a world without it is explicitly an open
+## plane - the fixture shape the determinism probes and rule suites use - and
+## has no geometry to be broken. Anything that could be a level carries
+## geometry, so anything that could be a level is gated.
 func configure(
 	game_mode: GameModeDef,
 	tuning_values: TuningDef,
 	zone_defs: Array[ZoneDef],
 	team_defs: Array[TeamDef],
 	collision_def: WorldCollisionDef = null
-) -> void:
+) -> bool:
+	content_failures = PackedStringArray()
+	if collision_def != null:
+		content_failures = ContentValidator.validate(zone_defs, team_defs, collision_def, tuning_values)
+	if not content_failures.is_empty():
+		for failure: String in content_failures:
+			push_error("content rejected: %s" % failure)
+		return false
+
 	mode = game_mode
 	tuning = tuning_values
 	collision = collision_def
@@ -99,6 +121,11 @@ func configure(
 	for team: TeamDef in team_defs:
 		teams[team.id] = team
 	_rebuild_zone_lookup_order()
+	return true
+
+## Did the installed content pass? A world that refused its content is inert.
+func has_valid_content() -> bool:
+	return content_failures.is_empty()
 
 ## Orders zones by descending priority, ties broken by ascending id. The
 ## tie-break is what makes this a TOTAL order: without it, two equal-priority
@@ -155,6 +182,45 @@ func has_entity(entity_id: int) -> bool:
 
 func remove_entity(entity_id: int) -> void:
 	entities.erase(entity_id)
+
+## Creates the round's bodies from content: one actor per roster slot, and
+## each team's cash where the team says it starts.
+##
+## Lives here rather than in whatever assembles the game because it WRITES
+## entity state, and presentation writing simulation state is the one thing
+## the architecture does not survive (§1). A caller gets a populated world
+## from one call and never touches a field.
+##
+## Clears any previous roster first, so starting a second match does not stack
+## bodies on the first one's.
+func populate_roster() -> void:
+	for entity_id: int in sorted_entity_ids():
+		remove_entity(entity_id)
+
+	var slots: int = mode.team_size if mode != null else 1
+	for team_id: StringName in sorted_team_ids():
+		var team: TeamDef = teams[team_id]
+		for slot: int in slots:
+			var actor: SimEntity = SimEntity.new(SimEntity.NO_ENTITY, SimEntity.Kind.ACTOR)
+			actor.team = team_id
+			actor.slot = slot
+			actor.position = team.spawn_point_for_slot(slot)
+			actor.origin_position = actor.position
+			add_entity(actor)
+		for point: Vector3 in team.cash_points:
+			var cash: SimEntity = SimEntity.new(SimEntity.NO_ENTITY, SimEntity.Kind.CARRIABLE)
+			cash.team = team_id
+			cash.position = point
+			cash.origin_position = point
+			add_entity(cash)
+
+## Actor ids in a fixed order - what a local game hands out as seats.
+func actor_ids() -> Array[int]:
+	var ids: Array[int] = []
+	for entity_id: int in sorted_entity_ids():
+		if entities[entity_id].is_actor():
+			ids.append(entity_id)
+	return ids
 
 ## Ids in ascending order. Systems that must not depend on insertion order -
 ## and the state digest - iterate through this.
@@ -248,6 +314,12 @@ func emit(event: SimEvent) -> void:
 ## takes its per-tick update, then the tick counter advances and TickAdvanced
 ## announces the tick just reached.
 func step(commands: Array[SimCommand]) -> Array[SimEvent]:
+	# Rejected content leaves the world inert. Stepping a world whose geometry
+	# never installed would run a match inside an empty shell, which is the
+	# "discovered mid-match" outcome the gate exists to prevent.
+	if not content_failures.is_empty():
+		return []
+
 	_pending_events.clear()
 
 	for command: SimCommand in commands:
