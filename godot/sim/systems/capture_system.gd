@@ -26,10 +26,6 @@ func handle(world: SimWorld, command: SimCommand) -> void:
 	var capture_command: CaptureCommand = command as CaptureCommand
 	if capture_command == null:
 		return
-	# Every actor-triggered rule gates on this, exactly as the port gated each
-	# handler on phase == "playing".
-	if not world.is_live():
-		return
 	if capture_command.kind == CaptureCommand.KIND_CAPTURE:
 		_try_capture(world, capture_command)
 	else:
@@ -41,9 +37,6 @@ func handle(world: SimWorld, command: SimCommand) -> void:
 ## re-evaluates its safety from where it now stands, rather than spending a
 ## tick holding a grant it earned before being seized.
 func step(world: SimWorld) -> void:
-	# Sentences and safe-room grants do not run down between rounds.
-	if not world.is_live():
-		return
 	for entity_id: int in world.sorted_entity_ids():
 		var entity: SimEntity = world.entities[entity_id]
 		if entity.is_actor():

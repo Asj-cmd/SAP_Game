@@ -15,10 +15,17 @@ extends RefCounted
 ## interpolation between the two most recent simulation states (§7).
 const KIND_TICK_ADVANCED: StringName = &"TickAdvanced"
 
-## Emitted when a command reaches the world with no system willing to handle
-## it. Currently every command, because no systems exist yet - but this stays
-## useful permanently as the signal for a malformed or stale client command.
+## No system recognises this command's kind at all. A malformed command, or
+## one from a client running a build with a system this one lacks. Always
+## worth surfacing.
 const KIND_COMMAND_UNHANDLED: StringName = &"CommandUnhandled"
+
+## The command was recognised, but the system that handles it is dormant
+## because the match is not live - an actor pressing on during a countdown or
+## a result screen. Ordinary and expected, and deliberately NOT reported as
+## unhandled: a countdown's worth of these every round would bury the genuine
+## signal above.
+const KIND_COMMAND_IGNORED_PAUSED: StringName = &"CommandIgnoredWhilePaused"
 
 var kind: StringName = &""
 ## Tick on which this happened.
@@ -36,6 +43,9 @@ static func tick_advanced(world_tick: int) -> SimEvent:
 
 static func command_unhandled(world_tick: int, command: SimCommand) -> SimEvent:
 	return SimEvent.new(KIND_COMMAND_UNHANDLED, world_tick, command.actor_id)
+
+static func command_ignored_while_paused(world_tick: int, command: SimCommand) -> SimEvent:
+	return SimEvent.new(KIND_COMMAND_IGNORED_PAUSED, world_tick, command.actor_id)
 
 ## Canonical text form, folded into the per-tick digest so that two runs
 ## disagreeing on what HAPPENED are caught, not just two runs disagreeing on

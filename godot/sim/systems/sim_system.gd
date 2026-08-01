@@ -40,6 +40,21 @@ enum Phase {
 func phase() -> Phase:
 	return Phase.INTERACTION
 
+## Does this system keep running while the match is not live?
+##
+## Declared for the same reason the phase is: the safe answer is the default,
+## so a new system gets correct behaviour from its author doing nothing. The
+## alternative - every system remembering an `if not world.is_live(): return`
+## guard - fails the moment somebody forgets one, and the symptom is an actor
+## creeping during a countdown or a sentence ticking down between rounds.
+##
+## Overriding to true is a claim that this system does no actor-triggered work
+## and must stay correct while play is stopped: the match flow that has to run
+## in order to restart play at all, and derived views like scoring, which
+## would otherwise leave the board disagreeing with the state it summarises.
+func runs_when_paused() -> bool:
+	return false
+
 ## Does this system act on commands of `kind`?
 func handles(_kind: StringName) -> bool:
 	return false

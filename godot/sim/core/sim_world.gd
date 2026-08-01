@@ -61,6 +61,9 @@ var mode: GameModeDef = null
 var tuning: TuningDef = null
 var zones: Dictionary[StringName, ZoneDef] = {}
 var teams: Dictionary[StringName, TeamDef] = {}
+## Solid geometry. Null means no shell and no walls - an open plane, which is
+## only ever right for a fixture. See WORLD_AUTHORING.md §2.
+var collision: WorldCollisionDef = null
 
 ## Rule modules, run in this exact order (§5). Order is part of the
 ## simulation's definition, not an implementation detail: two machines running
@@ -83,10 +86,12 @@ func configure(
 	game_mode: GameModeDef,
 	tuning_values: TuningDef,
 	zone_defs: Array[ZoneDef],
-	team_defs: Array[TeamDef]
+	team_defs: Array[TeamDef],
+	collision_def: WorldCollisionDef = null
 ) -> void:
 	mode = game_mode
 	tuning = tuning_values
+	collision = collision_def
 	zones.clear()
 	for zone: ZoneDef in zone_defs:
 		zones[zone.id] = zone
@@ -198,6 +203,12 @@ func sorted_team_ids() -> Array[StringName]:
 func is_live() -> bool:
 	return match_phase == MatchPhase.PLAYING
 
+## Does this system run this tick? Dormant systems receive neither commands
+## nor their per-tick update, so a rule cannot fire while play is stopped by
+## a system whose author forgot to check.
+func is_system_active(system: SimSystem) -> bool:
+	return is_live() or system.runs_when_paused()
+
 func score_for(team_id: StringName) -> int:
 	return scores.get(team_id, 0)
 
@@ -241,18 +252,30 @@ func step(commands: Array[SimCommand]) -> Array[SimEvent]:
 
 	for command: SimCommand in commands:
 		var claimed: bool = false
+		var dormant_claim: bool = false
 		for system: SimSystem in systems:
-			if system.handles(command.kind):
+			if not system.handles(command.kind):
+				continue
+			if is_system_active(system):
 				system.handle(self, command)
 				claimed = true
-		# Nobody claimed it: a malformed command, or one from a client running
-		# a build with a system this one does not have. Reporting it beats
-		# discarding it silently.
+			else:
+				dormant_claim = true
 		if not claimed:
-			emit(SimEvent.command_unhandled(tick, command))
+			# Two different situations that must not read alike. A command
+			# whose system is merely asleep between rounds is ordinary and
+			# expected; one nobody recognises at all means a malformed
+			# command, or a client running a build this one does not have.
+			# Collapsing them would bury the second under a countdown's worth
+			# of the first, every round.
+			if dormant_claim:
+				emit(SimEvent.command_ignored_while_paused(tick, command))
+			else:
+				emit(SimEvent.command_unhandled(tick, command))
 
 	for system: SimSystem in systems:
-		system.step(self)
+		if is_system_active(system):
+			system.step(self)
 
 	tick += 1
 	emit(SimEvent.tick_advanced(tick))

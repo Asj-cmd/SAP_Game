@@ -20,6 +20,11 @@ extends SimSystem
 func phase() -> SimSystem.Phase:
 	return SimSystem.Phase.FLOW
 
+## The system that decides when play resumes cannot itself be stopped by play
+## being stopped.
+func runs_when_paused() -> bool:
+	return true
+
 func system_name() -> StringName:
 	return &"MatchFlowSystem"
 
@@ -115,8 +120,29 @@ func _enter(world: SimWorld, next: SimWorld.MatchPhase, ticks: int) -> void:
 	var previous: SimWorld.MatchPhase = world.match_phase
 	world.match_phase = next
 	world.phase_ticks_remaining = ticks
+	if next != SimWorld.MatchPhase.PLAYING:
+		_freeze_actors(world)
 	if previous != next:
 		world.emit(MatchEvent.phase_changed(world.tick, previous, next))
+
+## Settles actors into a coherent resting state whenever play stops.
+##
+## MovementSystem is dormant outside PLAYING, so nothing else would clear a
+## run cycle that was in progress when the whistle went - presentation reads
+## motion_state and would animate the whole roster sprinting on the spot
+## through the result screen. Held input is dropped too, so a round does not
+## resume into a direction somebody was pressing a phase ago.
+func _freeze_actors(world: SimWorld) -> void:
+	for entity_id: int in world.sorted_entity_ids():
+		var entity: SimEntity = world.entities[entity_id]
+		if not entity.is_actor():
+			continue
+		entity.velocity = Vector3.ZERO
+		entity.move_intent = Vector3.ZERO
+		entity.motion_state = (
+			SimEntity.MotionState.HELD if entity.is_captured
+			else SimEntity.MotionState.IDLE
+		)
 
 # ---- round conditions ----
 

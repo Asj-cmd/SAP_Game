@@ -17,6 +17,13 @@ extends SimSystem
 func phase() -> SimSystem.Phase:
 	return SimSystem.Phase.SCORING
 
+## A derived view, not an actor action. Freezing it would let the displayed
+## score disagree with the board it summarises - after a round reset returns
+## the cash home, a dormant scorer would still be showing last round's total
+## right through the countdown.
+func runs_when_paused() -> bool:
+	return true
+
 func system_name() -> StringName:
 	return &"ScoringSystem"
 

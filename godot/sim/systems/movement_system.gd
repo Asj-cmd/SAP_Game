@@ -82,12 +82,6 @@ func _advance(world: SimWorld, actor: SimEntity) -> void:
 
 ## Runs one actor's transition and applies whatever displacement it earns.
 func _resolve(world: SimWorld, actor: SimEntity) -> SimEntity.MotionState:
-	# Frozen outside the live phase: nobody creeps forward during the
-	# countdown, and nobody keeps running after the final whistle.
-	if not world.is_live():
-		actor.velocity = Vector3.ZERO
-		return SimEntity.MotionState.HELD if actor.is_captured else SimEntity.MotionState.IDLE
-
 	if actor.is_captured:
 		actor.velocity = Vector3.ZERO
 		return SimEntity.MotionState.HELD
@@ -122,17 +116,12 @@ func _speed_for(world: SimWorld, actor: SimEntity) -> float:
 ## fixed X, Y, Z order. Sliding is why an actor pressing diagonally into a wall
 ## beside a doorway slips through the gap instead of sticking to the wall - the
 ## 1:1 port did the same thing, and it was the difference between doorways
-## feeling generous and feeling broken.
-##
-## Passability is simply "is the destination inside some zone". Per-connection
-## traversal rules (locked, one-way, wide enough only if unencumbered) belong
-## on ZoneDef.links as typed edges when that lands (§9); this is the degenerate
-## case of exactly that, and does not have to be rewritten to get there.
+## feeling generous and feeling broken (WORLD_AUTHORING.md §4 keeps it).
 func _apply_displacement(world: SimWorld, actor: SimEntity, delta: Vector3) -> bool:
 	if delta == Vector3.ZERO:
 		return false
 
-	if _is_passable(world, actor.position + delta):
+	if _can_traverse(world, actor.position, actor.position + delta):
 		actor.position += delta
 		return true
 
@@ -142,25 +131,25 @@ func _apply_displacement(world: SimWorld, actor: SimEntity, delta: Vector3) -> b
 		single_axis[axis] = delta[axis]
 		if single_axis == Vector3.ZERO:
 			continue
-		if _is_passable(world, actor.position + single_axis):
+		if _can_traverse(world, actor.position, actor.position + single_axis):
 			actor.position += single_axis
 			moved = true
 	return moved
 
-## PLACEHOLDER. See WORLD_AUTHORING.md §1 and §2 - this is the exact function
-## that document opens by naming, and it must not survive contact with a real
-## building.
+## May an actor travel from `from` to `to` this tick?
 ##
-## It asks only "is the destination inside some zone", which conflates two
-## things §2 requires be kept apart: a zone MEANS (ownership, role, safety), a
-## blocker BLOCKS (geometry, no rules). Because solidity is never represented,
-## two adjacent zones share an entire walkable face - an actor crosses between
-## bedroom and hallway anywhere along the wall, not only at the doorway. There
-## is nothing solid in this world.
+## Two independent questions, per WORLD_AUTHORING.md §2: the destination must
+## be inside the world shell, and the path must not cross anything solid. The
+## path test is swept rather than sampled at the endpoint (§4), so a fast
+## actor cannot step over a thin wall.
 ##
-## Do not build on this. Replacing it is §8's first item, and it needs a
-## WorldCollisionDef blocker set plus swept segment tests (§4) rather than the
-## endpoint sample below - at 30Hz a sprinting actor can already cross a thin
-## wall in one tick with neither endpoint inside it.
-func _is_passable(world: SimWorld, point: Vector3) -> bool:
-	return world.zone_at(point) != null
+## Zones are deliberately NOT consulted. They answer "what rules apply here",
+## not "can I be here" - that was the conflation the retired placeholder was
+## built on, and it made every shared zone face a walkable doorway.
+func _can_traverse(world: SimWorld, from: Vector3, to: Vector3) -> bool:
+	if world.collision == null:
+		return true # no geometry authored: an open plane, fixtures only
+	var radius: float = world.tuning.actor_radius if world.tuning != null else 0.0
+	if not world.collision.contains(to, radius):
+		return false
+	return not world.collision.blocks_segment(from, to, radius)

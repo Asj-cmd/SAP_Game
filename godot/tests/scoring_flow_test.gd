@@ -24,6 +24,7 @@ func _initialize() -> void:
 	_test_round_outcomes()
 	_test_round_reset()
 	_test_full_match()
+	_test_dormancy()
 
 	print("\n%d passed, %d failed" % [_passed, _failed])
 	if _failed > 0:
@@ -314,3 +315,50 @@ func _test_full_match() -> void:
 	_check("match/took the required rounds", world.round_wins_for(&"team_a"), ROUNDS_TO_WIN)
 	_check("match/announces the end once", match_ended, 1)
 	_check("match/is not live once over", world.is_live(), false)
+
+# ---- dormancy ----
+
+## Systems declare whether they run while play is stopped, and SimWorld
+## enforces it. These cases are about that enforcement, not about any one
+## system remembering a guard.
+func _test_dormancy() -> void:
+	var world: SimWorld = _build_world()
+	world.add_system(MovementSystem.new())
+	var actor: SimEntity = SimEntity.new(SimEntity.NO_ENTITY, SimEntity.Kind.ACTOR)
+	actor.team = &"team_a"
+	actor.position = Vector3(50, 50, 50)
+	actor.origin_position = Vector3(50, 50, 50)
+	world.add_entity(actor)
+	_stock_vaults(world)
+
+	# Countdown: recognised, but its system is asleep.
+	_step(world, [MatchCommand.start()])
+	var paused: Array[SimEvent] = _step(world, [MoveCommand.move(actor.id, Vector3(1, 0, 0))])
+	_check("dormant/no movement during the countdown", actor.position, Vector3(50, 50, 50))
+	_check("dormant/reported as paused, not unhandled",
+		_count(paused, SimEvent.KIND_COMMAND_IGNORED_PAUSED), 1)
+	_check("dormant/not reported as unhandled",
+		_count(paused, SimEvent.KIND_COMMAND_UNHANDLED), 0)
+
+	# A kind nobody claims stays a genuine unhandled report - the distinction
+	# exists so this signal is not buried under a countdown of the above.
+	var junk: Array[SimEvent] = _step(world, [SimCommand.new(&"NoSuchCommand")])
+	_check("dormant/unknown kinds still report unhandled",
+		_count(junk, SimEvent.KIND_COMMAND_UNHANDLED), 1)
+	_check("dormant/unknown kinds are not called paused",
+		_count(junk, SimEvent.KIND_COMMAND_IGNORED_PAUSED), 0)
+
+	# Scoring is a derived view and keeps running, so the board never
+	# disagrees with the state it summarises.
+	_check("dormant/scoring runs while paused", world.score_for(&"team_a"), CASH_PER_TEAM)
+
+	# Once live, the same command is obeyed.
+	_reach_play(world)
+	_step(world, [MoveCommand.move(actor.id, Vector3(1, 0, 0))])
+	_check("dormant/movement resumes when live", actor.position.x > 50.0, true)
+
+	# The whistle leaves nobody stuck in a run cycle: movement is dormant from
+	# here, so flow settles actors itself.
+	_run(world, int(ROUND_SECONDS * TICKS_PER_SECOND) + 1)
+	_check("dormant/actors settle when play stops", actor.motion_state, SimEntity.MotionState.IDLE)
+	_check("dormant/held input is dropped", actor.move_intent, Vector3.ZERO)

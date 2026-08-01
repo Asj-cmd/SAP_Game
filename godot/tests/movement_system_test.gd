@@ -18,6 +18,7 @@ func _initialize() -> void:
 	_test_state_machine()
 	_test_speed_and_intent()
 	_test_containment_and_sliding()
+	_test_collision_content()
 	_test_zone_tracking()
 
 	print("\n%d passed, %d failed" % [_passed, _failed])
@@ -43,11 +44,22 @@ func _close(case_name: String, actual: float, expected: float, tolerance: float 
 
 # ---- world ----
 
-## An L of two rooms, so sliding along a corner is expressible:
-##   room_a  x 0..100,  z 0..100
-##   room_b  x 100..200, z 0..100
-## Everything outside those two boxes is off-map.
-func _build_world() -> SimWorld:
+## The two-room box from WORLD_AUTHORING.md §8: a 200x100x100 shell split by a
+## 4-thick wall at x=98..102 with one doorway at z=40..60.
+##
+## Zones still cover the space, but they no longer decide passability - that is
+## the conflation the retired placeholder was built on. Solidity comes from
+## WorldCollisionDef alone, so an actor crosses at the doorway and nowhere else.
+func _collision(radius_source: TuningDef) -> WorldCollisionDef:
+	var collision: WorldCollisionDef = WorldCollisionDef.new()
+	collision.bounds = AABB(Vector3(0, 0, 0), Vector3(200, 100, 100))
+	collision.blockers = [
+		AABB(Vector3(98, 0, 0), Vector3(4, 100, 40)),
+		AABB(Vector3(98, 0, 60), Vector3(4, 100, 40)),
+	]
+	return collision
+
+func _build_world(actor_radius: float = 0.0) -> SimWorld:
 	var room_a: ZoneDef = ZoneDef.new()
 	room_a.id = &"room_a"
 	room_a.role = ZoneDef.Role.NEUTRAL
@@ -61,9 +73,10 @@ func _build_world() -> SimWorld:
 	var tuning: TuningDef = TuningDef.new()
 	tuning.move_speed = MOVE_SPEED
 	tuning.carry_speed_scale = CARRY_SCALE
+	tuning.actor_radius = actor_radius
 
 	var world: SimWorld = SimWorld.new(1)
-	world.configure(GameModeDef.new(), tuning, [room_a, room_b], [])
+	world.configure(GameModeDef.new(), tuning, [room_a, room_b], [], _collision(tuning))
 	world.add_system(MovementSystem.new())
 	# These suites exercise in-round rules, which only run in the live phase.
 	world.match_phase = SimWorld.MatchPhase.PLAYING
@@ -178,14 +191,14 @@ func _test_speed_and_intent() -> void:
 	_step(world_persist, [MoveCommand.stop(runner.id)])
 	_check("speed/explicit stop halts", runner.motion_state, SimEntity.MotionState.IDLE)
 
-# ---- containment and sliding ----
+# ---- containment, sliding, and swept traversal ----
 
 func _test_containment_and_sliding() -> void:
-	# Straight into the west wall: no movement at all.
+	# Straight into the shell: no movement at all.
 	var world: SimWorld = _build_world()
 	var actor: SimEntity = _add_actor(world, Vector3(0.5, 50, 50))
 	_step(world, [MoveCommand.move(actor.id, Vector3(-1, 0, 0))])
-	_check("contain/cannot leave the map", actor.position, Vector3(0.5, 50, 50))
+	_check("contain/cannot leave the shell", actor.position, Vector3(0.5, 50, 50))
 
 	# Diagonally into that same wall: the blocked axis is dropped and the free
 	# one is kept, so the actor slides along it rather than sticking.
@@ -196,11 +209,55 @@ func _test_containment_and_sliding() -> void:
 	_close("slide/drops the blocked axis", slider.position.x, 0.5)
 	_check("slide/counts as moving", slider.motion_state, SimEntity.MotionState.MOVING)
 
-	# Adjacent rooms are a single continuous space to walk through.
-	var world_cross: SimWorld = _build_world()
-	var crosser: SimEntity = _add_actor(world_cross, Vector3(95, 50, 50))
-	_step(world_cross, [MoveCommand.move(crosser.id, Vector3(1, 0, 0))])
-	_check("contain/walks between adjacent rooms", crosser.position.x > 100.0, true)
+	# The doorway is passable...
+	var world_door: SimWorld = _build_world()
+	var doorway: SimEntity = _add_actor(world_door, Vector3(95, 50, 50))
+	_step(world_door, [MoveCommand.move(doorway.id, Vector3(1, 0, 0))])
+	_check("wall/passes through the doorway", doorway.position.x > 102.0, true)
+
+	# ...and the wall either side of it is not. This case is ALSO the
+	# tunnelling test: one tick at MOVE_SPEED covers 10 units against a wall
+	# only 4 thick, so the destination lands clear on the far side. An
+	# endpoint-only test would wave it straight through; the swept segment
+	# test is what stops it (WORLD_AUTHORING.md §4).
+	var world_wall: SimWorld = _build_world()
+	var walled: SimEntity = _add_actor(world_wall, Vector3(95, 50, 10))
+	_step(world_wall, [MoveCommand.move(walled.id, Vector3(1, 0, 0))])
+	_check("wall/solid away from the doorway", walled.position, Vector3(95, 50, 10))
+	_check("wall/reports blocked", walled.motion_state, SimEntity.MotionState.BLOCKED)
+
+	# The same again at absurd speed, so the step dwarfs the wall entirely.
+	var world_fast: SimWorld = _build_world()
+	world_fast.tuning.move_speed = MOVE_SPEED * 100.0
+	var sprinter: SimEntity = _add_actor(world_fast, Vector3(95, 50, 10))
+	_step(world_fast, [MoveCommand.move(sprinter.id, Vector3(1, 0, 0))])
+	_check("wall/no tunnelling at any speed", sprinter.position, Vector3(95, 50, 10))
+
+	# A body too wide for the gap does not fit through it.
+	var world_fat: SimWorld = _build_world(11.0)
+	var fat: SimEntity = _add_actor(world_fat, Vector3(95, 50, 50))
+	_step(world_fat, [MoveCommand.move(fat.id, Vector3(1, 0, 0))])
+	_check("wall/a 20-wide gap refuses a 22-wide body", fat.position, Vector3(95, 50, 50))
+
+	# ...while a body that does fit still gets through the same gap.
+	var world_thin: SimWorld = _build_world(8.0)
+	var thin: SimEntity = _add_actor(world_thin, Vector3(95, 50, 50))
+	_step(world_thin, [MoveCommand.move(thin.id, Vector3(1, 0, 0))])
+	_check("wall/and admits one that fits", thin.position.x > 102.0, true)
+
+## The authored fixture must parse and carry the geometry, since collision is
+## content and a designer edits it without touching code.
+func _test_collision_content() -> void:
+	var collision: WorldCollisionDef = load("res://content/collision/two_room_box.tres") as WorldCollisionDef
+	_check("content/two-room box loads", collision != null, true)
+	if collision == null:
+		return
+	_check("content/has both wall segments", collision.blockers.size(), 2)
+	_check("content/shell is authored", collision.bounds.size, Vector3(200, 100, 100))
+	_check("content/doorway is an absence of blocker",
+		collision.blocks_segment(Vector3(95, 50, 50), Vector3(105, 50, 50)), false)
+	_check("content/wall is solid",
+		collision.blocks_segment(Vector3(95, 50, 10), Vector3(105, 50, 10)), true)
 
 # ---- zone tracking ----
 

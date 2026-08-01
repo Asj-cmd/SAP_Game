@@ -1,0 +1,14 @@
+[gd_resource type="Resource" script_class="WorldCollisionDef" load_steps=2 format=3]
+
+[ext_resource type="Script" uid="uid://dcgkprbk7eqsj" path="res://content/collision/world_collision_def.gd" id="1_worldcollision"]
+
+; The trivial two-room box WORLD_AUTHORING.md §8 asks for as step one, and the
+; fixture the validator will be calibrated against in step two.
+;
+; A 200 x 100 x 100 shell split by a 4-thick wall at x=98..102, with a single
+; doorway gap at z=40..60. The doorway is an ABSENCE of blocker, not a thing -
+; which is the whole point of §2.
+[resource]
+script = ExtResource("1_worldcollision")
+bounds = AABB(0, 0, 0, 200, 100, 100)
+blockers = Array[AABB]([AABB(98, 0, 0, 4, 100, 40), AABB(98, 0, 60, 4, 100, 40)])
