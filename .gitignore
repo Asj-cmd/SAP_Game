@@ -23,3 +23,10 @@ graphify-out/cache/
 graphify-out/.graphify_analysis.json
 graphify-out/.graphify_labels.json
 graphify-out/.graphify_labels.json.sig
+
+# Godot's project data folder: machine-local editor cache, shader cache,
+# import metadata and window layout. Versioning it means every pull rewrites
+# files underneath a running editor, which is what produced the stacked
+# "project data folder is missing" / "files newer on disk" / "no main scene
+# defined" dialogs. Godot recreates the folder, and its .gdignore, on open.
+godot/.godot/
