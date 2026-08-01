@@ -13,6 +13,21 @@ enum Kind {
 	CARRIABLE, ## Cash: picked up, carried, deposited, returned.
 }
 
+## What an actor is doing, as far as the rules are concerned.
+##
+## Presentation READS this to choose an animation and never writes it, and
+## never infers motion by differencing positions between frames either -
+## MovementSystem is the only thing that decides which state an actor is in.
+## That is the whole reason the state is explicit rather than derived: two
+## machines must agree on the state, and a value computed from render-side
+## position deltas would not survive interpolation, packet loss, or a pause.
+enum MotionState {
+	IDLE, ## Standing: no intent, or intent too small to act on.
+	MOVING, ## Displacing this tick.
+	BLOCKED, ## Pushing into geometry: intent, but nowhere to go.
+	HELD, ## Captured. Cannot act until released.
+}
+
 ## Sentinel for "no entity" in id-valued fields. Real ids start at 1, assigned
 ## by SimWorld, so 0 is unambiguous.
 const NO_ENTITY: int = 0
@@ -27,6 +42,15 @@ var is_bot: bool = false
 
 var position: Vector3 = Vector3.ZERO
 var velocity: Vector3 = Vector3.ZERO
+## Owned by MovementSystem. See MotionState.
+var motion_state: MotionState = MotionState.IDLE
+## Desired direction of travel, magnitude 0..1, in world space.
+##
+## Persists until the actor sends a different one, rather than being consumed
+## each tick: a client emits these at input rate, not tick rate, and a dropped
+## packet should not make an actor stutter to a halt. Stopping is an explicit
+## zero intent.
+var move_intent: Vector3 = Vector3.ZERO
 ## Zone containing `position`, refreshed by the system that moves this entity
 ## so downstream rules need not re-resolve it.
 var zone_id: StringName = &""
@@ -106,6 +130,8 @@ func duplicate_entity() -> SimEntity:
 	copy.is_bot = is_bot
 	copy.position = position
 	copy.velocity = velocity
+	copy.motion_state = motion_state
+	copy.move_intent = move_intent
 	copy.zone_id = zone_id
 	copy.carrying_id = carrying_id
 	copy.carried_by = carried_by
@@ -142,10 +168,12 @@ static func float_bits(value: float) -> int:
 ## Canonical text form, fed into SimWorld's state digest. Floats appear as raw
 ## bits; use to_debug_string() when a human needs to read it.
 func to_digest_string() -> String:
-	return "E%d|k%d|t%s|s%d|p%d,%d,%d|v%d,%d,%d|z%s|c%d|h%d|f%s|x%d|r%d|o%d|S%s,%d,%d" % [
+	return "E%d|k%d|t%s|s%d|p%d,%d,%d|v%d,%d,%d|m%d|i%d,%d,%d|z%s|c%d|h%d|f%s|x%d|r%d|o%d|S%s,%d,%d" % [
 		id, kind, team, slot,
 		float_bits(position.x), float_bits(position.y), float_bits(position.z),
 		float_bits(velocity.x), float_bits(velocity.y), float_bits(velocity.z),
+		motion_state,
+		float_bits(move_intent.x), float_bits(move_intent.y), float_bits(move_intent.z),
 		zone_id, carrying_id, carried_by, scored_for_team,
 		1 if is_captured else 0, capture_ticks_remaining, captured_on_tick,
 		safe_zone_id, safe_ticks_remaining, 1 if safe_forfeited else 0,

@@ -70,7 +70,7 @@ func _try_capture(world: SimWorld, command: CaptureCommand) -> void:
 		return
 	if not _may_capture_on(captor_zone, captor.team):
 		return
-	if captor.position.distance_to(target.position) > _capture_range(world):
+	if captor.position.distance_squared_to(target.position) > _capture_range_squared(world):
 		return
 	# The safe room's whole purpose. The grant is refreshed first: commands are
 	# resolved before per-tick updates, so an actor that reached the room this
@@ -145,7 +145,7 @@ func _try_release(world: SimWorld, command: CaptureCommand) -> void:
 	var rescuer_zone: ZoneDef = world.zone_at(rescuer.position)
 	if rescuer_zone == null or rescuer_zone.id != jail.id:
 		return
-	if rescuer.position.distance_to(target.position) > _release_range(world):
+	if rescuer.position.distance_squared_to(target.position) > _release_range_squared(world):
 		return
 
 	_free(world, target, rescuer.id, CaptureEvent.REASON_RESCUE)
@@ -246,11 +246,21 @@ func _jail_for(world: SimWorld, team: StringName) -> ZoneDef:
 			return zone
 	return null
 
-func _capture_range(world: SimWorld) -> float:
-	return world.tuning.capture_range if world.tuning != null else 0.0
+## Ranges are compared SQUARED, against squared distances.
+##
+## Identical results, and it keeps the comparison inside the exactly
+## representable subset (§6) - multiplication and comparison only, no sqrt.
+## A range check has no reason to reach for a square root: the only thing it
+## ever does with the distance is compare it.
+func _capture_range_squared(world: SimWorld) -> float:
+	if world.tuning == null:
+		return 0.0
+	return world.tuning.capture_range * world.tuning.capture_range
 
-func _release_range(world: SimWorld) -> float:
-	return world.tuning.rescue_range if world.tuning != null else 0.0
+func _release_range_squared(world: SimWorld) -> float:
+	if world.tuning == null:
+		return 0.0
+	return world.tuning.rescue_range * world.tuning.rescue_range
 
 ## Lockup length is a MODE property (a 3v3 may hold longer than a 2v2), with
 ## tuning as the fallback when no mode is installed.

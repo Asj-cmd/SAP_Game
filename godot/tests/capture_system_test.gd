@@ -15,7 +15,7 @@ const HOLD_SECONDS: float = 2.0
 ## Safe-room variants, all reachable by editing a .tres and touching no code.
 const VARIANT_NONE: int = 0 # offers no protection
 const VARIANT_B: int = 1 # 5s, pickup-independent - what ships
-const VARIANT_A: int = 2 # unlimited, ends on pickup
+const VARIANT_A: int = 2 # never expires on its own, ends on pickup
 const VARIANT_BOTH: int = 3 # 5s AND ends on pickup
 
 var _passed: int = 0
@@ -64,13 +64,13 @@ func _apply_variant(zone: ZoneDef, variant: int) -> void:
 			zone.safe_duration_seconds = 5.0
 			zone.safe_ends_on_pickup = false
 		VARIANT_A:
-			zone.safe_duration_seconds = 0.0
+			zone.safe_duration_seconds = -1.0
 			zone.safe_ends_on_pickup = true
 		VARIANT_BOTH:
 			zone.safe_duration_seconds = 5.0
 			zone.safe_ends_on_pickup = true
 		_:
-			zone.safe_duration_seconds = -1.0
+			zone.safe_duration_seconds = 0.0
 			zone.safe_ends_on_pickup = false
 
 func _build_world(cash_variant: int) -> SimWorld:
@@ -212,7 +212,7 @@ func _test_safe_room_variants() -> void:
 		 "wait": 5.0, "carrying": false, "expect": true},
 		{"name": "B/carrying does not end protection", "variant": VARIANT_B,
 		 "wait": 1.0, "carrying": true, "expect": false},
-		# Variant A: unlimited, ends on pickup.
+		# Variant A: no timer at all, ended only by the grab.
 		{"name": "A/protected indefinitely while empty-handed", "variant": VARIANT_A,
 		 "wait": 30.0, "carrying": false, "expect": false},
 		{"name": "A/the grab ends protection", "variant": VARIANT_A,
