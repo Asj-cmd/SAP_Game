@@ -44,6 +44,10 @@ var position: Vector3 = Vector3.ZERO
 var velocity: Vector3 = Vector3.ZERO
 ## Owned by MovementSystem. See MotionState.
 var motion_state: MotionState = MotionState.IDLE
+## Standing on something solid. Owned by MovementSystem; presentation reads it
+## alongside motion_state to tell walking from falling, and never derives it
+## from position deltas.
+var is_grounded: bool = false
 ## Desired direction of travel, magnitude 0..1, in world space.
 ##
 ## Persists until the actor sends a different one, rather than being consumed
@@ -76,7 +80,10 @@ var capture_ticks_remaining: int = 0
 ## sentence would run 1.967s. The sentence starts the tick AFTER the grab.
 var captured_on_tick: int = -1
 
-## Sentinel for protection that has no time limit (ZoneDef.safe_duration_seconds == 0).
+## Ticks value meaning "this grant never runs out on its own", used for a zone
+## whose safe_duration_seconds says the shelter has no timer. Deliberately does
+## not name the authored number: which value carries that meaning is content's
+## business, and restating it here is the drift WORLD_AUTHORING.md §9 is about.
 const SAFE_UNLIMITED: int = -1
 
 ## Safe-room protection, owned entirely by CaptureSystem.
@@ -135,6 +142,7 @@ func duplicate_entity() -> SimEntity:
 	copy.position = position
 	copy.velocity = velocity
 	copy.motion_state = motion_state
+	copy.is_grounded = is_grounded
 	copy.move_intent = move_intent
 	copy.zone_id = zone_id
 	copy.carrying_id = carrying_id
@@ -173,11 +181,11 @@ static func float_bits(value: float) -> int:
 ## Canonical text form, fed into SimWorld's state digest. Floats appear as raw
 ## bits; use to_debug_string() when a human needs to read it.
 func to_digest_string() -> String:
-	return "E%d|k%d|t%s|s%d|p%d,%d,%d|v%d,%d,%d|m%d|i%d,%d,%d|z%s|c%d|h%d|f%s|g%d,%d,%d|x%d|r%d|o%d|S%s,%d,%d" % [
+	return "E%d|k%d|t%s|s%d|p%d,%d,%d|v%d,%d,%d|m%d,%d|i%d,%d,%d|z%s|c%d|h%d|f%s|g%d,%d,%d|x%d|r%d|o%d|S%s,%d,%d" % [
 		id, kind, team, slot,
 		float_bits(position.x), float_bits(position.y), float_bits(position.z),
 		float_bits(velocity.x), float_bits(velocity.y), float_bits(velocity.z),
-		motion_state,
+		motion_state, 1 if is_grounded else 0,
 		float_bits(move_intent.x), float_bits(move_intent.y), float_bits(move_intent.z),
 		zone_id, carrying_id, carried_by, scored_for_team,
 		float_bits(origin_position.x), float_bits(origin_position.y), float_bits(origin_position.z),

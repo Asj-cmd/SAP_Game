@@ -19,8 +19,21 @@ extends Resource
 ## dials rather than a code change - set it below 1.0 and laden actors are
 ## slower with nothing recompiled.
 @export var carry_speed_scale: float = 1.0
-## Actor body radius, for collision against level geometry.
+## Actor body radius, for collision against level geometry. Also acts as the
+## body's half-height, so a resting actor's centre sits this far above the
+## floor it stands on.
 @export var actor_radius: float = 20.0
+
+@export_group("Gravity")
+## Downward acceleration in units per second squared. Zero or less means no
+## gravity is authored and actors do not fall - only ever right for a fixture
+## that is testing horizontal rules. See WORLD_AUTHORING.md §5.
+@export var gravity: float = 2000.0
+## Fall speed is capped so a long drop cannot outrun the swept test.
+@export var terminal_fall_speed: float = 3000.0
+## How high a threshold an actor walks over without a jump. Stairs and door
+## sills should not require a verb the game may never have.
+@export var step_up_height: float = 30.0
 
 @export_group("Interaction ranges")
 @export var pickup_range: float = 144.0

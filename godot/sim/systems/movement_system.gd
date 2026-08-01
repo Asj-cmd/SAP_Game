@@ -24,6 +24,13 @@ extends SimSystem
 const INTENT_DEADZONE: float = 0.05
 const INTENT_DEADZONE_SQUARED: float = INTENT_DEADZONE * INTENT_DEADZONE
 
+## Bisection steps used to find where a blocked move stops.
+##
+## Fixed rather than tolerance-driven, because a loop that runs until it is
+## "close enough" runs a different number of times on different inputs, and
+## the whole simulation is built on doing the same work every time.
+const SWEEP_STEPS: int = 12
+
 func phase() -> SimSystem.Phase:
 	return SimSystem.Phase.MOVEMENT
 
@@ -86,20 +93,79 @@ func _resolve(world: SimWorld, actor: SimEntity) -> SimEntity.MotionState:
 		actor.velocity = Vector3.ZERO
 		return SimEntity.MotionState.HELD
 
-	if actor.move_intent.length_squared() < INTENT_DEADZONE_SQUARED:
-		actor.velocity = Vector3.ZERO
-		return SimEntity.MotionState.IDLE
+	# Travel intent is horizontal. Height is gravity's business, so an actor
+	# cannot fly by aiming upward.
+	var heading: Vector3 = Vector3(actor.move_intent.x, 0.0, actor.move_intent.z)
+	var state: SimEntity.MotionState = SimEntity.MotionState.IDLE
 
-	var speed: float = _speed_for(world, actor)
-	actor.velocity = actor.move_intent * speed
-	var moved: bool = _apply_displacement(world, actor, actor.velocity * SimWorld.SECONDS_PER_TICK)
-	if moved:
-		return SimEntity.MotionState.MOVING
+	if heading.length_squared() >= INTENT_DEADZONE_SQUARED:
+		var speed: float = _speed_for(world, actor)
+		actor.velocity.x = heading.x * speed
+		actor.velocity.z = heading.z * speed
+		var moved: bool = _apply_displacement(world, actor, heading * speed * SimWorld.SECONDS_PER_TICK)
+		# Wanted to move and could not: distinct from standing still, and
+		# presentation wants to show it differently.
+		state = SimEntity.MotionState.MOVING if moved else SimEntity.MotionState.BLOCKED
+		if not moved:
+			actor.velocity.x = 0.0
+			actor.velocity.z = 0.0
+	else:
+		actor.velocity.x = 0.0
+		actor.velocity.z = 0.0
 
-	# Wanted to move and could not: distinct from standing still, and
-	# presentation wants to show it differently.
-	actor.velocity = Vector3.ZERO
-	return SimEntity.MotionState.BLOCKED
+	_apply_gravity(world, actor)
+	return state
+
+## Falls, and lands. See WORLD_AUTHORING.md §5.
+##
+## A minimal kinematic controller, not a physics engine and not a
+## contradiction of §6: physics stays out of the rules, but standing on a
+## floor IS a rule. Floors are ordinary blockers, so nothing here knows what a
+## floor is - only that something solid stopped the fall.
+func _apply_gravity(world: SimWorld, actor: SimEntity) -> void:
+	var gravity: float = world.tuning.gravity if world.tuning != null else 0.0
+	if gravity <= 0.0:
+		# No gravity authored: a fixture testing horizontal rules. Everything
+		# counts as standing, so nothing reads as permanently airborne.
+		actor.velocity.y = 0.0
+		actor.is_grounded = true
+		return
+
+	var terminal: float = world.tuning.terminal_fall_speed
+	actor.velocity.y = maxf(actor.velocity.y - gravity * SimWorld.SECONDS_PER_TICK, -terminal)
+
+	var fall: Vector3 = Vector3(0.0, actor.velocity.y * SimWorld.SECONDS_PER_TICK, 0.0)
+	var landed: Vector3 = _sweep(world, actor.position, fall)
+	var stopped_short: bool = not landed.is_equal_approx(actor.position + fall)
+	actor.position = landed
+
+	# Only a fall that was cut short means ground underfoot. A rise that was
+	# cut short is a ceiling, and leaves the actor airborne.
+	if stopped_short and actor.velocity.y <= 0.0:
+		actor.velocity.y = 0.0
+		actor.is_grounded = true
+	else:
+		actor.is_grounded = false
+
+## The furthest point along `delta` the actor may legally reach.
+##
+## Bisection rather than an exact solve: it works against whatever
+## _can_traverse decides, so ground resolution stays correct when traversal
+## grows locked doors or one-way edges (§9) without knowing about any of it.
+func _sweep(world: SimWorld, from: Vector3, delta: Vector3) -> Vector3:
+	if delta == Vector3.ZERO:
+		return from
+	if _can_traverse(world, from, from + delta):
+		return from + delta
+	var reachable: float = 0.0
+	var blocked: float = 1.0
+	for i: int in SWEEP_STEPS:
+		var middle: float = (reachable + blocked) * 0.5
+		if _can_traverse(world, from, from + delta * middle):
+			reachable = middle
+		else:
+			blocked = middle
+	return from + delta * reachable
 
 ## Content decides pace. A laden actor is slower, which is the entire tension
 ## of carrying something valuable across open ground.
@@ -125,6 +191,12 @@ func _apply_displacement(world: SimWorld, actor: SimEntity, delta: Vector3) -> b
 		actor.position += delta
 		return true
 
+	# Blocked head-on: try stepping over it. A sill or a stair tread should
+	# not need a jump - possibly a verb this game never has - and gravity
+	# settles the actor back down onto whatever it climbed.
+	if _try_step_up(world, actor, delta):
+		return true
+
 	var moved: bool = false
 	for axis: int in 3:
 		var single_axis: Vector3 = Vector3.ZERO
@@ -135,6 +207,27 @@ func _apply_displacement(world: SimWorld, actor: SimEntity, delta: Vector3) -> b
 			actor.position += single_axis
 			moved = true
 	return moved
+
+## Lifts by the step-up allowance, moves across, and settles back down.
+##
+## Three phases, all swept. The lift must itself be clear, or an actor under a
+## low ceiling would climb into it; and the settle is what makes the allowance
+## a MAXIMUM rather than a fixed hop. Without it an actor clears a 5-high sill
+## by rising the full 30, then drifts forward while gravity brings it back -
+## sailing over the step entirely and landing beyond it.
+func _try_step_up(world: SimWorld, actor: SimEntity, delta: Vector3) -> bool:
+	var rise: float = world.tuning.step_up_height if world.tuning != null else 0.0
+	if rise <= 0.0:
+		return false
+	var raised: Vector3 = actor.position + Vector3(0.0, rise, 0.0)
+	if not _can_traverse(world, actor.position, raised):
+		return false
+	if not _can_traverse(world, raised, raised + delta):
+		return false
+	# Come back down onto whatever was climbed, in the same tick, so the actor
+	# is never left hovering above a sill it merely stepped over.
+	actor.position = _sweep(world, raised + delta, Vector3(0.0, -rise, 0.0))
+	return true
 
 ## May an actor travel from `from` to `to` this tick?
 ##

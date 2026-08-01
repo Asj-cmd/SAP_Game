@@ -44,9 +44,47 @@ func blocks_segment(from: Vector3, to: Vector3, radius: float = 0.0) -> bool:
 		# against fat geometry. Slightly conservative at corners, which is the
 		# forgiving direction - an actor stops a hair early rather than
 		# clipping a wall it should not have reached through.
-		if segment_hits_box(from, to, blocker.grow(radius)):
+		var solid: AABB = blocker.grow(radius)
+
+		# ALREADY OVERLAPPING. Blocking every direction here would weld an
+		# actor inside geometry with no way out, because the escape direction
+		# is blocked along with the rest. Hard to reach by walking; guaranteed
+		# once knockback and ragdolls can shove a body into a wall.
+		#
+		# So an overlapping actor may move, provided the move gets it OUT.
+		# Depth strictly decreasing is the general form of "depenetrate along
+		# the shallowest axis": leaving entirely scores zero, and the shallow
+		# axis is the one that reaches zero first.
+		var depth: float = penetration_depth(from, solid)
+		if depth > 0.0:
+			if penetration_depth(to, solid) < depth:
+				continue # escaping, or at least surfacing - allow it
+			return true # deeper, or sliding along at the same depth
+		if segment_hits_box(from, to, solid):
 			return true
 	return false
+
+## How far inside `box` a point is: 0 when outside OR resting exactly on a
+## face, positive only when strictly within.
+##
+## The distinction matters at the boundary. An actor flush against a wall is
+## touching it, not embedded in it, and must keep every freedom a free actor
+## has - otherwise standing against a wall would trigger the escape path and,
+## worse, sliding along that wall would read as a collision.
+##
+## The value is the distance to the nearest face, which is exactly the
+## shallowest-axis penetration.
+static func penetration_depth(point: Vector3, box: AABB) -> float:
+	var depth: float = INF
+	for axis: int in 3:
+		var lo: float = box.position[axis]
+		var hi: float = box.position[axis] + box.size[axis]
+		var inside_lo: float = point[axis] - lo
+		var inside_hi: float = hi - point[axis]
+		if inside_lo <= 0.0 or inside_hi <= 0.0:
+			return 0.0
+		depth = minf(depth, minf(inside_lo, inside_hi))
+	return depth
 
 ## Slab test: does the segment [from, to] overlap `box`?
 ##
@@ -68,7 +106,12 @@ static func segment_hits_box(from: Vector3, to: Vector3, box: AABB) -> bool:
 		if is_zero_approx(step):
 			# Stationary on this axis: no crossing to solve for, so this axis
 			# either contains the whole segment or rules the box out.
-			if origin < lo or origin > hi:
+			#
+			# STRICT on purpose. An actor flush against a face has origin
+			# exactly at lo or hi; treating that as "within the slab" would
+			# make sliding ALONG the face register as a hit and weld the actor
+			# to the wall it is merely leaning on.
+			if origin <= lo or origin >= hi:
 				return false
 			continue
 
@@ -85,7 +128,10 @@ static func segment_hits_box(from: Vector3, to: Vector3, box: AABB) -> bool:
 		if t_min > t_max:
 			return false
 
-	# t_max must be strictly positive. An actor resting exactly against a face
-	# has an overlap of zero length; treating that as a hit would weld it to
-	# the wall, unable to move away along it.
-	return t_max > 0.0
+	# The overlap must have positive length AND lie ahead of the start.
+	#
+	# t_min < t_max rejects a zero-length graze along a corner or a face;
+	# t_max > 0 rejects an actor resting against a face and moving away, whose
+	# interval closes at t = 0. Both are contact rather than penetration, and
+	# treating contact as collision is what strands actors against walls.
+	return t_min < t_max and t_max > 0.0

@@ -147,3 +147,29 @@ discovered mid-match.
 The validator comes second deliberately. Building it after the real house means
 debugging the tool and the content simultaneously, with no known-good fixture to
 calibrate against.
+
+## 9. Presentation restates nothing
+
+Tuned numbers live in content and are read from it at display time. Presentation
+may show a safe room's remaining shelter, but it must take that value from the
+`ZoneDef` — never from a constant, and never from prose.
+
+The concrete case is the safe-room variant. Today, switching between
+
+- **A** — `safe_duration_seconds = -1`, `safe_ends_on_pickup = true`
+- **B** — `safe_duration_seconds = 5`, `safe_ends_on_pickup = false`
+
+is one `.tres` edit and nothing else, which is exactly what makes it settleable
+by playing rather than by arguing. A tutorial hint reading "you are safe for 5
+seconds", a HUD ring with a hardcoded 5-second sweep, or an achievement string
+naming the rule would each quietly convert that into a code change — and the
+variant stops being a question play can answer.
+
+The test is mechanical: **grep the number.** If a value authored in content
+appears anywhere outside it, that is the defect, whatever the value happens to
+be at the time.
+
+This generalises past safe rooms to every tuned quantity — round length, capture
+duration, carry speed. It is written here rather than left to habit because the
+failure is invisible until someone changes the content and the UI keeps
+confidently stating the old value.

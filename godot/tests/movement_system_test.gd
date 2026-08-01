@@ -19,6 +19,8 @@ func _initialize() -> void:
 	_test_speed_and_intent()
 	_test_containment_and_sliding()
 	_test_collision_content()
+	_test_overlap_recovery()
+	_test_kinematic_ground()
 	_test_zone_tracking()
 
 	print("\n%d passed, %d failed" % [_passed, _failed])
@@ -74,6 +76,8 @@ func _build_world(actor_radius: float = 0.0) -> SimWorld:
 	tuning.move_speed = MOVE_SPEED
 	tuning.carry_speed_scale = CARRY_SCALE
 	tuning.actor_radius = actor_radius
+	# Horizontal rules only: gravity is exercised by _test_kinematic_ground.
+	tuning.gravity = 0.0
 
 	var world: SimWorld = SimWorld.new(1)
 	world.configure(GameModeDef.new(), tuning, [room_a, room_b], [], _collision(tuning))
@@ -273,3 +277,142 @@ func _test_zone_tracking() -> void:
 
 	var quiet: Array[SimEvent] = _step(world)
 	_check("zone/stays quiet within a room", _count(quiet, MovementEvent.KIND_ZONE_CHANGED), 0)
+
+# ---- overlap recovery ----
+
+## An actor that ends up INSIDE geometry must always be able to get out.
+##
+## Blocking every direction while overlapping is the obvious reading of a
+## collision test and it is a trap: the escape direction gets blocked along
+## with everything else and the actor is stranded for good. Walking cannot
+## reach that state today, but knockback and ragdolls exist to shove bodies
+## into walls, so the recovery has to be in place before they land.
+func _test_overlap_recovery() -> void:
+	var collision: WorldCollisionDef = WorldCollisionDef.new()
+	collision.bounds = AABB(Vector3(0, 0, 0), Vector3(200, 100, 100))
+	# One wall: x 98..102, z 0..40.
+	collision.blockers = [AABB(Vector3(98, 0, 0), Vector3(4, 100, 40))]
+
+	# Buried at x=99, so the nearest face is 1 unit away in -x.
+	var buried: Vector3 = Vector3(99, 50, 20)
+	_check("overlap/detects penetration",
+		WorldCollisionDef.penetration_depth(buried, collision.blockers[0]) > 0.0, true)
+
+	_check("overlap/escaping is permitted",
+		collision.blocks_segment(buried, Vector3(97, 50, 20)), false)
+	_check("overlap/going deeper is refused",
+		collision.blocks_segment(buried, Vector3(100, 50, 20)), true)
+	_check("overlap/sliding at the same depth is refused",
+		collision.blocks_segment(buried, Vector3(99, 50, 30)), true)
+
+	# Flush against the far face: contact, not penetration.
+	var flush: Vector3 = Vector3(102, 50, 20)
+	_check("overlap/a face touch is not penetration",
+		WorldCollisionDef.penetration_depth(flush, collision.blockers[0]), 0.0)
+	_check("overlap/sliding along a face is free",
+		collision.blocks_segment(flush, Vector3(102, 50, 35)), false)
+	_check("overlap/leaving a face is free",
+		collision.blocks_segment(flush, Vector3(110, 50, 20)), false)
+	_check("overlap/re-entering from a face is refused",
+		collision.blocks_segment(flush, Vector3(100, 50, 20)), true)
+
+	# End to end through MovementSystem: an actor placed inside walks free.
+	var world: SimWorld = _build_world()
+	var stuck: SimEntity = _add_actor(world, Vector3(99, 50, 20))
+	_step(world, [MoveCommand.move(stuck.id, Vector3(-1, 0, 0))])
+	_check("overlap/an embedded actor can walk out", stuck.position.x < 99.0, true)
+	_check("overlap/and is clear of the wall",
+		world.collision.blocks_segment(stuck.position, stuck.position), false)
+
+# ---- kinematic ground ----
+
+const GROUND_RADIUS: float = 4.0
+const FLOOR_TOP: float = 10.0
+const STEP_TOP: float = 15.0
+
+## A floor, a low step an actor walks over, and a wall it cannot.
+##   floor  y 0..10   across the whole shell
+##   step   y 10..15  at x 100..120
+##   wall   y 10..60  at x 150..170
+## A resting actor's centre sits radius above whatever it stands on.
+func _build_ground_world() -> SimWorld:
+	var room: ZoneDef = ZoneDef.new()
+	room.id = &"room"
+	room.role = ZoneDef.Role.NEUTRAL
+	room.bounds = AABB(Vector3(0, 0, 0), Vector3(200, 100, 100))
+
+	var collision: WorldCollisionDef = WorldCollisionDef.new()
+	collision.bounds = AABB(Vector3(0, 0, 0), Vector3(200, 100, 100))
+	collision.blockers = [
+		AABB(Vector3(0, 0, 0), Vector3(200, FLOOR_TOP, 100)),
+		AABB(Vector3(100, FLOOR_TOP, 0), Vector3(20, STEP_TOP - FLOOR_TOP, 100)),
+		AABB(Vector3(150, FLOOR_TOP, 0), Vector3(20, 50, 100)),
+	]
+
+	var tuning: TuningDef = TuningDef.new()
+	tuning.move_speed = MOVE_SPEED
+	tuning.actor_radius = GROUND_RADIUS
+	tuning.gravity = 2000.0
+	tuning.step_up_height = 30.0
+
+	var world: SimWorld = SimWorld.new(1)
+	world.configure(GameModeDef.new(), tuning, [room], [], collision)
+	world.add_system(MovementSystem.new())
+	world.match_phase = SimWorld.MatchPhase.PLAYING
+	return world
+
+func _test_kinematic_ground() -> void:
+	# Dropped from height, an actor falls and comes to rest ON the floor -
+	# centre one radius above it, because the body has a half-height.
+	var world: SimWorld = _build_ground_world()
+	var faller: SimEntity = _add_actor(world, Vector3(50, 80, 50))
+	_step(world)
+	_check("ground/falls when unsupported", faller.position.y < 80.0, true)
+	_check("ground/is airborne while falling", faller.is_grounded, false)
+
+	for i: int in 60:
+		_step(world)
+	_close("ground/lands on the floor", faller.position.y, FLOOR_TOP + GROUND_RADIUS, 0.5)
+	_check("ground/reports grounded", faller.is_grounded, true)
+	_check("ground/stops falling", faller.velocity.y, 0.0)
+
+	# And stays there rather than creeping down.
+	var rested: float = faller.position.y
+	for i: int in 30:
+		_step(world)
+	_close("ground/does not sink", faller.position.y, rested, 0.001)
+
+	# A low step is walked over without a jump. Two ticks at MOVE_SPEED covers
+	# 20 units, which puts the actor squarely on top of the 20-wide sill -
+	# walking further would carry it off the far side and back to floor level,
+	# which is correct behaviour and simply not what this case is about.
+	var world_step: SimWorld = _build_ground_world()
+	var climber: SimEntity = _add_actor(world_step, Vector3(90, FLOOR_TOP + GROUND_RADIUS, 50))
+	for i: int in 2:
+		_step(world_step, [MoveCommand.move(climber.id, Vector3(1, 0, 0))])
+	_check("ground/steps over a low sill", climber.position.x > 105.0, true)
+	_check("ground/is on top of the sill", climber.position.x < 120.0, true)
+	_close("ground/ends up standing on it", climber.position.y, STEP_TOP + GROUND_RADIUS, 0.5)
+	_check("ground/is grounded on the sill", climber.is_grounded, true)
+
+	# ...but a wall too tall to step is not.
+	var world_wall: SimWorld = _build_ground_world()
+	var blocked: SimEntity = _add_actor(world_wall, Vector3(140, FLOOR_TOP + GROUND_RADIUS, 50))
+	for i: int in 10:
+		_step(world_wall, [MoveCommand.move(blocked.id, Vector3(1, 0, 0))])
+	_check("ground/cannot step a full wall", blocked.position.x < 150.0, true)
+	_check("ground/reports blocked at the wall", blocked.motion_state, SimEntity.MotionState.BLOCKED)
+
+	# Intent has no vertical component: aiming up does not fly.
+	var world_fly: SimWorld = _build_ground_world()
+	var flier: SimEntity = _add_actor(world_fly, Vector3(50, FLOOR_TOP + GROUND_RADIUS, 50))
+	for i: int in 20:
+		_step(world_fly, [MoveCommand.move(flier.id, Vector3(0, 1, 0))])
+	_close("ground/cannot fly by aiming up", flier.position.y, FLOOR_TOP + GROUND_RADIUS, 0.5)
+
+	# With no gravity authored, nothing falls and everything counts as standing.
+	var world_flat: SimWorld = _build_world()
+	var floater: SimEntity = _add_actor(world_flat, Vector3(50, 50, 50))
+	_step(world_flat)
+	_check("ground/no gravity authored means no falling", floater.position.y, 50.0)
+	_check("ground/and nothing reads as airborne", floater.is_grounded, true)
