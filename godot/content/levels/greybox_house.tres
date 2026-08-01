@@ -1,0 +1,83 @@
+[gd_resource type="Resource" script_class="LevelDef" format=3]
+
+[ext_resource type="Script" path="res://content/collision/world_collision_def.gd" id="1_hbbxw"]
+[ext_resource type="Script" path="res://content/levels/level_def.gd" id="2_k6ow2"]
+[ext_resource type="Script" path="res://content/teams/team_def.gd" id="3_caipt"]
+[ext_resource type="Script" path="res://content/zones/zone_def.gd" id="4_55wkh"]
+
+[sub_resource type="Resource" id="Resource_tglxx"]
+script = ExtResource("1_hbbxw")
+blockers = Array[AABB]([AABB(0, 0, 0, 1600, 40, 1200), AABB(100, 40, 300, 500, 220, 20), AABB(100, 40, 300, 20, 220, 390), AABB(100, 40, 790, 20, 220, 110), AABB(100, 40, 880, 500, 220, 20), AABB(120, 40, 590, 220, 220, 20), AABB(340, 40, 320, 20, 220, 120), AABB(340, 40, 540, 20, 220, 150), AABB(340, 40, 790, 20, 220, 90), AABB(580, 40, 300, 20, 220, 240), AABB(580, 40, 660, 20, 220, 240), AABB(1000, 40, 300, 500, 220, 20), AABB(1000, 40, 300, 20, 220, 240), AABB(1000, 40, 660, 20, 220, 240), AABB(1000, 40, 880, 500, 220, 20), AABB(1240, 40, 320, 20, 220, 120), AABB(1240, 40, 540, 20, 220, 150), AABB(1240, 40, 790, 20, 220, 90), AABB(1260, 40, 590, 220, 220, 20), AABB(1480, 40, 300, 20, 220, 390), AABB(1480, 40, 790, 20, 220, 110)])
+bounds = AABB(0, 0, 0, 1600, 260, 1200)
+
+[sub_resource type="Resource" id="Resource_kshhf"]
+script = ExtResource("3_caipt")
+id = &"team_b"
+display_name = "Team B"
+spawn_points = Array[Vector3]([Vector3(1130, 60, 600)])
+cash_points = Array[Vector3]([Vector3(1320, 60, 400), Vector3(1370, 60, 400), Vector3(1420, 60, 400)])
+
+[sub_resource type="Resource" id="Resource_hiwse"]
+script = ExtResource("3_caipt")
+id = &"team_a"
+display_name = "Team A"
+spawn_points = Array[Vector3]([Vector3(470, 60, 600)])
+cash_points = Array[Vector3]([Vector3(180, 60, 400), Vector3(230, 60, 400), Vector3(280, 60, 400)])
+
+[sub_resource type="Resource" id="Resource_sielq"]
+script = ExtResource("4_55wkh")
+id = &"basement_a"
+role = 3
+owner_team = &"team_a"
+bounds = AABB(120, 0, 610, 220, 260, 270)
+
+[sub_resource type="Resource" id="Resource_ck0gs"]
+script = ExtResource("4_55wkh")
+id = &"basement_b"
+role = 3
+owner_team = &"team_b"
+bounds = AABB(1260, 0, 610, 220, 260, 270)
+
+[sub_resource type="Resource" id="Resource_k4ylo"]
+script = ExtResource("4_55wkh")
+id = &"living_a"
+role = 1
+owner_team = &"team_a"
+bounds = AABB(360, 0, 320, 220, 260, 560)
+
+[sub_resource type="Resource" id="Resource_ws2gi"]
+script = ExtResource("4_55wkh")
+id = &"living_b"
+role = 1
+owner_team = &"team_b"
+bounds = AABB(1020, 0, 320, 220, 260, 560)
+
+[sub_resource type="Resource" id="Resource_ybnir"]
+script = ExtResource("4_55wkh")
+id = &"vault_a"
+role = 2
+owner_team = &"team_a"
+bounds = AABB(120, 0, 320, 220, 260, 270)
+safe_duration_seconds = 5.0
+
+[sub_resource type="Resource" id="Resource_ov4kt"]
+script = ExtResource("4_55wkh")
+id = &"vault_b"
+role = 2
+owner_team = &"team_b"
+bounds = AABB(1260, 0, 320, 220, 260, 270)
+safe_duration_seconds = 5.0
+
+[sub_resource type="Resource" id="Resource_bosot"]
+script = ExtResource("4_55wkh")
+id = &"yard"
+bounds = AABB(600, 0, 0, 400, 260, 1200)
+
+[resource]
+script = ExtResource("2_k6ow2")
+id = &"greybox_house"
+display_name = "Greybox House"
+zones = Array[ExtResource("4_55wkh")]([SubResource("Resource_sielq"), SubResource("Resource_ck0gs"), SubResource("Resource_k4ylo"), SubResource("Resource_ws2gi"), SubResource("Resource_ybnir"), SubResource("Resource_ov4kt"), SubResource("Resource_bosot")])
+teams = Array[ExtResource("3_caipt")]([SubResource("Resource_kshhf"), SubResource("Resource_hiwse")])
+collision = SubResource("Resource_tglxx")
+source_scene = "res://game/blockout/greybox_house.tscn"

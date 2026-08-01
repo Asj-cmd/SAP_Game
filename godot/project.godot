@@ -15,17 +15,17 @@ compatibility/default_parent_skeleton_in_mesh_instance_3d=true
 [application]
 
 config/name="Cash Grab"
+run/main_scene="res://game/greybox/greybox_main.tscn"
+
+[display]
+
+window/size/viewport_width=1600
+window/size/viewport_height=900
 config/features=PackedStringArray("4.7", "Forward Plus")
 config/icon="res://icon.svg"
-run/main_scene="res://game/greybox/greybox_main.tscn"
 
 [autoload]
 
-; The 1:1 TypeScript port (autoload/match_state.gd, autoload/world_geometry.gd)
-; is deliberately NOT registered here. sim/ owns the rules now, and a second
-; live implementation of them booting alongside it is a correctness hazard, not
-; a fallback. The files are kept as the reference the systems layer is ported
-; against - read, not run. See ARCHITECTURE.md §1.
 MCPRuntimeBridge="*res://addons/godot_mcp/services/mcp_runtime_bridge.gd"
 MCPInputBridge="*res://addons/godot_mcp/services/mcp_input_bridge.gd"
 MCPScreenshotBridge="*res://addons/godot_mcp/services/mcp_screenshot_bridge.gd"

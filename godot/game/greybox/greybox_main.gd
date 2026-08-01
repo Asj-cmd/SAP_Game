@@ -28,17 +28,26 @@ var _previous: Dictionary[int, SimEntity] = {}
 var _accumulator: float = 0.0
 
 var _actor_views: Dictionary[int, MeshInstance3D] = {}
+var _geometry: Node3D = null
+var _cameras: Array[ChaseCamera] = []
 var _hud: Label = null
 var _banner: Label = null
 
 func _ready() -> void:
-	_build_scene_frame()
+	_build_viewports()
+	_build_lighting()
+	_build_hud()
 	_start(GreyBoxLevel.SafeVariant.B)
 
 # ---- setup ----
 
 func _start(variant: GreyBoxLevel.SafeVariant) -> void:
 	level = GreyBoxLevel.new(variant)
+	if not level.is_loaded():
+		_banner.text = "NO BAKED LEVEL
+run tools/bake_blockout.gd on game/blockout/greybox_house.tscn"
+		return
+	_build_geometry()
 
 	world = SimWorld.new(20260801)
 	# Gated: broken content does not install and the world will not step
@@ -65,6 +74,8 @@ func _start(variant: GreyBoxLevel.SafeVariant) -> void:
 	world.populate_roster()
 	_assign_devices()
 	_rebuild_views()
+	for chase: ChaseCamera in _cameras:
+		chase.reset()
 	_previous = _snapshot()
 	_accumulator = 0.0
 	world.step([MatchCommand.start()])
@@ -113,7 +124,22 @@ func _process(delta: float) -> void:
 		_accumulator = 0.0
 
 	_render(_accumulator / SimWorld.SECONDS_PER_TICK)
+	_track_cameras(delta)
 	_update_hud()
+
+## Each seat gets its own chase camera, following the body that seat drives.
+##
+## The camera reads the RENDERED position, not the simulation's - otherwise it
+## would step 30 times a second while the world it is looking at moves
+## smoothly, and the judder would be blamed on the movement code.
+func _track_cameras(delta: float) -> void:
+	for seat: int in mini(_cameras.size(), players.size()):
+		var actor: SimEntity = world.get_entity(players[seat].actor_id)
+		if actor == null:
+			continue
+		var view: MeshInstance3D = _actor_views.get(players[seat].actor_id, null)
+		var here: Vector3 = view.position if view != null else actor.position
+		_cameras[seat].follow(here, actor.velocity, delta)
 
 func _advance_one_tick() -> void:
 	_previous = _snapshot()
@@ -182,30 +208,46 @@ func _flat(colour: Color) -> StandardMaterial3D:
 	material.roughness = 0.9
 	return material
 
-## Camera, light, and the level's blockers as plain boxes. Built once; the
-## geometry never changes at runtime.
-func _build_scene_frame() -> void:
-	var probe: GreyBoxLevel = GreyBoxLevel.new()
-	var shell: AABB = probe.collision.bounds
-	var centre: Vector3 = shell.get_center()
+## Split-screen: one viewport per seat, both rendering the same 3D world.
+##
+## Two chase cameras rather than one shared framing camera. A shared camera has
+## to pull back far enough to hold both players, which is the distant view that
+## made movement unjudgeable in the first place - and this slice exists to
+## judge movement.
+func _build_viewports() -> void:
+	var layer: CanvasLayer = CanvasLayer.new()
+	layer.layer = -1 # behind the HUD
+	add_child(layer)
 
-	for blocker: AABB in probe.collision.blockers:
-		var solid: MeshInstance3D = MeshInstance3D.new()
-		var box: BoxMesh = BoxMesh.new()
-		box.size = blocker.size
-		solid.mesh = box
-		solid.position = blocker.get_center()
-		solid.material_override = _flat(Color(0.22, 0.22, 0.24))
-		add_child(solid)
+	var split: HBoxContainer = HBoxContainer.new()
+	split.set_anchors_preset(Control.PRESET_FULL_RECT)
+	split.add_theme_constant_override("separation", 4)
+	layer.add_child(split)
 
-	var camera: Camera3D = Camera3D.new()
-	camera.position = centre + Vector3(0, 760, 620)
-	camera.look_at_from_position(camera.position, centre, Vector3.UP)
-	camera.far = 4000.0
-	add_child(camera)
+	for seat: int in 2:
+		var container: SubViewportContainer = SubViewportContainer.new()
+		container.stretch = true
+		container.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+		container.size_flags_vertical = Control.SIZE_EXPAND_FILL
+		split.add_child(container)
 
+		var viewport: SubViewport = SubViewport.new()
+		viewport.render_target_update_mode = SubViewport.UPDATE_ALWAYS
+		viewport.handle_input_locally = false
+		container.add_child(viewport)
+		# Both viewports render THIS node's world, so the geometry and actor
+		# meshes exist once and are seen twice.
+		viewport.world_3d = get_world_3d()
+
+		var chase: ChaseCamera = ChaseCamera.new()
+		viewport.add_child(chase.camera)
+		chase.camera.current = true
+		_cameras.append(chase)
+
+func _build_lighting() -> void:
 	var sun: DirectionalLight3D = DirectionalLight3D.new()
 	sun.rotation_degrees = Vector3(-55, -40, 0)
+	sun.light_energy = 1.1
 	add_child(sun)
 
 	var environment: WorldEnvironment = WorldEnvironment.new()
@@ -213,18 +255,56 @@ func _build_scene_frame() -> void:
 	settings.background_mode = Environment.BG_COLOR
 	settings.background_color = Color(0.07, 0.07, 0.09)
 	settings.ambient_light_source = Environment.AMBIENT_SOURCE_COLOR
-	settings.ambient_light_color = Color(0.4, 0.4, 0.45)
-	settings.ambient_light_energy = 0.6
+	settings.ambient_light_color = Color(0.45, 0.45, 0.5)
+	settings.ambient_light_energy = 0.7
 	environment.environment = settings
 	add_child(environment)
 
+## The level's blockers, drawn as the plain boxes they are. Rebuilt whenever a
+## level loads; the shell is not drawn, since a box around the camera is only
+## ever in the way.
+func _build_geometry() -> void:
+	if _geometry != null:
+		_geometry.queue_free()
+	_geometry = Node3D.new()
+	add_child(_geometry)
+
+	for blocker: AABB in level.collision.blockers:
+		var solid: MeshInstance3D = MeshInstance3D.new()
+		var box: BoxMesh = BoxMesh.new()
+		box.size = blocker.size
+		solid.mesh = box
+		solid.position = blocker.get_center()
+		solid.material_override = _flat(Color(0.24, 0.24, 0.27))
+		_geometry.add_child(solid)
+
+	# Rooms get a flat floor patch in their owner's colour, so which house you
+	# are standing in is readable without labels or art.
+	for zone: ZoneDef in level.zones:
+		if zone.owner_team == &"":
+			continue
+		var patch: MeshInstance3D = MeshInstance3D.new()
+		var slab: BoxMesh = BoxMesh.new()
+		slab.size = Vector3(zone.bounds.size.x, 2.0, zone.bounds.size.z)
+		patch.mesh = slab
+		patch.position = Vector3(
+			zone.bounds.get_center().x,
+			zone.bounds.position.y + 41.0,
+			zone.bounds.get_center().z
+		)
+		var tint: Color = _team_colour(zone.owner_team, false)
+		tint.a = 1.0
+		patch.material_override = _flat(tint.darkened(0.55 if zone.role != ZoneDef.Role.CASH_ROOM else 0.25))
+		_geometry.add_child(patch)
+
+func _build_hud() -> void:
 	var layer: CanvasLayer = CanvasLayer.new()
 	add_child(layer)
 	_hud = Label.new()
 	_hud.position = Vector2(16, 12)
 	layer.add_child(_hud)
 	_banner = Label.new()
-	_banner.position = Vector2(16, 220)
+	_banner.position = Vector2(16, 260)
 	layer.add_child(_banner)
 
 # ---- HUD ----

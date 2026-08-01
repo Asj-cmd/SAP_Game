@@ -1,6 +1,10 @@
 extends SceneTree
-## The grey-box arena must pass the load gate and be playable, in BOTH
+## The BAKED grey-box arena must pass the load gate and be playable, in BOTH
 ## safe-room configurations. See godot/CLAUDE.md.
+##
+## This is the guard on the blockout pipeline: the level is authored visually
+## and baked, so nothing stops a dragged box from sealing a doorway. The gate
+## catches that, and this suite is what runs the gate.
 ##
 ##   godot --headless --path godot --script res://tests/greybox_level_test.gd
 ##
@@ -9,7 +13,7 @@ extends SceneTree
 ## also drives the sim the way the slice does, so "the grey box runs" is a
 ## claim with evidence rather than a screenshot nobody kept.
 
-const EXPECTED_CHECKS: int = 17
+const EXPECTED_CHECKS: int = 18
 
 var _passed: int = 0
 var _failed: int = 0
@@ -87,13 +91,19 @@ func _test_playable() -> void:
 	for i: int in 90:
 		world.step([])
 	_check("play/reaches the live phase", world.is_live(), true)
+	# The win target is derived from the level, so a vault that lost a cash
+	# marker in the blockout cannot silently describe a different game.
+	var expected_cash: int = level.mode.cash_per_team
+	_check("play/cash target came from the level", expected_cash > 0, true)
 	_check("play/both vaults are stocked",
 		[world.score_for(&"team_a"), world.score_for(&"team_b")],
-		[GreyBoxLevel.CASH_PER_TEAM, GreyBoxLevel.CASH_PER_TEAM])
+		[expected_cash, expected_cash])
 
 	var walker: SimEntity = world.get_entity(world.actor_ids()[0])
 	_check("play/actor is standing on the floor", walker.is_grounded, true)
-	_check("play/at body height above it", is_equal_approx(walker.position.y, GreyBoxLevel.STAND_Y), true)
+	# Standing height comes from the authored spawn, not a constant here.
+	var spawn_y: float = level.teams[0].spawn_point_for_slot(0).y
+	_check("play/at body height above it", is_equal_approx(walker.position.y, spawn_y), true)
 
 	var started_at: float = walker.position.x
 	for i: int in 15:
