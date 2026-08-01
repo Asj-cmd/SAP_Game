@@ -39,6 +39,10 @@ var zones: Dictionary[StringName, ZoneDef] = {}
 var teams: Dictionary[StringName, TeamDef] = {}
 
 var _next_entity_id: int = 1
+## Zone ids in resolution order, rebuilt by configure(). Cached because
+## zone_at() is called for every moving entity every tick, and re-sorting the
+## whole zone table on each of those calls would be pure waste.
+var _zone_lookup_order: Array[StringName] = []
 
 func _init(seed_value: int = 0) -> void:
 	rng = SimRandom.new(seed_value)
@@ -58,6 +62,23 @@ func configure(
 	teams.clear()
 	for team: TeamDef in team_defs:
 		teams[team.id] = team
+	_rebuild_zone_lookup_order()
+
+## Orders zones by descending priority, ties broken by ascending id. The
+## tie-break is what makes this a TOTAL order: without it, two equal-priority
+## zones would resolve by dictionary insertion sequence, so a client that
+## loaded content in a different order could place an entity in a different
+## zone than the server did.
+func _rebuild_zone_lookup_order() -> void:
+	_zone_lookup_order = zones.keys()
+	_zone_lookup_order.sort_custom(_compare_zone_resolution)
+
+func _compare_zone_resolution(a: StringName, b: StringName) -> bool:
+	var zone_a: ZoneDef = zones[a]
+	var zone_b: ZoneDef = zones[b]
+	if zone_a.priority != zone_b.priority:
+		return zone_a.priority > zone_b.priority
+	return String(a) < String(b)
 
 # ---- time ----
 
@@ -111,13 +132,11 @@ func sorted_entity_ids() -> Array[int]:
 func get_zone(zone_id: StringName) -> ZoneDef:
 	return zones.get(zone_id, null)
 
-## The zone containing `point`, or null. Zones are consulted in sorted id
-## order so that overlapping bounds resolve identically on every machine
-## rather than by whatever order they happened to load in.
+## The zone containing `point`, or null. Walks the precomputed resolution
+## order, so overlapping bounds resolve by authored priority - identically on
+## every machine, and by design rather than alphabetically.
 func zone_at(point: Vector3) -> ZoneDef:
-	var zone_ids: Array[StringName] = zones.keys()
-	zone_ids.sort()
-	for zone_id: StringName in zone_ids:
+	for zone_id: StringName in _zone_lookup_order:
 		var zone: ZoneDef = zones[zone_id]
 		if zone.contains_point(point):
 			return zone
@@ -165,6 +184,11 @@ func state_digest() -> String:
 	var parts: PackedStringArray = PackedStringArray()
 	parts.append("tick=%d" % tick)
 	parts.append("rng=%d" % rng.state)
+	# Simulation state, not bookkeeping: two worlds holding identical entities
+	# can still disagree here after a remove-then-restore, and would then hand
+	# out different ids for the next spawn. That divergence is invisible until
+	# the spawn happens, which is the worst possible time to discover it.
+	parts.append("next_id=%d" % _next_entity_id)
 	parts.append("entities=%d" % entities.size())
 	for entity_id: int in sorted_entity_ids(): # sorted, never entities.keys()
 		var entity: SimEntity = entities[entity_id]

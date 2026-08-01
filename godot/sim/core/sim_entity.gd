@@ -79,9 +79,42 @@ func duplicate_entity() -> SimEntity:
 	copy.capture_ticks_remaining = capture_ticks_remaining
 	return copy
 
-## Canonical text form, fed into SimWorld's state digest. Vectors are printed
-## at fixed precision so the digest cannot wobble on float formatting.
+## Scratch buffer for float_bits(). Reused rather than allocated per call:
+## the digest walks six floats per entity and may run every tick as a desync
+## check. The simulation is single-threaded, so sharing one buffer is safe.
+static var _float_scratch: PackedByteArray = _new_float_scratch()
+
+static func _new_float_scratch() -> PackedByteArray:
+	var buffer: PackedByteArray = PackedByteArray()
+	buffer.resize(8)
+	return buffer
+
+## Exact IEEE-754 bit pattern of `value`, as a signed 64-bit integer.
+##
+## The digest compares these rather than a rounded decimal. A %.4f rendering
+## hides every divergence below 1e-4 - which is the scale cross-platform float
+## drift STARTS at, and precisely what the digest exists to catch. A digest
+## that rounds away the errors it is looking for is worse than no digest,
+## because it reports agreement that was never verified.
+static func float_bits(value: float) -> int:
+	_float_scratch.encode_double(0, value)
+	return _float_scratch.decode_s64(0)
+
+## Canonical text form, fed into SimWorld's state digest. Floats appear as raw
+## bits; use to_debug_string() when a human needs to read it.
 func to_digest_string() -> String:
+	return "E%d|k%d|t%s|s%d|p%d,%d,%d|v%d,%d,%d|z%s|c%d|h%d|f%s|x%d|r%d" % [
+		id, kind, team, slot,
+		float_bits(position.x), float_bits(position.y), float_bits(position.z),
+		float_bits(velocity.x), float_bits(velocity.y), float_bits(velocity.z),
+		zone_id, carrying_id, carried_by, scored_for_team,
+		1 if is_captured else 0, capture_ticks_remaining,
+	]
+
+## Human-readable rendering for logs and debugging. Deliberately NOT what the
+## digest hashes: rounded decimals are for eyes, exact bits are for
+## correctness. Changing this cannot affect desync detection.
+func to_debug_string() -> String:
 	return "E%d|k%d|t%s|s%d|p%.4f,%.4f,%.4f|v%.4f,%.4f,%.4f|z%s|c%d|h%d|f%s|x%d|r%d" % [
 		id, kind, team, slot,
 		position.x, position.y, position.z,

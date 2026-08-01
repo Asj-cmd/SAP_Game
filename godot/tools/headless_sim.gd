@@ -38,6 +38,9 @@ func _initialize() -> void:
 
 	_probe_random(seed_value)
 	_probe_entity()
+	_probe_float_precision()
+	_probe_id_counter(seed_value)
+	_probe_zone_priority(seed_value)
 	_probe_insertion_order(seed_value)
 	_probe_world(seed_value, total_ticks)
 
@@ -89,6 +92,90 @@ func _probe_entity() -> void:
 	copy.capture_ticks_remaining = 0
 	print("entity.copy_is_independent=%s" % str(entity.to_digest_string() != copy.to_digest_string()))
 	print("entity.original_unchanged=%s" % str(entity.position == Vector3(1.5, -2.25, 3.0)))
+
+## The digest must catch divergence far below what a rounded decimal shows.
+##
+## Note the storage reality this probe also documents: Vector3 components are
+## 32-bit in a standard Godot build, even though GDScript's `float` is a
+## double. Position precision is therefore ~7 significant digits (~1e-6 at a
+## magnitude of 10), and any difference finer than that is not hidden by the
+## digest - it cannot be represented in the first place. The delta used here
+## is deliberately above that floor and far below what %.4f can show, which is
+## exactly the band the raw-bits digest exists to cover.
+func _probe_float_precision() -> void:
+	var drift: float = 1e-5
+	var base: SimEntity = SimEntity.new(1, SimEntity.Kind.ACTOR)
+	base.position = Vector3(10.0, 0.0, 0.0)
+	var drifted: SimEntity = SimEntity.new(1, SimEntity.Kind.ACTOR)
+	drifted.position = Vector3(10.0 + drift, 0.0, 0.0)
+
+	print("float.drift=%.8f" % drift)
+	print("float.debug_renderings_match=%s" % str(base.to_debug_string() == drifted.to_debug_string()))
+	print("float.digests_differ=%s" % str(base.to_digest_string() != drifted.to_digest_string()))
+	print("float.stored_bits_base=%d" % SimEntity.float_bits(base.position.x))
+	print("float.stored_bits_drifted=%d" % SimEntity.float_bits(drifted.position.x))
+	# Smallest representable step at this magnitude, measured rather than
+	# assumed - it is the true resolution limit of any position-based digest.
+	var ulp: float = 0.0
+	var probe: float = 1e-9
+	while ulp == 0.0 and probe < 1.0:
+		var stepped: Vector3 = Vector3(10.0 + probe, 0.0, 0.0)
+		if stepped.x != base.position.x:
+			ulp = probe
+		probe *= 2.0
+	print("float.vector3_resolution_at_10=%.10f" % ulp)
+
+## The id counter is simulation state, and the digest must say so.
+##
+## Both worlds below end holding exactly the same entities: none. They differ
+## only in that one has spawned and despawned an entity, leaving its counter
+## advanced. Their NEXT spawn would therefore be given different ids - a real
+## divergence that entity comparison alone cannot see, and that stays silent
+## until the spawn happens.
+func _probe_id_counter(seed_value: int) -> void:
+	var churned: SimWorld = SimWorld.new(seed_value)
+	churned.configure(GameModeDef.new(), TuningDef.new(), [], [])
+	var spawned: SimEntity = churned.add_entity(SimEntity.new())
+	churned.remove_entity(spawned.id)
+
+	var fresh: SimWorld = SimWorld.new(seed_value)
+	fresh.configure(GameModeDef.new(), TuningDef.new(), [], [])
+
+	print("id.churned_entities=%d fresh_entities=%d" % [churned.entities.size(), fresh.entities.size()])
+	print("id.entity_sets_match=%s" % str(churned.sorted_entity_ids() == fresh.sorted_entity_ids()))
+	print("id.digests_differ=%s" % str(churned.state_digest() != fresh.state_digest()))
+	print("id.churned_digest=%s" % churned.state_digest())
+	print("id.fresh_digest=%s" % fresh.state_digest())
+
+## Overlapping zones must resolve by authored priority, not by id order.
+##
+## The two zones below are arranged so the two rules disagree: "a_big" sorts
+## first alphabetically, "z_small" carries the higher priority. Whichever is
+## returned tells you which rule is actually in force.
+func _probe_zone_priority(seed_value: int) -> void:
+	var big: ZoneDef = ZoneDef.new()
+	big.id = &"a_big"
+	big.role = ZoneDef.Role.NEUTRAL
+	big.bounds = AABB(Vector3.ZERO, Vector3(100.0, 100.0, 100.0))
+	big.priority = 0
+
+	var small: ZoneDef = ZoneDef.new()
+	small.id = &"z_small"
+	small.role = ZoneDef.Role.CASH_ROOM
+	small.bounds = AABB(Vector3(40.0, 40.0, 40.0), Vector3(20.0, 20.0, 20.0))
+	small.priority = 10
+
+	var world: SimWorld = SimWorld.new(seed_value)
+	world.configure(GameModeDef.new(), TuningDef.new(), [big, small], [])
+
+	var inside_both: ZoneDef = world.zone_at(Vector3(50.0, 50.0, 50.0))
+	var inside_big_only: ZoneDef = world.zone_at(Vector3(10.0, 10.0, 10.0))
+	var outside: ZoneDef = world.zone_at(Vector3(500.0, 500.0, 500.0))
+
+	print("zone.overlap_resolves_to=%s" % (String(inside_both.id) if inside_both != null else "<null>"))
+	print("zone.priority_beat_alphabetical=%s" % str(inside_both != null and inside_both.id == &"z_small"))
+	print("zone.non_overlap_resolves_to=%s" % (String(inside_big_only.id) if inside_big_only != null else "<null>"))
+	print("zone.outside_is_null=%s" % str(outside == null))
 
 ## The one property the two-run comparison structurally CANNOT establish.
 ##

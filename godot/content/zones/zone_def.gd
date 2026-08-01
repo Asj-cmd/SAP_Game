@@ -25,6 +25,13 @@ enum Role {
 @export var no_capture: bool = false
 ## Connected zones, for navigation.
 @export var links: Array[StringName] = []
+## Resolution order where zone bounds overlap: HIGHER WINS.
+##
+## Overlap is a legitimate authoring tool, not a mistake - a vault volume
+## inside a bedroom, a stairwell shared between two floors. This makes the
+## containing zone a deliberate choice rather than a consequence of which id
+## happened to sort first alphabetically.
+@export var priority: int = 0
 
 func contains_point(point: Vector3) -> bool:
 	return bounds.has_point(point)
