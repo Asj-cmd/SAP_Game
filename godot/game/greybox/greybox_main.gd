@@ -51,8 +51,41 @@ var _banner: Label = null
 func _ready() -> void:
 	_build_lighting()
 	_build_hud()
-	_capture_mouse(true)
+	# The debug split can be asked for at startup as well as with F2, so an
+	# unattended run can capture a frame of it. A mode nobody can screenshot is
+	# a mode that quietly rots.
+	_split_screen = OS.get_cmdline_user_args().has("--split")
+	_capture_mouse(not _split_screen)
 	_start(GreyBoxLevel.SafeVariant.B)
+	_arm_capture()
+
+# ---- looking at the screen ----
+
+## Honours `--capture` on the command line: wait, save a PNG, exit.
+##
+## An unattended run that can produce a frame is the only way a claim about
+## what the game LOOKS like gets checked. See FrameCapture.
+func _arm_capture() -> void:
+	var request: FrameCapture = FrameCapture.from_command_line(OS.get_cmdline_user_args())
+	if not request.requested:
+		return
+	await get_tree().create_timer(request.delay).timeout
+	await _capture_frame(request.path)
+	if request.quit_after:
+		get_tree().quit()
+
+func _capture_frame(to_path: String) -> void:
+	# The texture only holds a finished frame after the draw, not after the
+	# _process that queued it.
+	await RenderingServer.frame_post_draw
+	var written: String = FrameCapture.save(get_viewport(), to_path)
+	if written == "":
+		return
+	print("frame capture: %s" % written)
+	print("  %s" % FrameCapture.describe(_active_camera(), _actor_views.size()))
+
+func _active_camera() -> Camera3D:
+	return _cameras[0].camera if not _cameras.is_empty() else null
 
 # ---- setup ----
 
@@ -126,8 +159,19 @@ func _build_seats() -> void:
 		viewport.world_3d = get_world_3d()
 
 		var chase: ChaseCamera = ChaseCamera.new(CAMERA_COLLISION_LAYER)
-		add_child(chase.rig)
-		viewport.add_child(chase.camera)
+		# The WHOLE RIG goes inside the seat's viewport, not just the camera.
+		#
+		# A Camera3D renders the viewport it sits under, and it cannot be lifted
+		# out of the spring arm to get there - it already has a parent, so the
+		# add is refused and the arm ends up driving a camera that belongs to
+		# somewhere else. The seat then has no camera, draws its clear colour,
+		# and covers the view with a flat rectangle. That reads as "nothing
+		# renders" while every rule underneath is working perfectly.
+		#
+		# Safe because world_3d above is shared: the rig is in this viewport's
+		# tree but in the SAME 3D world as the geometry and the bodies, which is
+		# also what lets the spring arm probe collide with anything.
+		viewport.add_child(chase.rig)
 		chase.camera.current = true
 		_cameras.append(chase)
 
@@ -371,10 +415,23 @@ func _update_hud() -> void:
 			"  sheltered%s" % _shelter_remaining(actor) if actor.is_protected() else "",
 		])
 
+	# Where the camera IS, not where it should be. A blank window has several
+	# causes that look identical from the outside - no camera in the viewport, a
+	# rig stranded at the origin, a near plane swallowing the level - and this
+	# line separates the ones about position from the ones that are not.
+	lines.append("")
+	for seat: int in _cameras.size():
+		lines.append("cam%d %s  near %.0f far %.0f" % [
+			seat + 1,
+			_cameras[seat].world_position().round(),
+			_cameras[seat].camera.near,
+			_cameras[seat].camera.far,
+		])
+
 	lines.append("")
 	lines.append("move WASD / left stick    look mouse / right stick")
 	lines.append("grab-drop Q/X    seize E/A    free ally R/B")
-	lines.append("[F2] split-screen debug (needs two pads)    [Esc] release mouse")
+	lines.append("[F2] split-screen debug (needs two pads)    [F12] save a frame    [Esc] release mouse")
 	if _split_screen and Input.get_connected_joypads().size() < 2:
 		lines.append("!! split-screen wants two pads - both seats are on one")
 	_hud.text = "\n".join(lines)
@@ -422,6 +479,8 @@ func _unhandled_input(event: InputEvent) -> void:
 			_build_seats()
 		KEY_ESCAPE:
 			_capture_mouse(Input.mouse_mode != Input.MOUSE_MODE_CAPTURED)
+		KEY_F12:
+			_capture_frame(FrameCapture.DEFAULT_PATH)
 
 func _capture_mouse(captured: bool) -> void:
 	Input.mouse_mode = Input.MOUSE_MODE_CAPTURED if captured else Input.MOUSE_MODE_VISIBLE

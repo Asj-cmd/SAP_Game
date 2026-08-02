@@ -64,6 +64,14 @@ func _init(collision_mask: int = 2) -> void:
 
 	camera = Camera3D.new()
 	camera.fov = 75.0
+	# Both planes are set together and neither is a default, because at 1 unit =
+	# 1 cm the engine's 0.05 near plane means 0.5 mm - a 240,000:1 depth range
+	# against this far plane. That spends almost all of the depth buffer on the
+	# first half-metre and leaves the rest of the level fighting over what is
+	# left, which shows up as walls flickering through each other and is far
+	# worse on gl_compatibility. 10 units is 10 cm: closer than the arm can ever
+	# compress to, so nothing is ever clipped by it.
+	camera.near = 10.0
 	camera.far = 12000.0
 	_arm.add_child(camera)
 
@@ -84,13 +92,28 @@ func aim_from_stick(stick: Vector2, delta: float) -> void:
 	aim(stick.x * STICK_SENSITIVITY * delta, stick.y * STICK_SENSITIVITY * delta)
 
 ## Moves the rig to the body. Position only - never rotation.
+##
+## Writes the LOCAL position, for the same reason forward() reads the local
+## basis: global_position is only meaningful for a node inside the tree, and
+## reading it outside one silently yields the origin - which here would park the
+## camera in the corner of the level pointing at nothing, with no error to say
+## so. The baker was bitten by exactly this. The rig is parented directly to a
+## Viewport, which has no transform of its own, so local and global agree and
+## the tree-residency question never arises.
 func follow(target: Vector3, delta: float) -> void:
 	if not _settled:
 		_settled = true
-		rig.global_position = target
+		rig.position = target
 		return
 	var blend: float = 1.0 - exp(-FOLLOW_RATE * delta)
-	rig.global_position = rig.global_position.lerp(target, blend)
+	rig.position = rig.position.lerp(target, blend)
+
+## Where the camera actually ended up, for the debug read-out. Falls back to the
+## rig when the camera is not in a tree, since global_position would read zero.
+func world_position() -> Vector3:
+	if camera == null or not camera.is_inside_tree():
+		return rig.position
+	return camera.global_position
 
 ## Ground-plane basis the player's movement is expressed in.
 ##

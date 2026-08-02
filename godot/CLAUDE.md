@@ -39,6 +39,29 @@ is the largest single source of wasted budget on this project.
 dozen near-identical functions, and costs a fraction of the tokens to write,
 read, and re-run.
 
+## Looking at the screen
+
+Visual work is not done until a frame has been viewed. Not "the tests pass",
+not "the scene tree looks right" — a frame, opened and looked at.
+
+Two renderer regressions shipped past a green suite because nothing in the loop
+ever looked at the window. Both times the rules were correct, the entities were
+where they should be, and the screen was blank. No test in the policy above can
+catch that, and none should be written to try: the failure lives between a
+correct 3D scene and the window, which is exactly the region tests are barred
+from.
+
+```bash
+godot --path godot -- --capture --capture-delay=2.5 --capture-path=user://shot.png
+godot --path godot -- --split --capture     # the debug split-screen
+```
+
+Writes a PNG, prints its absolute path plus where the camera was, and exits.
+`[F12]` does the same from inside a running game. `--capture-delay` exists
+because a frame grabbed at t=0 shows an empty scene and proves nothing.
+
+Report what the frame showed, not what it should have shown.
+
 ## Conventions
 
 - Static typing is mandatory. An untyped declaration is a defect.
