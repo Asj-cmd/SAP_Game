@@ -45,6 +45,20 @@ extends Resource
 ## How long a captured actor stays held when nobody frees them.
 @export var capture_hold_seconds: float = 60.0
 
+@export_group("Netcode")
+## Ticks between a local input and the tick it is applied on, locally AND on the
+## host. Tuning rather than a constant because it is the cheapest knob available
+## once real latency is in play, and the right value is a feel judgement.
+##
+## Holding your own input back by a tick or two gives it time to reach the host
+## before the host reaches that tick, so the host applies it on the tick the
+## client predicted it on and the client's own actions stop mispredicting at all.
+## What remains are other players' actions, which is a much smaller share.
+##
+## The cost is input latency, paid always, against misprediction paid sometimes.
+## Zero is honest for a local match and wrong for an online one.
+@export var input_delay_ticks: int = 2
+
 ## The AI weights that used to sit here now live in BotProfileDef.
 ##
 ## They were in the wrong place. This resource is what the WORLD is like, and

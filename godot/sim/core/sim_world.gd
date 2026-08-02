@@ -427,6 +427,37 @@ func step(commands: Array[SimCommand]) -> Array[SimEvent]:
 	_pending_events.clear()
 	return events
 
+## Replaces this world's mutable state with a copy of another's.
+##
+## The rollback half of rollback-and-replay: a client that mispredicted throws
+## its predicted world away, adopts the last state the host confirmed, and
+## replays its own inputs forward from there.
+##
+## CONTENT IS SHARED, not copied. Zones, teams, tuning, collision and the
+## walkable surface are immutable and both worlds run the same level; copying
+## them would be expensive and would also let one world's content drift from the
+## other's, which is the one thing that must be impossible. Only what step() can
+## change is copied.
+##
+## After this, both worlds digest identically - tests/prediction_test.gd asserts
+## exactly that, because a rollback that restores ALMOST everything is a desync
+## with extra steps.
+func adopt_state(other: SimWorld) -> void:
+	tick = other.tick
+	match_phase = other.match_phase
+	phase_ticks_remaining = other.phase_ticks_remaining
+	round_number = other.round_number
+	scores = other.scores.duplicate()
+	round_wins = other.round_wins.duplicate()
+	round_winner = other.round_winner
+	match_winner = other.match_winner
+	intent_epoch = other.intent_epoch
+	rng.state = other.rng.state
+	_next_entity_id = other._next_entity_id
+	entities.clear()
+	for entity_id: int in other.sorted_entity_ids():
+		entities[entity_id] = other.entities[entity_id].duplicate_entity()
+
 # ---- determinism instrumentation ----
 
 ## Canonical text form of all simulation state. Two worlds that have run the
