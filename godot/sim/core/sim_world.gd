@@ -51,6 +51,13 @@ var match_winner: StringName = &""
 ## The only randomness permitted inside sim/ (§3).
 var rng: SimRandom = null
 
+## Bumped whenever standing intent is thrown away. See invalidate_intent().
+##
+## Simulation state, and in the digest, because two machines must agree on how
+## many times intent has been invalidated - a client whose senders re-declared
+## and one whose senders did not are running different matches.
+var intent_epoch: int = 0
+
 ## Godot preserves insertion order, and ids are handed out by a monotonic
 ## counter, so iteration is deterministic.
 var entities: Dictionary[int, SimEntity] = {}
@@ -109,19 +116,27 @@ func configure(
 	tuning_values: TuningDef,
 	zone_defs: Array[ZoneDef],
 	team_defs: Array[TeamDef],
-	collision_def: WorldCollisionDef = null
+	collision_def: WorldCollisionDef = null,
+	baked_surface: WalkableSurfaceDef = null
 ) -> bool:
 	content_failures = PackedStringArray()
 	surface = null
 	if collision_def != null:
-		# Built here rather than inside the gate so the one surface serves both:
-		# the gate proves the level is connected, and whatever navigates it
-		# afterwards walks the very graph that was proved.
-		surface = WalkableSurface.build(
-			collision_def,
-			tuning_values.actor_radius if tuning_values != null else 0.0,
-			tuning_values.step_up_height if tuning_values != null else 0.0
-		)
+		var body: float = tuning_values.actor_radius if tuning_values != null else 0.0
+		var step_up: float = tuning_values.step_up_height if tuning_values != null else 0.0
+		# One surface serves both: the gate proves the level is connected, and
+		# whatever navigates it afterwards walks the very graph that was proved.
+		#
+		# Preferred from the bake, because computing it scales with level volume
+		# and the answer never changes. A bake that no longer fingerprints
+		# against this geometry is REBUILT rather than trusted - a stale surface
+		# would have the gate certifying a level that no longer exists.
+		if baked_surface != null and baked_surface.matches(collision_def, body, step_up):
+			surface = WalkableSurface.from_def(baked_surface, collision_def)
+		else:
+			if baked_surface != null:
+				push_warning("baked walkable surface is stale for this level - rebuilding")
+			surface = WalkableSurface.build(collision_def, body, step_up)
 		content_failures = ContentValidator.validate(
 			zone_defs, team_defs, collision_def, tuning_values, surface
 		)
@@ -164,7 +179,7 @@ func _compare_zone_resolution(a: StringName, b: StringName) -> bool:
 	var zone_b: ZoneDef = zones[b]
 	if zone_a.priority != zone_b.priority:
 		return zone_a.priority > zone_b.priority
-	return String(a) < String(b)
+	return NameOrder.compare(a, b)
 
 # ---- time ----
 
@@ -292,12 +307,7 @@ func get_team(team_id: StringName) -> TeamDef:
 ## lines - the desync detector was itself a source of desyncs. Zone resolution
 ## already cast to String for exactly this reason; teams were missed.
 func sorted_team_ids() -> Array[StringName]:
-	var ids: Array[StringName] = teams.keys()
-	ids.sort_custom(_compare_ids_as_text)
-	return ids
-
-static func _compare_ids_as_text(a: StringName, b: StringName) -> bool:
-	return String(a) < String(b)
+	return NameOrder.sorted_string_names(teams.keys())
 
 ## Are actor actions accepted right now?
 ##
@@ -307,6 +317,28 @@ static func _compare_ids_as_text(a: StringName, b: StringName) -> bool:
 ## so nothing needs to depend on anything else (§5).
 func is_live() -> bool:
 	return match_phase == MatchPhase.PLAYING
+
+## Throws away every actor's standing intent, and tells command senders to stop
+## believing whatever they last said.
+##
+## Intent PERSISTS in an actor until something replaces it, which is what stops
+## a dropped packet stuttering a run. Senders exploit that by staying quiet
+## while their intent is unchanged. Put those together across a phase where
+## commands are DISCARDED - a countdown, where the movement system is dormant -
+## and a sender ends up believing the world heard something it threw away. The
+## actor never moves, so the sender's intent never changes, so it never speaks
+## again: a bot stood still for an entire match this way, and a player holding
+## one direction through the whistle would have too.
+##
+## Fixed here rather than in each sender, because the trap belongs to the
+## PHASE CHANGE and not to whoever happened to be talking. Anything that emits
+## MoveCommands compares this counter and re-declares when it moves.
+func invalidate_intent() -> void:
+	intent_epoch += 1
+	for entity_id: int in sorted_entity_ids():
+		var entity: SimEntity = entities[entity_id]
+		if entity.is_actor():
+			entity.move_intent = Vector3.ZERO
 
 ## Does this system run this tick? Dormant systems receive neither commands
 ## nor their per-tick update, so a rule cannot fire while play is stopped by
@@ -412,6 +444,7 @@ func state_digest() -> String:
 	parts.append("tick=%d" % tick)
 	parts.append("rng=%d" % rng.state)
 	parts.append("phase=%d,%d" % [match_phase, phase_ticks_remaining])
+	parts.append("intents=%d" % intent_epoch)
 	parts.append("round=%d,%s,%s" % [round_number, round_winner, match_winner])
 	# Sorted, like every other collection the digest walks.
 	for team_id: StringName in sorted_team_ids():

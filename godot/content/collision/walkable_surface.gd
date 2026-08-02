@@ -144,6 +144,59 @@ static func build(
 	surface._link_stances()
 	return surface
 
+## Restores a surface that was computed by the baker. See WalkableSurfaceDef.
+##
+## Everything not stored is either build scaffolding (the solid mask, the cell
+## counts, the columns) or cheap to re-derive: the grown blockers are one grow()
+## per blocker and are needed for path smoothing, which asks about geometry the
+## node graph cannot answer.
+##
+## The caller is responsible for having checked def.matches() first. Loading a
+## stale surface is worse than building one, because it looks like it worked.
+static func from_def(def: WalkableSurfaceDef, collision: WorldCollisionDef) -> WalkableSurface:
+	var surface: WalkableSurface = WalkableSurface.new()
+	surface._collision = collision
+	surface.radius = def.radius
+	surface.step_up_height = def.step_up_height
+	surface.cell_size = def.cell_size
+	surface.layer_height = def.layer_height
+
+	for point: Vector3 in def.nodes:
+		surface.nodes.append(point)
+	for blocker: AABB in collision.blockers:
+		surface._grown.append(blocker.grow(surface.radius))
+
+	# Only nodes that actually have neighbours get an entry, matching what the
+	# builder produces - neighbours() answers empty for the rest either way.
+	for index: int in surface.nodes.size():
+		if index + 1 >= def.edge_offsets.size():
+			break
+		var from: int = def.edge_offsets[index]
+		var to: int = def.edge_offsets[index + 1]
+		if to > from:
+			surface._edges[index] = def.edge_targets.slice(from, to)
+	return surface
+
+## Flattens this surface for storage. The inverse of from_def.
+func to_def() -> WalkableSurfaceDef:
+	var def: WalkableSurfaceDef = WalkableSurfaceDef.new()
+	def.radius = radius
+	def.step_up_height = step_up_height
+	def.cell_size = cell_size
+	def.layer_height = layer_height
+	def.fingerprint = WalkableSurfaceDef.fingerprint_of(_collision, radius, step_up_height)
+
+	def.nodes = PackedVector3Array(nodes)
+	var offsets: PackedInt32Array = PackedInt32Array()
+	var targets: PackedInt32Array = PackedInt32Array()
+	for index: int in nodes.size():
+		offsets.append(targets.size())
+		targets.append_array(neighbours(index))
+	offsets.append(targets.size())
+	def.edge_offsets = offsets
+	def.edge_targets = targets
+	return def
+
 func is_empty() -> bool:
 	return nodes.is_empty()
 

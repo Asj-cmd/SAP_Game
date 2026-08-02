@@ -69,7 +69,7 @@ static func _sorted_zones(zone_defs: Array[ZoneDef]) -> Array[ZoneDef]:
 	return sorted
 
 static func _compare_zone_id(a: ZoneDef, b: ZoneDef) -> bool:
-	return String(a.id) < String(b.id)
+	return NameOrder.compare(a.id, b.id)
 
 # ---- shell ----
 

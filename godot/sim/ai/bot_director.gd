@@ -45,6 +45,9 @@ var _next_repath_tick: int = 0
 var _act_after_tick: int = 0
 var _last_intent: Vector3 = Vector3.ZERO
 var _has_sent_intent: bool = false
+## The world's intent epoch as of the last command sent. A mismatch means what
+## was last said no longer stands.
+var _intent_epoch: int = -1
 ## Steering error for the current decision. Re-rolled per decision rather than
 ## per tick: fresh noise every tick would cancel itself out into a straight line
 ## and emit a new command each time on the way.
@@ -80,18 +83,16 @@ func drain(world: SimWorld, tick: int, claims: Dictionary[String, int]) -> Array
 	if me == null or not me.is_actor():
 		return commands
 
-	# Play is stopped: say nothing, and FORGET what was last said.
-	#
-	# Intent is latched - an unchanged heading is not re-sent, because a client
-	# emitting the same vector thirty times a second is noise. But commands
-	# issued while the movement system is dormant are discarded, so a bot that
-	# spoke during a countdown would believe the world had heard it. Its heading
-	# then never changes, because it never moves, so it never speaks again: the
-	# bot stands still for the entire match while deciding flawlessly. Clearing
-	# the latch here is what makes the first tick of play re-assert intent.
+	# Nothing to say while play is stopped; the commands would be discarded.
 	if not world.is_live():
-		_has_sent_intent = false
 		return commands
+
+	# Intent is latched - an unchanged heading is not re-sent, because emitting
+	# the same vector thirty times a second is noise. The world says when that
+	# latch has gone stale rather than each sender guessing (§ invalidate_intent).
+	if _intent_epoch != world.intent_epoch:
+		_intent_epoch = world.intent_epoch
+		_has_sent_intent = false
 
 	# Held actors decide nothing. Intent is cleared rather than left standing,
 	# so a released actor does not resume walking into whatever it was pushing
@@ -228,10 +229,6 @@ func _threats(world: SimWorld, me: SimEntity, task: BotTask) -> int:
 func _plan(world: SimWorld, me: SimEntity, tick: int) -> void:
 	_next_repath_tick = tick + profile.repath_ticks()
 	_leg = 0
-	# A fresh route re-asserts intent even when the new heading matches the old.
-	# Belt and braces against the latch above: a round reset teleports actors
-	# home, and an intent the world dropped on the way must not be assumed live.
-	_has_sent_intent = false
 	if _task.is_none():
 		_route = PackedVector3Array()
 		return

@@ -13,7 +13,7 @@ extends SceneTree
 ##   3. Filling a lobby is FAIR. A bot may never be the reason one side is
 ##      bigger, and declining to add one is a legitimate outcome.
 
-const EXPECTED_CHECKS: int = 23
+const EXPECTED_CHECKS: int = 26
 
 const RADIUS: float = 10.0
 const FLOOR_TOP: float = 10.0
@@ -29,6 +29,7 @@ func _initialize() -> void:
 	_test_profile_drives_choice()
 	_test_decisions()
 	_test_takeover()
+	_test_intent_survives_a_countdown()
 
 	# Counted BEFORE the guard's own failure is added, or a suite that skipped a
 	# case reports the total it was supposed to reach and reads as a paradox.
@@ -378,3 +379,38 @@ func _test_takeover() -> void:
 	var filled: Array[int] = lobby_crew.fill_lobby(lobby, [], 4)
 	_check("seat/lobby fill is recorded as a lobby fill",
 		lobby_crew.seat_of(filled[0]), BotCrew.Seat.LOBBY_FILL)
+
+# ---- the latched-intent trap ----
+
+## A sender that only speaks when its intent CHANGES, plus a phase that
+## DISCARDS what it says, equals an actor that never moves again.
+##
+## This cost an entire match of bots standing still while every unit test in
+## this file passed, so the case exists at the seam rather than in either half:
+## the world invalidates intent on entering play, and anything that emits
+## MoveCommands re-declares. A player holding one direction through the whistle
+## had the same bug and would have blamed the controls.
+func _test_intent_survives_a_countdown() -> void:
+	var world: SimWorld = _world()
+	world.add_system(MatchFlowSystem.new())
+	world.match_phase = SimWorld.MatchPhase.WAITING
+	var crew: BotCrew = _crew(world)
+	crew.fill_lobby(world, [], 2)
+
+	var before: int = world.intent_epoch
+	world.step([MatchCommand.start()])
+	# Through the countdown, where a dormant movement system throws commands away.
+	var spoke_while_paused: int = 0
+	while world.match_phase == SimWorld.MatchPhase.COUNTDOWN:
+		spoke_while_paused += crew.drain(world, world.tick).size()
+		world.step([])
+	_check("intent/nothing is said into a dormant phase", spoke_while_paused, 0)
+	_check("intent/entering play invalidates what stood", world.intent_epoch > before, true)
+
+	# The tick play begins, every bot must re-declare rather than assume the
+	# world still holds an intent it discarded.
+	var declared: int = 0
+	for command: SimCommand in crew.drain(world, world.tick):
+		if command.kind == MoveCommand.KIND_MOVE:
+			declared += 1
+	_check("intent/and every bot re-declares", declared, crew.count())

@@ -14,6 +14,13 @@ extends Resource
 @export var zones: Array[ZoneDef] = []
 @export var teams: Array[TeamDef] = []
 @export var collision: WorldCollisionDef = null
+## The walkable surface for this level, precomputed by the baker.
+##
+## Stored with the level because it is a pure function of the level's geometry
+## and the body that walks it - deriving it at load is work with a known answer,
+## and the answer grows with level volume. Null falls back to building it at
+## load, which is what fixtures do.
+@export var surface: WalkableSurfaceDef = null
 ## Which blockout scene produced this, so a stale bake can be traced back.
 @export var source_scene: String = ""
 
@@ -25,6 +32,7 @@ func duplicated() -> LevelDef:
 	copy.display_name = display_name
 	copy.source_scene = source_scene
 	copy.collision = collision
+	copy.surface = surface
 	var zone_copies: Array[ZoneDef] = []
 	for zone: ZoneDef in zones:
 		zone_copies.append(zone.duplicate())

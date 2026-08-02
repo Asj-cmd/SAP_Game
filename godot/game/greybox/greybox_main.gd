@@ -104,7 +104,9 @@ func _start(variant: GreyBoxLevel.SafeVariant) -> void:
 	world = SimWorld.new(20260802)
 	# Gated: broken content does not install and the world will not step
 	# (WORLD_AUTHORING.md §7).
-	if not world.configure(level.mode, level.tuning, level.zones, level.teams, level.collision):
+	if not world.configure(
+		level.mode, level.tuning, level.zones, level.teams, level.collision, level.surface
+	):
 		_banner.text = "CONTENT REJECTED\n%s" % "\n".join(world.content_failures)
 		push_error("grey box: level content failed validation, refusing to run")
 		return

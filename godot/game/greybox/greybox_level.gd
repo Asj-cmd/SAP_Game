@@ -29,6 +29,8 @@ var level: LevelDef = null
 var zones: Array[ZoneDef] = []
 var teams: Array[TeamDef] = []
 var collision: WorldCollisionDef = null
+## Precomputed by the baker; null falls back to a build at load.
+var surface: WalkableSurfaceDef = null
 var tuning: TuningDef = null
 var mode: GameModeDef = null
 var bot_profile: BotProfileDef = null
@@ -54,6 +56,7 @@ func _init(safe_variant: SafeVariant = SafeVariant.B) -> void:
 	zones = level.zones
 	teams = level.teams
 	collision = level.collision
+	surface = level.surface
 	mode = build_mode(_cash_per_team())
 
 ## Numbers a designer dials, kept apart from the geometry a designer drags.

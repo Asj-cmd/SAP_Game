@@ -13,7 +13,7 @@ extends SceneTree
 ## it; the old fill said so, and would have certified a level whose only route
 ## between two houses was over the roof.
 
-const EXPECTED_CHECKS: int = 21
+const EXPECTED_CHECKS: int = 26
 
 ## Fixed rather than derived, so a case states the resolution it needs instead
 ## of depending on the heuristics that pick one for real content.
@@ -32,6 +32,7 @@ func _initialize() -> void:
 	_test_steps_and_drops()
 	_test_stance_under()
 	_test_routing()
+	_test_baking()
 
 	# Counted BEFORE the guard's own failure is added, or a suite that skipped a
 	# case reports the total it was supposed to reach and reads as a paradox.
@@ -209,3 +210,41 @@ func _test_routing() -> void:
 		sealed.distance_by_hops(hops, sealed.node_at(to)), -1.0)
 	_check("route/a reachable one reports some",
 		open.distance_by_hops(open.hops_from(open.node_at(from)), open.node_at(to)) > 0.0, true)
+
+# ---- baking ----
+
+## A stored surface has to be the same graph as a built one.
+##
+## The whole point of baking is that loading skips the build, so nothing at
+## runtime re-derives the answer and nothing would notice if the stored one were
+## subtly different. The equivalence is therefore asserted here rather than
+## assumed - and it is asserted on CONNECTIVITY and ROUTES, not just node count,
+## because a surface with every node and no edges also has the right size.
+func _test_baking() -> void:
+	var built: WalkableSurface = _surface([
+		AABB(Vector3(98, FLOOR_TOP, 0), Vector3(4, 60, 30)),
+		AABB(Vector3(98, FLOOR_TOP, 70), Vector3(4, 60, 30)),
+	])
+	var stored: WalkableSurfaceDef = built.to_def()
+	var loaded: WalkableSurface = WalkableSurface.from_def(stored, built._collision)
+
+	_check("bake/every stance survives the round trip", loaded.size(), built.size())
+	_check("bake/and so does what connects to what",
+		loaded.component_from(0).size(), built.component_from(0).size())
+
+	var resting: float = FLOOR_TOP + RADIUS
+	var from: Vector3 = Vector3(40, resting, 20)
+	var to: Vector3 = Vector3(160, resting, 80)
+	_check("bake/and the route through the doorway is the same",
+		NavGraph.of(loaded).route(from, to), NavGraph.of(built).route(from, to))
+
+	# Staleness must be detected, not trusted. A bake that no longer describes
+	# the level would have the load gate certifying a level that does not exist,
+	# which is worse than having no bake at all.
+	var moved: WorldCollisionDef = WorldCollisionDef.new()
+	moved.bounds = built._collision.bounds
+	moved.blockers = [AABB(Vector3(0, 0, 0), Vector3(200, FLOOR_TOP, 100))] as Array[AABB]
+	_check("bake/a wall that moved invalidates it",
+		stored.matches(moved, RADIUS, STEP_UP), false)
+	_check("bake/and so does a differently sized body",
+		stored.matches(built._collision, RADIUS * 2.0, STEP_UP), false)

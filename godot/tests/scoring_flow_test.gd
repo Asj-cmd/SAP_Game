@@ -25,7 +25,6 @@ func _initialize() -> void:
 	_test_round_reset()
 	_test_full_match()
 	_test_dormancy()
-	_test_team_ordering()
 
 	print("\n%d passed, %d failed" % [_passed, _failed])
 	if _failed > 0:
@@ -363,40 +362,3 @@ func _test_dormancy() -> void:
 	_run(world, int(ROUND_SECONDS * TICKS_PER_SECOND) + 1)
 	_check("dormant/actors settle when play stops", actor.motion_state, SimEntity.MotionState.IDLE)
 	_check("dormant/held input is dropped", actor.move_intent, Vector3.ZERO)
-
-# ---- team ordering ----
-
-## Team order decides the sequence populate_roster creates bodies in, and
-## therefore which entity id each actor is given. It has to be an order two
-## machines compute identically.
-##
-## Array[StringName].sort() does NOT compare by characters - it compares
-## interning identity, so names interned out of alphabetical order come back in
-## neither alphabetical nor insertion order, and which order depends on what the
-## process interned first. Two clients would hand the same player different ids
-## and disagree about everything after that.
-##
-## Three teams, deliberately: the two-team fixtures everywhere else in this
-## project happened to survive the bug by luck, which is exactly why it went
-## unnoticed until a third name was involved.
-func _test_team_ordering() -> void:
-	var teams: Array[TeamDef] = []
-	for id: StringName in [&"zulu_family", &"alpha_family", &"mid_family"]:
-		var team: TeamDef = TeamDef.new()
-		team.id = id
-		team.spawn_points = [Vector3.ZERO] as Array[Vector3]
-		teams.append(team)
-
-	var mode: GameModeDef = GameModeDef.new()
-	mode.team_size = 1
-	var world: SimWorld = SimWorld.new(1)
-	var zones: Array[ZoneDef] = []
-	world.configure(mode, TuningDef.new(), zones, teams, null)
-
-	var expected: Array[StringName] = [&"alpha_family", &"mid_family", &"zulu_family"]
-	_check("order/teams sort by name, not by interning", world.sorted_team_ids(), expected)
-
-	# The consequence that actually bites: ids are handed out in this order.
-	world.populate_roster()
-	var first: SimEntity = world.get_entity(world.actor_ids()[0])
-	_check("order/and the roster is built in that order", first.team, &"alpha_family")

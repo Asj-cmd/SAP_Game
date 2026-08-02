@@ -254,8 +254,20 @@ clearance is invisible to the fill. That is correct — it is not somewhere to w
 — but it means a mezzanine tucked right under a ceiling will not register as
 floor. Give walkable upper storeys real headroom.
 
-**Build cost.** The surface is built once per `configure()` and is currently
-~800 ms for the grey-box house (9,880 standing places). That is load-time, not
-per-frame, but it scales with level volume: a much larger level will want a
-broadphase better than the per-blocker one now in place, or a coarser grid with
-the gaps authored accordingly.
+**The surface is baked, not built.** It is a pure function of static geometry
+and a body size, so the baker computes it and stores it in the level `.tres`
+(`WalkableSurfaceDef`); loading reads two flat arrays. For the grey-box house
+that took load-time cost from ~800 ms to ~68 ms, and the saving grows with the
+level rather than shrinking.
+
+Two consequences for authoring:
+
+- **Re-bake after moving anything solid.** A stored surface records a
+  fingerprint of the geometry and body it was computed from. A level whose
+  fingerprint no longer matches is *rebuilt at load with a warning* rather than
+  trusted — correct, but it silently costs the time baking was meant to save, so
+  a warning in the log means "you forgot to re-bake".
+- **A bake is only valid for one body size.** `actor_radius` and
+  `step_up_height` are part of the fingerprint, because they decide what counts
+  as standable and what counts as a step. Changing either invalidates every
+  baked level, by design.

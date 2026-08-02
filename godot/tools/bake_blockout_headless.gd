@@ -25,7 +25,7 @@ func _initialize() -> void:
 	get_root().add_child(root)
 
 	var baker: BlockoutBaker = BlockoutBaker.new()
-	var level: LevelDef = baker.bake(root, LEVEL_ID, SCENE_PATH)
+	var level: LevelDef = baker.bake(root, LEVEL_ID, SCENE_PATH, GreyBoxLevel.build_tuning())
 	if level == null:
 		for failure: String in baker.failures:
 			printerr("bake: %s" % failure)

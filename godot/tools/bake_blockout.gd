@@ -19,7 +19,9 @@ func _run() -> void:
 		return
 
 	var baker: BlockoutBaker = BlockoutBaker.new()
-	var level: LevelDef = baker.bake(spatial, LEVEL_ID, spatial.scene_file_path)
+	var level: LevelDef = baker.bake(
+		spatial, LEVEL_ID, spatial.scene_file_path, GreyBoxLevel.build_tuning()
+	)
 	if level == null:
 		for failure: String in baker.failures:
 			push_error("bake: %s" % failure)

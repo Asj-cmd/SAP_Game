@@ -36,6 +36,8 @@ var _intent: Vector3 = Vector3.ZERO
 ## Last intent handed to the simulation. Intent persists there, so re-sending
 ## an unchanged one every tick would be noise.
 var _last_sent: Vector3 = Vector3.ZERO
+## The world's intent epoch as of the last command sent.
+var _intent_epoch: int = -1
 
 func _init(input_device: Device, joypad: int = 0) -> void:
 	device = input_device
@@ -101,6 +103,15 @@ func drain(world: SimWorld, tick: int) -> Array[SimCommand]:
 	var commands: Array[SimCommand] = []
 	if actor_id == SimEntity.NO_ENTITY:
 		return commands
+
+	# The world invalidates standing intent when play restarts, because commands
+	# sent while it was not listening were discarded. Forgetting what was last
+	# sent is what makes the next tick re-declare it - otherwise a player who
+	# held one direction straight through the whistle would never move, having
+	# already "said" it during the countdown (SimWorld.invalidate_intent).
+	if _intent_epoch != world.intent_epoch:
+		_intent_epoch = world.intent_epoch
+		_last_sent = Vector3.ZERO
 
 	if not _intent.is_equal_approx(_last_sent):
 		_last_sent = _intent

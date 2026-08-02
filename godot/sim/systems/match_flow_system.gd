@@ -122,6 +122,11 @@ func _enter(world: SimWorld, next: SimWorld.MatchPhase, ticks: int) -> void:
 	world.phase_ticks_remaining = ticks
 	if next != SimWorld.MatchPhase.PLAYING:
 		_freeze_actors(world)
+	elif previous != next:
+		# Entering play. Nothing anybody said while the world was not listening
+		# carries in - senders re-declare or the actor stands still, and neither
+		# outcome is a belief nobody checked (SimWorld.invalidate_intent).
+		world.invalidate_intent()
 	if previous != next:
 		world.emit(MatchEvent.phase_changed(world.tick, previous, next))
 

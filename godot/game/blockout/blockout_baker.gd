@@ -27,7 +27,16 @@ var failures: PackedStringArray = PackedStringArray()
 
 ## Reads `root` and returns the level it describes, or null if the scene is
 ## not bakeable. Problems are collected in `failures`.
-func bake(root: Node3D, level_id: StringName, source: String = "") -> LevelDef:
+## `body` is the tuning the level will be played with. The walkable surface
+## depends on how big the thing walking is, so a bake is only valid for a body -
+## and the fingerprint stored with it records which, so a tuning change is
+## detected at load rather than silently navigated with the wrong footprint.
+func bake(
+	root: Node3D,
+	level_id: StringName,
+	source: String = "",
+	body: TuningDef = null
+) -> LevelDef:
 	failures = PackedStringArray()
 
 	var level: LevelDef = LevelDef.new()
@@ -87,7 +96,19 @@ func bake(root: Node3D, level_id: StringName, source: String = "") -> LevelDef:
 	level.zones = zones
 	level.teams = _build_teams(spawns, cash)
 
-	return null if not failures.is_empty() else level
+	if not failures.is_empty():
+		return null
+
+	# Precomputed here so loading the level is a read rather than a fill. Done
+	# last, because it needs the finished collision.
+	if body != null:
+		level.surface = WalkableSurface.build(
+			level.collision, body.actor_radius, body.step_up_height
+		).to_def()
+		if level.surface.nodes.is_empty():
+			failures.append("nothing in this level can be stood on")
+			return null
+	return level
 
 ## Depth-first, accumulating each node's placement as it goes.
 ##
@@ -143,11 +164,11 @@ func _build_teams(
 	for team_id: StringName in cash:
 		if not ids.has(team_id):
 			ids.append(team_id)
-	# By characters, not by interning identity - see SimWorld.sorted_team_ids.
-	# Here it decides the order teams are baked into the level file in, so a
-	# StringName sort would make the bake depend on what the editor interned
-	# first and a re-bake read as an edit.
-	ids.sort_custom(func(a: StringName, b: StringName) -> bool: return String(a) < String(b))
+	# By characters, not by interning identity (NameOrder). Here it decides the
+	# order teams are written into the level file, so an interning-order sort
+	# would make a bake depend on what the editor happened to intern first and
+	# every re-bake read as an edit.
+	ids = NameOrder.sorted_string_names(ids)
 
 	var teams: Array[TeamDef] = []
 	for team_id: StringName in ids:
@@ -175,7 +196,7 @@ func _compare_markers(a: Dictionary, b: Dictionary) -> bool:
 	return String(a["name"]) < String(b["name"])
 
 func _compare_zones(a: ZoneDef, b: ZoneDef) -> bool:
-	return String(a.id) < String(b.id)
+	return NameOrder.compare(a.id, b.id)
 
 func _compare_boxes(a: AABB, b: AABB) -> bool:
 	if a.position.x != b.position.x:

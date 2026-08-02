@@ -72,7 +72,9 @@ func _play(stop_at: int = -1) -> Dictionary:
 
 	var started: int = Time.get_ticks_msec()
 	var world: SimWorld = SimWorld.new(20260802)
-	if not world.configure(level.mode, level.tuning, level.zones, level.teams, level.collision):
+	if not world.configure(
+		level.mode, level.tuning, level.zones, level.teams, level.collision, level.surface
+	):
 		for failure: String in world.content_failures:
 			print("content rejected: %s" % failure)
 		quit(1)
