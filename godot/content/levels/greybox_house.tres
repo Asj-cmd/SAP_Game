@@ -7,77 +7,91 @@
 
 [sub_resource type="Resource" id="Resource_tglxx"]
 script = ExtResource("1_hbbxw")
-blockers = Array[AABB]([AABB(0, 0, 0, 1600, 40, 1200), AABB(100, 40, 300, 500, 220, 20), AABB(100, 40, 300, 20, 220, 390), AABB(100, 40, 790, 20, 220, 110), AABB(100, 40, 880, 500, 220, 20), AABB(120, 40, 590, 220, 220, 20), AABB(340, 40, 320, 20, 220, 120), AABB(340, 40, 540, 20, 220, 150), AABB(340, 40, 790, 20, 220, 90), AABB(580, 40, 300, 20, 220, 240), AABB(580, 40, 660, 20, 220, 240), AABB(1000, 40, 300, 500, 220, 20), AABB(1000, 40, 300, 20, 220, 240), AABB(1000, 40, 660, 20, 220, 240), AABB(1000, 40, 880, 500, 220, 20), AABB(1240, 40, 320, 20, 220, 120), AABB(1240, 40, 540, 20, 220, 150), AABB(1240, 40, 790, 20, 220, 90), AABB(1260, 40, 590, 220, 220, 20), AABB(1480, 40, 300, 20, 220, 390), AABB(1480, 40, 790, 20, 220, 110)])
-bounds = AABB(0, 0, 0, 1600, 260, 1200)
+blockers = Array[AABB]([AABB(0, 0, 0, 5200, 40, 3200), AABB(200, 40, 800, 1600, 280, 30), AABB(200, 40, 800, 30, 280, 1100), AABB(200, 40, 2140, 30, 280, 260), AABB(200, 40, 2370, 1600, 280, 30), AABB(230, 40, 1585, 1070, 280, 30), AABB(985, 40, 830, 30, 280, 170), AABB(985, 40, 1240, 30, 280, 760), AABB(985, 40, 2240, 30, 280, 130), AABB(1540, 40, 1585, 230, 280, 30), AABB(1770, 40, 800, 30, 280, 1100), AABB(1770, 40, 2140, 30, 280, 260), AABB(3400, 40, 800, 1600, 280, 30), AABB(3400, 40, 800, 30, 280, 1100), AABB(3400, 40, 2140, 30, 280, 260), AABB(3400, 40, 2370, 1600, 280, 30), AABB(3430, 40, 1585, 230, 280, 30), AABB(3900, 40, 1585, 1070, 280, 30), AABB(4185, 40, 830, 30, 280, 170), AABB(4185, 40, 1240, 30, 280, 760), AABB(4185, 40, 2240, 30, 280, 130), AABB(4970, 40, 800, 30, 280, 1100), AABB(4970, 40, 2140, 30, 280, 260)])
+bounds = AABB(0, 0, 0, 5200, 320, 3200)
 
 [sub_resource type="Resource" id="Resource_kshhf"]
 script = ExtResource("3_caipt")
 id = &"team_b"
 display_name = "Team B"
-spawn_points = Array[Vector3]([Vector3(1130, 60, 600)])
-cash_points = Array[Vector3]([Vector3(1320, 60, 400), Vector3(1370, 60, 400), Vector3(1420, 60, 400)])
+spawn_points = Array[Vector3]([Vector3(3807.5, 60, 1992.5)])
+cash_points = Array[Vector3]([Vector3(4752.5, 60, 1207.5), Vector3(4592.5, 60, 1207.5), Vector3(4432.5, 60, 1207.5)])
 
 [sub_resource type="Resource" id="Resource_hiwse"]
 script = ExtResource("3_caipt")
 id = &"team_a"
 display_name = "Team A"
-spawn_points = Array[Vector3]([Vector3(470, 60, 600)])
-cash_points = Array[Vector3]([Vector3(180, 60, 400), Vector3(230, 60, 400), Vector3(280, 60, 400)])
+spawn_points = Array[Vector3]([Vector3(1392.5, 60, 1992.5)])
+cash_points = Array[Vector3]([Vector3(447.5, 60, 1207.5), Vector3(607.5, 60, 1207.5), Vector3(767.5, 60, 1207.5)])
 
 [sub_resource type="Resource" id="Resource_sielq"]
 script = ExtResource("4_55wkh")
 id = &"basement_a"
 role = 3
 owner_team = &"team_a"
-bounds = AABB(120, 0, 610, 220, 260, 270)
+bounds = AABB(230, 0, 1615, 755, 320, 755)
 
 [sub_resource type="Resource" id="Resource_ck0gs"]
 script = ExtResource("4_55wkh")
 id = &"basement_b"
 role = 3
 owner_team = &"team_b"
-bounds = AABB(1260, 0, 610, 220, 260, 270)
+bounds = AABB(4215, 0, 1615, 755, 320, 755)
 
 [sub_resource type="Resource" id="Resource_k4ylo"]
+script = ExtResource("4_55wkh")
+id = &"hall_a"
+role = 1
+owner_team = &"team_a"
+bounds = AABB(1015, 0, 1615, 755, 320, 755)
+
+[sub_resource type="Resource" id="Resource_ws2gi"]
+script = ExtResource("4_55wkh")
+id = &"hall_b"
+role = 1
+owner_team = &"team_b"
+bounds = AABB(3430, 0, 1615, 755, 320, 755)
+
+[sub_resource type="Resource" id="Resource_ybnir"]
 script = ExtResource("4_55wkh")
 id = &"living_a"
 role = 1
 owner_team = &"team_a"
-bounds = AABB(360, 0, 320, 220, 260, 560)
+bounds = AABB(1015, 0, 830, 755, 320, 755)
 
-[sub_resource type="Resource" id="Resource_ws2gi"]
+[sub_resource type="Resource" id="Resource_ov4kt"]
 script = ExtResource("4_55wkh")
 id = &"living_b"
 role = 1
 owner_team = &"team_b"
-bounds = AABB(1020, 0, 320, 220, 260, 560)
+bounds = AABB(3430, 0, 830, 755, 320, 755)
 
-[sub_resource type="Resource" id="Resource_ybnir"]
+[sub_resource type="Resource" id="Resource_bosot"]
 script = ExtResource("4_55wkh")
 id = &"vault_a"
 role = 2
 owner_team = &"team_a"
-bounds = AABB(120, 0, 320, 220, 260, 270)
+bounds = AABB(230, 0, 830, 755, 320, 755)
 safe_duration_seconds = 5.0
 
-[sub_resource type="Resource" id="Resource_ov4kt"]
+[sub_resource type="Resource" id="Resource_kvkqi"]
 script = ExtResource("4_55wkh")
 id = &"vault_b"
 role = 2
 owner_team = &"team_b"
-bounds = AABB(1260, 0, 320, 220, 260, 270)
+bounds = AABB(4215, 0, 830, 755, 320, 755)
 safe_duration_seconds = 5.0
 
-[sub_resource type="Resource" id="Resource_bosot"]
+[sub_resource type="Resource" id="Resource_ah7se"]
 script = ExtResource("4_55wkh")
 id = &"yard"
-bounds = AABB(600, 0, 0, 400, 260, 1200)
+bounds = AABB(1800, 0, 0, 1600, 320, 3200)
 
 [resource]
 script = ExtResource("2_k6ow2")
 id = &"greybox_house"
 display_name = "Greybox House"
-zones = Array[ExtResource("4_55wkh")]([SubResource("Resource_sielq"), SubResource("Resource_ck0gs"), SubResource("Resource_k4ylo"), SubResource("Resource_ws2gi"), SubResource("Resource_ybnir"), SubResource("Resource_ov4kt"), SubResource("Resource_bosot")])
+zones = Array[ExtResource("4_55wkh")]([SubResource("Resource_sielq"), SubResource("Resource_ck0gs"), SubResource("Resource_k4ylo"), SubResource("Resource_ws2gi"), SubResource("Resource_ybnir"), SubResource("Resource_ov4kt"), SubResource("Resource_bosot"), SubResource("Resource_kvkqi"), SubResource("Resource_ah7se")])
 teams = Array[ExtResource("3_caipt")]([SubResource("Resource_kshhf"), SubResource("Resource_hiwse")])
 collision = SubResource("Resource_tglxx")
 source_scene = "res://game/blockout/greybox_house.tscn"

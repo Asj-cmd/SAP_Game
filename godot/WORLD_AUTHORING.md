@@ -173,3 +173,42 @@ This generalises past safe rooms to every tuned quantity — round length, captu
 duration, carry speed. It is written here rather than left to habit because the
 failure is invisible until someone changes the content and the UI keeps
 confidently stating the old value.
+
+## 10. Room dimensions come from the camera, not from realism
+
+**A real-scale domestic interior cannot host a third-person camera.** This is a
+constraint, not a preference, and it decides the floor plan before anything else
+does.
+
+A third-person camera sits roughly 3.5 m behind the character. A real bedroom is
+3 m across. The camera is therefore permanently inside a wall, and a spring arm
+"fixes" that by compressing to nothing — which is a first-person view with extra
+steps, and no view of the character the player is supposed to be reading.
+
+So rooms are sized from the arm outward:
+
+| Quantity | Value | Why |
+|---|---|---|
+| Unit | 1 unit = 1 cm | Fixed by actor radius; everything else follows |
+| Camera arm | ~3.5 m | Standard third-person standoff |
+| Room | 7–8 m | Several arm-lengths, so the camera is in the room |
+| Doorway | ~2.4 m | Wide enough to run through mid-chase, not to sidle through |
+| Wall height | ~2.8 m | Tall enough to read as a room, cheap to raise |
+
+The first blockout was built at domestic scale — 2.2 m rooms — and was unusable
+the moment a real camera was attached. Rebuilding it cost an afternoon. Rebuilding
+a modelled house would cost considerably more, which is why this is written down
+before the Blender work starts (§6, §8 step 4).
+
+**The rule: when the camera and realism disagree, the camera wins.** A house that
+reads as slightly too large is invisible to players. A house the camera cannot fit
+in is unplayable, and no amount of art fixes it.
+
+Two consequences worth stating:
+
+- **Furniture and props scale with the room, not with reality.** A sofa in a 7 m
+  room is a 3 m sofa. Nobody notices; everybody notices a camera in a wall.
+- **The validator's fill resolution is tied to level size** (`FILL_DIVISIONS`
+  divides the longest axis). Rescaling a level changes the cell size, so a
+  doorway that was several cells wide can quietly become one. Re-run the gate
+  after any rescale — the rescale above needed exactly that fix.

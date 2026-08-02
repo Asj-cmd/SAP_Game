@@ -1,43 +1,67 @@
 class_name LocalPlayerInput
 extends RefCounted
-## One seat at the couch: a device, and the intent it is currently expressing.
+## One seat: a device, a camera, and the intent the two of them express.
+##
+## Movement is CAMERA-RELATIVE. Forward is wherever the camera is looking, not
+## a fixed world axis, which is what makes look and move independent - you can
+## back away from a doorway while watching it, or edge round a corner without
+## turning to face the way you are travelling.
 ##
 ## Polled every rendered frame, drained once per simulation tick. Those are
-## different rates and must stay different - input arrives whenever the player
-## moves a stick, and the simulation only cares at 30 Hz. Sampling input INSIDE
-## the tick would quietly tie feel to the tick rate; sampling continuously and
-## collapsing to one command per tick keeps the two independent.
+## different rates and must stay different: input arrives whenever a stick
+## moves, and the simulation only cares at 30 Hz. Sampling inside the tick
+## would tie feel to the tick rate.
 ##
-## Produces intent. It never touches the world: presentation and input read
-## simulation state and emit commands, and that is the entire contract (§1).
+## Emits commands. It never touches the world.
 
-enum Device { KEYBOARD, GAMEPAD }
+enum Device { KEYBOARD_MOUSE, GAMEPAD }
 
-## Buttons are edge-triggered and latched, because a press between two ticks
-## must not be lost - a 30 Hz tick is 33 ms and a tap can easily fall inside
-## one.
+const STICK_DEADZONE: float = 0.2
+
+var device: Device = Device.KEYBOARD_MOUSE
+var pad_id: int = 0
+var actor_id: int = SimEntity.NO_ENTITY
+var camera: ChaseCamera = null
+
+## Buttons are edge-latched: a tap between two ticks must not be lost, and a
+## 30 Hz tick is 33 ms - comfortably shorter than a deliberate press.
 var _capture_pressed: bool = false
 var _carry_pressed: bool = false
 var _rescue_pressed: bool = false
 
-var device: Device = Device.KEYBOARD
-var pad_id: int = 0
-var actor_id: int = SimEntity.NO_ENTITY
+## Mouse motion accrues from events between frames rather than being polled.
+var _mouse_motion: Vector2 = Vector2.ZERO
 
-## Last intent handed to the simulation, so a repeat is not re-sent. Intent
-## persists in the sim, so re-stating it every tick would be pure noise.
-var _last_sent: Vector3 = Vector3.ZERO
 var _intent: Vector3 = Vector3.ZERO
-
-const STICK_DEADZONE: float = 0.2
+## Last intent handed to the simulation. Intent persists there, so re-sending
+## an unchanged one every tick would be noise.
+var _last_sent: Vector3 = Vector3.ZERO
 
 func _init(input_device: Device, joypad: int = 0) -> void:
 	device = input_device
 	pad_id = joypad
 
-## Called every rendered frame.
-func poll() -> void:
-	_intent = _read_direction()
+func add_mouse_motion(motion: Vector2) -> void:
+	if device == Device.KEYBOARD_MOUSE:
+		_mouse_motion += motion
+
+## Called every rendered frame: aims the camera, then reads travel relative to
+## where it now points.
+func poll(delta: float) -> void:
+	if camera == null:
+		return
+
+	if device == Device.KEYBOARD_MOUSE:
+		camera.aim_from_mouse(_mouse_motion)
+		_mouse_motion = Vector2.ZERO
+	else:
+		camera.aim_from_stick(Vector2(
+			Input.get_joy_axis(pad_id, JOY_AXIS_RIGHT_X),
+			Input.get_joy_axis(pad_id, JOY_AXIS_RIGHT_Y)
+		), delta)
+
+	_intent = camera.intent_from(_read_travel())
+
 	if _read_button(KEY_E, JOY_BUTTON_A):
 		_capture_pressed = true
 	if _read_button(KEY_Q, JOY_BUTTON_X):
@@ -45,23 +69,15 @@ func poll() -> void:
 	if _read_button(KEY_R, JOY_BUTTON_B):
 		_rescue_pressed = true
 
-## Screen-space intent, mapped to the world's ground plane. X is right, Z is
-## away from the camera, which is the layout the fixed overhead view implies.
-func _read_direction() -> Vector3:
-	if device == Device.KEYBOARD:
-		var x: float = 0.0
-		var z: float = 0.0
-		if Input.is_key_pressed(KEY_D):
-			x += 1.0
-		if Input.is_key_pressed(KEY_A):
-			x -= 1.0
-		if Input.is_key_pressed(KEY_S):
-			z += 1.0
-		if Input.is_key_pressed(KEY_W):
-			z -= 1.0
-		var keyed: Vector3 = Vector3(x, 0.0, z)
-		# Normalised so diagonals are not faster than the cardinals, which is
-		# the oldest movement bug there is.
+## Screen-relative travel: +x right, -y forward. Turned into world space by
+## the camera.
+func _read_travel() -> Vector2:
+	if device == Device.KEYBOARD_MOUSE:
+		var keyed: Vector2 = Vector2(
+			float(Input.is_key_pressed(KEY_D)) - float(Input.is_key_pressed(KEY_A)),
+			float(Input.is_key_pressed(KEY_S)) - float(Input.is_key_pressed(KEY_W))
+		)
+		# Normalised so a diagonal is not faster than a cardinal.
 		return keyed.normalized() if keyed.length_squared() > 1.0 else keyed
 
 	var stick: Vector2 = Vector2(
@@ -69,13 +85,11 @@ func _read_direction() -> Vector3:
 		Input.get_joy_axis(pad_id, JOY_AXIS_LEFT_Y)
 	)
 	# A stick that never quite centres should read as released, or the actor
-	# creeps forever and the movement feel test is judging drift.
-	if stick.length() < STICK_DEADZONE:
-		return Vector3.ZERO
-	return Vector3(stick.x, 0.0, stick.y)
+	# creeps forever and the movement test is judging drift.
+	return Vector2.ZERO if stick.length() < STICK_DEADZONE else stick
 
 func _read_button(key: Key, button: JoyButton) -> bool:
-	if device == Device.KEYBOARD:
+	if device == Device.KEYBOARD_MOUSE:
 		return Input.is_key_pressed(key)
 	return Input.is_joy_button_pressed(pad_id, button)
 
@@ -83,7 +97,6 @@ func _read_button(key: Key, button: JoyButton) -> bool:
 ##
 ## At most one MoveCommand, and only when the intent actually changed -
 ## including the change to zero, which is what MoveCommand.stop() is for.
-## Intent persists in the simulation, so silence means "carry on".
 func drain(world: SimWorld, tick: int) -> Array[SimCommand]:
 	var commands: Array[SimCommand] = []
 	if actor_id == SimEntity.NO_ENTITY:
@@ -96,7 +109,7 @@ func drain(world: SimWorld, tick: int) -> Array[SimCommand]:
 		else:
 			commands.append(MoveCommand.move(actor_id, _intent, tick))
 
-	# Targets are chosen here, by proximity, exactly as a bot director would
+	# Targets are chosen here by proximity, exactly as a bot director would
 	# choose them. The simulation re-checks every condition, so a bad pick is
 	# refused rather than trusted (§3).
 	if _capture_pressed:
@@ -147,3 +160,6 @@ func _is_rescue_target(me: SimEntity, other: SimEntity) -> bool:
 
 func _is_carriable_target(_me: SimEntity, other: SimEntity) -> bool:
 	return other.is_carriable() and not other.is_held()
+
+func device_name() -> String:
+	return "mouse + keys" if device == Device.KEYBOARD_MOUSE else "pad %d" % pad_id

@@ -182,9 +182,9 @@ static func _check_reachability(
 	var queue: Array[Vector3i] = []
 	var rooted: bool = false
 	for seed_point: Vector3 in seeds:
-		var cell: Vector3i = _cell_of(seed_point, shell, step, counts)
-		if not _standable(collision, _centre_of(cell, shell, step), radius):
-			failures.append("reachability: spawn at %s is not standable" % seed_point)
+		var cell: Vector3i = _seed_cell(collision, seed_point, shell, step, counts, radius)
+		if cell.y < 0:
+			failures.append("reachability: nothing standable near spawn at %s" % seed_point)
 			continue
 		if not rooted:
 			rooted = true
@@ -220,8 +220,8 @@ static func _check_reachability(
 	# Every other spawn must be in the same component, or the map is cut in
 	# two and each team is sealed into its own half.
 	for seed_point: Vector3 in seeds:
-		var cell: Vector3i = _cell_of(seed_point, shell, step, counts)
-		if not _standable(collision, _centre_of(cell, shell, step), radius):
+		var cell: Vector3i = _seed_cell(collision, seed_point, shell, step, counts, radius)
+		if cell.y < 0:
 			continue # already reported above
 		if not reached.has(cell):
 			failures.append(
@@ -236,6 +236,32 @@ static func _check_reachability(
 				break
 		if not found:
 			failures.append("reachability: zone '%s' cannot be reached from every spawn" % zone.id)
+
+## The cell a spawn floods from, or (-1,-1,-1) if there is nothing to stand on.
+##
+## An actor stands ON the floor, so the cell CONTAINING its spawn usually has
+## its centre inside the floor slab - and the coarser the grid, the more of the
+## cell that slab occupies. Testing the containing cell directly therefore
+## reports a perfectly good spawn as unreachable purely because of how the grid
+## happened to line up with the ground.
+##
+## Snapping upward to the first standable cell keeps seeding a property of the
+## LEVEL rather than of the fill resolution. Whether the spawn point itself is
+## sound is a separate question, already answered by the placement checks.
+static func _seed_cell(
+	collision: WorldCollisionDef,
+	point: Vector3,
+	shell: AABB,
+	step: float,
+	counts: Vector3i,
+	radius: float
+) -> Vector3i:
+	var cell: Vector3i = _cell_of(point, shell, step, counts)
+	for y: int in range(cell.y, counts.y):
+		var candidate: Vector3i = Vector3i(cell.x, y, cell.z)
+		if _standable(collision, _centre_of(candidate, shell, step), radius):
+			return candidate
+	return Vector3i(-1, -1, -1)
 
 ## Where the fill starts: authored spawns, falling back to the centre of each
 ## team's home so a fixture without a roster still validates.
