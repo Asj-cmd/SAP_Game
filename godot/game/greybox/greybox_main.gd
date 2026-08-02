@@ -33,6 +33,11 @@ const MAX_STEPS_PER_FRAME: int = 5
 var world: SimWorld = null
 var level: GreyBoxLevel = null
 var players: Array[LocalPlayerInput] = []
+## Bots filling the seats no local player took. On by default here because
+## split-screen is a debug mode now, which makes this the only way to see the
+## rules exercised by somebody other than yourself.
+var crew: BotCrew = null
+var _bots_enabled: bool = true
 
 ## The two most recent simulation states. Rendering interpolates between them,
 ## which lets a 30 Hz simulation drive any refresh rate without the simulation
@@ -115,6 +120,7 @@ func _start(variant: GreyBoxLevel.SafeVariant) -> void:
 	# single field of simulation state.
 	world.populate_roster()
 	_build_seats()
+	_build_crew()
 	_rebuild_views()
 	_previous = _snapshot()
 	_accumulator = 0.0
@@ -192,6 +198,26 @@ func _build_seats() -> void:
 	for seat: int in mini(players.size(), seats.size()):
 		players[seat].actor_id = seats[seat]
 
+## Fills whatever the local players did not take.
+##
+## Nothing else in this file changes shape when the crew is empty: the seats,
+## the loop, the rendering and the HUD are identical with bots off, which is the
+## property that makes them removable without trace.
+func _build_crew() -> void:
+	crew = null
+	if not _bots_enabled or level.bot_profile == null or world.surface == null:
+		return
+	var seated: Array[int] = []
+	for player: LocalPlayerInput in players:
+		if player.actor_id != SimEntity.NO_ENTITY:
+			seated.append(player.actor_id)
+	crew = BotCrew.create(level.bot_profile, NavGraph.of(world.surface), world.rng.state)
+	# Every remaining seat is on offer; fill_lobby decides how many it can take
+	# without making the sides uneven.
+	crew.fill_lobby(world, seated, world.actor_ids().size())
+	if crew.declined_reason != "":
+		push_warning("grey box: %s" % crew.declined_reason)
+
 # ---- the loop ----
 
 ## Explicitly accumulated, and explicitly NOT _physics_process.
@@ -226,6 +252,12 @@ func _advance_one_tick() -> void:
 	var commands: Array[SimCommand] = []
 	for player: LocalPlayerInput in players:
 		commands.append_array(player.drain(world, world.tick))
+	# Bots emit into the SAME command list, with no marker and no precedence.
+	# By the time the world sees them there is nothing to distinguish a bot's
+	# commands from a player's, which is exactly the guarantee that they cannot
+	# be given a privilege by accident.
+	if crew != null:
+		commands.append_array(crew.drain(world, world.tick))
 	world.step(commands)
 
 ## A frozen copy of every entity, taken before the world moves on.
@@ -415,6 +447,21 @@ func _update_hud() -> void:
 			"  sheltered%s" % _shelter_remaining(actor) if actor.is_protected() else "",
 		])
 
+	# What each bot thinks it is doing. Behaviour that cannot be read off the
+	# screen gets debugged by staring at capsules and guessing.
+	if crew != null:
+		for actor_id: int in crew.actor_ids():
+			var bot: SimEntity = world.get_entity(actor_id)
+			var task: BotTask = crew.director_for(actor_id).current_task()
+			if bot == null:
+				continue
+			lines.append("BOT %s  %s  %s%s" % [
+				bot.team,
+				BotCrew.Seat.keys()[crew.seat_of(actor_id)],
+				BotTask.Kind.keys()[task.kind],
+				"  carrying" if bot.is_carrying() else "",
+			])
+
 	# Where the camera IS, not where it should be. A blank window has several
 	# causes that look identical from the outside - no camera in the viewport, a
 	# rig stranded at the origin, a near plane swallowing the level - and this
@@ -431,7 +478,8 @@ func _update_hud() -> void:
 	lines.append("")
 	lines.append("move WASD / left stick    look mouse / right stick")
 	lines.append("grab-drop Q/X    seize E/A    free ally R/B")
-	lines.append("[F2] split-screen debug (needs two pads)    [F12] save a frame    [Esc] release mouse")
+	lines.append("[F2] split-screen debug    [F3] bots %s    [F12] save a frame    [Esc] release mouse"
+		% ("on" if _bots_enabled else "off"))
 	if _split_screen and Input.get_connected_joypads().size() < 2:
 		lines.append("!! split-screen wants two pads - both seats are on one")
 	_hud.text = "\n".join(lines)
@@ -481,6 +529,15 @@ func _unhandled_input(event: InputEvent) -> void:
 			_capture_mouse(Input.mouse_mode != Input.MOUSE_MODE_CAPTURED)
 		KEY_F12:
 			_capture_frame(FrameCapture.DEFAULT_PATH)
+		KEY_F3:
+			# Proving the claim as much as offering the option: with bots off,
+			# every seat they held goes back to being an actor nobody is
+			# driving, and the match runs exactly as it did before they existed.
+			_bots_enabled = not _bots_enabled
+			if crew != null:
+				for actor_id: int in crew.actor_ids():
+					crew.release(world, actor_id)
+			_build_crew()
 
 func _capture_mouse(captured: bool) -> void:
 	Input.mouse_mode = Input.MOUSE_MODE_CAPTURED if captured else Input.MOUSE_MODE_VISIBLE

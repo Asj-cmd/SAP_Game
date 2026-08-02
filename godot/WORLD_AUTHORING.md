@@ -208,7 +208,54 @@ Two consequences worth stating:
 
 - **Furniture and props scale with the room, not with reality.** A sofa in a 7 m
   room is a 3 m sofa. Nobody notices; everybody notices a camera in a wall.
-- **The validator's fill resolution is tied to level size** (`FILL_DIVISIONS`
-  divides the longest axis). Rescaling a level changes the cell size, so a
-  doorway that was several cells wide can quietly become one. Re-run the gate
-  after any rescale — the rescale above needed exactly that fix.
+- **The validator's fill resolution is tied to level size and to body size.**
+  Rescaling a level changes the cell size, so a doorway that was several cells
+  wide can quietly become one. Re-run the gate after any rescale — the rescale
+  above needed exactly that fix. See §11 for the resolution rule itself.
+
+
+## 11. What the level must be walkable *on*
+
+Reachability is no longer "is there space for a body here". It is **"can a body
+stand here, and step from here to there"** — a walkable-surface fill
+(`WalkableSurface`), shared by the load gate and by the bots. One graph, so the
+gate cannot certify a route the bots are unable to follow, and the bots cannot
+find one the gate never checked.
+
+This changes what content has to provide.
+
+**Every route must be walkable, because there is no jump.** An edge exists
+between two standing places only when the height difference is within
+`TuningDef.step_up_height`. A drop larger than that is not an edge *in either
+direction* — deliberately, because a ledge you can fall off but not climb back
+onto is a one-way trip, and a route that only works downhill is how a level ends
+up with a basement nobody can leave. If a room is below ground, it needs stairs
+or a ramp whose individual steps are within the allowance. A hole in the floor
+is not an entrance.
+
+**Air is not a route.** The old fill was volumetric and connected cells
+vertically, so it would happily walk over the top of a wall through the open air
+above it and declare two sealed houses connected. The current fill requires
+something solid underfoot. A wall taller than a step now separates what it looks
+like it separates.
+
+**Gaps must be wider than the grid, not merely wider than a body.** A doorway
+registers only where a sample column lands inside it, so the cell size is the
+finer of two bounds: one body across (`CELL_RADII`), and 1/64 of the level's
+longest axis (`SHELL_DIVISIONS`). Neither alone is sufficient and no sampled fill
+can guarantee finding an arbitrarily tight gap. Missing one reports *unreachable*,
+which is the safe direction — a false alarm costs a look, a missed gap ships a
+room nobody can enter. In practice: **do not author a doorway at the minimum
+width a body fits through.** Leave it a body wider, which §10 wants anyway.
+
+**A ledge needs headroom to be found at all.** A standing place is detected where
+there is a free cell above it, so a shelf with less than a step-height of
+clearance is invisible to the fill. That is correct — it is not somewhere to walk
+— but it means a mezzanine tucked right under a ceiling will not register as
+floor. Give walkable upper storeys real headroom.
+
+**Build cost.** The surface is built once per `configure()` and is currently
+~800 ms for the grey-box house (9,880 standing places). That is load-time, not
+per-frame, but it scales with level volume: a much larger level will want a
+broadphase better than the per-blocker one now in place, or a coarser grid with
+the gaps authored accordingly.

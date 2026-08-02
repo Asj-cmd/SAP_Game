@@ -143,7 +143,11 @@ func _build_teams(
 	for team_id: StringName in cash:
 		if not ids.has(team_id):
 			ids.append(team_id)
-	ids.sort()
+	# By characters, not by interning identity - see SimWorld.sorted_team_ids.
+	# Here it decides the order teams are baked into the level file in, so a
+	# StringName sort would make the bake depend on what the editor interned
+	# first and a re-bake read as an edit.
+	ids.sort_custom(func(a: StringName, b: StringName) -> bool: return String(a) < String(b))
 
 	var teams: Array[TeamDef] = []
 	for team_id: StringName in ids:

@@ -45,30 +45,12 @@ extends Resource
 ## How long a captured actor stays held when nobody frees them.
 @export var capture_hold_seconds: float = 60.0
 
-@export_group("AI cadence (seconds)")
-## How often a bot re-scores every candidate action: its reaction speed.
-@export var ai_decide_seconds: float = 1.0
-## De-syncs teammates' decide ticks so a squad does not think in lockstep.
-@export var ai_decide_jitter_seconds: float = 0.3
-
-@export_group("AI weights")
-@export var ai_value_deposit: float = 100000.0
-@export var ai_value_rescue: float = 6000.0
-@export var ai_value_defend: float = 4000.0
-@export var ai_value_objective: float = 3000.0
-@export var ai_value_patrol: float = 150.0
-## Score lost per world-unit of navigation path distance.
-@export var ai_cost_weight: float = 0.6
-## Score lost per enemy sitting on a chokepoint or on the target itself.
-@export var ai_risk_weight: float = 1400.0
-## How far away an enemy registers as a threat.
-@export var ai_vision_radius: float = 840.0
-## Stickiness: the task a bot already holds wins ties and near-ties.
-@export var ai_commit_bonus: float = 700.0
-## A teammate already handles it - usually pick something else.
-@export var ai_coord_penalty: float = 2600.0
-## Imperfection: +/- jitter applied per candidate per re-score.
-@export var ai_choice_noise: float = 250.0
+## The AI weights that used to sit here now live in BotProfileDef.
+##
+## They were in the wrong place. This resource is what the WORLD is like, and
+## every player in a match shares one; a bot profile is what one OPPONENT is
+## like, and a lobby may reasonably mix tiers. Merging them made difficulty a
+## property of the level.
 
 func carry_speed() -> float:
 	return move_speed * carry_speed_scale

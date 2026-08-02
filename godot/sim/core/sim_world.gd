@@ -64,6 +64,14 @@ var teams: Dictionary[StringName, TeamDef] = {}
 ## Solid geometry. Null means no shell and no walls - an open plane, which is
 ## only ever right for a fixture. See WORLD_AUTHORING.md §2.
 var collision: WorldCollisionDef = null
+## Where a body can stand, and the steps between those places. Built once by
+## configure() from the geometry, used by the load gate to prove the level hangs
+## together and afterwards by anything navigating it.
+##
+## Derived from content and never mutated, so it is not simulation state and
+## takes no part in the digest: two worlds with the same geometry build the same
+## surface, and a world that never navigates is unaffected by its existence.
+var surface: WalkableSurface = null
 
 ## Rule modules, run in this exact order (§5). Order is part of the
 ## simulation's definition, not an implementation detail: two machines running
@@ -104,11 +112,26 @@ func configure(
 	collision_def: WorldCollisionDef = null
 ) -> bool:
 	content_failures = PackedStringArray()
+	surface = null
 	if collision_def != null:
-		content_failures = ContentValidator.validate(zone_defs, team_defs, collision_def, tuning_values)
+		# Built here rather than inside the gate so the one surface serves both:
+		# the gate proves the level is connected, and whatever navigates it
+		# afterwards walks the very graph that was proved.
+		surface = WalkableSurface.build(
+			collision_def,
+			tuning_values.actor_radius if tuning_values != null else 0.0,
+			tuning_values.step_up_height if tuning_values != null else 0.0
+		)
+		content_failures = ContentValidator.validate(
+			zone_defs, team_defs, collision_def, tuning_values, surface
+		)
 	if not content_failures.is_empty():
 		for failure: String in content_failures:
 			push_error("content rejected: %s" % failure)
+		# Dropped along with the rest of the rejected content. A surface built
+		# from geometry the gate refused describes a level nobody may play, and
+		# leaving it reachable invites something to navigate one anyway.
+		surface = null
 		return false
 
 	mode = game_mode
@@ -255,10 +278,26 @@ func get_team(team_id: StringName) -> TeamDef:
 
 ## Team ids in a fixed order, so anything iterating teams is deterministic
 ## regardless of the order content was loaded in.
+##
+## Sorted as STRINGS, never as StringNames. Array[StringName].sort() does not
+## compare by characters - it compares interning identity, so three names
+## interned out of alphabetical order come back in neither alphabetical nor
+## insertion order, and which order depends on what the process happened to
+## intern first.
+##
+## That is not cosmetic here. This ordering decides the sequence populate_roster
+## creates bodies in, and therefore which entity ID each actor gets; two clients
+## interning in different orders would hand the same player different ids and
+## disagree about everything thereafter. It also orders the digest's own team
+## lines - the desync detector was itself a source of desyncs. Zone resolution
+## already cast to String for exactly this reason; teams were missed.
 func sorted_team_ids() -> Array[StringName]:
 	var ids: Array[StringName] = teams.keys()
-	ids.sort()
+	ids.sort_custom(_compare_ids_as_text)
 	return ids
+
+static func _compare_ids_as_text(a: StringName, b: StringName) -> bool:
+	return String(a) < String(b)
 
 ## Are actor actions accepted right now?
 ##

@@ -31,34 +31,34 @@ extends RefCounted
 ##   against tunnelling, which swept segment tests (§4) removed as a class.
 ##   Implementing it now would flag every ordinary doorway.
 ##
-##   Floors and gravity - the fill is volumetric because it predates the
-##   kinematic controller. It becomes a walkable-surface fill once standing
-##   somewhere is a stronger claim than being somewhere.
-
-## Grid divisions along the longest axis of the shell.
-##
-## Finer than a body, so a doorway several bodies wide is several cells wide
-## and the fill cannot miss it. Errs toward reporting unreachable, which is the
-## direction that fails safe: a false alarm costs a look, a missed one ships a
-## room nobody can enter.
-const FILL_DIVISIONS: int = 64
+## The row about floors and gravity is now PAID OFF. The fill used to be
+## volumetric because it predated the kinematic controller, and it certified
+## anywhere a body fit - including sealed voids and any basement without a way
+## down. It is a walkable-surface fill now (WalkableSurface), so reachable means
+## an actor can WALK there.
 
 ## Every problem found. Empty means the content is playable.
+##
+## `prebuilt` lets a caller that already needs the walkable surface - SimWorld,
+## which hands it to the bots afterwards - pass the one it built rather than pay
+## for a second identical fill. Omitted, the surface is built here and dropped.
 static func validate(
 	zone_defs: Array[ZoneDef],
 	team_defs: Array[TeamDef],
 	collision: WorldCollisionDef,
-	tuning: TuningDef
+	tuning: TuningDef,
+	prebuilt: WalkableSurface = null
 ) -> PackedStringArray:
 	var failures: PackedStringArray = PackedStringArray()
 	var zones: Array[ZoneDef] = _sorted_zones(zone_defs)
 	var radius: float = tuning.actor_radius if tuning != null else 0.0
+	var step_up: float = tuning.step_up_height if tuning != null else 0.0
 
 	_check_shell(collision, failures)
 	_check_zone_priorities(zones, failures)
 	if collision != null:
 		_check_reference_points(zones, team_defs, collision, radius, failures)
-		_check_reachability(zones, team_defs, collision, radius, failures)
+		_check_reachability(zones, team_defs, collision, radius, step_up, failures, prebuilt)
 	return failures
 
 ## Zones in a fixed order, so every message and every traversal below is
@@ -142,126 +142,83 @@ static func _require_standable(
 
 # ---- reachability ----
 
-## Flood fill the walkable volume at body size and confirm every zone is in it.
+## Confirm every spawn and every zone stands in ONE walkable component.
 ##
-## This is the check that catches the failures nobody sees coming: a room
-## walled off by an edit three rooms away, a vault reachable only through a gap
-## narrower than a player. It is also the traversal the bots will want, so the
-## work is not spent twice (§7).
+## This is the check that catches the failures nobody sees coming: a room walled
+## off by an edit three rooms away, a vault reachable only through a gap
+## narrower than a player, a basement with no way down.
+##
+## It walks WalkableSurface rather than a volume of its own, because the bots
+## navigate that same surface. A gate with its own private idea of traversal
+## would certify routes the bots cannot use, and reject levels they could cross
+## perfectly well.
 static func _check_reachability(
 	zones: Array[ZoneDef],
 	team_defs: Array[TeamDef],
 	collision: WorldCollisionDef,
 	radius: float,
-	failures: PackedStringArray
+	step_up: float,
+	failures: PackedStringArray,
+	prebuilt: WalkableSurface = null
 ) -> void:
-	var shell: AABB = collision.bounds
-	if shell.size == Vector3.ZERO:
+	if collision.bounds.size == Vector3.ZERO:
 		return
 
-	var step: float = maxf(shell.size[shell.get_longest_axis_index()] / float(FILL_DIVISIONS), 0.001)
-	var counts: Vector3i = Vector3i(
-		maxi(1, int(shell.size.x / step)),
-		maxi(1, int(shell.size.y / step)),
-		maxi(1, int(shell.size.z / step))
-	)
+	var surface: WalkableSurface = prebuilt
+	if surface == null:
+		surface = WalkableSurface.build(collision, radius, step_up)
+	if surface.is_empty():
+		failures.append("reachability: no part of this level can be stood on")
+		return
 
 	var seeds: Array[Vector3] = _seed_points(zones, team_defs)
 	if seeds.is_empty():
 		failures.append("reachability: no spawn points authored - nothing to flood from")
 		return
 
-	# Flood from ONE seed, not all of them at once.
-	#
-	# Seeding every spawn together only proves each zone is reachable from
-	# SOME spawn, which is a much weaker claim and passes a map sealed down the
-	# middle - each team floods its own half and every room is covered. §7 asks
-	# for reachable from EVERY spawn, and since traversal is symmetric that is
-	# exactly "one connected component holds all of them".
-	var reached: Dictionary[Vector3i, bool] = {}
-	var queue: Array[Vector3i] = []
-	var rooted: bool = false
+	# A seed is matched to the stance it would FALL onto, not the one nearest it
+	# in space. Spawns sit a little above the floor, and the fallback seeds are
+	# room centres floating halfway up the wall; both are directly above good
+	# ground and nowhere near it by straight-line distance.
+	var limit: float = surface.cell_size * 1.5
+	var rooted: int = -1
+	var seed_nodes: Array[int] = []
 	for seed_point: Vector3 in seeds:
-		var cell: Vector3i = _seed_cell(collision, seed_point, shell, step, counts, radius)
-		if cell.y < 0:
+		var node: int = surface.stance_under(seed_point, limit)
+		seed_nodes.append(node)
+		if node < 0:
 			failures.append("reachability: nothing standable near spawn at %s" % seed_point)
 			continue
-		if not rooted:
-			rooted = true
-			reached[cell] = true
-			queue.append(cell)
-	if not rooted:
+		if rooted < 0:
+			rooted = node
+	if rooted < 0:
 		return
 
-	const NEIGHBOURS: Array[Vector3i] = [
-		Vector3i(1, 0, 0), Vector3i(-1, 0, 0),
-		Vector3i(0, 1, 0), Vector3i(0, -1, 0),
-		Vector3i(0, 0, 1), Vector3i(0, 0, -1),
-	]
-	while not queue.is_empty():
-		var cell: Vector3i = queue.pop_front()
-		var here: Vector3 = _centre_of(cell, shell, step)
-		for offset: Vector3i in NEIGHBOURS:
-			var next: Vector3i = cell + offset
-			if next.x < 0 or next.y < 0 or next.z < 0:
-				continue
-			if next.x >= counts.x or next.y >= counts.y or next.z >= counts.z:
-				continue
-			if reached.has(next):
-				continue
-			var there: Vector3 = _centre_of(next, shell, step)
-			if not _standable(collision, there, radius):
-				continue
-			if collision.blocks_segment(here, there, radius):
-				continue
-			reached[next] = true
-			queue.append(next)
+	# Flood from ONE seed, not all of them at once.
+	#
+	# Seeding every spawn together only proves each zone is reachable from SOME
+	# spawn, which is a much weaker claim and passes a map sealed down the
+	# middle - each team floods its own half and every room is covered. §7 asks
+	# for reachable from EVERY spawn, and since every edge is symmetric that is
+	# exactly "one connected component holds all of them".
+	var reached: Dictionary[int, bool] = surface.component_from(rooted)
 
-	# Every other spawn must be in the same component, or the map is cut in
-	# two and each team is sealed into its own half.
-	for seed_point: Vector3 in seeds:
-		var cell: Vector3i = _seed_cell(collision, seed_point, shell, step, counts, radius)
-		if cell.y < 0:
+	for i: int in seeds.size():
+		if seed_nodes[i] < 0:
 			continue # already reported above
-		if not reached.has(cell):
+		if not reached.has(seed_nodes[i]):
 			failures.append(
-				"reachability: spawn at %s cannot be reached from the rest of the map" % seed_point
+				"reachability: spawn at %s cannot be reached on foot from the rest of the map" % seeds[i]
 			)
 
 	for zone: ZoneDef in zones:
 		var found: bool = false
-		for cell: Vector3i in reached:
-			if zone.contains_point(_centre_of(cell, shell, step)):
+		for node: int in reached:
+			if zone.contains_point(surface.nodes[node]):
 				found = true
 				break
 		if not found:
-			failures.append("reachability: zone '%s' cannot be reached from every spawn" % zone.id)
-
-## The cell a spawn floods from, or (-1,-1,-1) if there is nothing to stand on.
-##
-## An actor stands ON the floor, so the cell CONTAINING its spawn usually has
-## its centre inside the floor slab - and the coarser the grid, the more of the
-## cell that slab occupies. Testing the containing cell directly therefore
-## reports a perfectly good spawn as unreachable purely because of how the grid
-## happened to line up with the ground.
-##
-## Snapping upward to the first standable cell keeps seeding a property of the
-## LEVEL rather than of the fill resolution. Whether the spawn point itself is
-## sound is a separate question, already answered by the placement checks.
-static func _seed_cell(
-	collision: WorldCollisionDef,
-	point: Vector3,
-	shell: AABB,
-	step: float,
-	counts: Vector3i,
-	radius: float
-) -> Vector3i:
-	var cell: Vector3i = _cell_of(point, shell, step, counts)
-	for y: int in range(cell.y, counts.y):
-		var candidate: Vector3i = Vector3i(cell.x, y, cell.z)
-		if _standable(collision, _centre_of(candidate, shell, step), radius):
-			return candidate
-	return Vector3i(-1, -1, -1)
+			failures.append("reachability: zone '%s' cannot be reached on foot from every spawn" % zone.id)
 
 ## Where the fill starts: authored spawns, falling back to the centre of each
 ## team's home so a fixture without a roster still validates.
@@ -279,19 +236,3 @@ static func _seed_points(zones: Array[ZoneDef], team_defs: Array[TeamDef]) -> Ar
 		for zone: ZoneDef in zones:
 			seeds.append(zone.bounds.get_center())
 	return seeds
-
-static func _standable(collision: WorldCollisionDef, point: Vector3, radius: float) -> bool:
-	if not collision.contains(point, radius):
-		return false
-	return not collision.blocks_segment(point, point, radius)
-
-static func _cell_of(point: Vector3, shell: AABB, step: float, counts: Vector3i) -> Vector3i:
-	var local: Vector3 = point - shell.position
-	return Vector3i(
-		clampi(int(local.x / step), 0, counts.x - 1),
-		clampi(int(local.y / step), 0, counts.y - 1),
-		clampi(int(local.z / step), 0, counts.z - 1)
-	)
-
-static func _centre_of(cell: Vector3i, shell: AABB, step: float) -> Vector3:
-	return shell.position + (Vector3(cell) + Vector3(0.5, 0.5, 0.5)) * step

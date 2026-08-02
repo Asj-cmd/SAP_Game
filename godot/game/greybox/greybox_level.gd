@@ -20,6 +20,9 @@ enum SafeVariant {
 }
 
 const LEVEL_PATH: String = "res://content/levels/greybox_house.tres"
+## Difficulty is a file, not a build. Swapping this path - or editing the .tres
+## it points at - is the whole of "make the bots harder".
+const BOT_PROFILE_PATH: String = "res://content/ai/bot_profile_standard.tres"
 
 var variant: SafeVariant = SafeVariant.B
 var level: LevelDef = null
@@ -28,10 +31,14 @@ var teams: Array[TeamDef] = []
 var collision: WorldCollisionDef = null
 var tuning: TuningDef = null
 var mode: GameModeDef = null
+var bot_profile: BotProfileDef = null
 
 func _init(safe_variant: SafeVariant = SafeVariant.B) -> void:
 	variant = safe_variant
 	tuning = build_tuning()
+	bot_profile = load(BOT_PROFILE_PATH) as BotProfileDef
+	if bot_profile == null:
+		push_error("grey box: no bot profile at %s - run tools/write_bot_profiles.gd" % BOT_PROFILE_PATH)
 
 	var baked: LevelDef = load(LEVEL_PATH) as LevelDef
 	if baked == null:

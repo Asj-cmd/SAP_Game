@@ -12,17 +12,17 @@ bounds = AABB(0, 0, 0, 5200, 320, 3200)
 
 [sub_resource type="Resource" id="Resource_kshhf"]
 script = ExtResource("3_caipt")
-id = &"team_b"
-display_name = "Team B"
-spawn_points = Array[Vector3]([Vector3(3807.5, 60, 1992.5)])
-cash_points = Array[Vector3]([Vector3(4752.5, 60, 1207.5), Vector3(4592.5, 60, 1207.5), Vector3(4432.5, 60, 1207.5)])
-
-[sub_resource type="Resource" id="Resource_hiwse"]
-script = ExtResource("3_caipt")
 id = &"team_a"
 display_name = "Team A"
 spawn_points = Array[Vector3]([Vector3(1392.5, 60, 1992.5)])
 cash_points = Array[Vector3]([Vector3(447.5, 60, 1207.5), Vector3(607.5, 60, 1207.5), Vector3(767.5, 60, 1207.5)])
+
+[sub_resource type="Resource" id="Resource_hiwse"]
+script = ExtResource("3_caipt")
+id = &"team_b"
+display_name = "Team B"
+spawn_points = Array[Vector3]([Vector3(3807.5, 60, 1992.5)])
+cash_points = Array[Vector3]([Vector3(4752.5, 60, 1207.5), Vector3(4592.5, 60, 1207.5), Vector3(4432.5, 60, 1207.5)])
 
 [sub_resource type="Resource" id="Resource_sielq"]
 script = ExtResource("4_55wkh")
