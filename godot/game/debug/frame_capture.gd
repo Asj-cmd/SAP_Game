@@ -27,6 +27,13 @@ var requested: bool = false
 var path: String = DEFAULT_PATH
 var delay: float = DEFAULT_DELAY
 var quit_after: bool = false
+## Hold the grab key just before capturing.
+##
+## A screenshot cannot press a button, and the state worth photographing here -
+## an action asked for and not yet answered - only exists while one is held. The
+## key is injected through the ordinary input path rather than by reaching past
+## it, so what the frame shows is what a player would see.
+var grab: bool = false
 
 ## Reads the flags after `--` on the command line:
 ##
@@ -46,6 +53,10 @@ static func from_command_line(args: PackedStringArray) -> FrameCapture:
 			request.path = arg.trim_prefix("--capture-path=")
 		elif arg.begins_with("--capture-delay="):
 			request.delay = maxf(0.0, float(arg.trim_prefix("--capture-delay=")))
+		elif arg == "--capture-grab":
+			request.requested = true
+			request.quit_after = true
+			request.grab = true
 	return request
 
 ## Writes the viewport's current contents, and returns the absolute path it

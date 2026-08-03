@@ -30,3 +30,6 @@ graphify-out/.graphify_labels.json.sig
 # "project data folder is missing" / "files newer on disk" / "no main scene
 # defined" dialogs. Godot recreates the folder, and its .gdignore, on open.
 godot/.godot/
+
+# Exported builds. Large, machine-specific, and rebuilt from the preset.
+build/

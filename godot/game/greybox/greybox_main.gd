@@ -26,17 +26,22 @@ const CAMERA_COLLISION_LAYER: int = 2
 const ACTOR_HEIGHT: float = 180.0
 
 const SNAP_DISTANCE: float = 400.0
+## Confirmed states kept for interpolating remote bodies. A second or so: enough
+## to ride out a late packet, short enough that nothing stale is ever drawn.
+const CONFIRMED_HISTORY: int = 32
 ## Ceiling on catch-up steps in one frame. Without it a long stall makes the
 ## next frame simulate the whole gap, which stalls again.
 const MAX_STEPS_PER_FRAME: int = 5
 
 var world: SimWorld = null
 var level: GreyBoxLevel = null
+## Whichever end of the match this window is. Owns the transport, the lobby and
+## the bots; presentation asks it where to draw and what is true.
+var link: MatchLink = null
 var players: Array[LocalPlayerInput] = []
 ## Bots filling the seats no local player took. On by default here because
 ## split-screen is a debug mode now, which makes this the only way to see the
 ## rules exercised by somebody other than yourself.
-var crew: BotCrew = null
 var _bots_enabled: bool = true
 
 ## The two most recent simulation states. Rendering interpolates between them,
@@ -52,6 +57,20 @@ var _cameras: Array[ChaseCamera] = []
 var _split_screen: bool = false
 var _hud: Label = null
 var _banner: Label = null
+## Marks that the local player has ASKED for something the host has not answered.
+## The animation-on-input half of the split: the reach starts now, the outcome
+## arrives when the host says so.
+var _reach_marker: MeshInstance3D = null
+
+## Confirmed states, kept so remote bodies can be drawn BETWEEN them.
+##
+## A guest is told where everyone else was, whenever packets happen to arrive.
+## Drawing that straight is visible jitter. Drawing it a couple of ticks in the
+## past means there is always a later state to interpolate towards - a few tens
+## of milliseconds of staleness on other players, bought with smooth motion.
+var _confirmed_frames: Array[Dictionary] = []
+var _remote_clock: float = 0.0
+var _seat_shown: int = SimEntity.NO_ENTITY
 
 func _ready() -> void:
 	_build_lighting()
@@ -75,6 +94,15 @@ func _arm_capture() -> void:
 	if not request.requested:
 		return
 	await get_tree().create_timer(request.delay).timeout
+	if request.grab:
+		# Through Input, not around it: the same key LocalPlayerInput polls, so
+		# the frame shows the real path rather than a state posed for a photo.
+		var press: InputEventKey = InputEventKey.new()
+		press.keycode = KEY_Q
+		press.pressed = true
+		Input.parse_input_event(press)
+		await get_tree().process_frame
+		await get_tree().process_frame
 	await _capture_frame(request.path)
 	if request.quit_after:
 		get_tree().quit()
@@ -101,32 +129,92 @@ func _start(variant: GreyBoxLevel.SafeVariant) -> void:
 		return
 	_build_geometry()
 
-	world = SimWorld.new(20260802)
-	# Gated: broken content does not install and the world will not step
-	# (WORLD_AUTHORING.md §7).
-	if not world.configure(
-		level.mode, level.tuning, level.zones, level.teams, level.collision, level.surface
-	):
-		_banner.text = "CONTENT REJECTED\n%s" % "\n".join(world.content_failures)
-		push_error("grey box: level content failed validation, refusing to run")
+	var role: MatchLink.Role = _role_from_command_line()
+	var backend: String = _argument("--backend=", "enet")
+
+	# A guest needs three worlds: what the host confirmed, what it is guessing,
+	# and somewhere to decode snapshots into before trusting them.
+	var worlds: Array[SimWorld] = []
+	for i: int in (3 if role == MatchLink.Role.GUEST else 1):
+		var made: SimWorld = _build_world()
+		if made == null:
+			return
+		worlds.append(made)
+
+	match role:
+		MatchLink.Role.HOST:
+			link = MatchLink.host(
+				level, worlds[0], _bots_enabled, backend, _argument("--advertise=", "")
+			)
+		MatchLink.Role.GUEST:
+			link = MatchLink.guest(level, worlds, backend, _argument("--join=", ""))
+		_:
+			link = MatchLink.local(level, worlds[0], _bots_enabled)
+	if link.failure != "":
+		_banner.text = "NETWORK\n%s" % link.failure
 		return
 
-	# Registration order is irrelevant - each system declares its phase.
-	world.add_system(MovementSystem.new())
-	world.add_system(CarrySystem.new())
-	world.add_system(CaptureSystem.new())
-	world.add_system(ScoringSystem.new())
-	world.add_system(MatchFlowSystem.new())
-
-	# The world builds its own bodies from content. Nothing here writes a
-	# single field of simulation state.
-	world.populate_roster()
+	world = link.outcome_world()
+	# Sit down before opening the door, or the first guest is given this body.
+	link.seat_local("You")
+	_confirmed_frames.clear()
+	_seat_shown = SimEntity.NO_ENTITY
 	_build_seats()
-	_build_crew()
 	_rebuild_views()
 	_previous = _snapshot()
 	_accumulator = 0.0
-	world.step([MatchCommand.start()])
+
+	# Only the authority starts a match, and only the authority fills it with
+	# bots. A guest is told that both happened, like everything else.
+	if link.role != MatchLink.Role.GUEST:
+		if link.lobby.bots_enabled:
+			link.lobby.note_fill(
+				link.crew.fill_lobby(world, _seated_actors(), world.actor_ids().size()),
+				link.crew.declined_reason
+			)
+		world.step([MatchCommand.start()])
+
+## One configured, gated world. Null when the content was refused.
+func _build_world() -> SimWorld:
+	var made: SimWorld = SimWorld.new(20260802)
+	# Gated: broken content does not install and the world will not step
+	# (WORLD_AUTHORING.md 7).
+	if not made.configure(
+		level.mode, level.tuning, level.zones, level.teams, level.collision, level.surface
+	):
+		_banner.text = "CONTENT REJECTED\n%s" % "\n".join(made.content_failures)
+		push_error("grey box: level content failed validation, refusing to run")
+		return null
+	# Registration order is irrelevant - each system declares its phase.
+	made.add_system(MovementSystem.new())
+	made.add_system(CarrySystem.new())
+	made.add_system(CaptureSystem.new())
+	made.add_system(ScoringSystem.new())
+	made.add_system(MatchFlowSystem.new())
+	made.populate_roster()
+	return made
+
+func _role_from_command_line() -> MatchLink.Role:
+	var args: PackedStringArray = OS.get_cmdline_user_args()
+	if args.has("--host"):
+		return MatchLink.Role.HOST
+	for arg: String in args:
+		if arg == "--join" or arg.begins_with("--join="):
+			return MatchLink.Role.GUEST
+	return MatchLink.Role.LOCAL
+
+func _argument(prefix: String, fallback: String) -> String:
+	for arg: String in OS.get_cmdline_user_args():
+		if arg.begins_with(prefix):
+			return arg.trim_prefix(prefix)
+	return fallback
+
+func _seated_actors() -> Array[int]:
+	var seated: Array[int] = []
+	for player: LocalPlayerInput in players:
+		if player.actor_id != SimEntity.NO_ENTITY:
+			seated.append(player.actor_id)
+	return seated
 
 ## One seat normally, two in the debug split. Each seat owns a viewport, a
 ## chase camera and a device.
@@ -196,29 +284,19 @@ func _build_seats() -> void:
 		input.camera = chase
 		players.append(input)
 
+	# A guest is TOLD which body is its own and has nothing to drive until it
+	# has been; taking the first actor would put two machines on one body.
+	if link != null and link.role == MatchLink.Role.GUEST:
+		for player: LocalPlayerInput in players:
+			player.actor_id = link.actor_id
+		return
 	var seats: Array[int] = world.actor_ids()
 	for seat: int in mini(players.size(), seats.size()):
 		players[seat].actor_id = seats[seat]
-
-## Fills whatever the local players did not take.
-##
-## Nothing else in this file changes shape when the crew is empty: the seats,
-## the loop, the rendering and the HUD are identical with bots off, which is the
-## property that makes them removable without trace.
-func _build_crew() -> void:
-	crew = null
-	if not _bots_enabled or level.bot_profile == null or world.surface == null:
-		return
-	var seated: Array[int] = []
-	for player: LocalPlayerInput in players:
-		if player.actor_id != SimEntity.NO_ENTITY:
-			seated.append(player.actor_id)
-	crew = BotCrew.create(level.bot_profile, NavGraph.of(world.surface), world.rng.state)
-	# Every remaining seat is on offer; fill_lobby decides how many it can take
-	# without making the sides uneven.
-	crew.fill_lobby(world, seated, world.actor_ids().size())
-	if crew.declined_reason != "":
-		push_warning("grey box: %s" % crew.declined_reason)
+	# The lobby decides which body is this machine's, so that a host and its
+	# guests cannot be handed the same one.
+	if link != null and link.actor_id != SimEntity.NO_ENTITY:
+		players[0].actor_id = link.actor_id
 
 # ---- the loop ----
 
@@ -228,8 +306,14 @@ func _build_crew() -> void:
 ## want 60 Hz for ragdoll work later while the rules stay at 30, and tying the
 ## two together now would make that a migration instead of a setting.
 func _process(delta: float) -> void:
-	if world == null or not world.has_valid_content():
+	if link == null or world == null or not world.has_valid_content():
 		return
+
+	# Drained every FRAME, not every tick. Packets arrive when they arrive, and
+	# holding one until the next simulation step adds latency nobody asked for.
+	link.poll_network()
+	_follow_seat()
+	_record_confirmed()
 
 	for player: LocalPlayerInput in players:
 		player.poll(delta)
@@ -245,22 +329,21 @@ func _process(delta: float) -> void:
 		# takes longer to simulate than it took to arrive.
 		_accumulator = 0.0
 
+	_advance_remote_clock(delta)
 	_render(_accumulator / SimWorld.SECONDS_PER_TICK)
 	_track_cameras(delta)
 	_update_hud()
 
 func _advance_one_tick() -> void:
 	_previous = _snapshot()
+	var drawn: SimWorld = link.predicted_world()
 	var commands: Array[SimCommand] = []
 	for player: LocalPlayerInput in players:
-		commands.append_array(player.drain(world, world.tick))
-	# Bots emit into the SAME command list, with no marker and no precedence.
-	# By the time the world sees them there is nothing to distinguish a bot's
-	# commands from a player's, which is exactly the guarantee that they cannot
-	# be given a privilege by accident.
-	if crew != null:
-		commands.append_array(crew.drain(world, world.tick))
-	world.step(commands)
+		commands.append_array(player.drain(drawn, drawn.tick))
+	# Handed over whole. Bots, remote players and this one all end up in one
+	# list with no marker and no precedence - which is exactly the guarantee
+	# that none of them can be given a privilege by accident.
+	link.advance(commands)
 
 ## A frozen copy of every entity, taken before the world moves on.
 ##
@@ -268,9 +351,10 @@ func _advance_one_tick() -> void:
 ## the live world and interpolate a value against itself, which looks exactly
 ## like no interpolation and is maddening to diagnose.
 func _snapshot() -> Dictionary[int, SimEntity]:
+	var drawn: SimWorld = link.predicted_world()
 	var frame: Dictionary[int, SimEntity] = {}
-	for entity_id: int in world.sorted_entity_ids():
-		frame[entity_id] = world.entities[entity_id].duplicate_entity()
+	for entity_id: int in drawn.sorted_entity_ids():
+		frame[entity_id] = drawn.entities[entity_id].duplicate_entity()
 	return frame
 
 ## Cameras track the RENDERED position, not the simulation's - otherwise they
@@ -283,23 +367,138 @@ func _track_cameras(delta: float) -> void:
 			continue
 		_cameras[seat].follow(view.position - Vector3(0.0, ACTOR_HEIGHT * 0.5, 0.0), delta)
 
+# ---- what the network changes about drawing ----
+
+## Picks up the seat the host assigned, once it arrives.
+##
+## A guest cannot work out which body is its own: the roster is identical on
+## both machines and nothing in it says "you". It is told, and until it has been
+## told there is nobody to follow and nothing to drive.
+func _follow_seat() -> void:
+	if link.role != MatchLink.Role.GUEST or link.actor_id == _seat_shown:
+		return
+	_seat_shown = link.actor_id
+	for player: LocalPlayerInput in players:
+		player.actor_id = link.actor_id
+	_rebuild_views()
+	_previous = _snapshot()
+
+## Keeps the last few confirmed states, so remote bodies have something to be
+## interpolated BETWEEN.
+func _record_confirmed() -> void:
+	if link.role != MatchLink.Role.GUEST:
+		return
+	var truth: SimWorld = link.outcome_world()
+	if not _confirmed_frames.is_empty() and _confirmed_frames[-1]["tick"] >= truth.tick:
+		return
+	var frame: Dictionary[int, SimEntity] = {}
+	for entity_id: int in truth.sorted_entity_ids():
+		frame[entity_id] = truth.entities[entity_id].duplicate_entity()
+	_confirmed_frames.append({"tick": truth.tick, "entities": frame})
+	while _confirmed_frames.size() > CONFIRMED_HISTORY:
+		_confirmed_frames.pop_front()
+
+## Advances the clock that remote bodies are drawn on.
+##
+## Deliberately BEHIND the newest confirmed state. Packets do not arrive on a
+## metronome, so drawing the newest state the moment it lands means every
+## remote body stutters at the rate the network happens to deliver. Sitting a
+## couple of ticks in the past means there is always a later state to move
+## towards, and motion becomes continuous.
+##
+## Eased toward the target rather than snapped to it, because a burst of late
+## packets would otherwise jerk everyone sideways at once.
+func _advance_remote_clock(delta: float) -> void:
+	if _confirmed_frames.is_empty():
+		return
+	var newest: float = float(_confirmed_frames[-1]["tick"])
+	var oldest: float = float(_confirmed_frames[0]["tick"])
+	var target: float = newest - float(level.tuning.interpolation_delay_ticks)
+
+	_remote_clock += delta / SimWorld.SECONDS_PER_TICK
+	_remote_clock += (target - _remote_clock) * clampf(delta * 4.0, 0.0, 1.0)
+	_remote_clock = clampf(_remote_clock, oldest, newest)
+
+## Where a remote body should be drawn right now: between the two confirmed
+## states straddling the remote clock.
+func _remote_position(entity_id: int, fallback: Vector3) -> Vector3:
+	if _confirmed_frames.size() < 2:
+		return fallback
+	for i: int in range(_confirmed_frames.size() - 1, 0, -1):
+		var later: Dictionary = _confirmed_frames[i]
+		var earlier: Dictionary = _confirmed_frames[i - 1]
+		if float(earlier["tick"]) > _remote_clock:
+			continue
+		var from: SimEntity = earlier["entities"].get(entity_id, null)
+		var to: SimEntity = later["entities"].get(entity_id, null)
+		if from == null or to == null:
+			return fallback
+		# A teleport is not motion. Interpolating a jailing would slide the body
+		# across the map instead of putting it in the cell.
+		if from.position.distance_to(to.position) >= SNAP_DISTANCE:
+			return to.position
+		var span: float = float(later["tick"]) - float(earlier["tick"])
+		var blend: float = 0.0 if span <= 0.0 else (_remote_clock - float(earlier["tick"])) / span
+		return from.position.lerp(to.position, clampf(blend, 0.0, 1.0))
+	return fallback
+
+func _local_actor() -> int:
+	return players[0].actor_id if not players.is_empty() else SimEntity.NO_ENTITY
+
 # ---- rendering ----
 
+## Two sources, deliberately kept apart (MatchLink, PredictionPolicy).
+##
+##   WHERE a body is drawn comes from the predicted world for your own body,
+##   and from interpolated confirmed states for everyone else.
+##   WHAT IS TRUE about it - carrying, held, visible at all - always comes from
+##   the confirmed world.
+##
+## Collapsing those into one lookup is one line shorter and puts a capture on
+## screen that the host may not have agreed to.
 func _render(alpha: float) -> void:
-	for entity_id: int in world.sorted_entity_ids():
-		var entity: SimEntity = world.entities[entity_id]
+	var drawn: SimWorld = link.predicted_world()
+	var truth: SimWorld = link.outcome_world()
+	var mine: int = _local_actor()
+	var remote: bool = link.role == MatchLink.Role.GUEST
+
+	for entity_id: int in truth.sorted_entity_ids():
+		var entity: SimEntity = truth.entities[entity_id]
 		var view: MeshInstance3D = _actor_views.get(entity_id, null)
 		if view == null:
 			continue
-		var target: Vector3 = entity.position
-		var earlier: SimEntity = _previous.get(entity_id, null)
-		if earlier != null:
-			# A teleport is not motion. Interpolating a jailing would slide the
-			# body across the map instead of putting it in the cell.
-			if earlier.position.distance_to(target) < SNAP_DISTANCE:
+
+		var target: Vector3
+		if remote and entity_id != mine:
+			target = _remote_position(entity_id, entity.position)
+		else:
+			var local: SimEntity = drawn.get_entity(entity_id)
+			target = local.position if local != null else entity.position
+			var earlier: SimEntity = _previous.get(entity_id, null)
+			if earlier != null and earlier.position.distance_to(target) < SNAP_DISTANCE:
 				target = earlier.position.lerp(target, clampf(alpha, 0.0, 1.0))
+
 		view.position = target + _view_offset(entity)
+		# Held, carrying and captured are read from the CONFIRMED world on every
+		# role. A guest never guesses at an outcome.
 		view.visible = not (entity.is_carriable() and entity.is_held())
+
+	_show_reach(mine)
+
+## The animation-on-input half of the split.
+##
+## The reach starts the instant the button is pressed and stops when the host
+## answers - which is what covers the latency on an outcome without ever
+## predicting one. The player sees an immediate response to their input, and
+## never sees a consequence undone.
+func _show_reach(mine: int) -> void:
+	if _reach_marker == null:
+		return
+	var view: MeshInstance3D = _actor_views.get(mine, null)
+	var waiting: bool = not link.awaiting().is_empty()
+	_reach_marker.visible = waiting and view != null
+	if _reach_marker.visible:
+		_reach_marker.position = view.position + Vector3(0.0, ACTOR_HEIGHT * 0.75, 0.0)
 
 ## Lifts an actor's mesh so it stands ON the floor. The simulation's position
 ## is the centre of a body one radius tall; the capsule is taller than that.
@@ -312,6 +511,16 @@ func _rebuild_views() -> void:
 	for view: MeshInstance3D in _actor_views.values():
 		view.queue_free()
 	_actor_views.clear()
+
+	if _reach_marker == null:
+		_reach_marker = MeshInstance3D.new()
+		var pip: SphereMesh = SphereMesh.new()
+		pip.radius = 22.0
+		pip.height = 44.0
+		_reach_marker.mesh = pip
+		_reach_marker.material_override = _flat(Color(1.0, 0.85, 0.2))
+		_reach_marker.visible = false
+		add_child(_reach_marker)
 
 	for entity_id: int in world.sorted_entity_ids():
 		var entity: SimEntity = world.entities[entity_id]
@@ -425,6 +634,7 @@ func _update_hud() -> void:
 	var zone: ZoneDef = level.sheltered_zone()
 	var lines: PackedStringArray = PackedStringArray()
 
+	lines.append(_network_line())
 	lines.append("SAFE ROOM: %s     [1]/[2] restart with the other configuration" % _describe_shelter(zone))
 	lines.append("%s   round %d   %s" % [
 		_phase_name(world.match_phase),
@@ -451,15 +661,15 @@ func _update_hud() -> void:
 
 	# What each bot thinks it is doing. Behaviour that cannot be read off the
 	# screen gets debugged by staring at capsules and guessing.
-	if crew != null:
-		for actor_id: int in crew.actor_ids():
+	if link.crew != null:
+		for actor_id: int in link.crew.actor_ids():
 			var bot: SimEntity = world.get_entity(actor_id)
-			var task: BotTask = crew.director_for(actor_id).current_task()
+			var task: BotTask = link.crew.director_for(actor_id).current_task()
 			if bot == null:
 				continue
 			lines.append("BOT %s  %s  %s%s" % [
 				bot.team,
-				BotCrew.Seat.keys()[crew.seat_of(actor_id)],
+				BotCrew.Seat.keys()[link.crew.seat_of(actor_id)],
 				BotTask.Kind.keys()[task.kind],
 				"  carrying" if bot.is_carrying() else "",
 			])
@@ -485,6 +695,27 @@ func _update_hud() -> void:
 	if _split_screen and Input.get_connected_joypads().size() < 2:
 		lines.append("!! split-screen wants two pads - both seats are on one")
 	_hud.text = "\n".join(lines)
+
+## Which end of the match this window is, and what a second machine needs.
+##
+## The code is on screen because that is where somebody reads it from. Anything
+## that makes a player go and find it is friction the invite path exists to
+## remove, and the fallback should not be worse than it has to be.
+func _network_line() -> String:
+	match link.role:
+		MatchLink.Role.HOST:
+			return "HOSTING   code %s   %d connected   tick %d" % [
+				link.session_code(), link.transport.peers().size(), world.tick,
+			]
+		MatchLink.Role.GUEST:
+			var waiting: String = "  REACHING..." if not link.awaiting().is_empty() else ""
+			return "JOINED   confirmed %d   predicting %+d   remote -%d ticks%s" % [
+				link.outcome_world().tick,
+				link.predicted_world().tick - link.outcome_world().tick,
+				level.tuning.interpolation_delay_ticks,
+				waiting,
+			]
+	return "LOCAL   one machine, no network"
 
 func _describe_shelter(zone: ZoneDef) -> String:
 	if zone == null or not zone.grants_safety():
@@ -535,11 +766,20 @@ func _unhandled_input(event: InputEvent) -> void:
 			# Proving the claim as much as offering the option: with bots off,
 			# every seat they held goes back to being an actor nobody is
 			# driving, and the match runs exactly as it did before they existed.
+			# Only the authority has bots to toggle. A guest asking would be
+			# asking about somebody else's machine.
+			if link.role == MatchLink.Role.GUEST:
+				return
 			_bots_enabled = not _bots_enabled
-			if crew != null:
-				for actor_id: int in crew.actor_ids():
-					crew.release(world, actor_id)
-			_build_crew()
+			link.lobby.bots_enabled = _bots_enabled
+			if _bots_enabled:
+				link.lobby.note_fill(
+					link.crew.fill_lobby(world, _seated_actors(), world.actor_ids().size()),
+					link.crew.declined_reason
+				)
+			else:
+				for actor_id: int in link.crew.actor_ids():
+					link.crew.release(world, actor_id)
 
 func _capture_mouse(captured: bool) -> void:
 	Input.mouse_mode = Input.MOUSE_MODE_CAPTURED if captured else Input.MOUSE_MODE_VISIBLE

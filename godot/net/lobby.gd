@@ -111,14 +111,30 @@ func admit(identity: String, peer: int, display_name: String, tick: int) -> Lobb
 ## Same principle as the bot fill - nobody should be handed an advantage by
 ## whoever happened to click first - and it means a lobby that fills up
 ## naturally needs no rebalancing at the end.
+##
+## An empty seat first, and failing that a seat a bot was merely FILLING. A bot
+## exists so that a short-handed lobby still plays; it must never be the reason
+## a real player cannot get in. This was found the hard way: a two-seat match
+## with one host and one filler bot had no room for anybody, and a guest that
+## asked to join was turned away without being told.
+##
+## A seat a bot is HOLDING for an absent player is not available. That seat is
+## already somebody's, and they are expected back.
 func _next_open_seat() -> LobbySeat:
+	var empty: LobbySeat = _emptiest_where(true)
+	return empty if empty != null else _emptiest_where(false)
+
+func _emptiest_where(want_empty: bool) -> LobbySeat:
 	var occupied: Dictionary[StringName, int] = {}
 	for seat: LobbySeat in seats:
 		occupied[seat.team] = occupied.get(seat.team, 0) + (0 if seat.is_open() else 1)
 
 	var best: LobbySeat = null
 	for seat: LobbySeat in seats:
-		if not seat.is_open():
+		var eligible: bool = seat.is_open() if want_empty else (
+			seat.occupancy == LobbySeat.Occupancy.BOT and seat.held_for == ""
+		)
+		if not eligible:
 			continue
 		if best == null or occupied[seat.team] < occupied[best.team]:
 			best = seat

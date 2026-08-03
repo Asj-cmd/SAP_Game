@@ -67,6 +67,18 @@ extends Resource
 ## bytes against a stream costing ~32 bytes a tick.
 @export var snapshot_interval_ticks: int = 150
 
+## How far behind the newest confirmed state remote bodies are drawn, in ticks.
+##
+## Packets do not arrive on a metronome. Drawing the newest state the moment it
+## lands makes every remote body stutter at whatever rate the network happened
+## to deliver; sitting slightly in the past means there is always a later state
+## to move towards and motion is continuous.
+##
+## The cost is that other players are seen this many ticks late - which is a
+## real disadvantage in a chase, and the reason this is a dial rather than a
+## constant. Too low and they jitter, too high and you are shooting at ghosts.
+@export var interpolation_delay_ticks: int = 3
+
 ## How long a seat stays a player's after they drop, in seconds.
 ##
 ## A connection hiccup must not eject anybody: most disconnections are a few
