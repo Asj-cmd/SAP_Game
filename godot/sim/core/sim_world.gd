@@ -267,6 +267,21 @@ func sorted_entity_ids() -> Array[int]:
 	ids.sort()
 	return ids
 
+## The id the next spawn will be given.
+##
+## Exposed because it is part of the state a snapshot must carry: two peers that
+## disagree about it hand different ids to the same future spawn, and nothing
+## notices until that spawn happens. It is in the digest for the same reason.
+func next_entity_id() -> int:
+	return _next_entity_id
+
+## Restores the counter when adopting a captured world. Deliberately separate
+## from insert_entity, which drags the counter FORWARD past whatever it is given
+## - correct when receiving a live update, wrong when restoring a snapshot that
+## recorded where the counter actually stood.
+func set_next_entity_id(value: int) -> void:
+	_next_entity_id = value
+
 # ---- zones ----
 
 func get_zone(zone_id: StringName) -> ZoneDef:

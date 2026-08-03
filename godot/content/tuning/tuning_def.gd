@@ -59,6 +59,14 @@ extends Resource
 ## Zero is honest for a local match and wrong for an online one.
 @export var input_delay_ticks: int = 2
 
+## How often the host sends an unrequested full snapshot, in ticks.
+##
+## A keyframe. Nothing needs it while the command stream is arriving intact, and
+## that is exactly why it exists: the failures it covers are the ones where
+## something has already gone wrong quietly. Cheap at this scale - a few hundred
+## bytes against a stream costing ~32 bytes a tick.
+@export var snapshot_interval_ticks: int = 150
+
 ## The AI weights that used to sit here now live in BotProfileDef.
 ##
 ## They were in the wrong place. This resource is what the WORLD is like, and

@@ -27,6 +27,8 @@ extends RefCounted
 
 ## Authoritative. Read outcomes from here.
 var confirmed: SimWorld = null
+## Scratch, for decoding snapshots into before they are trusted. Never read.
+var staging: SimWorld = null
 ## Runs ahead. Read POSITIONS from here, and nothing else.
 var predicted: SimWorld = null
 ## Ticks a local input waits before being applied, from content.
@@ -37,14 +39,20 @@ var input_delay: int = 0
 ## purely so presentation can show that something was asked for.
 var _pending: Array[SimCommand] = []
 
+## `scratch` is where arriving snapshots are decoded before being adopted. It
+## must carry the same content as the other two and is never read for state -
+## half-decoding a hostile packet straight into the authoritative world is not a
+## risk worth the copy it saves. Omitted, reconcile() refuses snapshots.
 static func create(
 	authoritative: SimWorld,
 	local_view: SimWorld,
-	delay_ticks: int
+	delay_ticks: int,
+	scratch: SimWorld = null
 ) -> PredictedSession:
 	var session: PredictedSession = PredictedSession.new()
 	session.confirmed = authoritative
 	session.predicted = local_view
+	session.staging = scratch
 	session.input_delay = maxi(0, delay_ticks)
 	session.predicted.adopt_state(session.confirmed)
 	return session
@@ -102,7 +110,37 @@ func confirm(batch: Array[SimCommand]) -> void:
 	# that looks like latency and is not.
 	var target: int = maxi(predicted.tick, confirmed.tick + 1)
 	confirmed.step(batch)
+	_rebase(target)
 
+## Adopts a full snapshot of the world as the new confirmed truth.
+##
+## A snapshot at tick T is a CORRECTION at tick T, so it goes through exactly
+## the same machinery an ordinary confirmation does - the confirmed world moves,
+## the prediction is thrown away and rebuilt on top of it, and unconfirmed local
+## input is replayed forward. There is deliberately no separate restore path:
+## snapshots arrive rarely, and a rarely-exercised path is the one that is
+## broken when it finally runs.
+##
+## Serves late join, reconnect and takeover identically. All three are "here is
+## the state, carry on", and a joiner is simply a client whose confirmed world
+## was empty a moment ago.
+func reconcile(snapshot: PackedByteArray) -> bool:
+	if staging == null:
+		push_error("prediction: no staging world, cannot accept a snapshot")
+		return false
+	if not WorldSnapshot.restore(snapshot, staging):
+		return false
+
+	# A snapshot may be AHEAD of the prediction (a late joiner has predicted
+	# nothing at all) or behind it (a keyframe arriving while running ahead).
+	# Either way the prediction resumes from the further of the two.
+	var target: int = maxi(predicted.tick, staging.tick)
+	confirmed.adopt_state(staging)
+	_rebase(target)
+	return true
+
+## The correction path, shared by every kind of correction.
+func _rebase(target: int) -> void:
 	# Anything the host has now had its chance to apply is no longer pending -
 	# whether it took effect or was refused. A command kept past its tick would
 	# be replayed forever.
