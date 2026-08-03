@@ -67,6 +67,17 @@ extends Resource
 ## bytes against a stream costing ~32 bytes a tick.
 @export var snapshot_interval_ticks: int = 150
 
+## How long a seat stays a player's after they drop, in seconds.
+##
+## A connection hiccup must not eject anybody: most disconnections are a few
+## seconds of nothing, and taking somebody's seat for their router is the worst
+## available reading of it. Past this window a bot holds the seat and hands it
+## straight back when they return.
+##
+## The trade is between a squad briefly playing a body short and a player
+## briefly losing their place. Both are bad; this decides which.
+@export var reconnect_grace_seconds: float = 8.0
+
 ## The AI weights that used to sit here now live in BotProfileDef.
 ##
 ## They were in the wrong place. This resource is what the WORLD is like, and
