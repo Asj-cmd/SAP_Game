@@ -108,6 +108,7 @@ Press `F12` when something looks wrong. Screenshots land in
 | `NETWORK the host left` | Host closed the game. The match ends — there is no host migration yet. |
 | Frozen for a second, then fine | A dropped packet. Expected; it repairs itself. Tell us if it happens a lot. |
 | You stop moving but others carry on | Tell us. That one matters. |
+| Dropped out entirely | Just run the same join command again. You get **your own body back**, wherever it had got to - a bot covers the seat while you are away and hands it straight back. If you come back as a *new* player instead, that is a bug and we want to know. |
 
 Known and not worth reporting: no sound, no menus, no character art, and the
 whole thing is grey boxes.

@@ -144,10 +144,13 @@ func _start(variant: GreyBoxLevel.SafeVariant) -> void:
 	match role:
 		MatchLink.Role.HOST:
 			link = MatchLink.host(
-				level, worlds[0], _bots_enabled, backend, _argument("--advertise=", "")
+				level, worlds[0], _bots_enabled, backend,
+				_argument("--advertise=", ""), _argument("--identity=", "")
 			)
 		MatchLink.Role.GUEST:
-			link = MatchLink.guest(level, worlds, backend, _argument("--join=", ""))
+			link = MatchLink.guest(
+				level, worlds, backend, _argument("--join=", ""), _argument("--identity=", "")
+			)
 		_:
 			link = MatchLink.local(level, worlds[0], _bots_enabled)
 	if link.failure != "":

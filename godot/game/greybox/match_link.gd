@@ -28,6 +28,8 @@ var failure: String = ""
 
 ## Which body this machine drives. Assigned by the host; a guest is told.
 var actor_id: int = SimEntity.NO_ENTITY
+## This machine's player token, stable across connections (PlayerIdentity).
+var identity: String = ""
 
 var _level: GreyBoxLevel = null
 var _authoritative: SimWorld = null
@@ -63,7 +65,8 @@ static func host(
 	world: SimWorld,
 	bots: bool,
 	backend: String,
-	advertise: String = ""
+	advertise: String = "",
+	as_identity: String = ""
 ) -> MatchLink:
 	var link: MatchLink = MatchLink.new()
 	link.role = Role.HOST
@@ -72,13 +75,20 @@ static func host(
 	link._level = level
 	link._authoritative = world
 	link._start_lobby(world, bots)
+	link.identity = as_identity if as_identity != "" else PlayerIdentity.local()
 	link.transport = _transport(backend)
 	var handle: SessionHandle = link.transport.host_session()
 	if not handle.is_valid():
 		link.failure = "could not open a session: %s" % link.transport.failure()
 	return link
 
-static func guest(level: GreyBoxLevel, worlds: Array[SimWorld], backend: String, code: String) -> MatchLink:
+static func guest(
+	level: GreyBoxLevel,
+	worlds: Array[SimWorld],
+	backend: String,
+	code: String,
+	as_identity: String = ""
+) -> MatchLink:
 	var link: MatchLink = MatchLink.new()
 	link.role = Role.GUEST
 	link._level = level
@@ -86,6 +96,11 @@ static func guest(level: GreyBoxLevel, worlds: Array[SimWorld], backend: String,
 	link.session = PredictedSession.create(
 		worlds[0], worlds[1], level.tuning.input_delay_ticks, worlds[2]
 	)
+	# Two windows on ONE desktop share a user directory, and therefore share a
+	# stored token - which would have the second one reclaiming the first one's
+	# seat. --identity is how a local two-window test gives them different
+	# people. On two actual machines it is never needed.
+	link.identity = as_identity if as_identity != "" else PlayerIdentity.local()
 	link.transport = _transport(backend)
 
 	# A pasted code, a handle from an invite, or nothing at all - which means
@@ -124,7 +139,7 @@ func seat_local(display_name: String) -> int:
 	if role == Role.GUEST or lobby == null:
 		return SimEntity.NO_ENTITY
 	var seated: LobbyEvent = lobby.admit(
-		"local", SessionTransport.HOST_PEER, display_name, 0
+		identity, SessionTransport.HOST_PEER, display_name, 0
 	)
 	if seated.seat == null:
 		return SimEntity.NO_ENTITY
@@ -228,8 +243,17 @@ func poll_network() -> void:
 		return
 	for event: NetEvent in transport.poll():
 		match event.kind:
+			NetEvent.Kind.SESSION_READY:
+				# A guest announces itself the moment the session is usable. It
+				# cannot be seated before this, because until the host knows the
+				# token it cannot tell a new player from a returning one.
+				if role == Role.GUEST:
+					transport.send(
+						SessionTransport.HOST_PEER,
+						MatchChannel.frame_hello(identity)
+					)
 			NetEvent.Kind.PEER_JOINED:
-				_admit(event.peer)
+				pass # nothing to do until they say who they are
 			NetEvent.Kind.PEER_LEFT:
 				_depart(event.peer)
 			NetEvent.Kind.PAYLOAD:
@@ -237,14 +261,19 @@ func poll_network() -> void:
 			NetEvent.Kind.SESSION_FAILED:
 				failure = event.reason
 
-func _admit(peer: int) -> void:
+## Seats an arriving player under the identity THEY supplied.
+##
+## Keyed on the token rather than on the peer id, which is what makes a
+## reconnect a reclaim. Keyed on the peer id, a player who dropped for longer
+## than the grace window would come back to find themselves a stranger, a bot
+## in their seat, and no way to say otherwise - and it would happen most often
+## to whoever had the worst connection.
+func _admit(peer: int, token: String) -> void:
 	if role != Role.HOST:
 		return
-	# One identity per peer for now. Reconnect matching wants something stable
-	# that survives the connection, which is a Steam id or a client-supplied
-	# token; until then a peer is its own identity and a rejoin reads as a new
-	# player. The lobby already handles the stable case (tests/lobby_test.gd).
-	var seated: LobbyEvent = lobby.admit("peer:%d" % peer, peer, "Player %d" % peer, _authoritative.tick)
+	if not PlayerIdentity.is_acceptable(token):
+		return # not an identity; not seated
+	var seated: LobbyEvent = lobby.admit(token, peer, "Player %d" % peer, _authoritative.tick)
 	if seated.seat == null:
 		# Genuinely full. Told rather than left guessing - a client that hears
 		# nothing cannot tell a full lobby from a broken connection.
@@ -297,6 +326,9 @@ func _receive(peer: int, payload: PackedByteArray) -> void:
 		MatchChannel.TAG_INPUT:
 			if role == Role.HOST:
 				_accept_input(peer, body)
+		MatchChannel.TAG_HELLO:
+			if role == Role.HOST:
+				_admit(peer, MatchChannel.token_of(body))
 
 ## Takes a guest's input, having checked it is theirs to give.
 ##

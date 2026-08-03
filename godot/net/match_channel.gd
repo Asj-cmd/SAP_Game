@@ -18,6 +18,14 @@ const TAG_COMMANDS: int = 1
 const TAG_SNAPSHOT: int = 2
 ## Guest to host: one player's input, already stamped with the tick it belongs on.
 const TAG_INPUT: int = 3
+## Guest to host: who I am, across connections.
+##
+## Sent once the session is usable, and BEFORE a seat is assigned - the host
+## cannot know whether an arriving connection is a new player or somebody
+## returning until it has been told, and a peer id cannot tell it (a reconnect
+## has a new one). See PlayerIdentity.
+const TAG_HELLO: int = 5
+
 ## Host to guest: which actor you are driving.
 ##
 ## Sent once, after the first snapshot. A guest cannot work this out for itself
@@ -52,3 +60,13 @@ static func seat_of(body: PackedByteArray) -> int:
 	buffer.big_endian = false
 	buffer.data_array = body
 	return buffer.get_32()
+
+## A player's identity, as UTF-8. Length-checked on the way back in like
+## everything else off the wire.
+static func frame_hello(token: String) -> PackedByteArray:
+	return frame(TAG_HELLO, token.to_utf8_buffer())
+
+static func token_of(body: PackedByteArray) -> String:
+	if body.is_empty() or body.size() > PlayerIdentity.MAX_LENGTH:
+		return ""
+	return body.get_string_from_utf8()
