@@ -297,6 +297,15 @@ static func _check_escapability(
 ## articulation test would pass every house ever built while proving nothing.
 ## The question worth asking is "which ROOMS is this reachable through", and
 ## whether losing one of them cuts it off.
+##
+## Asked from OUTDOORS rather than from a spawn, and neutral space is never the
+## room removed. Both follow from the same fact: the outdoors is where a raid
+## comes from, not a room it passes through. Seeded from a spawn instead, every
+## room of the far house reports "only reachable through 'yard'" - true, and not
+## a defect, because the yard is the only thing between two houses in any map of
+## this shape. That version of the check would have been satisfied only by
+## inventing a second yard, so it was asking the wrong question rather than
+## finding a real one.
 static func _check_redundant_routes(
 	zones: Array[ZoneDef],
 	team_defs: Array[TeamDef],
@@ -305,24 +314,25 @@ static func _check_redundant_routes(
 ) -> void:
 	if surface.is_empty() or zones.size() < 2:
 		return
-	var home: int = _first_seed_node(zones, team_defs, surface)
+	var owner: Array[int] = _zone_of_each_node(zones, surface)
+	var home: int = _outdoor_node(zones, owner, surface)
+	if home < 0:
+		home = _first_seed_node(zones, team_defs, surface)
 	if home < 0:
 		return
 
-	var owner: Array[int] = _zone_of_each_node(zones, surface)
 	for i: int in zones.size():
 		var zone: ZoneDef = zones[i]
 		if zone.role == ZoneDef.Role.NEUTRAL:
 			continue
 		if _holds(owner, i, home):
-			continue # the spawn is inside it; nothing to cut it off from
+			continue # we are standing in it; nothing to cut it off from
 
-		var approaches: int = 0
 		for j: int in zones.size():
-			if i == j or _holds(owner, j, home):
+			if i == j or zones[j].role == ZoneDef.Role.NEUTRAL or _holds(owner, j, home):
 				continue
-			# Pretend that room is not there, and see whether this one is still
-			# reachable from a spawn.
+			# Pretend that room is not there, and see whether this one can still
+			# be walked to from outside.
 			var without: Dictionary[int, bool] = {}
 			for node: int in owner.size():
 				if owner[node] == j:
@@ -330,13 +340,28 @@ static func _check_redundant_routes(
 			var reached: Dictionary[int, bool] = surface.component_from(home, without)
 			if _any_reached(owner, i, reached):
 				continue
-			approaches += 1
 			failures.append(
 				"routes: '%s' is only reachable through '%s' - one way in"
 				% [zone.id, zones[j].id]
 			)
-			if approaches >= 1:
-				break # one report per room is enough to act on
+			break # one report per room is enough to act on
+
+## A stance outdoors - in the first neutral zone that has one.
+##
+## Negative when the level is all rooms, which is what the fixtures are; the
+## caller falls back to a spawn there.
+static func _outdoor_node(
+	zones: Array[ZoneDef],
+	owner: Array[int],
+	surface: WalkableSurface
+) -> int:
+	for i: int in zones.size():
+		if zones[i].role != ZoneDef.Role.NEUTRAL:
+			continue
+		for node: int in surface.nodes.size():
+			if owner[node] == i:
+				return node
+	return -1
 
 ## Which zone each node belongs to, in resolution order. -1 for none.
 static func _zone_of_each_node(zones: Array[ZoneDef], surface: WalkableSurface) -> Array[int]:

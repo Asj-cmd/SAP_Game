@@ -10,7 +10,7 @@ extends SceneTree
 ## defect it must catch and the suite fails if the validator stays quiet.
 
 ## Every check this suite is meant to run. See the harness guard below.
-const EXPECTED_CHECKS: int = 24
+const EXPECTED_CHECKS: int = 28
 
 var _passed: int = 0
 var _failed: int = 0
@@ -23,7 +23,16 @@ func _initialize() -> void:
 	_test_authored_content()
 	_test_load_gate()
 	_test_doorway_follows_the_body()
+	_test_more_than_one_way_in()
+	_test_getting_back_out()
 
+	# Counted BEFORE the guard's own failure is added, or a suite that skipped a
+	# case reports the total it was supposed to reach and reads as a paradox.
+	var ran: int = _passed + _failed
+	if ran != EXPECTED_CHECKS:
+		_failed += 1
+		_failures.append("harness: ran %d checks, expected %d - a case was skipped"
+			% [ran, EXPECTED_CHECKS])
 	print("\n%d passed, %d failed" % [_passed, _failed])
 	if _failed > 0:
 		print("\nFAILURES:")
@@ -238,3 +247,124 @@ func _test_doorway_follows_the_body() -> void:
 	# Nothing about the level changed; only the thing walking through it.
 	_check("body/and refuses one that is exactly as wide",
 		_mentions(_validate(_build([], 10.0)), "cannot be reached"), true)
+
+# ---- no important room may have a single approach ----
+
+## Three rooms in a row, which is the smallest shape that can express "one way
+## in": the far room is reachable only by walking through the middle one.
+##
+## The second half is the case that matters more, because it is the one a
+## reasonable-looking check gets wrong. Making the middle room NEUTRAL turns the
+## same geometry into a house-yard-house map, and a yard between two houses is
+## not a defect - it is the premise. A check that flags it cannot be satisfied by
+## any map of this shape, so it would have had to be switched off.
+func _test_more_than_one_way_in() -> void:
+	var strung_out: Dictionary = _rooms_in_a_row(ZoneDef.Role.HOME)
+	_check("routes/a room behind another room is caught",
+		_mentions(_validate(strung_out), "only reachable through 'room_b'"), true)
+
+	var around_a_yard: Dictionary = _rooms_in_a_row(ZoneDef.Role.NEUTRAL)
+	_check("routes/but crossing neutral ground is not a defect",
+		_mentions(_validate(around_a_yard), "one way in"), false)
+
+## Shell, two dividing walls with doorways, three zones left to right.
+func _rooms_in_a_row(middle: ZoneDef.Role) -> Dictionary:
+	var collision: WorldCollisionDef = WorldCollisionDef.new()
+	collision.bounds = AABB(Vector3(0, 0, 0), Vector3(300, 100, 100))
+	collision.blockers = [
+		AABB(Vector3(98, 0, 0), Vector3(4, 100, 40)),
+		AABB(Vector3(98, 0, 60), Vector3(4, 100, 40)),
+		AABB(Vector3(198, 0, 0), Vector3(4, 100, 40)),
+		AABB(Vector3(198, 0, 60), Vector3(4, 100, 40)),
+	] as Array[AABB]
+
+	var room_a: ZoneDef = _zone(&"room_a", ZoneDef.Role.HOME, &"team_a",
+		AABB(Vector3(0, 0, 0), Vector3(98, 100, 100)))
+	var room_b: ZoneDef = _zone(&"room_b", middle,
+		&"" if middle == ZoneDef.Role.NEUTRAL else &"team_a",
+		AABB(Vector3(102, 0, 0), Vector3(96, 100, 100)))
+	var vault_c: ZoneDef = _zone(&"vault_c", ZoneDef.Role.CASH_ROOM, &"team_b",
+		AABB(Vector3(202, 0, 0), Vector3(98, 100, 100)))
+
+	var team_a: TeamDef = TeamDef.new()
+	team_a.id = &"team_a"
+	team_a.home_zone = &"room_a"
+	team_a.spawn_points = [Vector3(30, 50, 50)] as Array[Vector3]
+	var team_b: TeamDef = TeamDef.new()
+	team_b.id = &"team_b"
+	team_b.home_zone = &"vault_c"
+	team_b.spawn_points = [Vector3(250, 50, 50)] as Array[Vector3]
+
+	var tuning: TuningDef = TuningDef.new()
+	tuning.actor_radius = 4.0
+
+	return {
+		"zones": [room_a, room_b, vault_c] as Array[ZoneDef],
+		"teams": [team_a, team_b] as Array[TeamDef],
+		"collision": collision,
+		"tuning": tuning,
+	}
+
+# ---- and every room you can walk into, you can walk out of ----
+
+## A ledge over a floor. Step off it and you are down; the way back up is a
+## climb the game has no verb for, so the room below is a room you stay in.
+##
+## Reachability says it is fine, and it is: you can certainly get there. That is
+## the whole reason this is a separate question - it became askable the moment
+## edges stopped being symmetric, and nothing before it could see the failure.
+func _test_getting_back_out() -> void:
+	# 100 up is far past the 30 an actor steps over, and well inside the drop it
+	# survives. One way, therefore.
+	_check("escape/a room you can only fall into is caught",
+		_mentions(_validate(_ledge_over(100.0)), "can be entered but not left"), true)
+
+	# The identical level with the ledge lowered to a step. Same rooms, same
+	# doorless shape; only the height changed, and now it is a floor.
+	_check("escape/and a step down is not a trap",
+		_mentions(_validate(_ledge_over(20.0)), "can be entered but not left"), false)
+
+func _ledge_over(height: float) -> Dictionary:
+	var collision: WorldCollisionDef = WorldCollisionDef.new()
+	collision.bounds = AABB(Vector3(0, 0, 0), Vector3(300, 400, 100))
+	collision.blockers = [
+		AABB(Vector3(0, 0, 0), Vector3(200, height, 100)),
+	] as Array[AABB]
+
+	var ledge: ZoneDef = _zone(&"ledge", ZoneDef.Role.HOME, &"team_a",
+		AABB(Vector3(0, 0, 0), Vector3(200, 400, 100)))
+	# Starts clear of the drop, not at it. A stance is a body-width thing, so the
+	# outermost places you can stand on the ledge sit slightly PAST its edge -
+	# and a zone butted up against x=200 swallows them, reporting a room that can
+	# be left because part of it was never down here.
+	var below: ZoneDef = _zone(&"below", ZoneDef.Role.CASH_ROOM, &"team_b",
+		AABB(Vector3(220, 0, 0), Vector3(80, 400, 100)))
+
+	# Both spawns up top, because a spawn in the room under test would be asking
+	# the validator to certify a level nobody could start.
+	var team_a: TeamDef = TeamDef.new()
+	team_a.id = &"team_a"
+	team_a.home_zone = &"ledge"
+	team_a.spawn_points = [Vector3(50, height + 10.0, 50)] as Array[Vector3]
+	var team_b: TeamDef = TeamDef.new()
+	team_b.id = &"team_b"
+	team_b.home_zone = &"below"
+	team_b.spawn_points = [Vector3(150, height + 10.0, 50)] as Array[Vector3]
+
+	var tuning: TuningDef = TuningDef.new()
+	tuning.actor_radius = 4.0
+
+	return {
+		"zones": [ledge, below] as Array[ZoneDef],
+		"teams": [team_a, team_b] as Array[TeamDef],
+		"collision": collision,
+		"tuning": tuning,
+	}
+
+func _zone(id: StringName, role: ZoneDef.Role, owner: StringName, bounds: AABB) -> ZoneDef:
+	var zone: ZoneDef = ZoneDef.new()
+	zone.id = id
+	zone.role = role
+	zone.owner_team = owner
+	zone.bounds = bounds
+	return zone

@@ -124,6 +124,8 @@ It must catch at least:
 | Every doorway gap ≥ actor width + margin | A door nobody can fit through |
 | Every zone reachable from every spawn | A room the match can never use |
 | Every cash room and jail reachable | An unwinnable or unescapable round |
+| Every role-bearing zone **escapable** | A room you fall into and never leave |
+| No role-bearing zone behind a single room | One door, one defender, round over |
 | No zone overlap without distinct `priority` | Ambiguous "which room am I in" |
 | No walkable point inside a blocker | Spawning or landing inside a wall |
 | Min gap between blockers > max per-tick displacement | Tunnelling headroom |
@@ -135,6 +137,29 @@ traversal the bots will want later, so the work is not spent twice.
 The validator runs in the headless runner and is a hard gate: **content that
 fails does not load.** A broken house must be impossible to play, not something
 discovered mid-match.
+
+Two of those rows are worth stating precisely, because both were got wrong once.
+
+**Escapability is a separate question from reachability**, and only became one
+when edges turned directed (§12). A drop is one-way. A room whose only exit is
+the way you fell in is perfectly reachable and completely broken, so the gate
+floods *backwards* from a spawn as well as forwards: every role-bearing zone must
+be somewhere you can get to and somewhere you can get out of.
+
+**Redundant routes are asked at room granularity, from outdoors.** Room
+granularity because a doorway is six cells wide, so no single *node* is ever a
+cut — a node-level articulation test passes every house ever built and proves
+nothing. From outdoors because the question is "how many ways into this room",
+and a raid starts outside. Seeded from a spawn instead, every room of the far
+house reports *only reachable through 'yard'* — true, and not a defect: the yard
+is the only thing between two houses in a map of this shape, so that version
+could only have been satisfied by inventing a second yard. Neutral space is
+therefore never the room removed. `tests/content_validator_test.gd` pins both
+halves: three rooms in a row must fail, the same three with a neutral middle must
+not.
+
+Both rows found real defects the hour they existed. The shipped grey box had one
+way into every room, and the bot fixture was a corridor with a single chokepoint.
 
 ## 8. Order of work
 

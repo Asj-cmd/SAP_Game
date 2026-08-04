@@ -3,6 +3,13 @@ extends SceneTree
 ##
 ##   godot --headless --path godot --script res://tools/build_house.gd
 ##
+## UNFINISHED, AND NOTHING LOADS IT. What it writes does not pass the load gate:
+## the floors and internal doors do not connect the way HOUSE_LAYOUT.md says, so
+## the only through-route is the external trellis and seven rooms can be entered
+## and not left. It is committed as a starting point for the modelling pass, not
+## as a level. The game plays game/blockout/greybox_house.tscn until this one
+## bakes clean; run it with an explicit --out= and read the gate's complaints.
+##
 ## Written rather than hand-placed because the house is parametric and mirrored:
 ## two hundred boxes dragged into place would be two hundred chances to put one
 ## at a height that is not in the threshold set, and the mirror would be a second
