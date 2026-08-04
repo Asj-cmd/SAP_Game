@@ -172,9 +172,20 @@ Three details make the count mean what it should:
   usually belong to no room, and leaving them out silently merges the rooms they
   separate.
 
-A level with no neutral space is exempt — there is no outdoors to count from —
-and says so as a note rather than skipping quietly. Every fixture is in that
-position; no shipping level should be.
+**Open plan scores low, and that is the answer rather than a bug.** A wide
+knocked-through opening is one connected stretch of boundary, so it is one
+aperture and one route — however wide it is. Knocking two rooms together does
+not give the far one a second way in, because you still have to come through
+the adjoining room to use it. If a downstairs reports 1, look for a single
+opening before looking for a defect.
+
+**A level with no neutral space fails closed.** There is no outdoors to count
+from, so the row cannot answer — and silently not checking is the same as
+passing. Content that is genuinely a rig for one rule says so on itself
+(`WorldCollisionDef.is_fixture`) and is exempted by name; anything else is
+refused with *cannot validate routes: no outdoor source*. The flag is
+declared by hand and never written by the baker, so a level cannot acquire
+the exemption by accident.
 
 This replaced an articulation-point search, which is a weaker question wearing
 the same clothes: *is there one room whose removal cuts this off* answers **no**

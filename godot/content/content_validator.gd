@@ -71,7 +71,9 @@ static func validate(
 			surface = WalkableSurface.build(collision, radius, step_up, max_drop)
 		_check_reachability(zones, team_defs, collision, radius, step_up, max_drop, failures, surface)
 		_check_escapability(zones, team_defs, surface, failures)
-		_check_redundant_routes(zones, surface, required, wanted, failures, advisories)
+		_check_redundant_routes(
+			zones, surface, required, wanted, collision.is_fixture, failures, advisories
+		)
 	return failures
 
 ## Zones in a fixed order, so every message and every traversal below is
@@ -334,6 +336,7 @@ static func _check_redundant_routes(
 	surface: WalkableSurface,
 	required: int,
 	wanted: int,
+	is_fixture: bool,
 	failures: PackedStringArray,
 	advisories: Array[String]
 ) -> void:
@@ -354,12 +357,16 @@ static func _check_redundant_routes(
 			capacity[outdoors][i] = UNLIMITED
 			found_outside = true
 	if not found_outside:
-		# Said out loud rather than skipped quietly. Fixtures are all interior
-		# and this is the right answer for them, but a shipping level that lost
-		# its yard would otherwise stop being checked without anybody noticing.
-		advisories.append(
-			"routes: no neutral space in this level, so there is no outdoors to count ways in from"
-		)
+		# Fails closed. A rig with no outdoors is fine and says so on itself; a
+		# level with no outdoors is a level this row cannot check, and silently
+		# not checking it is the same as passing it.
+		if is_fixture:
+			advisories.append("routes: fixture content, so ways in were not counted")
+		else:
+			failures.append(
+				"routes: cannot validate routes - no outdoor source, and this is not "
+				+ "declared a fixture (WorldCollisionDef.is_fixture)"
+			)
 		return
 
 	for i: int in zones.size():

@@ -57,6 +57,7 @@ func _check(case_name: String, actual: Variant, expected: Variant) -> void:
 ## An open hall with a cash room at each end, plus any extra walls a case wants.
 func _world(team_size: int = 1, extra: Array[AABB] = []) -> SimWorld:
 	var collision: WorldCollisionDef = WorldCollisionDef.new()
+	collision.is_fixture = true # a rig, not a level
 	collision.bounds = AABB(Vector3(0, 0, 0), Vector3(400, 100, 200))
 	var blockers: Array[AABB] = [AABB(Vector3(0, 0, 0), Vector3(400, FLOOR_TOP, 200))]
 	blockers.append_array(extra)
@@ -64,13 +65,8 @@ func _world(team_size: int = 1, extra: Array[AABB] = []) -> SimWorld:
 
 	var vault_a: ZoneDef = _zone(&"vault_a", ZoneDef.Role.CASH_ROOM, &"team_a",
 		AABB(Vector3(0, 0, 0), Vector3(100, 100, 200)))
-	# Stops short of the south wall on purpose. Spanning the full width made the
-	# yard the only way between the two vaults, which the load gate refuses -
-	# correctly, and this fixture was one of the things it caught. The strip
-	# behind it is open floor belonging to nobody, so there are two ways across
-	# and every position a case below relies on is still inside the yard.
 	var yard: ZoneDef = _zone(&"yard", ZoneDef.Role.HOME, &"team_a",
-		AABB(Vector3(100, 0, 0), Vector3(200, 100, 140)))
+		AABB(Vector3(100, 0, 0), Vector3(200, 100, 200)))
 	var vault_b: ZoneDef = _zone(&"vault_b", ZoneDef.Role.CASH_ROOM, &"team_b",
 		AABB(Vector3(300, 0, 0), Vector3(100, 100, 200)))
 

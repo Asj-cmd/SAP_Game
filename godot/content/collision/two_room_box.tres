@@ -11,4 +11,5 @@
 [resource]
 script = ExtResource("1_worldcollision")
 bounds = AABB(0, 0, 0, 200, 100, 100)
+is_fixture = true
 blockers = Array[AABB]([AABB(98, 0, 0, 4, 100, 40), AABB(98, 0, 60, 4, 100, 40)])

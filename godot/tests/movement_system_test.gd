@@ -55,6 +55,7 @@ func _close(case_name: String, actual: float, expected: float, tolerance: float 
 ## WorldCollisionDef alone, so an actor crosses at the doorway and nowhere else.
 func _collision(radius_source: TuningDef) -> WorldCollisionDef:
 	var collision: WorldCollisionDef = WorldCollisionDef.new()
+	collision.is_fixture = true # a rig, not a level
 	collision.bounds = AABB(Vector3(0, 0, 0), Vector3(200, 100, 100))
 	collision.blockers = [
 		AABB(Vector3(98, 0, 0), Vector3(4, 100, 40)),
@@ -290,6 +291,7 @@ func _test_zone_tracking() -> void:
 ## into walls, so the recovery has to be in place before they land.
 func _test_overlap_recovery() -> void:
 	var collision: WorldCollisionDef = WorldCollisionDef.new()
+	collision.is_fixture = true # a rig, not a level
 	collision.bounds = AABB(Vector3(0, 0, 0), Vector3(200, 100, 100))
 	# One wall: x 98..102, z 0..40.
 	collision.blockers = [AABB(Vector3(98, 0, 0), Vector3(4, 100, 40))]
@@ -343,6 +345,7 @@ func _build_ground_world() -> SimWorld:
 	room.bounds = AABB(Vector3(0, 0, 0), Vector3(200, 100, 100))
 
 	var collision: WorldCollisionDef = WorldCollisionDef.new()
+	collision.is_fixture = true # a rig, not a level
 	collision.bounds = AABB(Vector3(0, 0, 0), Vector3(200, 100, 100))
 	collision.blockers = [
 		AABB(Vector3(0, 0, 0), Vector3(200, FLOOR_TOP, 100)),

@@ -20,6 +20,20 @@ extends Resource
 ## The outer shell. Outside it is out of bounds, whatever the blockers say.
 @export var bounds: AABB = AABB()
 
+## A rig for exercising one rule, not a place anybody plays.
+##
+## Some gate rows only make sense for a whole level. "How many ways into this
+## room" needs an outdoors to count from, and a two-room box has none - so the
+## check has nothing to say and cannot fail. Which is the problem: a check that
+## cannot fail is indistinguishable from one that passes, and a real level that
+## quietly lost its neutral space would stop being checked without anybody
+## noticing.
+##
+## So those rows fail closed, and content that is genuinely a rig says so here.
+## Declared by hand and never by the baker, so a level cannot acquire the
+## exemption by accident.
+@export var is_fixture: bool = false
+
 ## Does a body of `radius` centred at `point` fit inside the shell?
 ##
 ## The shell is shrunk by the radius rather than the point being tested bare,

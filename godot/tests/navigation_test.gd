@@ -66,6 +66,7 @@ func _check(case_name: String, actual: Variant, expected: Variant) -> void:
 ## instead of the rule.
 func _surface(walls: Array[AABB], step_up: float = STEP_UP) -> WalkableSurface:
 	var collision: WorldCollisionDef = WorldCollisionDef.new()
+	collision.is_fixture = true # a rig, not a level
 	collision.bounds = AABB(Vector3(0, 0, 0), Vector3(200, 200, 100))
 	var blockers: Array[AABB] = [AABB(Vector3(0, 0, 0), Vector3(200, FLOOR_TOP, 100))]
 	blockers.append_array(walls)
@@ -243,6 +244,7 @@ func _test_baking() -> void:
 	# the level would have the load gate certifying a level that does not exist,
 	# which is worse than having no bake at all.
 	var moved: WorldCollisionDef = WorldCollisionDef.new()
+	moved.is_fixture = true # a rig, not a level
 	moved.bounds = built._collision.bounds
 	moved.blockers = [AABB(Vector3(0, 0, 0), Vector3(200, FLOOR_TOP, 100))] as Array[AABB]
 	_check("bake/a wall that moved invalidates it",

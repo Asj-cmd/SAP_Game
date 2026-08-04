@@ -10,7 +10,7 @@ extends SceneTree
 ## defect it must catch and the suite fails if the validator stays quiet.
 
 ## Every check this suite is meant to run. See the harness guard below.
-const EXPECTED_CHECKS: int = 33
+const EXPECTED_CHECKS: int = 34
 
 var _passed: int = 0
 var _failed: int = 0
@@ -53,6 +53,7 @@ func _check(case_name: String, actual: Variant, expected: Variant) -> void:
 ## a world now, so the validator has to be exercised on the content itself.
 func _build(blockers: Array[AABB] = [], radius: float = 4.0) -> Dictionary:
 	var collision: WorldCollisionDef = WorldCollisionDef.new()
+	collision.is_fixture = true # a rig, not a level
 	collision.bounds = AABB(Vector3(0, 0, 0), Vector3(200, 100, 100))
 	# Built through a typed local rather than a ternary: the two branches of a
 	# ternary unify to plain Array, which will not assign to Array[AABB].
@@ -290,6 +291,14 @@ func _test_more_than_one_way_in() -> void:
 	_check("routes/three passes silently", _validate(three, quiet).size(), 0)
 	_check("routes/with nothing to advise", quiet.size(), 0)
 
+	# A level with no outdoors is one this row cannot answer, so it is refused
+	# rather than waved through. The two-room box passes only because it says on
+	# itself that it is a rig; clear that and it stops being exempt.
+	var undeclared: Dictionary = _build()
+	undeclared["collision"].is_fixture = false
+	_check("routes/content with no outdoors fails closed",
+		_mentions(_validate(undeclared), "cannot validate routes"), true)
+
 	# The floor is content, not a constant: the same two-route house refuses to
 	# load once the level asks for three. If this ever stops biting, the
 	# threshold has been pinned somewhere in code.
@@ -308,6 +317,7 @@ func _house_with_routes(routes: int) -> Dictionary:
 	var depth: float = 300.0
 	var band: float = depth / float(routes)
 	var collision: WorldCollisionDef = WorldCollisionDef.new()
+	collision.is_fixture = true # a rig, not a level
 	collision.bounds = AABB(Vector3(0, 0, 0), Vector3(400, 100, depth))
 
 	var walls: Array[AABB] = []
@@ -334,6 +344,7 @@ func _house_with_routes(routes: int) -> Dictionary:
 func _garage() -> Dictionary:
 	var depth: float = 300.0
 	var collision: WorldCollisionDef = WorldCollisionDef.new()
+	collision.is_fixture = true # a rig, not a level
 	collision.bounds = AABB(Vector3(0, 0, 0), Vector3(400, 100, depth))
 	collision.blockers = [
 		AABB(Vector3(100, 0, 0), Vector3(4, 100, 130)),
@@ -393,6 +404,7 @@ func _test_getting_back_out() -> void:
 
 func _ledge_over(height: float) -> Dictionary:
 	var collision: WorldCollisionDef = WorldCollisionDef.new()
+	collision.is_fixture = true # a rig, not a level
 	collision.bounds = AABB(Vector3(0, 0, 0), Vector3(300, 400, 100))
 	collision.blockers = [
 		AABB(Vector3(0, 0, 0), Vector3(200, height, 100)),
