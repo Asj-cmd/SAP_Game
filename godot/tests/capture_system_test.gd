@@ -29,6 +29,7 @@ func _initialize() -> void:
 	_test_safe_room_variants()
 	_test_release_conditions()
 	_test_timeout()
+	_test_escalating_sentences()
 
 	print("\n%d passed, %d failed" % [_passed, _failed])
 	if _failed > 0:
@@ -327,3 +328,41 @@ func _test_content_variants_load() -> void:
 	_check("content/ships variant B pickup rule", zone.safe_ends_on_pickup, false)
 	_check("content/is a cash room", zone.role, ZoneDef.Role.CASH_ROOM)
 	_check("content/grants safety", zone.grants_safety(), true)
+
+# ---- repeat offenders ----
+
+## Being caught twice must cost more than being caught once.
+##
+## Otherwise the pen is a slow respawn, and the cheapest way to play is to throw
+## yourself at the vault until something sticks. The sentence is short on
+## purpose - rescue is the real way out and the timer is only the fallback - so
+## the deterrent has to come from repetition rather than from length.
+func _test_escalating_sentences() -> void:
+	var world: SimWorld = _build_world(VARIANT_NONE)
+	world.mode.capture_escalation_seconds = 5.0
+	var guard: SimEntity = _add_actor(world, &"team_a", Vector3(0, 0, 0))
+	var raider: SimEntity = _add_actor(world, &"team_b", Vector3(10, 0, 0))
+
+	_run(world, [CaptureCommand.capture(guard.id, raider.id)] as Array[SimCommand])
+	_check("repeat/a first sentence is the base one",
+		raider.capture_ticks_remaining, SimWorld.seconds_to_ticks(HOLD_SECONDS))
+	_check("repeat/and the offence is remembered", raider.captures_this_round, 1)
+
+	# Freed, and caught again in the same round.
+	raider.is_captured = false
+	raider.capture_ticks_remaining = 0
+	raider.captured_on_tick = -1
+	raider.position = Vector3(10, 0, 0)
+	_run(world, [CaptureCommand.capture(guard.id, raider.id)] as Array[SimCommand])
+	_check("repeat/the second costs the escalation on top",
+		raider.capture_ticks_remaining, SimWorld.seconds_to_ticks(HOLD_SECONDS + 5.0))
+	_check("repeat/and the count keeps up", raider.captures_this_round, 2)
+
+	# Escalation off is the default, and must stay a flat sentence.
+	var flat: SimWorld = _build_world(VARIANT_NONE)
+	var warden: SimEntity = _add_actor(flat, &"team_a", Vector3(0, 0, 0))
+	var thief: SimEntity = _add_actor(flat, &"team_b", Vector3(10, 0, 0))
+	thief.captures_this_round = 4
+	_run(flat, [CaptureCommand.capture(warden.id, thief.id)] as Array[SimCommand])
+	_check("repeat/with escalation off every sentence is the same",
+		thief.capture_ticks_remaining, SimWorld.seconds_to_ticks(HOLD_SECONDS))

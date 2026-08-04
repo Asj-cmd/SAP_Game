@@ -52,6 +52,12 @@ var _intent_epoch: int = -1
 ## per tick: fresh noise every tick would cancel itself out into a straight line
 ## and emit a new command each time on the way.
 var _wobble: float = 0.0
+## Where the body was when progress was last checked, and how long it has been
+## going nowhere. See the give-way rule in _steer.
+var _progress_mark: Vector3 = Vector3.ZERO
+var _stuck_ticks: int = 0
+## Ticks left of backing away to let somebody else through.
+var _yield_ticks: int = 0
 
 static func for_actor(
 	actor: int,
@@ -69,6 +75,18 @@ static func for_actor(
 
 func current_task() -> BotTask:
 	return _task
+
+## The route being followed, for a debug overlay to draw.
+##
+## Behaviour that cannot be seen gets diagnosed by staring at capsules and
+## guessing, which is how "the bot is stuck" becomes an argument about
+## pathfinding when it is really about following.
+func route() -> PackedVector3Array:
+	return _route
+
+## Index of the waypoint currently being steered towards.
+func leg() -> int:
+	return _leg
 
 ## One tick's worth of commands, exactly as LocalPlayerInput.drain produces.
 ##
@@ -110,7 +128,7 @@ func drain(world: SimWorld, tick: int, claims: Dictionary[String, int]) -> Array
 		# no route, because the bot walks it confidently.
 		_plan(world, me, tick)
 
-	commands.append_array(_steer(me, tick))
+	commands.append_array(_steer(world, me, tick))
 	commands.append_array(_act(world, me, tick))
 	return commands
 
@@ -250,23 +268,115 @@ func _destination_of(world: SimWorld) -> Vector3:
 # ---- doing ----
 
 ## Follows the route, and reports travel as intent - never as a position.
-func _steer(me: SimEntity, tick: int) -> Array[SimCommand]:
+func _steer(world: SimWorld, me: SimEntity, tick: int) -> Array[SimCommand]:
 	while _leg < _route.size() and _flat_distance(me.position, _route[_leg]) <= profile.arrive_radius:
 		_leg += 1
 	if _leg >= _route.size():
 		return _stop_if_moving(tick)
 
-	var heading: Vector3 = _route[_leg] - me.position
+	# Aim at the FURTHEST waypoint still in clear view, not the next one.
+	#
+	# This is where "the bot is stuck in the doorway" actually lived. The route
+	# was fine - it threaded the gap - but the follow walked at the nearest
+	# waypoint, which sits just inside the opening. Walking at a point inside a
+	# doorway means walking at its frame: the body clips the jamb, slides, re-
+	# aims at the same point, and clips it again.
+	#
+	# Steering at the furthest visible point pulls the line taut through the
+	# gap. It is the same funnel the route was smoothed with, applied
+	# continuously as the body moves rather than once when the path was built -
+	# which is what makes it work from wherever the bot has actually ended up
+	# rather than from where the path assumed it would be.
+	# Give way if nothing is working.
+	#
+	# Two bodies meeting in a doorway jam: neither can pass and neither can
+	# slide, because the frame is exactly where the sidestep would go. The route
+	# is not wrong and re-routing does not help - the obstruction is a person,
+	# and the nav graph has never heard of people.
+	#
+	# So a bot that has stopped making progress backs off for a moment. Only the
+	# HIGHER id yields, or both would retreat in step and meet again on the way
+	# back in. Arbitrary, and arbitrary identically on every machine.
+	if _yield_ticks > 0:
+		_yield_ticks -= 1
+		var retreat: Vector3 = me.position - _route[mini(_leg, _route.size() - 1)]
+		retreat.y = 0.0
+		if retreat.length_squared() > 0.0:
+			return _send_intent(retreat.normalized(), tick)
+	elif _crowded(world, me):
+		_stuck_ticks += 1
+		if _stuck_ticks >= profile.unstick_ticks():
+			_stuck_ticks = 0
+			_yield_ticks = profile.unstick_ticks()
+	else:
+		_stuck_ticks = 0
+
+	var target: int = -1
+	var horizon: int = mini(_route.size() - 1, _leg + maxi(1, profile.path_lookahead))
+	for i: int in range(horizon, _leg - 1, -1):
+		if nav.surface.is_clear_between(me.position, _route[i]):
+			target = i
+			break
+
+	if target < 0:
+		# NOTHING on the route is in sight, including the waypoint it was
+		# already heading for. The body has drifted off the line - shoved by
+		# another actor, or slid along a wall - and every remaining waypoint is
+		# now behind geometry.
+		#
+		# This is where the doorway stall actually lived, and it is why looking
+		# further AHEAD alone did not fix it: the bot was walking at a waypoint
+		# it could no longer reach in a straight line, so it walked into the
+		# wall in between, slid, and arrived nowhere while reporting MOVING.
+		# A route is only worth following from a place it can be followed from,
+		# so re-route from where the body actually is - but NO MORE OFTEN than
+		# an ordinary repath. Re-routing on every stranded tick floods the whole
+		# walkable surface per bot per tick, which is not a recovery: it is a
+		# stall of a different kind, and it stopped a six-minute match from
+		# finishing at all.
+		if tick >= _next_repath_tick:
+			_plan(world, me, tick)
+			return _stop_if_moving(tick)
+		# Re-routed recently and still boxed in. Keep walking at the waypoint it
+		# already had; something else - gravity, a slide, the other body moving
+		# on - usually frees it before the next repath comes due.
+		target = _leg
+	_leg = target
+
+	var heading: Vector3 = _route[target] - me.position
 	heading.y = 0.0
 	if heading.length_squared() <= 0.0:
 		return _stop_if_moving(tick)
 
-	var intent: Vector3 = heading.normalized().rotated(Vector3.UP, _wobble)
+	return _send_intent(heading.normalized().rotated(Vector3.UP, _wobble), tick)
+
+func _send_intent(intent: Vector3, tick: int) -> Array[SimCommand]:
 	if _has_sent_intent and intent.is_equal_approx(_last_intent):
 		return []
 	_last_intent = intent
 	_has_sent_intent = true
 	return [MoveCommand.move(actor_id, intent, tick)] as Array[SimCommand]
+
+## Is this body going nowhere with somebody else in the way?
+##
+## Both halves matter. No progress alone is an ordinary pause - waiting out a
+## countdown, standing in a safe room. No progress WITH a body pressed against
+## it is the jam worth breaking, and only the higher id breaks it.
+func _crowded(world: SimWorld, me: SimEntity) -> bool:
+	var moved: float = me.position.distance_to(_progress_mark)
+	_progress_mark = me.position
+	if moved > profile.arrive_radius * 0.25:
+		return false
+	var reach: float = world.tuning.actor_radius * 2.5
+	for entity_id: int in world.sorted_entity_ids():
+		var other: SimEntity = world.entities[entity_id]
+		if entity_id == actor_id or not other.is_actor() or other.is_captured:
+			continue
+		if actor_id < entity_id:
+			continue # the lower id holds its ground
+		if me.position.distance_to(other.position) <= reach:
+			return true
+	return false
 
 ## Horizontal only. A waypoint on the floor below a bot standing on a sill is
 ## still the waypoint it is heading for, and counting the height would leave it

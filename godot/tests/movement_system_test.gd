@@ -22,6 +22,7 @@ func _initialize() -> void:
 	_test_overlap_recovery()
 	_test_kinematic_ground()
 	_test_zone_tracking()
+	_test_actors_are_solid()
 
 	print("\n%d passed, %d failed" % [_passed, _failed])
 	if _failed > 0:
@@ -416,3 +417,75 @@ func _test_kinematic_ground() -> void:
 	_step(world_flat)
 	_check("ground/no gravity authored means no falling", floater.position.y, 50.0)
 	_check("ground/and nothing reads as airborne", floater.is_grounded, true)
+
+# ---- bodies are solid to each other ----
+
+## Players walked through one another, which the playtest noticed immediately.
+##
+## The interesting cases are not "does it block" but the two that make blocking
+## survivable: an overlapping pair must be able to separate, and a prisoner must
+## not become furniture.
+func _test_actors_are_solid() -> void:
+	# Six, not ten: a radius-10 body is exactly as wide as this fixture's
+	# doorway, so the load gate refuses the content and the world never steps -
+	# which looks precisely like a movement bug and is not one.
+	const RADIUS: float = 6.0
+	var world: SimWorld = _build_world(RADIUS)
+	var mover: SimEntity = _add_actor(world, Vector3(20, 50, 50))
+	var blocker: SimEntity = _add_actor(world, Vector3(60, 50, 50))
+
+	# The invariant is that bodies never OVERLAP - not that one never gets past
+	# the other. Blocked actors slide around each other, which is the whole
+	# point: two bots that merely stopped deadlocked in open ground and a bot
+	# match went to zero pick-ups.
+	var closest: float = INF
+	for i: int in 8:
+		_step(world, [MoveCommand.move(mover.id, Vector3(1, 0, 0))] as Array[SimCommand])
+		closest = minf(closest, mover.position.distance_to(blocker.position))
+	_check("solid/bodies never overlap", closest >= RADIUS * 2.0 - 0.5, true)
+	_check("solid/but neither is stopped dead", mover.position.x > 20.0, true)
+
+	# Away from it is always allowed. Measured from where it was HELD, not from
+	# where it set off - it has been walking towards the other body for eight
+	# ticks and is nowhere near its starting point.
+	var held: float = mover.position.x
+	_step(world, [MoveCommand.move(mover.id, Vector3(-1, 0, 0))] as Array[SimCommand])
+	_check("solid/but may still walk away", mover.position.x < held, true)
+
+	# Overlapping - a spawn, a round reset, a release - must be escapable, or a
+	# pair is stuck against each other for the rest of the round.
+	var stuck: SimWorld = _build_world(RADIUS)
+	var left: SimEntity = _add_actor(stuck, Vector3(50, 50, 50))
+	var right: SimEntity = _add_actor(stuck, Vector3(53, 50, 50))
+	var gap: float = absf(left.position.x - right.position.x)
+	for i: int in 5:
+		_step(stuck, [MoveCommand.move(left.id, Vector3(-1, 0, 0))] as Array[SimCommand])
+	_check("solid/an overlapping pair can separate",
+		absf(left.position.x - right.position.x) > gap, true)
+
+	# A prisoner is inert. Every prisoner is placed on the pen's single centre
+	# point, so solid ones would weld into a lump and wall off their own rescue.
+	var pen: SimWorld = _build_world(RADIUS)
+	var prisoner: SimEntity = _add_actor(pen, Vector3(40, 50, 50))
+	prisoner.is_captured = true
+	var rescuer: SimEntity = _add_actor(pen, Vector3(80, 50, 50))
+	for i: int in 8:
+		_step(pen, [MoveCommand.move(rescuer.id, Vector3(-1, 0, 0))] as Array[SimCommand])
+	_check("solid/a held actor is not an obstacle",
+		rescuer.position.x < prisoner.position.x + RADIUS, true)
+
+	# Deterministic: the same two actors, advanced in the same id order, land in
+	# the same place. Resolution order is what makes that true.
+	var again: SimWorld = _build_world(RADIUS)
+	_add_actor(again, Vector3(50, 50, 50))
+	_add_actor(again, Vector3(52, 50, 50))
+	var replay: SimWorld = _build_world(RADIUS)
+	_add_actor(replay, Vector3(50, 50, 50))
+	_add_actor(replay, Vector3(52, 50, 50))
+	for i: int in 8:
+		var push: Array[SimCommand] = [
+			MoveCommand.move(1, Vector3(1, 0, 0)), MoveCommand.move(2, Vector3(-1, 0, 0)),
+		]
+		again.step(push)
+		replay.step(push)
+	_check("solid/two runs resolve identically", replay.state_digest(), again.state_digest())

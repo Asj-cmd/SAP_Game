@@ -67,6 +67,23 @@ extends Resource
 ## Jitter applied to the travel direction, in radians. Steering imprecision -
 ## it does not walk perfect lines.
 @export var steer_wobble: float = 0.05
+## How many waypoints ahead to look for a clear line when steering.
+##
+## The route is a sequence of standing places and the nearest one is often just
+## inside a doorway, so walking straight at it means walking straight at the
+## frame. Looking further ahead pulls the line taut through the gap. Larger is
+## smoother and costs a clearance test per waypoint per tick; smaller hugs the
+## route more literally.
+@export var path_lookahead: int = 8
+
+## How long a bot tolerates making no progress before backing off, in seconds.
+##
+## Two bodies meeting in a doorway cannot both go through, and neither can slide
+## sideways because the frame is right there. Somebody has to give way, and
+## nothing in a shortest-path route ever will - the route is right and the
+## bodies are simply in each other's way.
+@export var unstick_seconds: float = 0.7
+
 ## How often the route is recomputed while a task is held, in seconds. The world
 ## moves; a path to where the cash used to be is worse than no path.
 @export var repath_seconds: float = 0.9
@@ -76,6 +93,9 @@ func decide_ticks() -> int:
 
 func reaction_ticks() -> int:
 	return maxi(0, SimWorld.seconds_to_ticks(reaction_delay_seconds))
+
+func unstick_ticks() -> int:
+	return maxi(1, SimWorld.seconds_to_ticks(unstick_seconds))
 
 func repath_ticks() -> int:
 	return maxi(1, SimWorld.seconds_to_ticks(repath_seconds))

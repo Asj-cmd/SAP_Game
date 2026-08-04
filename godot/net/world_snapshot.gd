@@ -139,6 +139,7 @@ static func _put_entity(buffer: StreamPeerBuffer, entity: SimEntity) -> void:
 	buffer.put_u8(1 if entity.is_captured else 0)
 	buffer.put_32(entity.capture_ticks_remaining)
 	buffer.put_32(entity.captured_on_tick)
+	buffer.put_32(entity.captures_this_round)
 	buffer.put_utf8_string(String(entity.safe_zone_id))
 	buffer.put_32(entity.safe_ticks_remaining)
 	buffer.put_u8(1 if entity.safe_forfeited else 0)
@@ -163,6 +164,7 @@ static func _take_entity(buffer: StreamPeerBuffer) -> SimEntity:
 	entity.is_captured = buffer.get_u8() == 1
 	entity.capture_ticks_remaining = buffer.get_32()
 	entity.captured_on_tick = buffer.get_32()
+	entity.captures_this_round = buffer.get_32()
 	entity.safe_zone_id = StringName(buffer.get_utf8_string())
 	entity.safe_ticks_remaining = buffer.get_32()
 	entity.safe_forfeited = buffer.get_u8() == 1

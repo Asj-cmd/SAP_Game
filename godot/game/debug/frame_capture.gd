@@ -34,6 +34,9 @@ var quit_after: bool = false
 ## key is injected through the ordinary input path rather than by reaching past
 ## it, so what the frame shows is what a player would see.
 var grab: bool = false
+## Turn the bot path overlay on before capturing. Same reason as `grab`: the
+## state worth photographing is behind a key nobody can press unattended.
+var paths: bool = false
 
 ## Reads the flags after `--` on the command line:
 ##
@@ -53,6 +56,10 @@ static func from_command_line(args: PackedStringArray) -> FrameCapture:
 			request.path = arg.trim_prefix("--capture-path=")
 		elif arg.begins_with("--capture-delay="):
 			request.delay = maxf(0.0, float(arg.trim_prefix("--capture-delay=")))
+		elif arg == "--capture-paths":
+			request.requested = true
+			request.quit_after = true
+			request.paths = true
 		elif arg == "--capture-grab":
 			request.requested = true
 			request.quit_after = true

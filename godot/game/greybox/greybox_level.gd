@@ -82,7 +82,10 @@ static func build_mode(cash_per_team: int) -> GameModeDef:
 	rules.round_seconds = 120.0
 	rules.pre_round_seconds = 2.0
 	rules.round_end_seconds = 3.0
-	rules.capture_seconds = 8.0
+	# Long enough to matter, short enough that a round is not over. Playtest said
+	# eight seconds was nothing; sixty (first suggestion) is most of a round.
+	rules.capture_seconds = 18.0
+	rules.capture_escalation_seconds = 6.0
 	return rules
 
 ## The A/B question, expressed entirely as content values. Nothing outside this

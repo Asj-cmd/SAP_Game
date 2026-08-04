@@ -10,7 +10,7 @@ extends SceneTree
 ## defect it must catch and the suite fails if the validator stays quiet.
 
 ## Every check this suite is meant to run. See the harness guard below.
-const EXPECTED_CHECKS: int = 22
+const EXPECTED_CHECKS: int = 24
 
 var _passed: int = 0
 var _failed: int = 0
@@ -22,6 +22,7 @@ func _initialize() -> void:
 	_test_seeded_defects()
 	_test_authored_content()
 	_test_load_gate()
+	_test_doorway_follows_the_body()
 
 	print("\n%d passed, %d failed" % [_passed, _failed])
 	if _failed > 0:
@@ -216,3 +217,24 @@ func _test_load_gate() -> void:
 	_check("gate/open-plane fixtures still configure",
 		plain.configure(GameModeDef.new(), TuningDef.new(), [], []), true)
 	_check("gate/and still step", plain.step([]).is_empty(), false)
+
+# ---- the door is measured against the body, not against a number ----
+
+## Capsules become characters, and a character is wider.
+##
+## The whole point of the gate is that widening the body should FAIL any door
+## that no longer fits, without anybody remembering to go and re-check the
+## house. So the same geometry is validated twice with different bodies: the
+## door that admits today's actor must refuse a wider one.
+##
+## If this ever passes for both, something has been pinned to a constant and the
+## gate has stopped being about bodies at all.
+func _test_doorway_follows_the_body() -> void:
+	# The stock fixture: a 20-wide doorway in the dividing wall.
+	_check("body/a 20-wide door admits a radius-4 body",
+		_validate(_build([], 4.0)).size(), 0)
+
+	# A radius-10 body is 20 across - exactly the doorway, no clearance at all.
+	# Nothing about the level changed; only the thing walking through it.
+	_check("body/and refuses one that is exactly as wide",
+		_mentions(_validate(_build([], 10.0)), "cannot be reached"), true)

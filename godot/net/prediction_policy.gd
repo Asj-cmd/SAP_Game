@@ -30,6 +30,14 @@ extends RefCounted
 ## tests/prediction_test.gd asserts this list against every command kind the
 ## codec can carry, so adding a new one does not silently make it predictable
 ## and moving one into this list fails the build.
+##
+## ONE CONSEQUENCE WORTH NAMING, now that bodies are solid to each other:
+## pushing against another player can mispredict, because a guest is predicting
+## its own movement against remote positions that are a few ticks stale. The
+## correction is a POSITIONAL NUDGE - you end up a little to one side of where
+## you drew yourself - and that is squarely inside the movement-only rule. It is
+## not a reason to start predicting outcomes: being shoved is a position, being
+## jailed is not.
 
 ## The only kinds a client may apply before the host has confirmed them.
 const PREDICTED: Array[StringName] = [

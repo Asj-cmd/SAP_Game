@@ -198,6 +198,9 @@ func _reset_entities(world: SimWorld) -> void:
 			entity.is_captured = false
 			entity.capture_ticks_remaining = 0
 			entity.captured_on_tick = -1
+			# The tally the escalating sentence reads. Cleared here so a bad
+			# round is never carried into the next one.
+			entity.captures_this_round = 0
 			entity.clear_safety()
 		else:
 			entity.carried_by = SimEntity.NO_ENTITY

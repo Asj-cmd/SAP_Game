@@ -107,7 +107,10 @@ func _seize(world: SimWorld, captor: SimEntity, target: SimEntity) -> void:
 		target.carrying_id = SimEntity.NO_ENTITY
 
 	target.is_captured = true
-	target.capture_ticks_remaining = _capture_hold_ticks(world)
+	# Computed BEFORE the tally is bumped, so a first capture serves the base
+	# sentence and only a repeat costs more.
+	target.capture_ticks_remaining = _capture_hold_ticks(world, target)
+	target.captures_this_round += 1
 	target.captured_on_tick = world.tick
 	target.velocity = Vector3.ZERO
 	# Protection does not survive being seized, so a released actor cannot walk
@@ -267,9 +270,16 @@ func _release_range_squared(world: SimWorld) -> float:
 
 ## Lockup length is a MODE property (a 3v3 may hold longer than a 2v2), with
 ## tuning as the fallback when no mode is installed.
-func _capture_hold_ticks(world: SimWorld) -> int:
+##
+## Grows with the number of times this actor has already been caught this round.
+## Without that, the pen is a slow respawn and the cheapest strategy is to throw
+## yourself at the vault until something sticks.
+func _capture_hold_ticks(world: SimWorld, target: SimEntity) -> int:
 	if world.mode != null:
-		return SimWorld.seconds_to_ticks(world.mode.capture_seconds)
+		var repeat: float = (
+			world.mode.capture_escalation_seconds * float(target.captures_this_round)
+		)
+		return SimWorld.seconds_to_ticks(world.mode.capture_seconds + repeat)
 	if world.tuning != null:
 		return SimWorld.seconds_to_ticks(world.tuning.capture_hold_seconds)
 	return 0

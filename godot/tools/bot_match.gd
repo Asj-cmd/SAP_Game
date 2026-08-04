@@ -14,6 +14,10 @@ extends SceneTree
 ## broken and this is where it should surface first.
 
 const TICK_LIMIT: int = 30 * 60 * 6
+## Ticks between stall samples, and how far a bot must travel in that time to
+## count as making progress.
+const STALL_WINDOW: int = 30
+const STALL_DISTANCE: float = 60.0
 
 func _initialize() -> void:
 	var first: Dictionary = _play()
@@ -30,6 +34,9 @@ func _initialize() -> void:
 	print("carries     %d pick-ups, %d deposits" % [first["pickups"], first["deposits"]])
 	print("captures    %d seizures, %d rescues" % [first["captures"], first["rescues"]])
 	print("winner      %s" % ("none - ran out of ticks" if first["winner"] == &"" else first["winner"]))
+	print("stalls      %d second-long stalls while holding a task" % first["stalls"])
+	for spot: String in first["stall_spots"]:
+		print("              %s" % spot)
 	quit(0 if first["digest"] == second["digest"] else 1)
 
 ## Finds the first tick two runs disagreed on, and shows what differed.
@@ -96,6 +103,13 @@ func _play(stop_at: int = -1) -> Dictionary:
 
 	var tally: Dictionary[StringName, int] = {}
 	var hashes: PackedInt64Array = PackedInt64Array()
+
+	# Stall detection. A bot that holds a task and does not move is stuck, and
+	# "stuck in doorways" is a claim worth a number rather than an impression:
+	# without one, a change to the steering can only be judged by watching.
+	var anchor: Dictionary[int, Vector3] = {}
+	var stalls: int = 0
+	var stall_spots: Array[String] = []
 	world.step([MatchCommand.start()])
 	var ticks: int = 0
 	while world.match_phase != SimWorld.MatchPhase.MATCH_END and ticks < TICK_LIMIT:
@@ -106,7 +120,35 @@ func _play(stop_at: int = -1) -> Dictionary:
 		hashes.append(world.state_hash())
 		ticks += 1
 
+		# Sampled on a fixed cadence rather than every tick: a bot pausing to
+		# think is not stuck, and a second of no progress while holding a task is.
+		if world.is_live() and ticks % STALL_WINDOW == 0:
+			for actor_id: int in crew.actor_ids():
+				var body: SimEntity = world.get_entity(actor_id)
+				var task: BotTask = crew.director_for(actor_id).current_task()
+				if body == null or task == null or task.is_none():
+					anchor.erase(actor_id)
+					continue
+				if anchor.has(actor_id) and anchor[actor_id].distance_to(body.position) < STALL_DISTANCE:
+					stalls += 1
+					if stall_spots.size() < 6:
+						# The position alone says WHERE but not WHY. A bot with
+						# no route is a routing failure; one with a route it is
+						# not following is a steering failure; one that is
+						# BLOCKED is neither.
+						var director: BotDirector = crew.director_for(actor_id)
+						stall_spots.append("%s  %s  route %d leg %d  %s" % [
+							body.position.round(),
+							BotTask.Kind.keys()[task.kind],
+							director.route().size(),
+							director.leg(),
+							SimEntity.MotionState.keys()[body.motion_state],
+						])
+				anchor[actor_id] = body.position
+
 	return {
+		"stalls": stalls,
+		"stall_spots": stall_spots,
 		"hashes": hashes,
 		"digest": world.state_digest(),
 		"ticks": ticks,

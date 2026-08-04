@@ -72,6 +72,16 @@ var _confirmed_frames: Array[Dictionary] = []
 var _remote_clock: float = 0.0
 var _seat_shown: int = SimEntity.NO_ENTITY
 
+## Bot routes, drawn on request.
+##
+## Behaviour that cannot be seen gets diagnosed by staring at capsules and
+## guessing - "the bot is stuck" becomes an argument about pathfinding when it
+## is really about following. One marker per waypoint, and the one currently
+## being steered towards is picked out, so the difference between a bad route
+## and a bad follow is visible at a glance.
+var _path_markers: Array[MeshInstance3D] = []
+var _show_paths: bool = false
+
 func _ready() -> void:
 	_build_lighting()
 	_build_hud()
@@ -94,6 +104,10 @@ func _arm_capture() -> void:
 	if not request.requested:
 		return
 	await get_tree().create_timer(request.delay).timeout
+	if request.paths:
+		_show_paths = true
+		_draw_paths()
+		await get_tree().process_frame
 	if request.grab:
 		# Through Input, not around it: the same key LocalPlayerInput polls, so
 		# the frame shows the real path rather than a state posed for a photo.
@@ -333,6 +347,7 @@ func _process(delta: float) -> void:
 		_accumulator = 0.0
 
 	_advance_remote_clock(delta)
+	_draw_paths()
 	_render(_accumulator / SimWorld.SECONDS_PER_TICK)
 	_track_cameras(delta)
 	_update_hud()
@@ -541,6 +556,45 @@ func _rebuild_views() -> void:
 		add_child(view)
 		_actor_views[entity_id] = view
 
+## Draws every bot's current route as a line of pips.
+##
+## Only the authority has directors to ask - a guest sees bots as ordinary
+## remote players and has no idea what they intend, which is the point.
+func _draw_paths() -> void:
+	var wanted: int = 0
+	if _show_paths and link != null and link.crew != null:
+		for actor_id: int in link.crew.actor_ids():
+			var director: BotDirector = link.crew.director_for(actor_id)
+			if director == null:
+				continue
+			var route: PackedVector3Array = director.route()
+			for i: int in route.size():
+				var pip: MeshInstance3D = _path_pip(wanted)
+				pip.position = route[i] + Vector3(0.0, 40.0, 0.0)
+				# The waypoint being steered towards, picked out: a route that
+				# threads the doorway while the aim point sits on the frame is a
+				# following problem, and looks nothing like a routing problem.
+				var aiming: bool = i == director.leg()
+				pip.scale = Vector3.ONE * (2.0 if aiming else 1.0)
+				pip.material_override = _flat(
+					Color(1.0, 0.4, 0.1) if aiming else Color(0.2, 1.0, 0.4)
+				)
+				pip.visible = true
+				wanted += 1
+	for i: int in range(wanted, _path_markers.size()):
+		_path_markers[i].visible = false
+
+func _path_pip(index: int) -> MeshInstance3D:
+	while _path_markers.size() <= index:
+		var pip: MeshInstance3D = MeshInstance3D.new()
+		var ball: SphereMesh = SphereMesh.new()
+		ball.radius = 10.0
+		ball.height = 20.0
+		pip.mesh = ball
+		add_child(pip)
+		_path_markers.append(pip)
+	return _path_markers[index]
+
 func _team_colour(team: StringName, is_cash: bool) -> Color:
 	var base: Color = Color(0.85, 0.25, 0.25) if team == &"team_a" else Color(0.25, 0.45, 0.9)
 	return base.lightened(0.4) if is_cash else base
@@ -693,6 +747,7 @@ func _update_hud() -> void:
 	lines.append("")
 	lines.append("move WASD / left stick    look mouse / right stick")
 	lines.append("grab-drop Q/X    seize E/A    free ally R/B")
+	lines.append("[F4] bot paths %s" % ("on" if _show_paths else "off"))
 	lines.append("[F2] split-screen debug    [F3] bots %s    [F12] save a frame    [Esc] release mouse"
 		% ("on" if _bots_enabled else "off"))
 	if _split_screen and Input.get_connected_joypads().size() < 2:
@@ -765,6 +820,9 @@ func _unhandled_input(event: InputEvent) -> void:
 			_capture_mouse(Input.mouse_mode != Input.MOUSE_MODE_CAPTURED)
 		KEY_F12:
 			_capture_frame(FrameCapture.DEFAULT_PATH)
+		KEY_F4:
+			_show_paths = not _show_paths
+			_draw_paths()
 		KEY_F3:
 			# Proving the claim as much as offering the option: with bots off,
 			# every seat they held goes back to being an actor nobody is
