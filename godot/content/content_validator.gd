@@ -53,12 +53,18 @@ static func validate(
 	var zones: Array[ZoneDef] = _sorted_zones(zone_defs)
 	var radius: float = tuning.actor_radius if tuning != null else 0.0
 	var step_up: float = tuning.step_up_height if tuning != null else 0.0
+	var max_drop: float = tuning.max_drop_height if tuning != null else 0.0
 
 	_check_shell(collision, failures)
 	_check_zone_priorities(zones, failures)
 	if collision != null:
 		_check_reference_points(zones, team_defs, collision, radius, failures)
-		_check_reachability(zones, team_defs, collision, radius, step_up, failures, prebuilt)
+		var surface: WalkableSurface = prebuilt
+		if surface == null:
+			surface = WalkableSurface.build(collision, radius, step_up, max_drop)
+		_check_reachability(zones, team_defs, collision, radius, step_up, max_drop, failures, surface)
+		_check_escapability(zones, team_defs, surface, failures)
+		_check_redundant_routes(zones, team_defs, surface, failures)
 	return failures
 
 ## Zones in a fixed order, so every message and every traversal below is
@@ -158,6 +164,7 @@ static func _check_reachability(
 	collision: WorldCollisionDef,
 	radius: float,
 	step_up: float,
+	max_drop: float,
 	failures: PackedStringArray,
 	prebuilt: WalkableSurface = null
 ) -> void:
@@ -166,7 +173,7 @@ static func _check_reachability(
 
 	var surface: WalkableSurface = prebuilt
 	if surface == null:
-		surface = WalkableSurface.build(collision, radius, step_up)
+		surface = WalkableSurface.build(collision, radius, step_up, max_drop)
 	if surface.is_empty():
 		failures.append("reachability: no part of this level can be stood on")
 		return
@@ -236,3 +243,130 @@ static func _seed_points(zones: Array[ZoneDef], team_defs: Array[TeamDef]) -> Ar
 		for zone: ZoneDef in zones:
 			seeds.append(zone.bounds.get_center())
 	return seeds
+
+# ---- getting back out ----
+
+## Every room you can walk into, you must be able to walk out of.
+##
+## Reachability alone stopped being enough the moment edges became directed. A
+## drop is one-way: you leave a balcony and you cannot climb back onto it, so a
+## room whose only exit is the way you fell in is a room a player is now stuck
+## in for the rest of the round - and the forward flood says it is perfectly
+## reachable, because it is.
+##
+## Until edges became directed this could not fail, which is the right order to
+## have built it in: the check was there before the thing that could break it.
+static func _check_escapability(
+	zones: Array[ZoneDef],
+	team_defs: Array[TeamDef],
+	surface: WalkableSurface,
+	failures: PackedStringArray
+) -> void:
+	if surface.is_empty():
+		return
+	var home: int = _first_seed_node(zones, team_defs, surface)
+	if home < 0:
+		return
+
+	# Everywhere that can get BACK to a spawn.
+	var can_return: Dictionary[int, bool] = surface.component_into(home)
+	for zone: ZoneDef in zones:
+		if zone.role == ZoneDef.Role.NEUTRAL:
+			continue
+		var stranded: bool = true
+		for node: int in surface.nodes.size():
+			if zone.contains_point(surface.nodes[node]) and can_return.has(node):
+				stranded = false
+				break
+		if stranded:
+			failures.append(
+				"escapability: '%s' can be entered but not left - every way out is one-way"
+				% zone.id
+			)
+
+# ---- more than one way in ----
+
+## A room that matters must survive losing any one of its neighbours.
+##
+## The design rule is that no important room has a single approach: one door is
+## a room where a defender stands still and the round stops. A rule nobody
+## checks rots the first time somebody moves a wall, so it is checked.
+##
+## Asked at ROOM granularity rather than node granularity, deliberately. A
+## doorway is six cells wide, so no single node is ever a cut and a node-level
+## articulation test would pass every house ever built while proving nothing.
+## The question worth asking is "which ROOMS is this reachable through", and
+## whether losing one of them cuts it off.
+static func _check_redundant_routes(
+	zones: Array[ZoneDef],
+	team_defs: Array[TeamDef],
+	surface: WalkableSurface,
+	failures: PackedStringArray
+) -> void:
+	if surface.is_empty() or zones.size() < 2:
+		return
+	var home: int = _first_seed_node(zones, team_defs, surface)
+	if home < 0:
+		return
+
+	var owner: Array[int] = _zone_of_each_node(zones, surface)
+	for i: int in zones.size():
+		var zone: ZoneDef = zones[i]
+		if zone.role == ZoneDef.Role.NEUTRAL:
+			continue
+		if _holds(owner, i, home):
+			continue # the spawn is inside it; nothing to cut it off from
+
+		var approaches: int = 0
+		for j: int in zones.size():
+			if i == j or _holds(owner, j, home):
+				continue
+			# Pretend that room is not there, and see whether this one is still
+			# reachable from a spawn.
+			var without: Dictionary[int, bool] = {}
+			for node: int in owner.size():
+				if owner[node] == j:
+					without[node] = true
+			var reached: Dictionary[int, bool] = surface.component_from(home, without)
+			if _any_reached(owner, i, reached):
+				continue
+			approaches += 1
+			failures.append(
+				"routes: '%s' is only reachable through '%s' - one way in"
+				% [zone.id, zones[j].id]
+			)
+			if approaches >= 1:
+				break # one report per room is enough to act on
+
+## Which zone each node belongs to, in resolution order. -1 for none.
+static func _zone_of_each_node(zones: Array[ZoneDef], surface: WalkableSurface) -> Array[int]:
+	var owner: Array[int] = []
+	owner.resize(surface.nodes.size())
+	owner.fill(-1)
+	for node: int in surface.nodes.size():
+		for i: int in zones.size():
+			if zones[i].contains_point(surface.nodes[node]):
+				owner[node] = i
+				break
+	return owner
+
+static func _holds(owner: Array[int], zone_index: int, node: int) -> bool:
+	return node >= 0 and node < owner.size() and owner[node] == zone_index
+
+static func _any_reached(owner: Array[int], zone_index: int, reached: Dictionary[int, bool]) -> bool:
+	for node: int in reached:
+		if _holds(owner, zone_index, node):
+			return true
+	return false
+
+## The stance a match would start from, for both checks above.
+static func _first_seed_node(
+	zones: Array[ZoneDef],
+	team_defs: Array[TeamDef],
+	surface: WalkableSurface
+) -> int:
+	for seed_point: Vector3 in _seed_points(zones, team_defs):
+		var node: int = surface.stance_under(seed_point, surface.cell_size * 1.5)
+		if node >= 0:
+			return node
+	return -1

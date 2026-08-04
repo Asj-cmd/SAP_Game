@@ -271,3 +271,43 @@ Two consequences for authoring:
   `step_up_height` are part of the fingerprint, because they decide what counts
   as standable and what counts as a step. Changing either invalidates every
   baked level, by design.
+
+## 12. The threshold set
+
+Five numbers describe every height in the game. Everything built anywhere is
+built to one of them.
+
+| Threshold | Value | Verb | Reads as |
+|---|---|---|---|
+| `step_up_height` | 30 | none — you walk over it | a sill, a stair tread, a kerb |
+| `vault_height` | 120 | vault | a counter, a windowsill, a low wall, a railing |
+| `crouch_gap` | 130 | crouch | under a counter, a serving hatch, a crawl space |
+| `max_drop_height` | 480 | drop | a first-floor window, a balcony, a stairwell |
+| storey | 320 | stairs | one floor to the next |
+
+**No exceptions, ever.** Not one ledge at 140 because it looked better there.
+
+This is the load-bearing rule of the whole world, and it is not about tidiness.
+The strategy space this game is trying to produce comes from *verbs × space*:
+a small set of general verbs, applied to a layout rich enough that players
+invent methods nobody authored. That only works while players TRUST the
+thresholds — while a thing that looks vaultable is vaultable, everywhere,
+without having to be tested first.
+
+One hand-placed exception destroys that. A player who is caught out once stops
+trusting the rule, and a player who does not trust the rule stops improvising
+and starts checking. The emergent play depends entirely on the trust, so the
+uniformity is worth more than any individual piece of geometry it costs
+(ARCHITECTURE.md §9).
+
+**Sizing comes before the verbs.** Crouch, vault, slide, drop and throw are not
+built. The geometry is built for them now anyway: low gaps a crouching body
+fits, ledges at vault height, drops that are survivable, and window openings
+and sightlines wide enough for a carriable to arc between two players.
+Retrofitting those dimensions into a finished house is the expensive version of
+this, and the reason the blockout is dimensioned before anything is modelled.
+
+**A consequence for the fill.** A drop is a ONE-WAY route: you can leave a
+balcony and you cannot climb back onto it. That is why WalkableSurface carries
+directed edges and why the gate checks reachable *and* escapable — see §11 and
+§13.

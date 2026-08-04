@@ -70,7 +70,8 @@ func _surface(walls: Array[AABB], step_up: float = STEP_UP) -> WalkableSurface:
 	var blockers: Array[AABB] = [AABB(Vector3(0, 0, 0), Vector3(200, FLOOR_TOP, 100))]
 	blockers.append_array(walls)
 	collision.blockers = blockers
-	return WalkableSurface.build(collision, RADIUS, step_up, CELL)
+	# No drops in these fixtures: they predate one-way edges and test walking.
+	return WalkableSurface.build(collision, RADIUS, step_up, 0.0, CELL)
 
 ## A wall across the whole width, `height` tall, standing on the floor.
 func _wall(height: float) -> AABB:

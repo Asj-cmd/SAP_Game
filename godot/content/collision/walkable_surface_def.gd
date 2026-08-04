@@ -26,6 +26,7 @@ extends Resource
 @export_group("What it was built for")
 @export var radius: float = 0.0
 @export var step_up_height: float = 0.0
+@export var max_drop_height: float = 0.0
 @export var cell_size: float = 0.0
 @export var layer_height: float = 0.0
 ## Identifies the geometry and body this was computed from. A bake that no
@@ -43,19 +44,27 @@ extends Resource
 static func fingerprint_of(
 	collision: WorldCollisionDef,
 	body_radius: float,
-	step_up: float
+	step_up: float,
+	max_drop: float = 0.0
 ) -> String:
 	if collision == null:
 		return ""
 	var parts: PackedStringArray = PackedStringArray()
 	parts.append("%s|%s" % [collision.bounds.position, collision.bounds.size])
-	parts.append("r%.4f|s%.4f|n%d" % [body_radius, step_up, collision.blockers.size()])
+	parts.append("r%.4f|s%.4f|d%.4f|n%d" % [
+		body_radius, step_up, max_drop, collision.blockers.size(),
+	])
 	for blocker: AABB in collision.blockers:
 		parts.append("%s/%s" % [blocker.position, blocker.size])
 	return "%d" % "".join(parts).hash()
 
 ## Does this bake still describe the level and body it is being loaded for?
-func matches(collision: WorldCollisionDef, body_radius: float, step_up: float) -> bool:
+func matches(
+	collision: WorldCollisionDef,
+	body_radius: float,
+	step_up: float,
+	max_drop: float = 0.0
+) -> bool:
 	if nodes.is_empty() or fingerprint == "":
 		return false
-	return fingerprint == fingerprint_of(collision, body_radius, step_up)
+	return fingerprint == fingerprint_of(collision, body_radius, step_up, max_drop)

@@ -103,7 +103,7 @@ func bake(
 	# last, because it needs the finished collision.
 	if body != null:
 		level.surface = WalkableSurface.build(
-			level.collision, body.actor_radius, body.step_up_height
+			level.collision, body.actor_radius, body.step_up_height, body.max_drop_height
 		).to_def()
 		if level.surface.nodes.is_empty():
 			failures.append("nothing in this level can be stood on")

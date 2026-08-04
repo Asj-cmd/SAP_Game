@@ -20,11 +20,19 @@ extends RefCounted
 ## calls cannot point upward at sim/ (§1). It reads geometry and answers
 ## geometric questions; it holds no rules.
 ##
-## What is deliberately NOT an edge: a drop taller than the step-up allowance.
-## The game has no jump verb, so a ledge you can fall off but not climb back up
-## is a one-way trip, and a route that only works downhill is exactly the defect
-## the reachability check exists to catch. Making every edge symmetric is what
-## lets connectivity be a single flood rather than a strong-connectivity search.
+## EDGES ARE DIRECTED. A drop is a route you can take one way: you leave a
+## balcony and you cannot climb back onto it. That used to be refused outright -
+## symmetric edges made connectivity a single flood - but a one-way descent is a
+## verb this game wants, and the upstairs vault depends on it: climb up slow and
+## careful, drop out of a window fast and committed.
+##
+## The cost is that "reachable" stopped being sufficient. A room you can fall
+## into and not leave is perfectly reachable and completely broken, so the gate
+## now asks reachable AND escapable (ContentValidator). That check is the more
+## correct one; it was previously satisfied only by an accident of symmetry.
+##
+## A drop further than max_drop is refused in both directions rather than
+## offered as a trip nobody survives.
 
 ## Stance nodes, in build order: ascending column, then ascending height.
 ## Deterministic, because the validator's messages and the bots' paths both
@@ -33,6 +41,9 @@ var nodes: Array[Vector3] = []
 
 var radius: float = 0.0
 var step_up_height: float = 0.0
+## The furthest a body may drop and keep going. Zero means no drops at all,
+## which is what every fixture that predates them still wants.
+var max_drop_height: float = 0.0
 var cell_size: float = 0.0
 var layer_height: float = 0.0
 
@@ -51,8 +62,11 @@ var _origin: Vector3 = Vector3.ZERO
 var _counts: Vector3i = Vector3i.ZERO
 ## Cells whose centre is strictly inside a blocker grown by the body radius.
 var _solid: Dictionary[Vector3i, bool] = {}
-## node index -> node indices one step away.
+## node index -> node indices one step away, in the direction of travel.
 var _edges: Dictionary[int, PackedInt32Array] = {}
+## The same edges reversed, so the gate can ask what can reach a place as well
+## as what a place can reach.
+var _incoming: Dictionary[int, PackedInt32Array] = {}
 ## (x,z) column -> the node indices standing in it, ascending by height.
 var _columns: Dictionary[Vector2i, PackedInt32Array] = {}
 
@@ -106,6 +120,7 @@ static func build(
 	collision: WorldCollisionDef,
 	body_radius: float,
 	step_up: float,
+	max_drop: float = 0.0,
 	cell_override: float = 0.0
 ) -> WalkableSurface:
 	var surface: WalkableSurface = WalkableSurface.new()
@@ -115,6 +130,7 @@ static func build(
 	var shell_span: float = collision.bounds.size[collision.bounds.get_longest_axis_index()]
 	surface.radius = maxf(body_radius, 0.0)
 	surface.step_up_height = maxf(step_up, 0.0)
+	surface.max_drop_height = maxf(max_drop, 0.0)
 	surface.cell_size = cell_override
 	if surface.cell_size <= 0.0:
 		var by_shell: float = shell_span / SHELL_DIVISIONS
@@ -158,6 +174,7 @@ static func from_def(def: WalkableSurfaceDef, collision: WorldCollisionDef) -> W
 	surface._collision = collision
 	surface.radius = def.radius
 	surface.step_up_height = def.step_up_height
+	surface.max_drop_height = def.max_drop_height
 	surface.cell_size = def.cell_size
 	surface.layer_height = def.layer_height
 
@@ -174,7 +191,15 @@ static func from_def(def: WalkableSurfaceDef, collision: WorldCollisionDef) -> W
 		var from: int = def.edge_offsets[index]
 		var to: int = def.edge_offsets[index + 1]
 		if to > from:
-			surface._edges[index] = def.edge_targets.slice(from, to)
+			var links: PackedInt32Array = def.edge_targets.slice(from, to)
+			surface._edges[index] = links
+			# Rebuilt, not stored. A baked surface with no reverse edges would
+			# make the escapability check vacuous - and a check that cannot fail
+			# is indistinguishable from one that passes.
+			for other: int in links:
+				var back: PackedInt32Array = surface._incoming.get(other, PackedInt32Array())
+				back.append(index)
+				surface._incoming[other] = back
 	return surface
 
 ## Flattens this surface for storage. The inverse of from_def.
@@ -182,9 +207,12 @@ func to_def() -> WalkableSurfaceDef:
 	var def: WalkableSurfaceDef = WalkableSurfaceDef.new()
 	def.radius = radius
 	def.step_up_height = step_up_height
+	def.max_drop_height = max_drop_height
 	def.cell_size = cell_size
 	def.layer_height = layer_height
-	def.fingerprint = WalkableSurfaceDef.fingerprint_of(_collision, radius, step_up_height)
+	def.fingerprint = WalkableSurfaceDef.fingerprint_of(
+		_collision, radius, step_up_height, max_drop_height
+	)
 
 	def.nodes = PackedVector3Array(nodes)
 	var offsets: PackedInt32Array = PackedInt32Array()
@@ -203,8 +231,14 @@ func is_empty() -> bool:
 func size() -> int:
 	return nodes.size()
 
+## Where you can go FROM here.
 func neighbours(index: int) -> PackedInt32Array:
 	return _edges.get(index, PackedInt32Array())
+
+## Where you can arrive here FROM. The same set as neighbours() while every edge
+## is symmetric; different the moment one-way drops exist.
+func neighbours_into(index: int) -> PackedInt32Array:
+	return _incoming.get(index, PackedInt32Array())
 
 # ---- building ----
 
@@ -279,14 +313,41 @@ func _link_stances() -> void:
 				if not _columns.has(beside):
 					continue
 				for other: int in _columns[beside]:
-					# A rise beyond the step allowance needs a jump; a drop
-					# beyond it is one-way. Neither is a walk.
-					if absf(nodes[other].y - nodes[index].y) > step_up_height:
-						continue
-					if _walkable_between(nodes[index], nodes[other]):
+					if _passable(index, other):
 						links.append(other)
 			if not links.is_empty():
 				_edges[index] = links
+				for other: int in links:
+					var back: PackedInt32Array = _incoming.get(other, PackedInt32Array())
+					back.append(index)
+					_incoming[other] = back
+
+## May a body go from node `index` to node `other`?
+##
+## Asked separately for each direction, which is where directedness comes from:
+## a step UP of more than the allowance is refused while the matching step DOWN
+## is offered as a drop, so the pair is a one-way route without anything having
+## to special-case it.
+func _passable(index: int, other: int) -> bool:
+	var climb: float = nodes[other].y - nodes[index].y
+	if climb > step_up_height:
+		return false # too high to get up without a verb we do not have
+	if climb >= -step_up_height:
+		return _walkable_between(nodes[index], nodes[other])
+	if -climb > max_drop_height:
+		return false # far enough to hurt: refused, not offered
+	return _droppable_between(nodes[index], nodes[other])
+
+## Can a body step off here and land there?
+##
+## Out over the edge at the height it was standing, then down. Deliberately not
+## the step-up test in reverse: leaving a ledge does not need the lip to be
+## climbable, only clear.
+func _droppable_between(from: Vector3, to: Vector3) -> bool:
+	var across: Vector3 = Vector3(to.x, from.y, to.z)
+	if _crosses(from, across):
+		return false
+	return not _crosses(across, to)
 
 ## Can an actor walk from `from` to `to` in one step?
 ##
@@ -413,16 +474,34 @@ func stance_under(point: Vector3, reach: float) -> int:
 	return below if below >= 0 else above
 
 ## Every stance reachable on foot from `start`, as a set of node indices.
-func component_from(start: int) -> Dictionary[int, bool]:
+##
+## `blocked` is a set of nodes to pretend are not there, which is how the gate
+## asks "is this room still reachable without going through that one".
+func component_from(start: int, blocked: Dictionary[int, bool] = {}) -> Dictionary[int, bool]:
+	return _flood(start, blocked, true)
+
+## Every stance from which `start` can be REACHED - the flood run backwards.
+##
+## Not the same set as component_from once edges are directed. A balcony you can
+## drop off is reachable from the landing and cannot get back to it, and the
+## difference between those two floods is exactly the failure "you can get in
+## but not out". While every edge is symmetric this returns the same answer as
+## component_from, which is fine: it means the check exists before the thing
+## that can break it.
+func component_into(start: int, blocked: Dictionary[int, bool] = {}) -> Dictionary[int, bool]:
+	return _flood(start, blocked, false)
+
+func _flood(start: int, blocked: Dictionary[int, bool], forward: bool) -> Dictionary[int, bool]:
 	var reached: Dictionary[int, bool] = {}
-	if start < 0 or start >= nodes.size():
+	if start < 0 or start >= nodes.size() or blocked.has(start):
 		return reached
 	reached[start] = true
 	var queue: Array[int] = [start]
 	while not queue.is_empty():
 		var current: int = queue.pop_front()
-		for next: int in neighbours(current):
-			if reached.has(next):
+		var onward: PackedInt32Array = neighbours(current) if forward else neighbours_into(current)
+		for next: int in onward:
+			if reached.has(next) or blocked.has(next):
 				continue
 			reached[next] = true
 			queue.append(next)

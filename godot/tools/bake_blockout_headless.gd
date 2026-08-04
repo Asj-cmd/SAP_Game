@@ -8,14 +8,23 @@ extends SceneTree
 ## in-editor button. Two entry points, one implementation - a bake that only
 ## works when somebody is watching is not a pipeline.
 
+## Which blockout to bake. Overridable so a new layout can be validated before
+## it replaces the one the game is loading.
 const SCENE_PATH: String = "res://game/blockout/greybox_house.tscn"
 const OUTPUT_PATH: String = "res://content/levels/greybox_house.tres"
 const LEVEL_ID: StringName = &"greybox_house"
 
 func _initialize() -> void:
-	var packed: PackedScene = load(SCENE_PATH) as PackedScene
+	var scene: String = SCENE_PATH
+	var output: String = OUTPUT_PATH
+	for arg: String in OS.get_cmdline_user_args():
+		if arg.begins_with("--scene="):
+			scene = arg.trim_prefix("--scene=")
+		elif arg.begins_with("--out="):
+			output = arg.trim_prefix("--out=")
+	var packed: PackedScene = load(scene) as PackedScene
 	if packed == null:
-		printerr("bake: cannot load %s" % SCENE_PATH)
+		printerr("bake: cannot load %s" % scene)
 		quit(1)
 		return
 
@@ -25,7 +34,7 @@ func _initialize() -> void:
 	get_root().add_child(root)
 
 	var baker: BlockoutBaker = BlockoutBaker.new()
-	var level: LevelDef = baker.bake(root, LEVEL_ID, SCENE_PATH, GreyBoxLevel.build_tuning())
+	var level: LevelDef = baker.bake(root, LEVEL_ID, scene, GreyBoxLevel.build_tuning())
 	if level == null:
 		for failure: String in baker.failures:
 			printerr("bake: %s" % failure)
@@ -42,14 +51,14 @@ func _initialize() -> void:
 		quit(1)
 		return
 
-	var result: int = ResourceSaver.save(level, OUTPUT_PATH)
+	var result: int = ResourceSaver.save(level, output)
 	if result != OK:
-		printerr("bake: could not write %s (error %d)" % [OUTPUT_PATH, result])
+		printerr("bake: could not write %s (error %d)" % [output, result])
 		quit(1)
 		return
 
 	print("baked %d zones, %d blockers, %d teams -> %s" % [
-		level.zones.size(), level.collision.blockers.size(), level.teams.size(), OUTPUT_PATH,
+		level.zones.size(), level.collision.blockers.size(), level.teams.size(), output,
 	])
 	for zone: ZoneDef in level.zones:
 		print("  zone %-12s role=%-9s owner=%-7s %s" % [

@@ -124,6 +124,7 @@ func configure(
 	if collision_def != null:
 		var body: float = tuning_values.actor_radius if tuning_values != null else 0.0
 		var step_up: float = tuning_values.step_up_height if tuning_values != null else 0.0
+		var drop: float = tuning_values.max_drop_height if tuning_values != null else 0.0
 		# One surface serves both: the gate proves the level is connected, and
 		# whatever navigates it afterwards walks the very graph that was proved.
 		#
@@ -131,12 +132,12 @@ func configure(
 		# and the answer never changes. A bake that no longer fingerprints
 		# against this geometry is REBUILT rather than trusted - a stale surface
 		# would have the gate certifying a level that no longer exists.
-		if baked_surface != null and baked_surface.matches(collision_def, body, step_up):
+		if baked_surface != null and baked_surface.matches(collision_def, body, step_up, drop):
 			surface = WalkableSurface.from_def(baked_surface, collision_def)
 		else:
 			if baked_surface != null:
 				push_warning("baked walkable surface is stale for this level - rebuilding")
-			surface = WalkableSurface.build(collision_def, body, step_up)
+			surface = WalkableSurface.build(collision_def, body, step_up, drop)
 		content_failures = ContentValidator.validate(
 			zone_defs, team_defs, collision_def, tuning_values, surface
 		)

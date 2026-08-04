@@ -35,6 +35,33 @@ extends Resource
 ## sills should not require a verb the game may never have.
 @export var step_up_height: float = 30.0
 
+## ---- the threshold set ----
+##
+## These four numbers, plus step_up_height above, are the whole vocabulary of
+## height in this game. Every ledge, gap and drop in every level is built to one
+## of them, with NO exceptions - not one hand-placed ledge at an in-between
+## height, ever.
+##
+## That is not tidiness. The strategy space comes from players trusting that a
+## thing which LOOKS vaultable IS vaultable, everywhere, and improvising on that
+## trust. A single exception teaches them the rule is unreliable, and once they
+## stop trusting it they stop improvising and the emergent play goes with it
+## (ARCHITECTURE.md §9 - uniform rules, never curated lists).
+##
+## The verbs that read these do not exist yet. The GEOMETRY is sized for them
+## now because retrofitting heights into a finished house is the expensive
+## version. See WORLD_AUTHORING.md §12.
+
+## Waist height on a 180-unit body: hop over without slowing down.
+@export var vault_height: float = 120.0
+## Clear opening a crouching body passes through. Under a counter, through a
+## serving hatch, along a crawl space.
+@export var crouch_gap: float = 130.0
+## The furthest an actor may drop and keep going. Also the fall a one-way route
+## is allowed to be: past this, the surface refuses the edge in both directions
+## rather than offering a trip nobody survives.
+@export var max_drop_height: float = 480.0
+
 @export_group("Interaction ranges")
 @export var pickup_range: float = 144.0
 @export var capture_range: float = 164.0
