@@ -326,6 +326,21 @@ clearance is invisible to the fill. That is correct — it is not somewhere to w
 — but it means a mezzanine tucked right under a ceiling will not register as
 floor. Give walkable upper storeys real headroom.
 
+**A stair costs a room, and the run per tread is set by the grid.** A tread is
+only standable where a sample column lands on it, and the next tread up — grown
+by the body radius — eats 20 off the front of this one. So a tread offers
+`run - 20` of standable depth, and that has to be at least one cell (40) or some
+tread in the flight gets no sample at all. **Run 64 or more.** Eleven treads of
+64 is 704, which is most of a 755 room: a staircase IS a room, and the house is
+laid out with a stair bay rather than stairs tucked into a corner.
+
+**Open the floor above a flight one tread earlier than the clear height says.**
+A body does not stand at its rest height in the grid — it occupies the layer
+whose CENTRE is the first one above that height, and the layer is as tall as a
+step, so the rounding is worth a whole tread. Sizing the stairwell opening from
+the clear height left exactly one tread of each flight buried in the slab.
+`tools/build_house.gd:_covered_from` works it out the way the fill will see it.
+
 **The surface is baked, not built.** It is a pure function of static geometry
 and a body size, so the baker computes it and stores it in the level `.tres`
 (`WalkableSurfaceDef`); loading reads two flat arrays. For the grey-box house
@@ -355,7 +370,16 @@ built to one of them.
 | `vault_height` | 120 | vault | a counter, a windowsill, a low wall, a railing |
 | `crouch_gap` | 130 | crouch | under a counter, a serving hatch, a crawl space |
 | `max_drop_height` | 480 | drop | a first-floor window, a balcony, a stairwell |
-| storey | 320 | stairs | one floor to the next |
+| storey | 330 | stairs | one floor to the next |
+
+**A storey is a whole number of steps, and that is not a rounding.** It was 320,
+which is eleven treads of 29.09, and eleven treads of 29.09 do not make a
+staircase. The fill quantises height at `layer_height` — 30, the step allowance —
+so a tread is only found when a layer centre falls between its top and the next
+tread's. A 29.09 window in a 30 grid misses sometimes, and it missed two treads
+out of twenty-two: two staircases with a step nobody could climb, in a level
+that otherwise passed every check. At exactly 30 every window contains exactly
+one centre, always. **330 = 11 × 30.**
 
 **No exceptions, ever.** Not one ledge at 140 because it looked better there.
 

@@ -69,7 +69,14 @@ extends Resource
 ## confident player takes.
 @export var action_range_scale: float = 0.85
 ## How close a waypoint counts as reached. Larger cuts corners more loosely.
-@export var arrive_radius: float = 55.0
+##
+## Must stay WELL UNDER a cell (40), because a waypoint that counts as reached
+## from a cell away can be counted as reached from the wrong side of a doorway.
+## At 55 a bot standing beside a door ticked off the waypoint inside it, aimed
+## at the next one - which was through the wall - and walked into that wall for
+## the rest of the match. Harmless on a flat plane where the following waypoint
+## was usually in open view; fatal in a house, where it is usually not.
+@export var arrive_radius: float = 30.0
 ## Jitter applied to the travel direction, in radians. Steering imprecision -
 ## it does not walk perfect lines.
 @export var steer_wobble: float = 0.05

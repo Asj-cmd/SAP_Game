@@ -139,7 +139,7 @@ func _active_camera() -> Camera3D:
 func _start(variant: GreyBoxLevel.SafeVariant) -> void:
 	level = GreyBoxLevel.new(variant)
 	if not level.is_loaded():
-		_banner.text = "NO BAKED LEVEL\nrun tools/bake_blockout.gd on game/blockout/greybox_house.tscn"
+		_banner.text = "NO BAKED LEVEL\nrun tools/build_house.gd then tools/bake_blockout.gd"
 		return
 	_build_geometry()
 

@@ -2,15 +2,15 @@
 extends EditorScript
 ## Bakes the open blockout scene into level content.
 ##
-## Open game/blockout/greybox_house.tscn, then File > Run in the script editor.
+## Open game/blockout/house.tscn, then File > Run in the script editor.
 ## Everything the baker needs is in the scene; nothing is configured here.
 ##
 ## Deliberately a manual step rather than an import hook. Baking on every save
 ## would rewrite content while a level is half-moved, and a blockout spends
 ## most of its life half-moved.
 
-const OUTPUT_PATH: String = "res://content/levels/greybox_house.tres"
-const LEVEL_ID: StringName = &"greybox_house"
+const OUTPUT_PATH: String = "res://content/levels/house.tres"
+const LEVEL_ID: StringName = &"house"
 
 func _run() -> void:
 	var spatial: Node3D = get_scene() as Node3D

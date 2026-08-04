@@ -20,16 +20,17 @@ These are not preferences. They fall out of things already built and measured.
 |---|---|---|
 | Room, minimum | ~755 u (7.5 m) | Camera arm is 350 u; below this it lives in a wall (§10) |
 | Doorway | 240 u (2.4 m) | Run through mid-chase, not sidle through (§10) |
-| Storey height | 320 u | Current blockout; head-room over a 180 u body |
+| Storey height | 330 u | 11 × the step. A storey must be a whole number of steps (§12) |
 | Step, maximum | 30 u | `TuningDef.step_up_height`, and the fill's edge rule (§11) |
 | Body | 40 u across | `actor_radius` 20; doorways are measured against it |
 
-**A staircase costs most of a room.** 320 u of climb at 30 u a step is eleven
-treads, and each tread needs ~40 u of run for the fill to find a standing place
-on it. That is ~450 u minimum and ~600 u to feel like stairs — so a stairwell
-must *be* a room, and should therefore be worth fighting in. Two staircases in a
-house is a large fraction of its floor area, which is an argument for the house
-being tall rather than wide.
+**A staircase costs a whole room.** 330 u of climb at 30 u a step is eleven
+treads, and a tread needs 64 u of run, not 40: the next tread up, grown by the
+body radius, eats 20 off the front of this one, so only `run - 20` is standable
+and that has to clear a 40 u sample cell. Eleven × 64 = **704**, against a 755 u
+room. So a stairwell IS a room and should be worth fighting in — and a second
+staircase costs a second room, which is why the built house has one stair bay
+and buys its remaining connectivity with doorways and drops instead (§8).
 
 ~~**Every route must work in both directions.**~~ *Superseded — edges are
 directed now (WORLD_AUTHORING §12). A drop you cannot climb back up is a route,
@@ -216,3 +217,34 @@ checked. The interim fix was a second internal doorway per house, turning the
 four rooms into a ring (hall → living → vault → basement → hall) instead of a
 chain. The jail's second approach was already there: the back door onto the
 perimeter.
+
+---
+
+## 8. Built — and what the gate cost
+
+`tools/build_house.gd` generates it; `game/blockout/house.tscn` is the output and
+`content/levels/house.tres` the bake. The old four-room blockout is retired.
+
+Every one of the eighteen rooms has **exactly three ways in**, and every one is
+escapable. That is not a coincidence — the connectivity was solved as a flow
+problem before any box was placed, and the shape is what three costs:
+
+| Piece | Why it exists |
+|---|---|
+| A stair bay, a whole slot wide | A flight is 704 long. A staircase IS a room (§11). |
+| Two outside staircases, at the back | Both end rooms upstairs need a way in that is not through the other one. |
+| Two light wells | The basement's own entrances. One-way in: 330 down is a fall, 330 up is not a verb. |
+| **Two** doorways at each end of the vault | The cheapest third route into the vault and the bedroom. Two doors in one wall are two apertures, and one defender cannot stand in both. |
+| Laundry chute, trapdoor, airing cupboard | One-way drops between stacked rooms — the third way into the boiler, the jail and the living room. |
+
+The vault is upstairs and the one-way descent it was made conditional on is its
+window: 330 to the garden, out and committed, with no way back up.
+
+Three ways in is expensive, and knowing exactly *what* it is expensive in is the
+useful part. Without the second doorway trick the house needed a second
+staircase; without the light wells the basement needed a third internal
+connection it had no room for.
+
+**Not built, deliberately.** No dumbwaiter (cut in §6). No back stair — the pair
+of vault doorways replaced it. Crouch, vault, slide, drop and throw are still
+unbuilt verbs; the geometry is sized for them (§12) and nothing depends on them.

@@ -10,9 +10,9 @@ extends SceneTree
 
 ## Which blockout to bake. Overridable so a new layout can be validated before
 ## it replaces the one the game is loading.
-const SCENE_PATH: String = "res://game/blockout/greybox_house.tscn"
-const OUTPUT_PATH: String = "res://content/levels/greybox_house.tres"
-const LEVEL_ID: StringName = &"greybox_house"
+const SCENE_PATH: String = "res://game/blockout/house.tscn"
+const OUTPUT_PATH: String = "res://content/levels/house.tres"
+const LEVEL_ID: StringName = &"house"
 
 func _initialize() -> void:
 	var scene: String = SCENE_PATH
