@@ -42,7 +42,13 @@ extends Resource
 @export_group("Judgement")
 ## Score lost per world-unit of navigation path. Higher means lazier: it takes
 ## the near thing over the valuable thing.
-@export var cost_per_unit: float = 0.6
+##
+## Calibrated AFTER the world was rescaled to 1 unit = 1 cm, and it had to be:
+## at the old value a journey across the map cost more than the raid at the end
+## of it was worth, so a bot that had banked its cash scored standing still
+## higher than robbing anybody and simply stopped. Distance should discriminate
+## between errands, not veto the far ones.
+@export var cost_per_unit: float = 0.15
 ## Score lost per enemy within vision of the target. Higher means more cautious.
 @export var risk_weight: float = 1400.0
 ## How far away an enemy registers as a threat at all.

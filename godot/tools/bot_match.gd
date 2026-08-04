@@ -18,8 +18,19 @@ const TICK_LIMIT: int = 30 * 60 * 6
 ## count as making progress.
 const STALL_WINDOW: int = 30
 const STALL_DISTANCE: float = 60.0
+## Bucket size for grouping stall positions. Doorways are 240 across, so a
+## bucket this size tells clustering from scattering without smearing them.
+const STALL_BUCKET: float = 120.0
 
+var _lone: bool = false
+
+## `--lone` seats one idle human and one bot, which is the shape the playtest
+## actually reported: a single bot in a doorway with one person about. Bot
+## against bot is a different situation - two bodies competing for the same gap -
+## and conflating them is how a congestion problem gets diagnosed as a
+## navigation one.
 func _initialize() -> void:
+	_lone = OS.get_cmdline_user_args().has("--lone")
 	var first: Dictionary = _play()
 	var second: Dictionary = _play()
 
@@ -34,9 +45,11 @@ func _initialize() -> void:
 	print("carries     %d pick-ups, %d deposits" % [first["pickups"], first["deposits"]])
 	print("captures    %d seizures, %d rescues" % [first["captures"], first["rescues"]])
 	print("winner      %s" % ("none - ran out of ticks" if first["winner"] == &"" else first["winner"]))
-	print("stalls      %d second-long stalls while holding a task" % first["stalls"])
+	print("stalls      %d seconds trying to move and getting nowhere" % first["stalls"])
+	print("idle        %d seconds standing still by choice" % first["idles"])
 	for spot: String in first["stall_spots"]:
 		print("              %s" % spot)
+	_report_clustering(first["stall_map"], first["stalls"])
 	quit(0 if first["digest"] == second["digest"] else 1)
 
 ## Finds the first tick two runs disagreed on, and shows what differed.
@@ -99,7 +112,10 @@ func _play(stop_at: int = -1) -> Dictionary:
 	# humans at all, which is the case it has least to balance and the one that
 	# exercises the directors hardest.
 	var crew: BotCrew = BotCrew.create(level.bot_profile, NavGraph.of(world.surface), world.rng.state)
-	crew.fill_lobby(world, [], world.actor_ids().size())
+	var seated: Array[int] = []
+	if _lone:
+		seated.append(world.actor_ids()[0]) # an idle human, holding a seat
+	crew.fill_lobby(world, seated, world.actor_ids().size())
 
 	var tally: Dictionary[StringName, int] = {}
 	var hashes: PackedInt64Array = PackedInt64Array()
@@ -109,7 +125,11 @@ func _play(stop_at: int = -1) -> Dictionary:
 	# without one, a change to the steering can only be judged by watching.
 	var anchor: Dictionary[int, Vector3] = {}
 	var stalls: int = 0
+	var idles: int = 0
 	var stall_spots: Array[String] = []
+	## Where stalls happen, bucketed. Clustered means doorways; scattered means
+	## something else entirely, and they should not be chased together.
+	var stall_map: Dictionary[Vector3i, int] = {}
 	world.step([MatchCommand.start()])
 	var ticks: int = 0
 	while world.match_phase != SimWorld.MatchPhase.MATCH_END and ticks < TICK_LIMIT:
@@ -129,8 +149,24 @@ func _play(stop_at: int = -1) -> Dictionary:
 				if body == null or task == null or task.is_none():
 					anchor.erase(actor_id)
 					continue
+				# IDLE is not stuck. A bot standing at the end of a patrol has
+				# chosen to be there; counting it as a stall buries the ones
+				# that are trying to move and failing, which are the only kind
+				# worth chasing. Reported separately rather than dropped -
+				# a bot idle for most of a match is its own problem.
+				var trying: bool = body.motion_state != SimEntity.MotionState.IDLE
 				if anchor.has(actor_id) and anchor[actor_id].distance_to(body.position) < STALL_DISTANCE:
+					if not trying:
+						idles += 1
+						anchor[actor_id] = body.position
+						continue
 					stalls += 1
+					var bucket: Vector3i = Vector3i(
+						int(body.position.x / STALL_BUCKET),
+						0,
+						int(body.position.z / STALL_BUCKET)
+					)
+					stall_map[bucket] = stall_map.get(bucket, 0) + 1
 					if stall_spots.size() < 6:
 						# The position alone says WHERE but not WHY. A bot with
 						# no route is a routing failure; one with a route it is
@@ -147,6 +183,8 @@ func _play(stop_at: int = -1) -> Dictionary:
 				anchor[actor_id] = body.position
 
 	return {
+		"idles": idles,
+		"stall_map": stall_map,
 		"stalls": stalls,
 		"stall_spots": stall_spots,
 		"hashes": hashes,
@@ -171,3 +209,31 @@ func _per_team(world: SimWorld, rounds: bool) -> String:
 			world.round_wins_for(team_id) if rounds else world.score_for(team_id),
 		])
 	return "  ".join(parts)
+
+## Are the stalls in a few places, or everywhere?
+##
+## The distinction decides whether this counter is measuring the reported bug at
+## all. A handful of buckets holding most of the stalls means doorways; stalls
+## spread thinly over dozens of buckets means something that happens wherever a
+## bot happens to be, which is a different problem wearing the same number.
+func _report_clustering(stall_map: Dictionary, total: int) -> void:
+	if total <= 0:
+		print("clustering   no stalls to place")
+		return
+	var buckets: Array[Vector3i] = stall_map.keys()
+	buckets.sort_custom(func(a: Vector3i, b: Vector3i) -> bool:
+		if stall_map[a] != stall_map[b]:
+			return stall_map[a] > stall_map[b]
+		return var_to_str(a) < var_to_str(b))
+
+	var worst: int = 0
+	for i: int in mini(5, buckets.size()):
+		worst += stall_map[buckets[i]]
+	print("clustering   %d places held stalls; the worst 5 hold %d of %d (%d%%)" % [
+		buckets.size(), worst, total, int(100.0 * float(worst) / float(total)),
+	])
+	for i: int in mini(5, buckets.size()):
+		var at: Vector3i = buckets[i]
+		print("              %5d stalls near (%d, %d)" % [
+			stall_map[at], int(at.x * STALL_BUCKET), int(at.z * STALL_BUCKET),
+		])

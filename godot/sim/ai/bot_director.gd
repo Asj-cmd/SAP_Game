@@ -165,7 +165,6 @@ func _decide(world: SimWorld, me: SimEntity, tick: int, claims: Dictionary[Strin
 		# Only a NEW decision costs reaction time. Re-confirming what it was
 		# already doing must not make a bot hesitate every time it thinks.
 		_act_after_tick = tick + profile.reaction_ticks()
-		_wobble = _rng.next_signed(profile.steer_wobble)
 	if not _task.is_none():
 		claims[_task.key()] = actor_id
 	_plan(world, me, tick)
@@ -247,6 +246,15 @@ func _threats(world: SimWorld, me: SimEntity, task: BotTask) -> int:
 func _plan(world: SimWorld, me: SimEntity, tick: int) -> void:
 	_next_repath_tick = tick + profile.repath_ticks()
 	_leg = 0
+	# Re-rolled on every route, not only when the errand changes.
+	#
+	# Wobble is a CONSTANT angular error, and held for a whole journey it stops
+	# being imprecision and becomes a bias. Threading a doorway needs a heading
+	# correction of a fraction of a unit per tick; a fifth of a radian is worth
+	# rather more than that, so a bot whose wobble happened to point into the
+	# jamb was pinned against it for as long as it kept the errand - which is a
+	# lone bot stalling two hundred times at one door, and never at any other.
+	_wobble = _rng.next_signed(profile.steer_wobble)
 	if _task.is_none():
 		_route = PackedVector3Array()
 		return
