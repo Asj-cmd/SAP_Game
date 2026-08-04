@@ -42,18 +42,25 @@ extends RefCounted
 ## `prebuilt` lets a caller that already needs the walkable surface - SimWorld,
 ## which hands it to the bots afterwards - pass the one it built rather than pay
 ## for a second identical fill. Omitted, the surface is built here and dropped.
+## Capacity standing in for "as many as you like", on the edges out of the
+## source. Any real count of doorways is far below it.
+const UNLIMITED: int = 1 << 20
+
 static func validate(
 	zone_defs: Array[ZoneDef],
 	team_defs: Array[TeamDef],
 	collision: WorldCollisionDef,
 	tuning: TuningDef,
-	prebuilt: WalkableSurface = null
+	prebuilt: WalkableSurface = null,
+	advisories: Array[String] = []
 ) -> PackedStringArray:
 	var failures: PackedStringArray = PackedStringArray()
 	var zones: Array[ZoneDef] = _sorted_zones(zone_defs)
 	var radius: float = tuning.actor_radius if tuning != null else 0.0
 	var step_up: float = tuning.step_up_height if tuning != null else 0.0
 	var max_drop: float = tuning.max_drop_height if tuning != null else 0.0
+	var required: int = tuning.routes_required if tuning != null else 2
+	var wanted: int = tuning.routes_wanted if tuning != null else 3
 
 	_check_shell(collision, failures)
 	_check_zone_priorities(zones, failures)
@@ -64,7 +71,7 @@ static func validate(
 			surface = WalkableSurface.build(collision, radius, step_up, max_drop)
 		_check_reachability(zones, team_defs, collision, radius, step_up, max_drop, failures, surface)
 		_check_escapability(zones, team_defs, surface, failures)
-		_check_redundant_routes(zones, team_defs, surface, failures)
+		_check_redundant_routes(zones, surface, required, wanted, failures, advisories)
 	return failures
 
 ## Zones in a fixed order, so every message and every traversal below is
@@ -292,76 +299,209 @@ static func _check_escapability(
 ## a room where a defender stands still and the round stops. A rule nobody
 ## checks rots the first time somebody moves a wall, so it is checked.
 ##
-## Asked at ROOM granularity rather than node granularity, deliberately. A
-## doorway is six cells wide, so no single node is ever a cut and a node-level
-## articulation test would pass every house ever built while proving nothing.
-## The question worth asking is "which ROOMS is this reachable through", and
-## whether losing one of them cuts it off.
+## Counted as a MIN CUT from outdoors, which is Menger's theorem read backwards:
+## the fewest doorways that must be closed to seal a room off is the number of
+## independent ways into it. Max-flow on a graph small enough that the cost does
+## not register.
 ##
-## Asked from OUTDOORS rather than from a spawn, and neutral space is never the
-## room removed. Both follow from the same fact: the outdoors is where a raid
-## comes from, not a room it passes through. Seeded from a spawn instead, every
-## room of the far house reports "only reachable through 'yard'" - true, and not
-## a defect, because the yard is the only thing between two houses in any map of
-## this shape. That version of the check would have been satisfied only by
-## inventing a second yard, so it was asking the wrong question rather than
-## finding a real one.
+## The first version looked for articulation points, and that is a weaker
+## question wearing the same clothes. "Is there one room whose removal cuts this
+## off" passes a garage with a single door straight onto the garden, because
+## there is no third room to remove - one approach, one defender, exactly the
+## failure the rule exists to catch. Min cut subsumes it and has no such blind
+## spot.
+##
+## Three things make the count mean what it should:
+##
+## APERTURES, not rooms and not cells. The unit of capacity is a doorway,
+## because a doorway is what a defender holds. Cells are far too fine - a door
+## is forty cells wide, so any cell-level cut passes everything. Room adjacency
+## is too coarse the other way - two separate front doors into the same hall are
+## two ways in, and counting rooms calls them one. An aperture is a connected
+## stretch of the boundary between two regions, so two doors count two and one
+## wide door counts one.
+##
+## OUTDOORS is the source, and a source is never cut. That is what stops the
+## yard between two houses reporting as a chokepoint: it is a cut vertex by
+## construction, so asking about it could only ever have been answered by
+## inventing a second yard.
+##
+## UNZONED space is a region like any other. Door thresholds and side passages
+## are usually nobody's room, and leaving them out would silently merge the
+## rooms they separate.
 static func _check_redundant_routes(
 	zones: Array[ZoneDef],
-	team_defs: Array[TeamDef],
 	surface: WalkableSurface,
-	failures: PackedStringArray
+	required: int,
+	wanted: int,
+	failures: PackedStringArray,
+	advisories: Array[String]
 ) -> void:
 	if surface.is_empty() or zones.size() < 2:
 		return
 	var owner: Array[int] = _zone_of_each_node(zones, surface)
-	var home: int = _outdoor_node(zones, owner, surface)
-	if home < 0:
-		home = _first_seed_node(zones, team_defs, surface)
-	if home < 0:
+	var region: Array[int] = _regions(zones, owner, surface)
+	var count: int = zones.size()
+	for r: int in region:
+		count = maxi(count, r + 1)
+
+	# The source, sitting outside the graph and feeding every neutral region.
+	var outdoors: int = count
+	var capacity: Array[PackedInt32Array] = _aperture_capacities(surface, region, count + 1)
+	var found_outside: bool = false
+	for i: int in zones.size():
+		if zones[i].role == ZoneDef.Role.NEUTRAL:
+			capacity[outdoors][i] = UNLIMITED
+			found_outside = true
+	if not found_outside:
+		# Said out loud rather than skipped quietly. Fixtures are all interior
+		# and this is the right answer for them, but a shipping level that lost
+		# its yard would otherwise stop being checked without anybody noticing.
+		advisories.append(
+			"routes: no neutral space in this level, so there is no outdoors to count ways in from"
+		)
 		return
 
 	for i: int in zones.size():
-		var zone: ZoneDef = zones[i]
-		if zone.role == ZoneDef.Role.NEUTRAL:
+		if zones[i].role == ZoneDef.Role.NEUTRAL:
 			continue
-		if _holds(owner, i, home):
-			continue # we are standing in it; nothing to cut it off from
-
-		for j: int in zones.size():
-			if i == j or zones[j].role == ZoneDef.Role.NEUTRAL or _holds(owner, j, home):
-				continue
-			# Pretend that room is not there, and see whether this one can still
-			# be walked to from outside.
-			var without: Dictionary[int, bool] = {}
-			for node: int in owner.size():
-				if owner[node] == j:
-					without[node] = true
-			var reached: Dictionary[int, bool] = surface.component_from(home, without)
-			if _any_reached(owner, i, reached):
-				continue
+		if not region.has(i):
+			continue # no standing room in it at all; reachability says so already
+		var ways: int = _max_flow(capacity, outdoors, i)
+		if ways < required:
 			failures.append(
-				"routes: '%s' is only reachable through '%s' - one way in"
-				% [zone.id, zones[j].id]
+				"routes: '%s' has %d way%s in - one doorway is one defender"
+				% [zones[i].id, ways, "" if ways == 1 else "s"]
 			)
-			break # one report per room is enough to act on
+		elif ways < wanted:
+			advisories.append(
+				"routes: '%s' has %d ways in, and %d is the target"
+				% [zones[i].id, ways, wanted]
+			)
 
-## A stance outdoors - in the first neutral zone that has one.
-##
-## Negative when the level is all rooms, which is what the fixtures are; the
-## caller falls back to a spawn there.
-static func _outdoor_node(
+## Which region each node belongs to: its zone, or the patch of unzoned space it
+## shares with its neighbours. Zone indices come first so a zone's index is its
+## region.
+static func _regions(
 	zones: Array[ZoneDef],
 	owner: Array[int],
 	surface: WalkableSurface
-) -> int:
-	for i: int in zones.size():
-		if zones[i].role != ZoneDef.Role.NEUTRAL:
+) -> Array[int]:
+	var region: Array[int] = owner.duplicate()
+	var next: int = zones.size()
+	for start: int in region.size():
+		if region[start] >= 0:
 			continue
-		for node: int in surface.nodes.size():
-			if owner[node] == i:
-				return node
-	return -1
+		region[start] = next
+		var queue: Array[int] = [start]
+		while not queue.is_empty():
+			var current: int = queue.pop_back()
+			# Both directions, because a region is a patch of space rather than
+			# a set of places you can walk between: a ledge and the floor under
+			# it are one unzoned area even though only one of them leads to the
+			# other.
+			for onward: PackedInt32Array in [
+				surface.neighbours(current), surface.neighbours_into(current)
+			]:
+				for next_node: int in onward:
+					if region[next_node] < 0:
+						region[next_node] = next
+						queue.append(next_node)
+		next += 1
+	return region
+
+## How many separate doorways lead from each region into each other region.
+static func _aperture_capacities(
+	surface: WalkableSurface,
+	region: Array[int],
+	size: int
+) -> Array[PackedInt32Array]:
+	# Every place you arrive at, grouped by the pair of regions crossed.
+	var arrivals: Dictionary[Vector2i, Dictionary] = {}
+	for from_node: int in region.size():
+		for to_node: int in surface.neighbours(from_node):
+			if region[from_node] == region[to_node]:
+				continue
+			var crossing: Vector2i = Vector2i(region[from_node], region[to_node])
+			var landing: Dictionary = arrivals.get(crossing, {})
+			landing[to_node] = true
+			arrivals[crossing] = landing
+
+	var capacity: Array[PackedInt32Array] = []
+	for i: int in size:
+		var row: PackedInt32Array = PackedInt32Array()
+		row.resize(size)
+		row.fill(0)
+		capacity.append(row)
+	for crossing: Vector2i in arrivals:
+		capacity[crossing.x][crossing.y] = _apertures(surface, arrivals[crossing])
+	return capacity
+
+## One doorway, or several? Connected runs of the landing places, counted.
+##
+## Adjacency is restricted to the landing set itself rather than followed into
+## the room beyond, or every doorway in a room would merge into one.
+static func _apertures(surface: WalkableSurface, landing: Dictionary) -> int:
+	var seen: Dictionary[int, bool] = {}
+	var found: int = 0
+	var starts: Array = landing.keys()
+	starts.sort()
+	for start: int in starts:
+		if seen.has(start):
+			continue
+		found += 1
+		seen[start] = true
+		var queue: Array[int] = [start]
+		while not queue.is_empty():
+			var current: int = queue.pop_back()
+			for onward: PackedInt32Array in [
+				surface.neighbours(current), surface.neighbours_into(current)
+			]:
+				for next_node: int in onward:
+					if landing.has(next_node) and not seen.has(next_node):
+						seen[next_node] = true
+						queue.append(next_node)
+	return found
+
+## Edmonds-Karp. Shortest augmenting path first, so it terminates in polynomial
+## time without anybody having to think about it, and BFS in index order so the
+## answer does not depend on dictionary iteration.
+static func _max_flow(base: Array[PackedInt32Array], source: int, sink: int) -> int:
+	var size: int = base.size()
+	var residual: Array[PackedInt32Array] = []
+	for row: PackedInt32Array in base:
+		residual.append(row.duplicate())
+
+	var flow: int = 0
+	while true:
+		var came_from: PackedInt32Array = PackedInt32Array()
+		came_from.resize(size)
+		came_from.fill(-1)
+		came_from[source] = source
+		var queue: Array[int] = [source]
+		var head: int = 0
+		while head < queue.size() and came_from[sink] < 0:
+			var current: int = queue[head]
+			head += 1
+			for next_node: int in size:
+				if came_from[next_node] < 0 and residual[current][next_node] > 0:
+					came_from[next_node] = current
+					queue.append(next_node)
+		if came_from[sink] < 0:
+			return flow
+
+		var along: int = UNLIMITED
+		var node: int = sink
+		while node != source:
+			along = mini(along, residual[came_from[node]][node])
+			node = came_from[node]
+		node = sink
+		while node != source:
+			residual[came_from[node]][node] -= along
+			residual[node][came_from[node]] += along
+			node = came_from[node]
+		flow += along
+	return flow
 
 ## Which zone each node belongs to, in resolution order. -1 for none.
 static func _zone_of_each_node(zones: Array[ZoneDef], surface: WalkableSurface) -> Array[int]:
@@ -375,16 +515,7 @@ static func _zone_of_each_node(zones: Array[ZoneDef], surface: WalkableSurface) 
 				break
 	return owner
 
-static func _holds(owner: Array[int], zone_index: int, node: int) -> bool:
-	return node >= 0 and node < owner.size() and owner[node] == zone_index
-
-static func _any_reached(owner: Array[int], zone_index: int, reached: Dictionary[int, bool]) -> bool:
-	for node: int in reached:
-		if _holds(owner, zone_index, node):
-			return true
-	return false
-
-## The stance a match would start from, for both checks above.
+## The stance a match would start from.
 static func _first_seed_node(
 	zones: Array[ZoneDef],
 	team_defs: Array[TeamDef],

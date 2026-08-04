@@ -10,7 +10,7 @@ extends SceneTree
 ## defect it must catch and the suite fails if the validator stays quiet.
 
 ## Every check this suite is meant to run. See the harness guard below.
-const EXPECTED_CHECKS: int = 28
+const EXPECTED_CHECKS: int = 33
 
 var _passed: int = 0
 var _failed: int = 0
@@ -93,10 +93,17 @@ func _build(blockers: Array[AABB] = [], radius: float = 4.0) -> Dictionary:
 	var teams: Array[TeamDef] = [team_a, team_b]
 	return {"zones": zones, "teams": teams, "collision": collision, "tuning": tuning}
 
-func _validate(bundle: Dictionary) -> PackedStringArray:
+func _validate(bundle: Dictionary, advisories: Array[String] = []) -> PackedStringArray:
 	return ContentValidator.validate(
-		bundle["zones"], bundle["teams"], bundle["collision"], bundle["tuning"]
+		bundle["zones"], bundle["teams"], bundle["collision"], bundle["tuning"],
+		null, advisories
 	)
+
+func _mentions_note(notes: Array[String], fragment: String) -> bool:
+	for note: String in notes:
+		if note.contains(fragment):
+			return true
+	return false
 
 func _mentions(failures: PackedStringArray, fragment: String) -> bool:
 	for failure: String in failures:
@@ -250,56 +257,116 @@ func _test_doorway_follows_the_body() -> void:
 
 # ---- no important room may have a single approach ----
 
-## Three rooms in a row, which is the smallest shape that can express "one way
-## in": the far room is reachable only by walking through the middle one.
+## Counted as a min cut from outdoors, so the assertions are numbers rather than
+## the presence of a message.
 ##
-## The second half is the case that matters more, because it is the one a
-## reasonable-looking check gets wrong. Making the middle room NEUTRAL turns the
-## same geometry into a house-yard-house map, and a yard between two houses is
-## not a defect - it is the premise. A check that flags it cannot be satisfied by
-## any map of this shape, so it would have had to be switched off.
+## The garage case is the reason this is a min cut and not an articulation
+## search. A room with one door straight onto the garden has no room in front of
+## it to remove, so "is there a single room whose removal cuts this off" answers
+## no and the level passes - while a defender stands in the only door.
 func _test_more_than_one_way_in() -> void:
-	var strung_out: Dictionary = _rooms_in_a_row(ZoneDef.Role.HOME)
-	_check("routes/a room behind another room is caught",
-		_mentions(_validate(strung_out), "only reachable through 'room_b'"), true)
+	# One route: through the yard door, along the passage, through the vault
+	# door. Closing either door seals it.
+	var single: Dictionary = _house_with_routes(1)
+	_check("routes/one way in fails", _mentions(_validate(single), "'vault' has 1 way in"), true)
 
-	var around_a_yard: Dictionary = _rooms_in_a_row(ZoneDef.Role.NEUTRAL)
-	_check("routes/but crossing neutral ground is not a defect",
-		_mentions(_validate(around_a_yard), "one way in"), false)
+	# A garage off the garden: nothing between it and outdoors at all.
+	var garage: Dictionary = _garage()
+	_check("routes/a single door straight onto neutral ground fails",
+		_mentions(_validate(garage), "'garage' has 1 way in"), true)
 
-## Shell, two dividing walls with doorways, three zones left to right.
-func _rooms_in_a_row(middle: ZoneDef.Role) -> Dictionary:
+	# Two independent routes clears the floor and is still short of the target,
+	# so it loads and says so. Both of these matter: a warning that failed would
+	# be a failure, and a failure that stayed quiet would be nothing.
+	var pair: Array[String] = []
+	var two: Dictionary = _house_with_routes(2)
+	_check("routes/two independent ways in passes", _validate(two, pair).size(), 0)
+	_check("routes/and is advised it is short of three",
+		_mentions_note(pair, "'vault' has 2 ways in"), true)
+
+	# Three is the target, so nothing to say.
+	var quiet: Array[String] = []
+	var three: Dictionary = _house_with_routes(3)
+	_check("routes/three passes silently", _validate(three, quiet).size(), 0)
+	_check("routes/with nothing to advise", quiet.size(), 0)
+
+	# The floor is content, not a constant: the same two-route house refuses to
+	# load once the level asks for three. If this ever stops biting, the
+	# threshold has been pinned somewhere in code.
+	var strict: Dictionary = _house_with_routes(2)
+	strict["tuning"].routes_required = 3
+	_check("routes/the floor is a content value",
+		_mentions(_validate(strict), "'vault' has 2 ways in"), true)
+
+## A yard, a vault at the far end, and `routes` separate passages between them.
+##
+## The passages are unzoned on purpose. Each one is a corridor rather than a
+## room, and it is also the case that they must be regions in their own right
+## for the count to come out - merge them into their neighbours and the whole
+## house collapses into one adjacency.
+func _house_with_routes(routes: int) -> Dictionary:
+	var depth: float = 300.0
+	var band: float = depth / float(routes)
 	var collision: WorldCollisionDef = WorldCollisionDef.new()
-	collision.bounds = AABB(Vector3(0, 0, 0), Vector3(300, 100, 100))
+	collision.bounds = AABB(Vector3(0, 0, 0), Vector3(400, 100, depth))
+
+	var walls: Array[AABB] = []
+	# The two cross-walls, each with one doorway per passage.
+	for wall_x: float in [100.0, 250.0]:
+		var cut: float = 0.0
+		for i: int in routes:
+			var door_from: float = band * float(i) + band * 0.5 - 20.0
+			walls.append(AABB(Vector3(wall_x, 0, cut), Vector3(4, 100, door_from - cut)))
+			cut = door_from + 40.0
+		walls.append(AABB(Vector3(wall_x, 0, cut), Vector3(4, 100, depth - cut)))
+	# ...and the partitions that keep the passages apart.
+	for i: int in routes - 1:
+		walls.append(AABB(Vector3(104, 0, band * float(i + 1) - 2.0), Vector3(146, 100, 4)))
+	collision.blockers = walls
+
+	var yard: ZoneDef = _zone(&"yard", ZoneDef.Role.NEUTRAL, &"",
+		AABB(Vector3(0, 0, 0), Vector3(100, 100, depth)))
+	var vault: ZoneDef = _zone(&"vault", ZoneDef.Role.CASH_ROOM, &"team_b",
+		AABB(Vector3(254, 0, 0), Vector3(146, 100, depth)))
+	return _bundle([yard, vault] as Array[ZoneDef], collision, depth)
+
+## One room, one door, straight onto the garden.
+func _garage() -> Dictionary:
+	var depth: float = 300.0
+	var collision: WorldCollisionDef = WorldCollisionDef.new()
+	collision.bounds = AABB(Vector3(0, 0, 0), Vector3(400, 100, depth))
 	collision.blockers = [
-		AABB(Vector3(98, 0, 0), Vector3(4, 100, 40)),
-		AABB(Vector3(98, 0, 60), Vector3(4, 100, 40)),
-		AABB(Vector3(198, 0, 0), Vector3(4, 100, 40)),
-		AABB(Vector3(198, 0, 60), Vector3(4, 100, 40)),
+		AABB(Vector3(100, 0, 0), Vector3(4, 100, 130)),
+		AABB(Vector3(100, 0, 170), Vector3(4, 100, 130)),
 	] as Array[AABB]
 
-	var room_a: ZoneDef = _zone(&"room_a", ZoneDef.Role.HOME, &"team_a",
-		AABB(Vector3(0, 0, 0), Vector3(98, 100, 100)))
-	var room_b: ZoneDef = _zone(&"room_b", middle,
-		&"" if middle == ZoneDef.Role.NEUTRAL else &"team_a",
-		AABB(Vector3(102, 0, 0), Vector3(96, 100, 100)))
-	var vault_c: ZoneDef = _zone(&"vault_c", ZoneDef.Role.CASH_ROOM, &"team_b",
-		AABB(Vector3(202, 0, 0), Vector3(98, 100, 100)))
+	var yard: ZoneDef = _zone(&"yard", ZoneDef.Role.NEUTRAL, &"",
+		AABB(Vector3(0, 0, 0), Vector3(100, 100, depth)))
+	var garage: ZoneDef = _zone(&"garage", ZoneDef.Role.CASH_ROOM, &"team_b",
+		AABB(Vector3(104, 0, 0), Vector3(296, 100, depth)))
+	return _bundle([yard, garage] as Array[ZoneDef], collision, depth)
 
+## Teams for the fixtures above. Both start in the yard, so the room under test
+## is somewhere they walk to rather than somewhere they begin.
+func _bundle(
+	zones: Array[ZoneDef],
+	collision: WorldCollisionDef,
+	depth: float
+) -> Dictionary:
 	var team_a: TeamDef = TeamDef.new()
 	team_a.id = &"team_a"
-	team_a.home_zone = &"room_a"
-	team_a.spawn_points = [Vector3(30, 50, 50)] as Array[Vector3]
+	team_a.home_zone = &"yard"
+	team_a.spawn_points = [Vector3(50, 50, depth * 0.25)] as Array[Vector3]
 	var team_b: TeamDef = TeamDef.new()
 	team_b.id = &"team_b"
-	team_b.home_zone = &"vault_c"
-	team_b.spawn_points = [Vector3(250, 50, 50)] as Array[Vector3]
+	team_b.home_zone = &"yard"
+	team_b.spawn_points = [Vector3(50, 50, depth * 0.75)] as Array[Vector3]
 
 	var tuning: TuningDef = TuningDef.new()
 	tuning.actor_radius = 4.0
 
 	return {
-		"zones": [room_a, room_b, vault_c] as Array[ZoneDef],
+		"zones": zones,
 		"teams": [team_a, team_b] as Array[TeamDef],
 		"collision": collision,
 		"tuning": tuning,

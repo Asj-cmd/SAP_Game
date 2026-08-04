@@ -41,9 +41,14 @@ func _initialize() -> void:
 		quit(1)
 		return
 
+	var advisories: Array[String] = []
 	var problems: PackedStringArray = ContentValidator.validate(
-		level.zones, level.teams, level.collision, GreyBoxLevel.build_tuning()
+		level.zones, level.teams, level.collision, GreyBoxLevel.build_tuning(), null, advisories
 	)
+	# Printed whether or not the bake succeeds: an advisory on a level that is
+	# about to be refused for something else is still worth reading.
+	for note: String in advisories:
+		print("bake: note: %s" % note)
 	if not problems.is_empty():
 		for problem: String in problems:
 			printerr("bake: %s" % problem)

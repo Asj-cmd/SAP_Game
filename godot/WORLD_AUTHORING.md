@@ -125,7 +125,7 @@ It must catch at least:
 | Every zone reachable from every spawn | A room the match can never use |
 | Every cash room and jail reachable | An unwinnable or unescapable round |
 | Every role-bearing zone **escapable** | A room you fall into and never leave |
-| No role-bearing zone behind a single room | One door, one defender, round over |
+| Min cut from outdoors to every role-bearing zone ≥ 2 | One door, one defender, round over |
 | No zone overlap without distinct `priority` | Ambiguous "which room am I in" |
 | No walkable point inside a blocker | Spawning or landing inside a wall |
 | Min gap between blockers > max per-tick displacement | Tunnelling headroom |
@@ -146,20 +146,46 @@ the way you fell in is perfectly reachable and completely broken, so the gate
 floods *backwards* from a spawn as well as forwards: every role-bearing zone must
 be somewhere you can get to and somewhere you can get out of.
 
-**Redundant routes are asked at room granularity, from outdoors.** Room
-granularity because a doorway is six cells wide, so no single *node* is ever a
-cut — a node-level articulation test passes every house ever built and proves
-nothing. From outdoors because the question is "how many ways into this room",
-and a raid starts outside. Seeded from a spawn instead, every room of the far
-house reports *only reachable through 'yard'* — true, and not a defect: the yard
-is the only thing between two houses in a map of this shape, so that version
-could only have been satisfied by inventing a second yard. Neutral space is
-therefore never the room removed. `tests/content_validator_test.gd` pins both
-halves: three rooms in a row must fail, the same three with a neutral middle must
-not.
+**Ways into a room are counted as a min cut from outdoors** — Menger read
+backwards: the fewest doorways you would have to close to seal a room off *is*
+the number of independent ways into it. Max-flow, on a graph of a few dozen
+regions, so the cost does not register.
+
+Below `routes_required` (2) the level does not load. Below `routes_wanted` (3)
+the bake prints a note and carries on. Both are `TuningDef` values, because three
+is an aspiration and failing everything below it would refuse every level anyone
+has yet drawn, including the one being played.
+
+Three details make the count mean what it should:
+
+- **The unit of capacity is an aperture, not a room and not a cell.** A doorway
+  is what a defender holds. Cells are far too fine — a door is forty cells wide,
+  so any cell-level cut passes everything. Room adjacency is too coarse the other
+  way — two separate front doors into one hall are two ways in, and counting
+  rooms calls them one. An aperture is a connected stretch of the boundary
+  between two regions.
+- **Outdoors is the source, and a source is never cut.** This is what stops the
+  garden between two houses reporting as a chokepoint. It is a cut vertex by
+  construction, so a check that flags it is unsatisfiable rather than the map
+  being bad — it could only ever be answered by inventing a second garden.
+- **Unzoned space is a region like any other.** Door thresholds and side passages
+  usually belong to no room, and leaving them out silently merges the rooms they
+  separate.
+
+A level with no neutral space is exempt — there is no outdoors to count from —
+and says so as a note rather than skipping quietly. Every fixture is in that
+position; no shipping level should be.
+
+This replaced an articulation-point search, which is a weaker question wearing
+the same clothes: *is there one room whose removal cuts this off* answers **no**
+for a garage with a single door onto the garden, because there is no third room
+to remove. One approach, one defender, and the check says nothing. Min cut
+subsumes the articulation case and has no such blind spot.
+`tests/content_validator_test.gd` pins the garage, one/two/three routes, and that
+the floor is a content value rather than a constant.
 
 Both rows found real defects the hour they existed. The shipped grey box had one
-way into every room, and the bot fixture was a corridor with a single chokepoint.
+way into every room.
 
 ## 8. Order of work
 
@@ -249,14 +275,24 @@ find one the gate never checked.
 
 This changes what content has to provide.
 
-**Every route must be walkable, because there is no jump.** An edge exists
-between two standing places only when the height difference is within
-`TuningDef.step_up_height`. A drop larger than that is not an edge *in either
-direction* — deliberately, because a ledge you can fall off but not climb back
-onto is a one-way trip, and a route that only works downhill is how a level ends
-up with a basement nobody can leave. If a room is below ground, it needs stairs
-or a ramp whose individual steps are within the allowance. A hole in the floor
-is not an entrance.
+**Up is not down.** An edge exists upward only within `TuningDef.step_up_height`,
+and downward as far as `max_drop_height`, so a ledge is a route one way and a
+wall the other. That asymmetry is deliberate, and it is what the escapability
+row in §7 exists to police: a room whose only exit is the way you fell into it is
+perfectly reachable and completely broken. If a room is below ground and meant
+to be left, it needs stairs or a ramp whose individual steps are within the step
+allowance. A hole in the floor is an entrance and not an exit.
+
+**Do not butt a zone flush against a drop.** A standing place is a body-width
+thing, so the outermost places you can stand on a ledge sit slightly *past* its
+edge — up to a cell beyond, out over the fall. A zone whose boundary is the drop
+swallows those places, and the room below then contains stances that are
+actually on the balcony above it. Everything downstream reads wrong: the room
+reports as escapable because part of it never fell, and its ways-in count picks
+up apertures belonging to the floor above. **Start the lower zone a body clear
+of the edge.** This bites the moment a house has balconies, and it was found
+the hard way — the first ledge fixture looked correct and the check quietly
+agreed with it.
 
 **Air is not a route.** The old fill was volumetric and connected cells
 vertically, so it would happily walk over the top of a wall through the open air

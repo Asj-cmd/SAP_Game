@@ -62,6 +62,17 @@ extends Resource
 ## rather than offering a trip nobody survives.
 @export var max_drop_height: float = 480.0
 
+@export_group("Ways into a room")
+## How many independent approaches a room that matters must have, and how many
+## it should have. Below `routes_required` the level does not load; below
+## `routes_wanted` the bake says so and carries on.
+##
+## Two is the floor because one door is one defender. Three is the aspiration,
+## and it is only an aspiration: failing everything below three would refuse
+## every level anyone has yet drawn, including the one being played.
+@export var routes_required: int = 2
+@export var routes_wanted: int = 3
+
 @export_group("Interaction ranges")
 @export var pickup_range: float = 144.0
 @export var capture_range: float = 164.0

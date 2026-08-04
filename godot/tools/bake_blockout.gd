@@ -31,9 +31,12 @@ func _run() -> void:
 	# caught while it is being authored rather than when someone tries to play
 	# it (WORLD_AUTHORING.md §7).
 	var tuning: TuningDef = GreyBoxLevel.build_tuning()
+	var advisories: Array[String] = []
 	var problems: PackedStringArray = ContentValidator.validate(
-		level.zones, level.teams, level.collision, tuning
+		level.zones, level.teams, level.collision, tuning, null, advisories
 	)
+	for note: String in advisories:
+		print("bake: note: %s" % note)
 	if not problems.is_empty():
 		for problem: String in problems:
 			push_error("bake: %s" % problem)
