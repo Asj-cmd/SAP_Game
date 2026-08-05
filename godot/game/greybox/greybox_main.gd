@@ -655,16 +655,28 @@ func _build_geometry() -> void:
 
 	# A floor patch per owned room, so which house you are in is readable
 	# without labels or art.
+	#
+	# Laid on the floor the SIMULATION found, not on the bottom of the zone box.
+	# A zone is a volume that means something and may be generous (§2); where
+	# the floor is, is a fact about the geometry, and the walkable surface is
+	# the thing that already knows it. This used to be `bounds.position.y + 41`
+	# - the 41 being the grey box's floor slab plus one - and the house puts its
+	# room zones flush with each storey instead, so every patch floated 41 units
+	# in the air and every body looked sunk to the shins in it. One offset, both
+	# complaints.
 	for zone: ZoneDef in level.zones:
 		if zone.owner_team == &"":
 			continue
+		var floor_y: float = _floor_of(zone)
+		if floor_y == INF:
+			continue # nowhere to stand in it; nothing to tint
 		var patch: MeshInstance3D = MeshInstance3D.new()
 		var slab: BoxMesh = BoxMesh.new()
 		slab.size = Vector3(zone.bounds.size.x, 2.0, zone.bounds.size.z)
 		patch.mesh = slab
 		patch.position = Vector3(
 			zone.bounds.get_center().x,
-			zone.bounds.position.y + 41.0,
+			floor_y + 1.0,
 			zone.bounds.get_center().z
 		)
 		var tint: Color = _team_colour(zone.owner_team, false)
@@ -672,6 +684,27 @@ func _build_geometry() -> void:
 			tint.darkened(0.25 if zone.role == ZoneDef.Role.CASH_ROOM else 0.6)
 		)
 		_geometry.add_child(patch)
+
+## The height an actor's FEET rest at inside this zone, or INF if none do.
+##
+## Taken from the lowest stance the walkable surface found there, minus the body
+## radius, because a stance is where a body's CENTRE sits rather than where the
+## floor is. Lowest rather than nearest, so a room with a step in it tints from
+## its main floor.
+##
+## Read off the LEVEL rather than the world, because geometry is built before a
+## world exists. Taking it from `world.surface` skipped every patch instead of
+## misplacing it - a quieter bug than the one being fixed and no better.
+func _floor_of(zone: ZoneDef) -> float:
+	if level.surface == null or level.surface.nodes.is_empty():
+		return INF
+	var lowest: float = INF
+	for stance: Vector3 in level.surface.nodes:
+		if zone.contains_point(stance):
+			lowest = minf(lowest, stance.y)
+	if lowest == INF:
+		return INF
+	return lowest - level.tuning.actor_radius
 
 func _build_hud() -> void:
 	var layer: CanvasLayer = CanvasLayer.new()
