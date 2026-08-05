@@ -38,11 +38,38 @@ var grab: bool = false
 ## state worth photographing is behind a key nobody can press unattended.
 var paths: bool = false
 
+## Places to stand the camera, and what to point it at.
+##
+## Without these the only view available is the one behind whoever spawned,
+## which makes every defect away from the spawn point something you inspect by
+## proxy - walking a bot past it and hoping. That pattern has cost this project
+## three wrong turns, and the art phase will want a hundred views a day.
+##
+## A LIST rather than one, because the questions worth asking visually are
+## nearly always plural: eighteen rooms of wall joins is eighteen shots, and
+## taking them one command at a time is how people stop taking them.
+var eyes: PackedVector3Array = PackedVector3Array()
+var looks: PackedVector3Array = PackedVector3Array()
+
+## Where shot `index` should be written when several were asked for.
+func path_for(index: int) -> String:
+	if eyes.size() <= 1:
+		return path
+	var extension: String = path.get_extension()
+	var stem: String = path.get_basename()
+	return "%s_%d.%s" % [stem, index + 1, extension if extension != "" else "png"]
+
 ## Reads the flags after `--` on the command line:
 ##
 ##   --capture                 grab a frame, save it, and exit
 ##   --capture-path=<file>     where to write it
 ##   --capture-delay=<seconds> how long to wait first
+##   --capture-at=x,y,z        stand the camera here instead of behind a body
+##   --capture-look=x,y,z      point the preceding --capture-at at this
+##
+## `--capture-at` may be repeated; each one is a separate shot, numbered
+## `<name>_1.png`, `<name>_2.png`. A `--capture-look` applies to the
+## `--capture-at` before it, so the pairs read in order on the command line.
 static func from_command_line(args: PackedStringArray) -> FrameCapture:
 	var request: FrameCapture = FrameCapture.new()
 	for arg: String in args:
@@ -64,7 +91,27 @@ static func from_command_line(args: PackedStringArray) -> FrameCapture:
 			request.requested = true
 			request.quit_after = true
 			request.grab = true
+		elif arg.begins_with("--capture-at="):
+			var eye: Vector3 = _point(arg.trim_prefix("--capture-at="))
+			request.requested = true
+			request.quit_after = true
+			request.eyes.append(eye)
+			# Straight ahead until told otherwise, so --capture-at alone works.
+			request.looks.append(eye + Vector3(0.0, 0.0, -1000.0))
+		elif arg.begins_with("--capture-look="):
+			if request.eyes.is_empty():
+				push_error("frame capture: --capture-look with no --capture-at before it")
+				continue
+			request.looks[request.looks.size() - 1] = _point(
+				arg.trim_prefix("--capture-look="))
 	return request
+
+static func _point(text: String) -> Vector3:
+	var parts: PackedStringArray = text.split(",")
+	if parts.size() != 3:
+		push_error("frame capture: expected x,y,z but got '%s'" % text)
+		return Vector3.ZERO
+	return Vector3(float(parts[0]), float(parts[1]), float(parts[2]))
 
 ## Writes the viewport's current contents, and returns the absolute path it
 ## landed at so a caller can print somewhere findable. Empty on failure.

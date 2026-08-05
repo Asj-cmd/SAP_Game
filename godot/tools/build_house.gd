@@ -97,6 +97,8 @@ const EAST: int = 3 ## jail / living / bedroom
 var _solids: Array[AABB] = []
 var _rooms: Array[Dictionary] = []
 var _points: Array[Dictionary] = []
+## Light wells, in local coordinates, so the terrain knows where to dig.
+var _wells: Array[Rect2] = []
 
 var _root: Node3D = null
 var _count: int = 0
@@ -169,16 +171,29 @@ func _slot_from(i: int) -> float:
 
 # ---- walls ----
 
+## WALLS BUTT, THEY DO NOT OVERLAP.
+##
+## The end walls own the corners and run the full depth; the front and back run
+## between them; the dividers run between those. Every join is two faces meeting
+## at a plane, and no two boxes share a volume.
+##
+## Overlapping them is easier to write and looks wrong: two coincident faces
+## have no depth order, so the renderer picks per pixel per frame and the join
+## flickers black. That is the "wall edges breaking at the joins" from the
+## playtest, and it was thirty units of overlap at every junction of the house.
 func _storeys() -> void:
 	for level: float in [BASEMENT, GROUND, UPPER]:
 		var top: float = level + STOREY - SLAB
-		# End walls, solid.
+		# The ends own the corners.
 		_wall_x(WALL * 0.5, 0.0, HOUSE_D, level, top, [])
 		_wall_x(HOUSE_W - WALL * 0.5, 0.0, HOUSE_D, level, top, [])
-		_wall_z(WALL * 0.5, 0.0, HOUSE_W, level, top, _back_openings(level))
-		_wall_z(HOUSE_D - WALL * 0.5, 0.0, HOUSE_W, level, top, _garden_openings(level))
+		# Front and back run between the ends.
+		_wall_z(WALL * 0.5, WALL, HOUSE_W - WALL, level, top, _back_openings(level))
+		_wall_z(HOUSE_D - WALL * 0.5, WALL, HOUSE_W - WALL, level, top,
+			_garden_openings(level))
+		# Dividers run between front and back.
 		for divider: int in [1, 2, 3]:
-			_wall_x(_slot_from(divider) - WALL * 0.5, 0.0, HOUSE_D, level, top,
+			_wall_x(_slot_from(divider) - WALL * 0.5, WALL, HOUSE_D - WALL, level, top,
 				_divider_openings(divider, level))
 
 ## Between the bays. The vault has TWO doorways at each end rather than one,
@@ -227,7 +242,10 @@ func _span(centre: float, width: float) -> Vector2:
 
 func _slabs() -> void:
 	var house: Rect2 = Rect2(0.0, 0.0, HOUSE_W, HOUSE_D)
-	_slab(BASEMENT, house, [])
+	# No slab at BASEMENT: the world's own base slab already tops out exactly
+	# there and runs under everything. Laying a second one over it put two
+	# coincident faces at the same height, which is a flickering floor rather
+	# than a floor.
 	_slab(GROUND, house, [
 		_bay_well(BASEMENT, 150.0),
 		Rect2(_slot_from(MID) + 50.0, 80.0, 200.0, 200.0), # the laundry chute
@@ -292,13 +310,15 @@ func _light_wells() -> void:
 	_well(_slot_from(WEST) + 400.0)
 	_well(_slot_from(EAST) + 40.0)
 
+## A well is a HOLE, and a hole needs nothing built around it.
+##
+## It used to get a floor and three walls of its own. All four were already
+## there: the floor is the world's base slab, and the sides are the terrain the
+## hole is cut out of. Six redundant boxes per house, every one of them buried
+## inside the ground it duplicated, every one contributing a pair of coincident
+## faces for the renderer to flicker between.
 func _well(x: float) -> void:
-	# The floor of it, and the three sides that are not the house.
-	_solid(AABB(Vector3(x, 0.0, HOUSE_D), Vector3(300.0, BASEMENT, 300.0)))
-	_solid(AABB(Vector3(x - WALL, BASEMENT, HOUSE_D), Vector3(WALL, GROUND - BASEMENT, 330.0)))
-	_solid(AABB(Vector3(x + 300.0, BASEMENT, HOUSE_D), Vector3(WALL, GROUND - BASEMENT, 330.0)))
-	_solid(AABB(Vector3(x - WALL, BASEMENT, HOUSE_D + 300.0),
-		Vector3(360.0, GROUND - BASEMENT, WALL)))
+	_wells.append(Rect2(x, HOUSE_D, 300.0, 300.0))
 
 ## A straight flight running in +z.
 func _flight(x: float, from_z: float, base: float) -> void:
@@ -414,14 +434,18 @@ func _terrain() -> void:
 	var holes: Array[Rect2] = []
 	for origin: float in [HOUSE_A_X, HOUSE_B_X]:
 		holes.append(Rect2(origin, ORIGIN_Z, HOUSE_W, HOUSE_D))
-	for box: AABB in _solids:
-		# The light wells are the only local geometry that reaches outside the
-		# footprint on the garden side, and each needs its own hole.
-		if box.position.z >= HOUSE_D and box.size.y <= BASEMENT:
-			for i: int in 2:
-				var placed: AABB = _place(box, HOUSE_A_X if i == 0 else HOUSE_B_X, i == 1)
-				holes.append(Rect2(placed.position.x, placed.position.z,
-					placed.size.x, placed.size.z))
+	# Declared rather than recognised. This used to scan the emitted solids for
+	# anything short and outside the footprint, which worked and meant the
+	# terrain could not tell a light well from any other low box somebody added
+	# later.
+	for well: Rect2 in _wells:
+		for i: int in 2:
+			var placed: AABB = _place(
+				AABB(Vector3(well.position.x, 0.0, well.position.y),
+					Vector3(well.size.x, BASEMENT, well.size.y)),
+				HOUSE_A_X if i == 0 else HOUSE_B_X, i == 1)
+			holes.append(Rect2(placed.position.x, placed.position.z,
+				placed.size.x, placed.size.z))
 	_dig(BASEMENT, GROUND - BASEMENT, holes)
 
 ## The terrain slab, minus the holes, by the same decomposition the floors use.

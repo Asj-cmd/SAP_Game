@@ -63,6 +63,7 @@ static func validate(
 	var wanted: int = tuning.routes_wanted if tuning != null else 3
 
 	_check_shell(collision, failures)
+	_check_overlaps(collision, advisories)
 	_check_zone_priorities(zones, failures)
 	if collision != null:
 		_check_reference_points(zones, team_defs, collision, radius, failures)
@@ -552,3 +553,52 @@ static func _first_seed_node(
 		if node >= 0:
 			return node
 	return -1
+
+# ---- boxes that share a volume ----
+
+## Two blockers occupying the same space is legal and looks broken.
+##
+## Collision does not care - the predicate is an OR, so an overlap changes no
+## answer. The RENDERER cares: two faces at the same depth have no order, so it
+## picks per pixel per frame and the join flickers black. That is what
+## "the wall edges are breaking" turned out to be, and it was thirty units of
+## overlap at every junction of the house plus a duplicate floor slab under all
+## of it.
+##
+## An advisory rather than a failure: the level is perfectly playable, it just
+## does not look built. Cheap to say, and saying it is what stops it coming
+## back the next time somebody adds a box where one already is.
+static func _check_overlaps(
+	collision: WorldCollisionDef,
+	advisories: Array[String]
+) -> void:
+	if collision == null:
+		return
+	# Quadratic, so bounded. Two thousand boxes is two million comparisons and
+	# still nothing; a level big enough to exceed that wants the broadphase, and
+	# saying so is better than quietly taking a second off every load.
+	if collision.blockers.size() > 2000:
+		advisories.append(
+			"collision: %d blockers is too many to check for overlaps pairwise"
+			% collision.blockers.size()
+		)
+		return
+	var found: int = 0
+	var first: String = ""
+	for i: int in collision.blockers.size():
+		for j: int in range(i + 1, collision.blockers.size()):
+			var a: AABB = collision.blockers[i]
+			var b: AABB = collision.blockers[j]
+			var low: Vector3 = a.position.max(b.position)
+			var high: Vector3 = a.end.min(b.end)
+			var shared: Vector3 = high - low
+			if shared.x <= 0.01 or shared.y <= 0.01 or shared.z <= 0.01:
+				continue
+			found += 1
+			if first == "":
+				first = "%s and %s share %s" % [a.position, b.position, shared]
+	if found > 0:
+		advisories.append(
+			"collision: %d pairs of blockers share a volume - coincident faces "
+			% found + "flicker when drawn (first: %s)" % first
+		)

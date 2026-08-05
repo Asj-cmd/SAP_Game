@@ -24,6 +24,9 @@ const CAMERA_COLLISION_LAYER: int = 2
 ## simplification, called out because it is why the mesh needs a vertical
 ## offset to stand ON the floor rather than half-sunk into it.
 const ACTOR_HEIGHT: float = 180.0
+## How proud of the floor a team's floor tint sits. Enough to win the depth
+## test against the floor it is laid on, little enough not to be a step.
+const PATCH_THICKNESS: float = 0.6
 
 const SNAP_DISTANCE: float = 400.0
 ## Confirmed states kept for interpolating remote bodies. A second or so: enough
@@ -117,9 +120,49 @@ func _arm_capture() -> void:
 		Input.parse_input_event(press)
 		await get_tree().process_frame
 		await get_tree().process_frame
-	await _capture_frame(request.path)
+	if request.eyes.is_empty():
+		await _capture_frame(request.path)
+	else:
+		await _capture_from(request)
 	if request.quit_after:
 		get_tree().quit()
+
+## One shot per viewpoint, through the ordinary render path.
+##
+## The camera is added to the SAME SubViewport the chase camera lives in and
+## made current, rather than rendering a private view: the whole point of a
+## capture is what a player would see, and the failures worth catching live
+## between a correct scene and the window (FrameCapture). A separate viewport
+## would render past all of them.
+func _capture_from(request: FrameCapture) -> void:
+	var host: Viewport = _active_camera().get_viewport() if _active_camera() != null else null
+	if host == null:
+		push_error("frame capture: no viewport to place a camera in")
+		return
+	var eye: Camera3D = Camera3D.new()
+	eye.near = ChaseCamera.NEAR_PLANE
+	eye.far = ChaseCamera.FAR_PLANE
+	host.add_child(eye)
+	_capture_camera = eye
+	eye.current = true
+
+	for i: int in request.eyes.size():
+		eye.global_position = request.eyes[i]
+		var target: Vector3 = request.looks[i]
+		var direction: Vector3 = target - eye.global_position
+		if direction.length_squared() < 1.0:
+			direction = Vector3(0.0, 0.0, -1.0)
+		# look_at cannot resolve a straight-down gaze against a straight-up
+		# reference, which is exactly what an overhead shot of a floor asks for.
+		var up: Vector3 = Vector3.UP
+		if absf(direction.normalized().dot(Vector3.UP)) > 0.999:
+			up = Vector3.FORWARD
+		eye.look_at(eye.global_position + direction, up)
+		await get_tree().process_frame
+		await _capture_frame(request.path_for(i))
+
+	_capture_camera = null
+	eye.queue_free()
 
 func _capture_frame(to_path: String) -> void:
 	# The texture only holds a finished frame after the draw, not after the
@@ -131,7 +174,13 @@ func _capture_frame(to_path: String) -> void:
 	print("frame capture: %s" % written)
 	print("  %s" % FrameCapture.describe(_active_camera(), _actor_views.size()))
 
+## The camera a capture is actually looking through - the placed one while a
+## viewpoint shot is being taken, otherwise the first seat's chase camera.
+var _capture_camera: Camera3D = null
+
 func _active_camera() -> Camera3D:
+	if _capture_camera != null:
+		return _capture_camera
 	return _cameras[0].camera if not _cameras.is_empty() else null
 
 # ---- setup ----
@@ -672,11 +721,15 @@ func _build_geometry() -> void:
 			continue # nowhere to stand in it; nothing to tint
 		var patch: MeshInstance3D = MeshInstance3D.new()
 		var slab: BoxMesh = BoxMesh.new()
-		slab.size = Vector3(zone.bounds.size.x, 2.0, zone.bounds.size.z)
+		# Thin, and only just clear of the floor. It is a TINT on the floor, not
+		# a rug laid over it - at two units thick and a unit up it read as a
+		# raised platform with a lip, which is its own small lie about where you
+		# can stand.
+		slab.size = Vector3(zone.bounds.size.x, PATCH_THICKNESS, zone.bounds.size.z)
 		patch.mesh = slab
 		patch.position = Vector3(
 			zone.bounds.get_center().x,
-			floor_y + 1.0,
+			floor_y + PATCH_THICKNESS * 0.5,
 			zone.bounds.get_center().z
 		)
 		var tint: Color = _team_colour(zone.owner_team, false)

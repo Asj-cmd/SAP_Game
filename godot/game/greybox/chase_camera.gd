@@ -14,6 +14,15 @@ extends RefCounted
 ## Presentation only. It reads a position and moves a Camera3D; nothing it does
 ## can change what the rules decide.
 
+## Near and far, named because the ratio between them is load-bearing.
+##
+## Godot's default near is 0.05, which against a 12,000 far plane is a range of
+## 240,000:1 - far past what a depth buffer resolves, and the whole world
+## z-fights itself into noise. Ten costs nothing here because the camera sits
+## three metres behind a body and never has anything closer.
+const NEAR_PLANE: float = 10.0
+const FAR_PLANE: float = 12000.0
+
 ## Distance and height are in world units - 1 unit = 1 cm, so this arm is 3.5 m.
 ## Rooms are sized around this number rather than the other way round; see
 ## WORLD_AUTHORING.md on room dimensions.
@@ -71,8 +80,8 @@ func _init(collision_mask: int = 2) -> void:
 	# left, which shows up as walls flickering through each other and is far
 	# worse on gl_compatibility. 10 units is 10 cm: closer than the arm can ever
 	# compress to, so nothing is ever clipped by it.
-	camera.near = 10.0
-	camera.far = 12000.0
+	camera.near = NEAR_PLANE
+	camera.far = FAR_PLANE
 	_arm.add_child(camera)
 
 ## Applies look input. Yaw is unbounded; pitch is clamped so the camera cannot
