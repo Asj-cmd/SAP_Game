@@ -376,30 +376,29 @@ func _crosses(from: Vector3, to: Vector3) -> bool:
 		return true
 	return _blocked(from, to)
 
-## WorldCollisionDef.blocks_segment, with the blockers pre-grown and the ones
-## nowhere near the segment skipped.
+## Exactly WorldCollisionDef.blocks_segment, because it IS it.
 ##
-## Deliberately the same predicate and not a cheaper approximation - it calls
-## the same two statics in the same order, including the depenetration rule that
-## lets an overlapping body move if the move gets it out. A surface built on a
-## looser test than the one movement enforces would route bots through walls
-## they cannot actually pass, and the load gate would bless it.
+## It used to be a hand-copy of that loop with its own pre-grown list and its own
+## cheap bounding-box reject in front. The copy was WRONG, and wrong in the
+## permissive direction: `AABB.intersects` treats a touching edge as no overlap,
+## so a sight line lying exactly along the top of the terrain - which is where
+## every sight line lies, because that is where bodies stand - rejected blockers
+## the real predicate would have tested. `is_clear_between` therefore reported
+## clear through geometry, and the bots smoothed and steered through walls they
+## could not walk through.
+##
+## That is why this reads as a one-line delegation and changed a whole match. It
+## was found by running both against a full scan inside a live match and printing
+## the first disagreement, after two rounds of offline equivalence testing on
+## 200,000 random and then 106,000 lattice-aligned segments had found nothing:
+## the queries that diverge are long sight lines from an ARBITRARY body position,
+## and neither sample contained any.
+##
+## Keep it a delegation. A second implementation of the movement predicate is a
+## second thing to be wrong, and the gate certifying routes on one while movement
+## enforces the other is the failure this whole file exists to prevent.
 func _blocked(from: Vector3, to: Vector3) -> bool:
-	var span: AABB = AABB(from, Vector3.ZERO).expand(to)
-	for solid: AABB in _grown:
-		# Cheap reject. A segment whose bounding box misses the box entirely can
-		# neither start inside it nor cross it, and at one body per cell the
-		# overwhelming majority of blockers are nowhere near any given step.
-		if not span.intersects(solid):
-			continue
-		var depth: float = WorldCollisionDef.penetration_depth(from, solid)
-		if depth > 0.0:
-			if WorldCollisionDef.penetration_depth(to, solid) < depth:
-				continue
-			return true
-		if WorldCollisionDef.segment_hits_box(from, to, solid):
-			return true
-	return false
+	return _collision.blocks_segment(from, to, radius)
 
 func _is_free(cell: Vector3i) -> bool:
 	if cell.x < 0 or cell.y < 0 or cell.z < 0:
