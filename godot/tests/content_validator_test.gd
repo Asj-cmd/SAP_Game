@@ -10,7 +10,7 @@ extends SceneTree
 ## defect it must catch and the suite fails if the validator stays quiet.
 
 ## Every check this suite is meant to run. See the harness guard below.
-const EXPECTED_CHECKS: int = 36
+const EXPECTED_CHECKS: int = 37
 
 var _passed: int = 0
 var _failed: int = 0
@@ -103,7 +103,10 @@ func _validate(bundle: Dictionary, advisories: Array[String] = []) -> PackedStri
 ## Validates with the target raised, so every room reports its count rather than
 ## only the ones below it.
 func _advise(bundle: Dictionary, notes: Array[String]) -> Array[String]:
-	bundle["tuning"].routes_wanted = 99
+	return _advise_at(bundle, notes, 99)
+
+func _advise_at(bundle: Dictionary, notes: Array[String], wanted: int) -> Array[String]:
+	bundle["tuning"].routes_wanted = wanted
 	_validate(bundle, notes)
 	return notes
 
@@ -283,18 +286,26 @@ func _test_more_than_one_way_in() -> void:
 	_check("routes/a single door straight onto neutral ground fails",
 		_mentions(_validate(garage), "'garage' has 1 way in"), true)
 
-	# Two independent routes clears the floor and is still short of the target,
-	# so it loads and says so. Both of these matter: a warning that failed would
-	# be a failure, and a failure that stayed quiet would be nothing.
+	# Two independent routes clears the floor, so it loads.
 	var pair: Array[String] = []
 	var two: Dictionary = _house_with_routes(2)
 	_check("routes/two independent ways in passes", _validate(two, pair).size(), 0)
-	_check("routes/and is advised it is short of three",
-		_mentions_note(pair, "'vault' has 2 ways in"), true)
+	_check("routes/and passes silently at the shipped target", pair.size(), 0)
 
-	# Three is the target, so nothing to say.
+	# The advisory tier still works when a level asks for more than the floor.
+	# Both numbers are content, and this is the one that says the WANTED tier is
+	# a separate lever from the required one - the shipped level sets them equal,
+	# which would hide a broken advisory completely.
+	var ambitious: Array[String] = []
+	var reaching: Dictionary = _house_with_routes(2)
+	reaching["tuning"].routes_wanted = 3
+	_check("routes/asking for three advises a house that has two",
+		_mentions_note(_advise_at(reaching, ambitious, 3), "'vault' has 2 ways in"), true)
+
+	# ...and says nothing when the house meets what it asks for.
 	var quiet: Array[String] = []
 	var three: Dictionary = _house_with_routes(3)
+	three["tuning"].routes_wanted = 3
 	_check("routes/three passes silently", _validate(three, quiet).size(), 0)
 	_check("routes/with nothing to advise", quiet.size(), 0)
 

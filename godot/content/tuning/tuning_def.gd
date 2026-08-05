@@ -67,11 +67,20 @@ extends Resource
 ## it should have. Below `routes_required` the level does not load; below
 ## `routes_wanted` the bake says so and carries on.
 ##
-## Two is the floor because one door is one defender. Three is the aspiration,
-## and it is only an aspiration: failing everything below three would refuse
-## every level anyone has yet drawn, including the one being played.
+## BOTH ARE TWO, and the second number used to be three. That was a mistake with
+## a long tail: a generator pointed at an inequality builds the cheapest thing
+## that satisfies it, and three independent ways into every room bought eighteen
+## rooms across three floors, two staircases, and light wells nobody could see
+## the entrance to. The gate was working perfectly. It was being asked for the
+## wrong thing.
+##
+## Two is the rule worth keeping, because it is the one with a reason: one door
+## is one defender, and a room with a single approach is a room where the round
+## stops. Beyond that, how many ways into a room is a DESIGN question and the
+## answer is different per room - which means it belongs to whoever is drawing
+## the house, not to a number the house is generated against.
 @export var routes_required: int = 2
-@export var routes_wanted: int = 3
+@export var routes_wanted: int = 2
 
 @export_group("Interaction ranges")
 @export var pickup_range: float = 144.0
