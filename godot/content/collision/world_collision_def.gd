@@ -52,7 +52,8 @@ func contains(point: Vector3, radius: float = 0.0) -> bool:
 ## end inside. Segment-versus-AABB is cheap and exact, so tunnelling stops
 ## being a tuning problem and stops being a class of bug.
 func blocks_segment(from: Vector3, to: Vector3, radius: float = 0.0) -> bool:
-	for blocker: AABB in blockers:
+	for index: int in _candidates(from, to, radius):
+		var blocker: AABB = blockers[index]
 		# Growing the blocker by the body radius is the standard Minkowski
 		# trick: it reduces a fat body against thin geometry to a point
 		# against fat geometry. Slightly conservative at corners, which is the
@@ -149,3 +150,92 @@ static func segment_hits_box(from: Vector3, to: Vector3, box: AABB) -> bool:
 	# interval closes at t = 0. Both are contact rather than penetration, and
 	# treating contact as collision is what strands actors against walls.
 	return t_min < t_max and t_max > 0.0
+
+
+# ---- broadphase ----
+#
+# Testing the whole list was costing 2 us a blocker, and the house has three
+# hundred of them where the grey box had twenty-five. That is roughly 600 us per
+# swept test, and a tick spends dozens of them - between the movement sweep, the
+# axis slides, the step-up and the bots' line-of-sight lookahead. Measured, it
+# was 55% of the 30 Hz budget for a ONE-ON-ONE match before a single frame was
+# drawn, and it grew with the level rather than with what was happening in it.
+#
+# A uniform grid of blocker indices fixes the shape of that: a query walks only
+# the cells its own segment passes through.
+#
+# The answer must not change, only the cost. blocks_segment is an OR over
+# independent per-blocker decisions, so which order they are visited in cannot
+# affect the result - but a broadphase that MISSES one is a wall an actor walks
+# through, so cells are keyed off the ungrown blocker and the query box is grown
+# instead. Conservative in the safe direction: extra candidates cost time, a
+# missing candidate costs correctness.
+
+## Cells across the longest axis of the shell. Coarse on purpose - the point is
+## to stop testing the far side of the map, not to build a perfect index.
+const GRID_DIVISIONS: float = 32.0
+
+var _grid: Dictionary[Vector3i, PackedInt32Array] = {}
+var _grid_cell: float = 0.0
+## The blocker count the index was built for. Content is immutable once loaded,
+## so this is a staleness guard rather than a change notification.
+var _grid_built_for: int = -1
+
+## The blockers worth testing for a move from `from` to `to`.
+func _candidates(from: Vector3, to: Vector3, radius: float) -> PackedInt32Array:
+	_build_index()
+	if _grid_cell <= 0.0:
+		return _all_indices()
+
+	var low: Vector3i = _grid_cell_of(from.min(to) - Vector3.ONE * radius)
+	var high: Vector3i = _grid_cell_of(from.max(to) + Vector3.ONE * radius)
+	# One cell is the overwhelmingly common case - a tick of travel is tens of
+	# units and a cell is hundreds - so it is worth not building a list at all.
+	if low == high:
+		return _grid.get(low, PackedInt32Array())
+
+	var found: PackedInt32Array = PackedInt32Array()
+	for x: int in range(low.x, high.x + 1):
+		for y: int in range(low.y, high.y + 1):
+			for z: int in range(low.z, high.z + 1):
+				var cell: Vector3i = Vector3i(x, y, z)
+				if _grid.has(cell):
+					found.append_array(_grid[cell])
+	return found
+
+func _build_index() -> void:
+	if _grid_built_for == blockers.size():
+		return
+	_grid_built_for = blockers.size()
+	_grid.clear()
+	var span: float = maxf(bounds.size.x, maxf(bounds.size.y, bounds.size.z))
+	if span <= 0.0 or blockers.is_empty():
+		_grid_cell = 0.0
+		return
+	_grid_cell = maxf(span / GRID_DIVISIONS, 1.0)
+	for index: int in blockers.size():
+		var blocker: AABB = blockers[index]
+		var low: Vector3i = _grid_cell_of(blocker.position)
+		var high: Vector3i = _grid_cell_of(blocker.position + blocker.size)
+		for x: int in range(low.x, high.x + 1):
+			for y: int in range(low.y, high.y + 1):
+				for z: int in range(low.z, high.z + 1):
+					var cell: Vector3i = Vector3i(x, y, z)
+					var held: PackedInt32Array = _grid.get(cell, PackedInt32Array())
+					held.append(index)
+					_grid[cell] = held
+
+func _grid_cell_of(point: Vector3) -> Vector3i:
+	var local: Vector3 = point - bounds.position
+	return Vector3i(
+		int(floor(local.x / _grid_cell)),
+		int(floor(local.y / _grid_cell)),
+		int(floor(local.z / _grid_cell)))
+
+## The unindexed fallback: a level with no shell to divide up.
+func _all_indices() -> PackedInt32Array:
+	var every: PackedInt32Array = PackedInt32Array()
+	every.resize(blockers.size())
+	for index: int in blockers.size():
+		every[index] = index
+	return every

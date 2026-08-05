@@ -45,9 +45,15 @@ func hops_from(origin: int) -> PackedInt32Array:
 		return hops
 
 	hops[origin] = 0
+	# Walked with a cursor rather than popped from the front. Array.pop_front is
+	# O(n) - it shifts every remaining element - so a breadth-first walk that
+	# dequeues that way is quadratic in the size of the graph. Fine on the grey
+	# box at two thousand stances; the house has fourteen thousand.
 	var queue: Array[int] = [origin]
-	while not queue.is_empty():
-		var current: int = queue.pop_front()
+	var head: int = 0
+	while head < queue.size():
+		var current: int = queue[head]
+		head += 1
 		for next: int in surface.neighbours(current):
 			if hops[next] >= 0:
 				continue
@@ -114,9 +120,20 @@ func _trace(start: int, goal: int) -> PackedInt32Array:
 	var seen: PackedByteArray = PackedByteArray()
 	seen.resize(surface.size())
 	seen[start] = 1
+	# Same cursor, same reason, and this one is the expensive path: it runs
+	# every time a bot re-routes. Measured on the house, a re-route was taking
+	# over a hundred milliseconds and eighty ticks in six hundred missed the 30
+	# Hz budget entirely - the median tick was 1.6 ms and the 99th was 113. That
+	# is not a slow game, it is a stuttering one, and the two feel completely
+	# different to play.
+	#
+	# Visiting order is unchanged, so the route is unchanged: this is the same
+	# search with the queue stopped from copying itself.
 	var queue: Array[int] = [start]
-	while not queue.is_empty():
-		var current: int = queue.pop_front()
+	var head: int = 0
+	while head < queue.size():
+		var current: int = queue[head]
+		head += 1
 		for next: int in surface.neighbours(current):
 			if seen[next] == 1:
 				continue
