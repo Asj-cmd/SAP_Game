@@ -70,6 +70,26 @@ func safety_is_timed() -> bool:
 func contains_point(point: Vector3) -> bool:
 	return bounds.has_point(point)
 
+## The order overlapping zones are resolved in: highest priority first, then by
+## name so equal priorities are still a total order.
+##
+## ONE implementation, because there were two. SimWorld.zone_at resolved by
+## priority and the load gate resolved by name, which meant the gate could
+## believe a point was in a different room than the game would put it in - and
+## they agreed only because the shipped level happens not to overlap any zones.
+## That is the same shape as the collision predicate that got hand-copied wrong:
+## a second answer to a settled question, correct by luck until it was not.
+static func compare_for_resolution(a: ZoneDef, b: ZoneDef) -> bool:
+	if a.priority != b.priority:
+		return a.priority > b.priority
+	return NameOrder.compare(a.id, b.id)
+
+## `zones` in resolution order, without disturbing the caller's array.
+static func sorted_for_resolution(zones: Array[ZoneDef]) -> Array[ZoneDef]:
+	var ordered: Array[ZoneDef] = zones.duplicate()
+	ordered.sort_custom(compare_for_resolution)
+	return ordered
+
 func is_owned_by(team_id: StringName) -> bool:
 	return owner_team != &"" and owner_team == team_id
 

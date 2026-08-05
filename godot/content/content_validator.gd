@@ -516,12 +516,26 @@ static func _max_flow(base: Array[PackedInt32Array], source: int, sink: int) -> 
 	return flow
 
 ## Which zone each node belongs to, in resolution order. -1 for none.
+## Which zone each node belongs to, resolved the way the GAME resolves it.
+##
+## Not the way this file happens to have sorted them. The caller's order is by
+## name, for readable messages; overlapping zones are settled by priority
+## (ZoneDef.compare_for_resolution), and a gate that answered "which room is
+## this" differently from SimWorld.zone_at would be certifying a level nobody
+## plays. Indices returned are into the CALLER's array, so everything
+## downstream still lines up with the messages.
 static func _zone_of_each_node(zones: Array[ZoneDef], surface: WalkableSurface) -> Array[int]:
+	var lookup: Array[int] = []
+	for i: int in zones.size():
+		lookup.append(i)
+	lookup.sort_custom(func(a: int, b: int) -> bool:
+		return ZoneDef.compare_for_resolution(zones[a], zones[b]))
+
 	var owner: Array[int] = []
 	owner.resize(surface.nodes.size())
 	owner.fill(-1)
 	for node: int in surface.nodes.size():
-		for i: int in zones.size():
+		for i: int in lookup:
 			if zones[i].contains_point(surface.nodes[node]):
 				owner[node] = i
 				break

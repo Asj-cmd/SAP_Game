@@ -10,7 +10,7 @@ extends SceneTree
 ## defect it must catch and the suite fails if the validator stays quiet.
 
 ## Every check this suite is meant to run. See the harness guard below.
-const EXPECTED_CHECKS: int = 35
+const EXPECTED_CHECKS: int = 36
 
 var _passed: int = 0
 var _failed: int = 0
@@ -99,6 +99,13 @@ func _validate(bundle: Dictionary, advisories: Array[String] = []) -> PackedStri
 		bundle["zones"], bundle["teams"], bundle["collision"], bundle["tuning"],
 		null, advisories
 	)
+
+## Validates with the target raised, so every room reports its count rather than
+## only the ones below it.
+func _advise(bundle: Dictionary, notes: Array[String]) -> Array[String]:
+	bundle["tuning"].routes_wanted = 99
+	_validate(bundle, notes)
+	return notes
 
 func _mentions_note(notes: Array[String], fragment: String) -> bool:
 	for note: String in notes:
@@ -290,6 +297,25 @@ func _test_more_than_one_way_in() -> void:
 	var three: Dictionary = _house_with_routes(3)
 	_check("routes/three passes silently", _validate(three, quiet).size(), 0)
 	_check("routes/with nothing to advise", quiet.size(), 0)
+
+	# Overlapping zones must be resolved the way the GAME resolves them:
+	# priority first. Here the garden covers the vault and sorts BEFORE it by
+	# name, so a gate that resolved by name would hand every one of the vault's
+	# stances to the garden, find the vault empty, and skip it in silence - a
+	# room that is never checked, reported as a room with nothing wrong.
+	var covered: Dictionary = _house_with_routes(2)
+	var wide: Array[String] = []
+	for zone: ZoneDef in covered["zones"]:
+		if zone.id == &"yard":
+			zone.id = &"garden" # sorts before 'vault', unlike 'yard'
+			zone.bounds = AABB(Vector3(0, 0, 0), Vector3(400, 100, 300))
+			zone.priority = 0
+		else:
+			zone.priority = 1
+	covered["teams"][0].home_zone = &"garden"
+	covered["teams"][1].home_zone = &"garden"
+	_check("routes/an overlapped room is still resolved by priority",
+		_mentions_note(_advise(covered, wide), "'vault' has"), true)
 
 	# Outdoors is the `outdoor` flag, not neutrality. The same three-route house
 	# with its yard left unmarked has to fail: if neutrality still counted, open

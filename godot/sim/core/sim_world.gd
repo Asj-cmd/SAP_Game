@@ -176,11 +176,7 @@ func _rebuild_zone_lookup_order() -> void:
 	_zone_lookup_order.sort_custom(_compare_zone_resolution)
 
 func _compare_zone_resolution(a: StringName, b: StringName) -> bool:
-	var zone_a: ZoneDef = zones[a]
-	var zone_b: ZoneDef = zones[b]
-	if zone_a.priority != zone_b.priority:
-		return zone_a.priority > zone_b.priority
-	return NameOrder.compare(a, b)
+	return ZoneDef.compare_for_resolution(zones[a], zones[b])
 
 # ---- time ----
 
