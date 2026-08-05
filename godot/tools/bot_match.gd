@@ -22,7 +22,22 @@ const STALL_DISTANCE: float = 60.0
 ## bucket this size tells clustering from scattering without smearing them.
 const STALL_BUCKET: float = 120.0
 
+## An ENCOUNTER is two opponents close enough that the round's core interaction
+## - seizing somebody - was physically available. A SIGHTING is close enough to
+## have noticed each other and changed plan.
+##
+## Counted as edge-triggered events, not ticks: two bodies circling each other
+## for five seconds is one encounter, and counting ticks would make a single
+## standoff outrank a match full of brief meetings. Released at 1.6x so a pair
+## hovering on the boundary does not rack up a hundred of them.
+const SIGHT_RANGE: float = 700.0
+const RELEASE: float = 1.6
+## Where encounters happen, on the same bucket as the stall map so the two can
+## be read side by side.
+const ENCOUNTER_BUCKET: float = 400.0
+
 var _lone: bool = false
+var _level_path: String = GreyBoxLevel.LEVEL_PATH
 
 ## `--lone` seats one idle human and one bot, which is the shape the playtest
 ## actually reported: a single bot in a doorway with one person about. Bot
@@ -31,6 +46,9 @@ var _lone: bool = false
 ## navigation one.
 func _initialize() -> void:
 	_lone = OS.get_cmdline_user_args().has("--lone")
+	for arg: String in OS.get_cmdline_user_args():
+		if arg.begins_with("--level="):
+			_level_path = arg.trim_prefix("--level=")
 	var first: Dictionary = _play()
 	var second: Dictionary = _play()
 
@@ -45,6 +63,10 @@ func _initialize() -> void:
 	print("carries     %d pick-ups, %d deposits" % [first["pickups"], first["deposits"]])
 	print("captures    %d seizures, %d rescues" % [first["captures"], first["rescues"]])
 	print("winner      %s" % ("none - ran out of ticks" if first["winner"] == &"" else first["winner"]))
+	print("encounters  %d within reach, %d of them where a seizure was legal, %d within sight" % [
+		first["encounters"], first["seizable"], first["sightings"]])
+	print("raiding     %s" % _raiding(first))
+	_report_places("encounters", first["encounter_map"], first["encounters"], ENCOUNTER_BUCKET)
 	print("stalls      %d seconds trying to move and getting nowhere" % first["stalls"])
 	print("idle        %d seconds standing still by choice" % first["idles"])
 	for spot: String in first["stall_spots"]:
@@ -84,7 +106,7 @@ func _show_difference(left: String, right: String) -> void:
 		print("  (records identical - the difference is in length: %d vs %d)" % [a.size(), b.size()])
 
 func _play(stop_at: int = -1) -> Dictionary:
-	var level: GreyBoxLevel = GreyBoxLevel.new()
+	var level: GreyBoxLevel = GreyBoxLevel.new(GreyBoxLevel.SafeVariant.B, _level_path)
 	if not level.is_loaded():
 		print("no baked level - run tools/bake_blockout.gd")
 		quit(1)
@@ -130,6 +152,22 @@ func _play(stop_at: int = -1) -> Dictionary:
 	## Where stalls happen, bucketed. Clustered means doorways; scattered means
 	## something else entirely, and they should not be chased together.
 	var stall_map: Dictionary[Vector3i, int] = {}
+
+	# Encounters. The layout metric that ways-in is blind to: a house nobody can
+	# camp is worth nothing if the two teams never meet in it.
+	var contact_range: float = level.tuning.capture_range
+	var touching: Dictionary[Vector2i, bool] = {}
+	var watching: Dictionary[Vector2i, bool] = {}
+	var encounters: int = 0
+	var seizable: int = 0
+	var sightings: int = 0
+	var encounter_map: Dictionary[Vector3i, int] = {}
+	## Ticks each team spends standing on ground the other side owns. Separates
+	## "they never leave home" from "they cross and never meet", which are
+	## different problems with different fixes.
+	var away: Dictionary[StringName, int] = {}
+	var live_ticks: int = 0
+
 	world.step([MatchCommand.start()])
 	var ticks: int = 0
 	while world.match_phase != SimWorld.MatchPhase.MATCH_END and ticks < TICK_LIMIT:
@@ -139,6 +177,36 @@ func _play(stop_at: int = -1) -> Dictionary:
 			tally[event.kind] = tally.get(event.kind, 0) + 1
 		hashes.append(world.state_hash())
 		ticks += 1
+
+		if world.is_live():
+			live_ticks += 1
+			var actors: Array[int] = world.actor_ids()
+			for i: int in actors.size():
+				var one: SimEntity = world.get_entity(actors[i])
+				var standing: ZoneDef = world.zone_at(one.position)
+				if standing != null and standing.owner_team != &"" 					and standing.owner_team != one.team:
+					away[one.team] = away.get(one.team, 0) + 1
+				for j: int in range(i + 1, actors.size()):
+					var two: SimEntity = world.get_entity(actors[j])
+					if two.team == one.team:
+						continue
+					var pair: Vector2i = Vector2i(actors[i], actors[j])
+					var apart: float = one.position.distance_to(two.position)
+					if _crossed(touching, pair, apart, contact_range):
+						encounters += 1
+						# Meeting is not the same as being able to do anything
+						# about it. A seizure needs both bodies in ONE room and
+						# that room owned by one of them - so every encounter in
+						# the garden is a near miss by rule, not by skill.
+						if _seizable(world, one, two):
+							seizable += 1
+						var midpoint: Vector3 = (one.position + two.position) * 0.5
+						var bucket: Vector3i = Vector3i(
+							int(midpoint.x / ENCOUNTER_BUCKET), 0,
+							int(midpoint.z / ENCOUNTER_BUCKET))
+						encounter_map[bucket] = encounter_map.get(bucket, 0) + 1
+					if _crossed(watching, pair, apart, SIGHT_RANGE):
+						sightings += 1
 
 		# Sampled on a fixed cadence rather than every tick: a bot pausing to
 		# think is not stuck, and a second of no progress while holding a task is.
@@ -183,6 +251,12 @@ func _play(stop_at: int = -1) -> Dictionary:
 				anchor[actor_id] = body.position
 
 	return {
+		"encounters": encounters,
+		"seizable": seizable,
+		"sightings": sightings,
+		"encounter_map": encounter_map,
+		"away": away,
+		"live_ticks": maxi(live_ticks, 1),
 		"idles": idles,
 		"stall_map": stall_map,
 		"stalls": stalls,
@@ -237,3 +311,66 @@ func _report_clustering(stall_map: Dictionary, total: int) -> void:
 		print("              %5d stalls near (%d, %d)" % [
 			stall_map[at], int(at.x * STALL_BUCKET), int(at.z * STALL_BUCKET),
 		])
+
+## Did this pair just come inside `range`? Edge-triggered, with hysteresis, so a
+## standoff on the boundary is one event rather than a hundred.
+func _crossed(state: Dictionary[Vector2i, bool], pair: Vector2i,
+		apart: float, range_limit: float) -> bool:
+	var was: bool = state.get(pair, false)
+	if not was and apart <= range_limit:
+		state[pair] = true
+		return true
+	if was and apart > range_limit * RELEASE:
+		state[pair] = false
+	return false
+
+## How much of the live match each side spent on the other side's ground.
+##
+## Near zero means the teams are not raiding at all and the encounter count says
+## nothing about the layout. Healthy means they cross, and a low encounter count
+## then IS a layout result.
+func _raiding(result: Dictionary) -> String:
+	var away: Dictionary = result["away"]
+	var live: int = result["live_ticks"]
+	var parts: PackedStringArray = PackedStringArray()
+	var teams: Array = away.keys()
+	teams.sort()
+	if teams.is_empty():
+		return "neither side set foot on enemy ground"
+	for team: StringName in teams:
+		parts.append("%s %d%%" % [team, int(round(100.0 * float(away[team]) / float(live)))])
+	return "%s of the match on enemy ground (per body, summed)" % ", ".join(parts)
+
+## Could either of these two have seized the other, standing where they are?
+##
+## The same conditions CaptureSystem enforces: one room, shared, owned by one of
+## them, not a holding pen.
+func _seizable(world: SimWorld, one: SimEntity, two: SimEntity) -> bool:
+	var here: ZoneDef = world.zone_at(one.position)
+	var there: ZoneDef = world.zone_at(two.position)
+	if here == null or there == null or here.id != there.id:
+		return false
+	if here.role == ZoneDef.Role.JAIL:
+		return false
+	return here.is_owned_by(one.team) or here.is_owned_by(two.team)
+
+## Where something happened, bucketed, worst first. Same shape as the stall
+## clustering so a layout can be read on both at once.
+func _report_places(label: String, places: Dictionary, total: int, bucket: float) -> void:
+	if places.is_empty():
+		print("%-11s nowhere to place" % label)
+		return
+	var keys: Array = places.keys()
+	keys.sort_custom(func(a: Vector3i, b: Vector3i) -> bool:
+		if places[a] != places[b]:
+			return places[a] > places[b]
+		return a.x < b.x if a.x != b.x else a.z < b.z)
+	var shown: int = mini(4, keys.size())
+	var held: int = 0
+	for i: int in shown:
+		held += places[keys[i]]
+	print("%-11s %d places; the worst %d hold %d of %d" % [label, keys.size(), shown, held, total])
+	for i: int in shown:
+		print("              %5d near (%d, %d)" % [
+			places[keys[i]], int((float(keys[i].x) + 0.5) * bucket),
+			int((float(keys[i].z) + 0.5) * bucket)])

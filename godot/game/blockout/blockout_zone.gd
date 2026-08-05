@@ -13,6 +13,8 @@ extends MeshInstance3D
 
 @export var zone_id: StringName = &""
 @export var role: ZoneDef.Role = ZoneDef.Role.NEUTRAL
+## Open ground rather than a room. See ZoneDef.outdoor.
+@export var outdoor: bool = false
 ## Empty for neutral ground.
 @export var owner_team: StringName = &""
 ## Resolution order where zones overlap - higher wins.
@@ -30,6 +32,7 @@ func to_zone_def(bounds: AABB) -> ZoneDef:
 	var zone: ZoneDef = ZoneDef.new()
 	zone.id = zone_id
 	zone.role = role
+	zone.outdoor = outdoor
 	zone.owner_team = owner_team
 	zone.priority = priority
 	zone.bounds = bounds

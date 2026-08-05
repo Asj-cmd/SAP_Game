@@ -87,30 +87,11 @@ priority = 1
 
 [sub_resource type="Resource" id="Resource_p6s5o"]
 script = ExtResource("5_sef2m")
-id = &"garden_back"
-bounds = AABB(0, 370, 0, 8240, 700, 300)
+id = &"garden"
+outdoor = true
+bounds = AABB(3520, 370, 0, 1200, 700, 1815)
 
 [sub_resource type="Resource" id="Resource_qlupd"]
-script = ExtResource("5_sef2m")
-id = &"garden_east"
-bounds = AABB(7890, 370, 300, 350, 700, 815)
-
-[sub_resource type="Resource" id="Resource_50y2t"]
-script = ExtResource("5_sef2m")
-id = &"garden_front"
-bounds = AABB(0, 370, 1115, 8240, 700, 700)
-
-[sub_resource type="Resource" id="Resource_oroqu"]
-script = ExtResource("5_sef2m")
-id = &"garden_middle"
-bounds = AABB(3520, 370, 300, 1200, 700, 815)
-
-[sub_resource type="Resource" id="Resource_xxhyf"]
-script = ExtResource("5_sef2m")
-id = &"garden_west"
-bounds = AABB(0, 370, 300, 350, 700, 815)
-
-[sub_resource type="Resource" id="Resource_hh033"]
 script = ExtResource("5_sef2m")
 id = &"hall_a"
 role = 1
@@ -118,7 +99,7 @@ owner_team = &"team_a"
 bounds = AABB(1165, 370, 330, 755, 330, 755)
 priority = 1
 
-[sub_resource type="Resource" id="Resource_53710"]
+[sub_resource type="Resource" id="Resource_50y2t"]
 script = ExtResource("5_sef2m")
 id = &"hall_b"
 role = 1
@@ -126,7 +107,7 @@ owner_team = &"team_b"
 bounds = AABB(6320, 370, 330, 755, 330, 755)
 priority = 1
 
-[sub_resource type="Resource" id="Resource_5bxq1"]
+[sub_resource type="Resource" id="Resource_oroqu"]
 script = ExtResource("5_sef2m")
 id = &"jail_a"
 role = 3
@@ -134,7 +115,7 @@ owner_team = &"team_a"
 bounds = AABB(2735, 40, 330, 755, 330, 755)
 priority = 1
 
-[sub_resource type="Resource" id="Resource_vu4ss"]
+[sub_resource type="Resource" id="Resource_xxhyf"]
 script = ExtResource("5_sef2m")
 id = &"jail_b"
 role = 3
@@ -142,7 +123,7 @@ owner_team = &"team_b"
 bounds = AABB(4750, 40, 330, 755, 330, 755)
 priority = 1
 
-[sub_resource type="Resource" id="Resource_g0beo"]
+[sub_resource type="Resource" id="Resource_hh033"]
 script = ExtResource("5_sef2m")
 id = &"kitchen_a"
 role = 1
@@ -150,7 +131,7 @@ owner_team = &"team_a"
 bounds = AABB(1950, 370, 330, 755, 330, 755)
 priority = 1
 
-[sub_resource type="Resource" id="Resource_lmcp7"]
+[sub_resource type="Resource" id="Resource_53710"]
 script = ExtResource("5_sef2m")
 id = &"kitchen_b"
 role = 1
@@ -158,7 +139,7 @@ owner_team = &"team_b"
 bounds = AABB(5535, 370, 330, 755, 330, 755)
 priority = 1
 
-[sub_resource type="Resource" id="Resource_qiish"]
+[sub_resource type="Resource" id="Resource_5bxq1"]
 script = ExtResource("5_sef2m")
 id = &"landing_a"
 role = 1
@@ -166,7 +147,7 @@ owner_team = &"team_a"
 bounds = AABB(1165, 700, 330, 755, 330, 755)
 priority = 1
 
-[sub_resource type="Resource" id="Resource_x77oc"]
+[sub_resource type="Resource" id="Resource_vu4ss"]
 script = ExtResource("5_sef2m")
 id = &"landing_b"
 role = 1
@@ -174,7 +155,7 @@ owner_team = &"team_b"
 bounds = AABB(6320, 700, 330, 755, 330, 755)
 priority = 1
 
-[sub_resource type="Resource" id="Resource_homhv"]
+[sub_resource type="Resource" id="Resource_g0beo"]
 script = ExtResource("5_sef2m")
 id = &"living_a"
 role = 1
@@ -182,7 +163,7 @@ owner_team = &"team_a"
 bounds = AABB(2735, 370, 330, 755, 330, 755)
 priority = 1
 
-[sub_resource type="Resource" id="Resource_w7n08"]
+[sub_resource type="Resource" id="Resource_lmcp7"]
 script = ExtResource("5_sef2m")
 id = &"living_b"
 role = 1
@@ -190,7 +171,7 @@ owner_team = &"team_b"
 bounds = AABB(4750, 370, 330, 755, 330, 755)
 priority = 1
 
-[sub_resource type="Resource" id="Resource_ccw4a"]
+[sub_resource type="Resource" id="Resource_qiish"]
 script = ExtResource("5_sef2m")
 id = &"vault_a"
 role = 2
@@ -198,7 +179,7 @@ owner_team = &"team_a"
 bounds = AABB(1950, 700, 330, 755, 330, 755)
 priority = 1
 
-[sub_resource type="Resource" id="Resource_pewcp"]
+[sub_resource type="Resource" id="Resource_x77oc"]
 script = ExtResource("5_sef2m")
 id = &"vault_b"
 role = 2
@@ -206,11 +187,59 @@ owner_team = &"team_b"
 bounds = AABB(5535, 700, 330, 755, 330, 755)
 priority = 1
 
+[sub_resource type="Resource" id="Resource_homhv"]
+script = ExtResource("5_sef2m")
+id = &"yard_back_a"
+role = 1
+outdoor = true
+owner_team = &"team_a"
+bounds = AABB(0, 370, 0, 3520, 700, 300)
+
+[sub_resource type="Resource" id="Resource_w7n08"]
+script = ExtResource("5_sef2m")
+id = &"yard_back_b"
+role = 1
+outdoor = true
+owner_team = &"team_b"
+bounds = AABB(4720, 370, 0, 3520, 700, 300)
+
+[sub_resource type="Resource" id="Resource_ccw4a"]
+script = ExtResource("5_sef2m")
+id = &"yard_front_a"
+role = 1
+outdoor = true
+owner_team = &"team_a"
+bounds = AABB(0, 370, 1115, 3520, 700, 700)
+
+[sub_resource type="Resource" id="Resource_pewcp"]
+script = ExtResource("5_sef2m")
+id = &"yard_front_b"
+role = 1
+outdoor = true
+owner_team = &"team_b"
+bounds = AABB(4720, 370, 1115, 3520, 700, 700)
+
+[sub_resource type="Resource" id="Resource_el8lw"]
+script = ExtResource("5_sef2m")
+id = &"yard_side_a"
+role = 1
+outdoor = true
+owner_team = &"team_a"
+bounds = AABB(0, 370, 300, 350, 700, 815)
+
+[sub_resource type="Resource" id="Resource_md8ba"]
+script = ExtResource("5_sef2m")
+id = &"yard_side_b"
+role = 1
+outdoor = true
+owner_team = &"team_b"
+bounds = AABB(7890, 370, 300, 350, 700, 815)
+
 [resource]
 script = ExtResource("2_fg6sm")
 id = &"house"
 display_name = "House"
-zones = Array[ExtResource("5_sef2m")]([SubResource("Resource_36h1d"), SubResource("Resource_g0foi"), SubResource("Resource_qugkh"), SubResource("Resource_obgwx"), SubResource("Resource_cka7o"), SubResource("Resource_urtio"), SubResource("Resource_p6s5o"), SubResource("Resource_qlupd"), SubResource("Resource_50y2t"), SubResource("Resource_oroqu"), SubResource("Resource_xxhyf"), SubResource("Resource_hh033"), SubResource("Resource_53710"), SubResource("Resource_5bxq1"), SubResource("Resource_vu4ss"), SubResource("Resource_g0beo"), SubResource("Resource_lmcp7"), SubResource("Resource_qiish"), SubResource("Resource_x77oc"), SubResource("Resource_homhv"), SubResource("Resource_w7n08"), SubResource("Resource_ccw4a"), SubResource("Resource_pewcp")])
+zones = Array[ExtResource("5_sef2m")]([SubResource("Resource_36h1d"), SubResource("Resource_g0foi"), SubResource("Resource_qugkh"), SubResource("Resource_obgwx"), SubResource("Resource_cka7o"), SubResource("Resource_urtio"), SubResource("Resource_p6s5o"), SubResource("Resource_qlupd"), SubResource("Resource_50y2t"), SubResource("Resource_oroqu"), SubResource("Resource_xxhyf"), SubResource("Resource_hh033"), SubResource("Resource_53710"), SubResource("Resource_5bxq1"), SubResource("Resource_vu4ss"), SubResource("Resource_g0beo"), SubResource("Resource_lmcp7"), SubResource("Resource_qiish"), SubResource("Resource_x77oc"), SubResource("Resource_homhv"), SubResource("Resource_w7n08"), SubResource("Resource_ccw4a"), SubResource("Resource_pewcp"), SubResource("Resource_el8lw"), SubResource("Resource_md8ba")])
 teams = Array[ExtResource("4_pjeyl")]([SubResource("Resource_8ajjd"), SubResource("Resource_inniw")])
 collision = SubResource("Resource_his24")
 surface = SubResource("Resource_4r7kt")

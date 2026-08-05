@@ -10,7 +10,7 @@ extends SceneTree
 ## defect it must catch and the suite fails if the validator stays quiet.
 
 ## Every check this suite is meant to run. See the harness guard below.
-const EXPECTED_CHECKS: int = 34
+const EXPECTED_CHECKS: int = 35
 
 var _passed: int = 0
 var _failed: int = 0
@@ -291,6 +291,17 @@ func _test_more_than_one_way_in() -> void:
 	_check("routes/three passes silently", _validate(three, quiet).size(), 0)
 	_check("routes/with nothing to advise", quiet.size(), 0)
 
+	# Outdoors is the `outdoor` flag, not neutrality. The same three-route house
+	# with its yard left unmarked has to fail: if neutrality still counted, open
+	# ground could not be owned, and unowned ground is ground nobody can be
+	# seized on - which is what emptied a whole match of captures.
+	var unmarked: Dictionary = _house_with_routes(3)
+	unmarked["collision"].is_fixture = false # judge it as a level, not a rig
+	for zone: ZoneDef in unmarked["zones"]:
+		zone.outdoor = false
+	_check("routes/a neutral zone is not by itself an outdoors",
+		_mentions(_validate(unmarked), "no zone is marked outdoor"), true)
+
 	# A level with no outdoors is one this row cannot answer, so it is refused
 	# rather than waved through. The two-room box passes only because it says on
 	# itself that it is a rig; clear that and it stops being exempt.
@@ -335,7 +346,7 @@ func _house_with_routes(routes: int) -> Dictionary:
 	collision.blockers = walls
 
 	var yard: ZoneDef = _zone(&"yard", ZoneDef.Role.NEUTRAL, &"",
-		AABB(Vector3(0, 0, 0), Vector3(100, 100, depth)))
+		AABB(Vector3(0, 0, 0), Vector3(100, 100, depth)), true)
 	var vault: ZoneDef = _zone(&"vault", ZoneDef.Role.CASH_ROOM, &"team_b",
 		AABB(Vector3(254, 0, 0), Vector3(146, 100, depth)))
 	return _bundle([yard, vault] as Array[ZoneDef], collision, depth)
@@ -352,7 +363,7 @@ func _garage() -> Dictionary:
 	] as Array[AABB]
 
 	var yard: ZoneDef = _zone(&"yard", ZoneDef.Role.NEUTRAL, &"",
-		AABB(Vector3(0, 0, 0), Vector3(100, 100, depth)))
+		AABB(Vector3(0, 0, 0), Vector3(100, 100, depth)), true)
 	var garage: ZoneDef = _zone(&"garage", ZoneDef.Role.CASH_ROOM, &"team_b",
 		AABB(Vector3(104, 0, 0), Vector3(296, 100, depth)))
 	return _bundle([yard, garage] as Array[ZoneDef], collision, depth)
@@ -440,10 +451,12 @@ func _ledge_over(height: float) -> Dictionary:
 		"tuning": tuning,
 	}
 
-func _zone(id: StringName, role: ZoneDef.Role, owner: StringName, bounds: AABB) -> ZoneDef:
+func _zone(id: StringName, role: ZoneDef.Role, owner: StringName, bounds: AABB,
+		outdoor: bool = false) -> ZoneDef:
 	var zone: ZoneDef = ZoneDef.new()
 	zone.id = id
 	zone.role = role
 	zone.owner_team = owner
 	zone.bounds = bounds
+	zone.outdoor = outdoor
 	return zone

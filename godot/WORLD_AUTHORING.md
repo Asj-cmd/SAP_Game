@@ -171,6 +171,14 @@ Three details make the count mean what it should:
 - **Unzoned space is a region like any other.** Door thresholds and side passages
   usually belong to no room, and leaving them out silently merges the rooms they
   separate.
+- **Outdoors is `ZoneDef.outdoor`, not neutrality.** They look like the same
+  thing and they are not, and conflating them cost the game its captures. A
+  seizure is only legal on ground your team owns, so tying "outdoors" to
+  neutrality forced every garden to be unowned — and an unowned garden is
+  where the two sides meet and can do nothing about each other. Measured: 18
+  encounters in a six-minute bot match, every one outdoors, not one where a
+  capture was legal, and zero captures. Ownership says who may seize; `outdoor`
+  says what the gate counts ways in from. See §13.
 
 **Open plan scores low, and that is the answer rather than a bug.** A wide
 knocked-through opening is one connected stretch of boundary, so it is one
@@ -407,3 +415,47 @@ this, and the reason the blockout is dimensioned before anything is modelled.
 balcony and you cannot climb back onto it. That is why WalkableSurface carries
 directed edges and why the gate checks reachable *and* escapable — see §11 and
 §13.
+
+## 13. Encounters are a layout metric too
+
+Ways-in stops a room being campable. It says nothing about whether the two teams
+ever meet, and a map optimised for one and blind to the other is how the house
+arrived at **three ways into all eighteen rooms and zero captures in six
+minutes**. The core interaction simply was not happening.
+
+`tools/bot_match.gd` now reports it:
+
+```
+encounters  28 within reach, 18 of them where a seizure was legal, 28 within sight
+raiding     team_b 38%, team_a 43% of the match on enemy ground
+encounters  10 places; the worst 4 hold 19 of 28
+```
+
+Three numbers, and the split between them is what makes it a diagnosis rather
+than a complaint:
+
+- **Encounters within reach** — opponents close enough that seizing was
+  physically available. Edge-triggered with hysteresis, so a five-second standoff
+  is one encounter, not a hundred ticks of one.
+- **How many were legal** — both bodies in one room, owned by one of them, not a
+  pen: the same conditions `CaptureSystem` enforces. The gap between this and the
+  previous number is opportunities the *rules* refused, not ones the bots missed.
+- **Raiding** — share of the match each side spends on enemy ground. Near zero
+  means the teams are not crossing at all and the encounter count says nothing
+  about the layout; healthy means they cross, and a low encounter count is then a
+  real layout result.
+
+**What it found the first time it ran, which was not what anyone predicted.** The
+plausible story was that min-cut 3 had spread the houses apart and compartmented
+them until the two teams never met. The measurement said otherwise: they met 18
+times. Every single one was outdoors, on neutral ground, where a seizure is
+illegal by rule. Not a distance problem and not a routing problem — the teams
+were meeting exclusively in the one place the game refuses to let anything
+happen.
+
+Making the ground round each house belong to it turned 0 legal encounters into
+18, 0 seizures into 3, raiding from 8% into 40%, and a match that ran out of
+clock into one that was won. No geometry moved.
+
+**Read them together or not at all.** Ways-in alone builds a house nobody can
+camp and nobody fights in. Encounters alone builds a corridor.

@@ -16,6 +16,18 @@ enum Role {
 
 @export var id: StringName = &""
 @export var role: Role = Role.NEUTRAL
+
+## Is this open ground rather than a room?
+##
+## Separate from `role` and from ownership, because it answers a different
+## question and the three do not move together. The routes gate counts ways in
+## FROM OUTSIDE, so it needs to know what outside is - and outside is a property
+## of the space, not of who owns it. A garden owned by the family whose house it
+## surrounds is still outdoors, and making it neutral instead was a lie told to
+## the gate that cost the game its captures: a seizure is only legal on ground
+## you own, so unowned ground is where the two sides meet and can do nothing
+## about each other.
+@export var outdoor: bool = false
 ## Empty for neutral ground.
 @export var owner_team: StringName = &""
 ## 3D from the first commit (§6) - a multi-storey house must not need a retrofit.

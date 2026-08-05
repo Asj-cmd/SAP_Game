@@ -472,21 +472,42 @@ func _emit(origin: float, flip: bool, team: StringName, side: String) -> void:
 ## Several zones rather than one big one, because zone resolution takes the
 ## first match rather than the highest priority, and a garden drawn over the
 ## top of the houses would quietly claim every room in them.
+##
+## THE GROUND ROUND A HOUSE BELONGS TO IT. Not decoration: a seizure is only
+## legal on ground your team owns, so an unowned garden is somewhere the two
+## sides can meet and do nothing about each other. Measured, that is exactly
+## what happened - eighteen encounters in a six-minute match, every one of them
+## outdoors, not one where a capture was legal, and zero captures. The original
+## 2D game drew this line the same way: its idea of home ground covered the
+## yard.
+##
+## What stays neutral is the strip BETWEEN the two houses. Somewhere has to be,
+## or the routes gate has no outdoors to count ways in from - and a no-man's
+## land in the middle is what makes crossing it a decision.
 func _garden() -> void:
 	var high: float = WORLD_H - GROUND
 	var front: float = ORIGIN_Z + HOUSE_D
-	_garden_piece("back", AABB(Vector3(0, GROUND, 0), Vector3(WORLD_W, high, ORIGIN_Z)))
-	_garden_piece("front", AABB(Vector3(0, GROUND, front),
-		Vector3(WORLD_W, high, WORLD_D - front)))
-	_garden_piece("west", AABB(Vector3(0, GROUND, ORIGIN_Z),
-		Vector3(HOUSE_A_X, high, HOUSE_D)))
-	_garden_piece("east", AABB(Vector3(HOUSE_B_X + HOUSE_W, GROUND, ORIGIN_Z),
-		Vector3(SIDE, high, HOUSE_D)))
-	_garden_piece("middle", AABB(Vector3(HOUSE_A_X + HOUSE_W, GROUND, ORIGIN_Z),
-		Vector3(GAP, high, HOUSE_D)))
+	var edge_a: float = HOUSE_A_X + HOUSE_W
+	var edge_b: float = HOUSE_B_X
+	_ground("garden", ZoneDef.Role.NEUTRAL, &"",
+		AABB(Vector3(edge_a, GROUND, 0), Vector3(GAP, high, WORLD_D)))
+	for i: int in 2:
+		var team: StringName = &"team_a" if i == 0 else &"team_b"
+		var side: String = "a" if i == 0 else "b"
+		var from: float = 0.0 if i == 0 else edge_b
+		var span: float = edge_a if i == 0 else WORLD_W - edge_b
+		_ground("yard_back_%s" % side, ZoneDef.Role.HOME, team,
+			AABB(Vector3(from, GROUND, 0), Vector3(span, high, ORIGIN_Z)))
+		_ground("yard_front_%s" % side, ZoneDef.Role.HOME, team,
+			AABB(Vector3(from, GROUND, front), Vector3(span, high, WORLD_D - front)))
+		_ground("yard_side_%s" % side, ZoneDef.Role.HOME, team,
+			AABB(Vector3(from if i == 0 else edge_b + HOUSE_W, GROUND, ORIGIN_Z),
+				Vector3(SIDE, high, HOUSE_D)))
 
-func _garden_piece(name: String, bounds: AABB) -> void:
-	_zone(StringName("garden_%s" % name), ZoneDef.Role.NEUTRAL, &"", 0, bounds)
+## Everything this builds is open ground, whoever owns it - which is what the
+## routes gate counts ways in from.
+func _ground(name: String, role: ZoneDef.Role, team: StringName, bounds: AABB) -> void:
+	_zone(StringName(name), role, team, 0, bounds, true)
 
 # ---- scene ----
 
@@ -512,8 +533,9 @@ func _blocker(box: AABB) -> void:
 	_box("blocker_%d" % _count, box.position + box.size * 0.5, box.size)
 
 func _zone(id: StringName, role: ZoneDef.Role, team: StringName, priority: int,
-		bounds: AABB) -> void:
+		bounds: AABB, outdoor: bool = false) -> void:
 	var node: BlockoutZone = BlockoutZone.new()
+	node.outdoor = outdoor
 	node.name = "zone_%s" % id
 	var mesh: BoxMesh = BoxMesh.new()
 	mesh.size = bounds.size

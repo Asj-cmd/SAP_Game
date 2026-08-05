@@ -326,7 +326,10 @@ static func _check_escapability(
 ## OUTDOORS is the source, and a source is never cut. That is what stops the
 ## yard between two houses reporting as a chokepoint: it is a cut vertex by
 ## construction, so asking about it could only ever have been answered by
-## inventing a second yard.
+## inventing a second yard. Outdoors is `ZoneDef.outdoor`, NOT neutrality - a
+## garden belonging to the family whose house it surrounds is still outdoors,
+## and conflating the two forced open ground to be unowned, which is what stops
+## anybody being seized on it.
 ##
 ## UNZONED space is a region like any other. Door thresholds and side passages
 ## are usually nobody's room, and leaving them out would silently merge the
@@ -348,12 +351,12 @@ static func _check_redundant_routes(
 	for r: int in region:
 		count = maxi(count, r + 1)
 
-	# The source, sitting outside the graph and feeding every neutral region.
+	# The source, sitting outside the graph and feeding every outdoor region.
 	var outdoors: int = count
 	var capacity: Array[PackedInt32Array] = _aperture_capacities(surface, region, count + 1)
 	var found_outside: bool = false
 	for i: int in zones.size():
-		if zones[i].role == ZoneDef.Role.NEUTRAL:
+		if zones[i].outdoor:
 			capacity[outdoors][i] = UNLIMITED
 			found_outside = true
 	if not found_outside:
@@ -364,12 +367,14 @@ static func _check_redundant_routes(
 			advisories.append("routes: fixture content, so ways in were not counted")
 		else:
 			failures.append(
-				"routes: cannot validate routes - no outdoor source, and this is not "
-				+ "declared a fixture (WorldCollisionDef.is_fixture)"
+				"routes: cannot validate routes - no zone is marked outdoor, and this "
+				+ "is not declared a fixture (WorldCollisionDef.is_fixture)"
 			)
 		return
 
 	for i: int in zones.size():
+		if zones[i].outdoor:
+			continue # it IS the outside; there is nothing to come in from
 		if zones[i].role == ZoneDef.Role.NEUTRAL:
 			continue
 		if not region.has(i):

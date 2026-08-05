@@ -35,16 +35,20 @@ var tuning: TuningDef = null
 var mode: GameModeDef = null
 var bot_profile: BotProfileDef = null
 
-func _init(safe_variant: SafeVariant = SafeVariant.B) -> void:
+## `level_path` is overridable so one layout can be measured against another
+## without editing anything. Comparing two maps on the same harness is the only
+## way a layout metric means anything - a number with nothing to compare it to
+## is a number nobody can act on.
+func _init(safe_variant: SafeVariant = SafeVariant.B, level_path: String = LEVEL_PATH) -> void:
 	variant = safe_variant
 	tuning = build_tuning()
 	bot_profile = load(BOT_PROFILE_PATH) as BotProfileDef
 	if bot_profile == null:
 		push_error("grey box: no bot profile at %s - run tools/write_bot_profiles.gd" % BOT_PROFILE_PATH)
 
-	var baked: LevelDef = load(LEVEL_PATH) as LevelDef
+	var baked: LevelDef = load(level_path) as LevelDef
 	if baked == null:
-		push_error("grey box: no baked level at %s - run tools/bake_blockout.gd" % LEVEL_PATH)
+		push_error("grey box: no baked level at %s - run tools/bake_blockout.gd" % level_path)
 		mode = build_mode(0)
 		return
 
