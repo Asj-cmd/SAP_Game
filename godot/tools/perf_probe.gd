@@ -172,6 +172,6 @@ func _route_cost(level: GreyBoxLevel) -> void:
 		points = nav.route(from_point, to_point)
 	var route_ms: float = float(Time.get_ticks_usec() - started) / 1000.0 / float(runs)
 
-	print("one re-route  %.2f ms across %d stances, %d waypoints out" % [
-		route_ms, world.surface.size(), points.size()])
+	print("one re-route  %.2f ms across %d stances, %d waypoints out, %d nodes settled" % [
+		route_ms, world.surface.size(), points.size(), nav.last_expanded])
 	print("  of which finding the two end stances: %.2f ms" % near_ms)

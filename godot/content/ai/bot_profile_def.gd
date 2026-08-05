@@ -80,6 +80,18 @@ extends Resource
 ## Jitter applied to the travel direction, in radians. Steering imprecision -
 ## it does not walk perfect lines.
 @export var steer_wobble: float = 0.05
+## How far a bot walks before it recomputes its sense of what is near.
+##
+## Scoring errands needs distances from where the bot is standing, and getting
+## them means flooding the whole stance graph - 14,000 of them in the house, and
+## once per decision per bot. That flood was most of a stutter: the median tick
+## was 1.6 ms and the 99th over 100.
+##
+## Reusing it while the bot is still roughly where it was costs almost nothing
+## in quality, because moving a few cells adds roughly the same error to EVERY
+## candidate and the choice between them is what the numbers are for. Larger is
+## cheaper and staler.
+@export var distance_refresh: float = 400.0
 ## How many waypoints ahead to look for a clear line when steering.
 ##
 ## The route is a sequence of standing places and the nearest one is often just

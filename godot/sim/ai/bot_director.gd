@@ -41,6 +41,19 @@ var _route: PackedVector3Array = PackedVector3Array()
 var _leg: int = 0
 var _next_decide_tick: int = 0
 var _next_repath_tick: int = 0
+## What the current route was built to reach. A route is only worth rebuilding
+## when the thing it leads to has moved - see _plan.
+var _planned_for: Vector3 = Vector3.ZERO
+var _planned_kind: int = -1
+var _planned_target: int = SimEntity.NO_ENTITY
+## Walking distances from roughly where the bot is standing, kept between
+## decisions. See BotProfileDef.distance_refresh.
+var _hops: PackedInt32Array = PackedInt32Array()
+var _hops_measured_at: Vector3 = Vector3.ZERO
+var _has_hops: bool = false
+## Where the bot was when its route was last examined, to tell a route being
+## walked from a route being failed at.
+var _checked_at: Vector3 = Vector3.ZERO
 ## Chosen, but not yet acted on. Human hesitation, in ticks.
 var _act_after_tick: int = 0
 var _last_intent: Vector3 = Vector3.ZERO
@@ -137,8 +150,12 @@ func drain(world: SimWorld, tick: int, claims: Dictionary[String, int]) -> Array
 func _decide(world: SimWorld, me: SimEntity, tick: int, claims: Dictionary[String, int]) -> void:
 	_next_decide_tick = tick + profile.decide_ticks() + _jitter_ticks()
 
-	var origin: int = nav.node_at(me.position)
-	var hops: PackedInt32Array = nav.hops_from(origin)
+	var refresh: float = profile.distance_refresh
+	if not _has_hops 		or me.position.distance_squared_to(_hops_measured_at) > refresh * refresh:
+		_hops = nav.hops_from(nav.node_at(me.position))
+		_hops_measured_at = me.position
+		_has_hops = true
+	var hops: PackedInt32Array = _hops
 
 	var best: BotTask = BotTask.none()
 	var best_score: float = -INF
@@ -243,9 +260,21 @@ func _threats(world: SimWorld, me: SimEntity, task: BotTask) -> int:
 			seen += 1
 	return seen
 
-func _plan(world: SimWorld, me: SimEntity, tick: int) -> void:
+## Builds a route for the current task, or keeps the one already in hand.
+##
+## `force` is for the one caller that must not be talked out of it: the recovery
+## when a bot has drifted off its line and can see none of its own waypoints.
+## Everything else asks, and usually gets told the route it has is still the
+## route it wants.
+##
+## Re-routing on a timer was costing a 21 ms flood of a fourteen-thousand-stance
+## graph, several times a second, for a route that had not changed. That is the
+## stutter: the median tick was 1.6 ms and the 99th over 100. Searching faster
+## turned out not to be the lever - A* settles a quarter of the nodes and still
+## lost to the flood in GDScript, three different queues deep. Searching LESS
+## OFTEN is.
+func _plan(world: SimWorld, me: SimEntity, tick: int, force: bool = false) -> void:
 	_next_repath_tick = tick + profile.repath_ticks()
-	_leg = 0
 	# Re-rolled on every route, not only when the errand changes.
 	#
 	# Wobble is a CONSTANT angular error, and held for a whole journey it stops
@@ -254,11 +283,46 @@ func _plan(world: SimWorld, me: SimEntity, tick: int) -> void:
 	# rather more than that, so a bot whose wobble happened to point into the
 	# jamb was pinned against it for as long as it kept the errand - which is a
 	# lone bot stalling two hundred times at one door, and never at any other.
+	#
+	# Still re-rolled on the TIMER even when the route is kept, because that is
+	# what the fix was for: a constant angular error held for a whole journey
+	# stops being imprecision and becomes a bias into the door frame.
 	_wobble = _rng.next_signed(profile.steer_wobble)
 	if _task.is_none():
 		_route = PackedVector3Array()
+		_planned_kind = -1
 		return
-	_route = nav.route(me.position, _destination_of(world))
+
+	var destination: Vector3 = _destination_of(world)
+	# The world moves under a held task: cash gets picked up, prisoners get
+	# moved to a pen. A route to where the target used to be is worse than no
+	# route, because the bot walks it confidently. So the question is not "has
+	# time passed" but "has the thing I am walking to moved" - and one arrival
+	# radius is the distance at which the answer stops mattering.
+	# Keep the route only while it is being WALKED.
+	#
+	# The periodic re-plan was not only a re-plan. It was the recovery for a bot
+	# that cannot follow the line it has - jammed on a door frame, sliding along
+	# a wall - because it threw the route away and asked again from wherever the
+	# body had actually got to. Cache that away and the bot keeps confidently
+	# re-aiming at a waypoint it will never reach: measured, every bot in the
+	# match pinned at a french window, nought carries, nought encounters, and 662
+	# seconds of a six-minute match trying to move and failing.
+	#
+	# So the test is progress, not time. A bot that has covered ground since the
+	# last look is following its route and does not need a new one; a bot that
+	# has not is stuck, whatever it believes it is doing.
+	var reach: float = profile.arrive_radius * profile.arrive_radius
+	var moved: bool = me.position.distance_squared_to(_checked_at) > reach
+	_checked_at = me.position
+	if not force and moved and _leg < _route.size() 		and _planned_kind == _task.kind and _planned_target == _task.target_id 		and destination.distance_squared_to(_planned_for) <= reach:
+		return
+
+	_leg = 0
+	_planned_for = destination
+	_planned_kind = _task.kind
+	_planned_target = _task.target_id
+	_route = nav.route(me.position, destination)
 
 ## Where the bot should physically go for its current task.
 ##
@@ -343,7 +407,8 @@ func _steer(world: SimWorld, me: SimEntity, tick: int) -> Array[SimCommand]:
 		# stall of a different kind, and it stopped a six-minute match from
 		# finishing at all.
 		if tick >= _next_repath_tick:
-			_plan(world, me, tick)
+			# Forced: the route in hand is exactly what is not working.
+			_plan(world, me, tick, true)
 			return _stop_if_moving(tick)
 		# Re-routed recently and still boxed in. Keep walking at the waypoint it
 		# already had; something else - gravity, a slide, the other body moving
