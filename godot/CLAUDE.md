@@ -1,7 +1,12 @@
 # Cash Grab (Godot) — working rules
 
-Read `ARCHITECTURE.md` before any structural work. It is the specification this
-project is reviewed against.
+**Start with `PROJECT_MEMORY.md`.** It carries where the project stands, the live
+queue, the working method, and the review errors worth not repeating — and it
+maps the other documents, including which one is superseded.
+
+Then `ARCHITECTURE.md` before any structural work; it is the specification this
+project is reviewed against. `DESIGN_DIRECTION.md` before proposing any gameplay
+change — most obvious improvements have already been argued once.
 
 ## Testing policy
 
