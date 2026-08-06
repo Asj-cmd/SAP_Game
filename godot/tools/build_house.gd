@@ -57,16 +57,36 @@ const FLIGHT_FROM_WALL: float = 50.0
 #
 # Ways in, chosen per room rather than solved for:
 #
-#   hall      front door, kitchen, stair from the landing
+#   hall      front door, kitchen, front stair
 #   kitchen   hall, jail, garden door
-#   jail      kitchen, its own door on the end wall
-#   landing   stair, vault
-#   vault     landing, bedroom      - and a window OUT, one way, to the garden
-#   bedroom   vault, trellis up from the garden
+#   jail      kitchen, end door, back stair
+#   landing   front stair, vault
+#   vault     landing, bedroom       - and a window OUT, one way, to the garden
+#   bedroom   vault, back stair      - and the same
 #
-# Two is the floor everywhere and nothing reaches for a third. The vault has
-# exactly two and both run through rooms somebody has to cross first, which is
-# what makes holding it worth doing.
+# TWO STAIRCASES, AT OPPOSITE ENDS, and that is arithmetic rather than taste. A
+# staircase is a single edge in the route graph, so with one of them EVERY path
+# upstairs crosses it and the vault has exactly one way in however the upper
+# floor is arranged - which is the one-door-one-defender failure with a nicer
+# name. A downward-only escape does not help: it is not a way in.
+#
+# So the choice was between an upstairs vault, two ways into it, and one stair.
+# Any two of those three. The stair count is the cheapest to give up, and two
+# flights at opposite ends is a legible plan: the vault sits between them and no
+# single body holds both.
+#
+# Both upstairs rooms have a window onto the garden, and both are one-way. 330
+# down is a drop you walk away from; 330 up is not a verb this game has. Climb
+# slowly by a contested stair, leave fast and committed - which is the asymmetry
+# an upstairs vault wants, and it costs no structure at all: a window is an
+# absence, and the drop is already in the walkable surface as a directed edge.
+#
+# What used to be here was a trellis - 704 units of external staircase bolted to
+# the front for one window. A driven body climbed it in every lane and the bots'
+# follow could not, which says the geometry was too demanding for anything not
+# being driven, and a player would have found it fiddly for the same reason. A
+# real external climb belongs to a vertical-climb traversal type at near-zero
+# footprint, not to a staircase in costume.
 const GROUND: float = 40.0
 const UPPER: float = GROUND + STOREY
 const ROOF: float = UPPER + STOREY
@@ -88,6 +108,13 @@ const WORLD_H: float = ROOF + SLAB
 const HALL: int = 0
 const MIDDLE: int = 1
 const FAR: int = 2
+
+## Where the two flights sit. Chosen so neither covers a doorway, neither is
+## what you meet coming through one, and neither sits on the spot the rules put
+## a prisoner.
+const FRONT_STAIR_X: float = WALL + 500.0
+const BACK_STAIR_X: float = WALL + (ROOM + WALL) * 2.0 + 20.0
+const BACK_STAIR_Z: float = WALL + 40.0
 
 var _solids: Array[AABB] = []
 var _root: Node3D = null
@@ -138,32 +165,35 @@ func _draw_house() -> void:
 		_wall_x(_slot(MIDDLE) - WALL * 0.5, WALL, HOUSE_D - WALL, level, top, doorway)
 		_wall_x(_slot(FAR) - WALL * 0.5, WALL, HOUSE_D - WALL, level, top, doorway)
 
-	_slab(UPPER, Rect2(0.0, 0.0, HOUSE_W, HOUSE_D), [_stairwell()] as Array[Rect2])
+	_slab(UPPER, Rect2(0.0, 0.0, HOUSE_W, HOUSE_D),
+		[_stairwell_z(), _stairwell_x()] as Array[Rect2])
 	_slab(ROOF, Rect2(0.0, 0.0, HOUSE_W, HOUSE_D), [] as Array[Rect2])
 
-	# One staircase, in the hall, arriving on the landing directly above it.
-	_flight(_slot(HALL) + 100.0, FLIGHT_FROM_WALL, GROUND)
-
-	# The trellis: garden up to a bedroom window, against the far end of the
-	# front so it fouls neither ground-floor door.
-	_flight_x(_slot(FAR), HOUSE_D, GROUND, 300.0)
+	# Front stair, hall up to the landing, running the depth of the room and set
+	# across from the front door so walking in is not walking under it.
+	_flight_z(FRONT_STAIR_X, FLIGHT_FROM_WALL, GROUND)
+	# Back stair, jail up to the bedroom - so a rescue can leave upstairs.
+	#
+	# Runs ACROSS the room rather than down it. A flight is 704 long and a room
+	# is 755, so one laid down the room's depth covers the whole of one side,
+	# and the jail's two doors and the spot a prisoner is put are all on that
+	# side. The gate caught it as a pen whose centre is inside a blocker, which
+	# is a prisoner in a staircase.
+	_flight_x(BACK_STAIR_X, BACK_STAIR_Z, GROUND)
 
 ## The front of the house, facing the garden.
 func _front_openings(level: float) -> Array[Vector2]:
 	if level == GROUND:
 		return [
-			_across(_slot(HALL) + ROOM * 0.5, DOOR), # front door, into the hall
+			_across(_slot(HALL) + 250.0, DOOR), # front door, into the hall
 			_across(_slot(MIDDLE) + ROOM * 0.5, DOOR), # garden door, into the kitchen
 		] as Array[Vector2]
+	# Both upstairs windows: ways OUT, never in. Each is clear of the stairwell
+	# below it, so stepping out drops you into the garden rather than back down
+	# your own stairs.
 	return [
-		# The vault's window. A way OUT and never in: 330 down is a drop you walk
-		# away from, 330 up is not a verb this game has. Climb in slowly by the
-		# stair or the trellis; leave fast and committed, out of the window.
-		_across(_slot(MIDDLE) + ROOM * 0.5, DOOR),
-		# Off the top of the trellis, into the bedroom. Pulled back far enough
-		# that the whole opening is in the bedroom's own wall and still meets
-		# the top tread.
-		_across(_slot(FAR) + RUN * float(TREADS) - 120.0, DOOR),
+		_across(_slot(MIDDLE) + ROOM * 0.5, DOOR), # off the vault
+		_across(_slot(FAR) + 150.0, DOOR), # off the bedroom
 	] as Array[Vector2]
 
 ## The jail's own door, on the end wall, so the pen is not reached only through
@@ -180,16 +210,26 @@ func _end_openings(level: float) -> Array[Vector2]:
 ## Worked out the way the FILL will see it, not from the clear height: a body
 ## occupies the layer whose centre is first above its rest height, and the layer
 ## is as tall as a step, so the rounding is worth a whole tread (§11).
-func _stairwell() -> Rect2:
+func _stairwell_z() -> Rect2:
+	var from: float = FLIGHT_FROM_WALL + RUN * float(_covered()) - 40.0
+	return Rect2(FRONT_STAIR_X, from, FLIGHT_W, HOUSE_D - from)
+
+func _stairwell_x() -> Rect2:
+	var from: float = BACK_STAIR_X + RUN * float(_covered()) - 40.0
+	return Rect2(from, BACK_STAIR_Z, HOUSE_W - WALL - from, FLIGHT_W)
+
+## The first tread whose standing body would have its head in the slab above.
+##
+## Worked out the way the FILL will see it, not from the clear height: a body
+## occupies the layer whose centre is first above its rest height, and the layer
+## is as tall as a step, so the rounding is worth a whole tread (§11).
+func _covered() -> int:
 	var ceiling: float = GROUND + STOREY - SLAB - BODY
-	var covered: int = TREADS
 	for i: int in TREADS:
 		var rest: float = GROUND + STEP * float(i + 1) + BODY
 		if (ceil(rest / STEP - 0.5) + 0.5) * STEP >= ceiling:
-			covered = i
-			break
-	var from: float = FLIGHT_FROM_WALL + RUN * float(covered) - 40.0
-	return Rect2(_slot(HALL) + 100.0, from, FLIGHT_W, HOUSE_D - from)
+			return i
+	return TREADS
 
 func _slot(index: int) -> float:
 	return WALL + (ROOM + WALL) * float(index)
@@ -221,7 +261,7 @@ func _stamp(turned: bool, team: StringName, side: String) -> void:
 
 	for i: int in 3:
 		_marker("spawn_%s_%d" % [team, i], _place(AABB(Vector3(
-			_slot(HALL) + 480.0, GROUND + BODY, 200.0 + 180.0 * float(i)),
+			_slot(HALL) + 250.0, GROUND + BODY, 200.0 + 180.0 * float(i)),
 			Vector3.ONE), turned).position)
 		_marker("cash_%s_%d" % [team, i], _place(AABB(Vector3(
 			_slot(MIDDLE) + 180.0 + 200.0 * float(i), UPPER + BODY, HOUSE_D * 0.5),
@@ -330,20 +370,18 @@ func _slab_piece(top: float, from: float, to: float, z0: float, z1: float) -> vo
 	_solid(AABB(Vector3(from, top - SLAB, z0), Vector3(to - from, SLAB, z1 - z0)))
 
 ## A straight flight running in +z.
-func _flight(x: float, from_z: float, base: float) -> void:
+func _flight_z(x: float, from_z: float, base: float) -> void:
 	for i: int in TREADS:
 		var top: float = base + STEP * float(i + 1)
 		_solid(AABB(Vector3(x, base, from_z + RUN * float(i)),
 			Vector3(FLIGHT_W, top - base, RUN)))
 
-## A straight flight running in +x, outside the house, with a landing on top.
-func _flight_x(from_x: float, z: float, base: float, landing: float) -> void:
+## The same flight, turned: running in +x.
+func _flight_x(from_x: float, z: float, base: float) -> void:
 	for i: int in TREADS:
 		var top: float = base + STEP * float(i + 1)
 		_solid(AABB(Vector3(from_x + RUN * float(i), base, z),
-			Vector3(RUN, top - base, 220.0)))
-	_solid(AABB(Vector3(from_x + RUN * float(TREADS), base + STOREY - SLAB, z),
-		Vector3(landing, SLAB, 220.0)))
+			Vector3(RUN, top - base, FLIGHT_W)))
 
 func _solid(box: AABB) -> void:
 	_solids.append(box.abs())
