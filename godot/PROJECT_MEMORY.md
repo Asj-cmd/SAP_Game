@@ -144,26 +144,32 @@ existed before ten seconds of fun did.
 
 ## 6. Live queue
 
-In order, as last agreed:
+Items 1-3 are done - see `55e0b9e` and the commit that added this line.
 
-1. **Replace the trellis with a balcony drop.** The trellis is 704 units of
-   external staircase for one window, and the only climb in the house. A driven
-   body climbs it in all three lanes; the bot follow cannot — 201 of 232 stalls
-   at that one point. Cutting it outright would leave the staircase as the only
-   vertical link, and one defender on those stairs holds the whole robbery. A
-   one-way downward drop from bedroom or landing costs no structure, is visible
-   from below, and gives the up-slow/down-fast asymmetry an upstairs vault wants.
-   Bedroom's second entrance becomes internal.
-2. **Check whether the trellis stall survives the change** before debugging it.
-   It may cease to exist.
-3. **Re-measure before the amortised flooding.** The queued p99 work may now be
-   solving a problem the smaller world already solved.
-4. **Bot route variety** — it takes the same approach every time, which is
-   solvable after two rounds.
-5. **Encounter→seizure conversion.** The bottleneck moved: teams now meet on
-   legal ground and don't convert. Hold this until a human has played, because
-   14% may be a bot deficiency rather than a game problem — and tuning the game
-   to fix the bots would make it worse for people.
+1. ~~Replace the trellis with a balcony drop.~~ **Done.** Both upstairs rooms
+   have a one-way window onto the garden instead; no structure. Cutting the
+   trellis outright would have left one staircase as the only vertical link, and
+   a staircase is a single edge in the route graph - so with one of them the
+   vault has exactly one way in however the upper floor is arranged. Upstairs
+   vault, two ways in, one stair: any two of the three. There are two flights
+   now, at opposite ends, and the vault sits between them.
+2. ~~Check whether the trellis stall survives.~~ **It did not.** 232 stalls
+   became 69 and the cluster of 201 at that one point ceased to exist. Nothing
+   was debugged.
+3. ~~Re-measure before the amortised flooding.~~ **Not needed.** p99 113 -> 41 ms
+   and 80 -> 18 over-budget ticks in 600, from the smaller world alone.
+4. **Bot route variety** - it takes the same approach every time, which is
+   solvable after two rounds. Next.
+5. **Encounter to seizure conversion.** Held until a human has played: 14% may
+   be a bot deficiency rather than a game problem, and tuning the game to fix the
+   bots would make it worse for people.
+
+Also closed: the two houses were measurably different despite one being an exact
+turn of the other. The world was not a whole number of sampling cells, so the
+turned copy landed at a different phase against the grid - 4,072 stances against
+3,986, different route counts, and raiding at 89% against 28%. Fixed by sizing
+the world in whole cells; the builder now refuses to write a scene that breaks
+it. See `WORLD_AUTHORING.md` §11.
 
 ## 7. Two things still owed to the user
 

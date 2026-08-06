@@ -95,14 +95,34 @@ const HOUSE_W: float = ROOM * 3.0 + WALL * 4.0 # 2385
 const HOUSE_D: float = ROOM + WALL * 2.0 # 815
 
 const GARDEN_D: float = 1400.0 ## between the two front doors
-const SIDE: float = 400.0
-const BEHIND: float = 200.0
 
+## THE WORLD IS A WHOLE NUMBER OF SAMPLING CELLS, and that is what makes the two
+## houses the same house.
+##
+## The second house is the first turned 180 degrees: x' = WORLD_W - x. The
+## walkable fill samples at cell centres, so that map sends a sampled point to
+## another sampled point only when WORLD_W is a multiple of the cell - otherwise
+## the turned copy lands at a different phase against the grid and gets a
+## DIFFERENT SURFACE from identical geometry.
+##
+## It did. 4,072 stances on one side against 3,986 on the other, and with them
+## different route counts for the same rooms: hall 3 against 2, landing 3
+## against 2. Every blocker had an exact rotated partner; the drift was entirely
+## in the sampling.
+##
+## The cell is `actor_radius * WalkableSurface.CELL_RADII` = 40, unless the shell
+## is long enough for SHELL_DIVISIONS to bite, which at this size it is not.
+const CELL: float = 40.0
+const WORLD_W: float = 3200.0 # 80 cells
+const WORLD_D: float = 3440.0 # 86 cells
+const WORLD_H: float = ROOF + SLAB
+
+## Margins fall out of the world size rather than setting it. They are the give
+## in the layout: nothing is measured from them.
+const SIDE: float = (WORLD_W - HOUSE_W) * 0.5
+const BEHIND: float = (WORLD_D - GARDEN_D - HOUSE_D * 2.0) * 0.5
 const HOUSE_X: float = SIDE
 const HOUSE_Z: float = BEHIND
-const WORLD_W: float = HOUSE_W + SIDE * 2.0
-const WORLD_D: float = (BEHIND + HOUSE_D) * 2.0 + GARDEN_D
-const WORLD_H: float = ROOF + SLAB
 
 ## Slots left to right, as the plan reads.
 const HALL: int = 0
@@ -122,6 +142,16 @@ var _count: int = 0
 
 func _initialize() -> void:
 	_draw_house()
+
+	# Said out loud rather than assumed. The turn is only a symmetry if the world
+	# is a whole number of cells across, and a silently asymmetric level is a
+	# balance bug nobody can see.
+	if not is_equal_approx(fmod(WORLD_W, CELL), 0.0) 		or not is_equal_approx(fmod(WORLD_D, CELL), 0.0):
+		printerr("world %d x %d is not a whole number of %d-unit cells: the turned "
+			% [int(WORLD_W), int(WORLD_D), int(CELL)]
+			+ "house will be sampled at a different phase and will not match")
+		quit(1)
+		return
 
 	_root = Node3D.new()
 	_root.name = "HouseBlockout"

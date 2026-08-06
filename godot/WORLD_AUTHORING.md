@@ -349,6 +349,23 @@ step, so the rounding is worth a whole tread. Sizing the stairwell opening from
 the clear height left exactly one tread of each flight buried in the slab.
 `tools/build_house.gd:_covered_from` works it out the way the fill will see it.
 
+**A mirrored or turned level is only symmetric if the world is a whole number
+of cells across.** The fill samples at cell centres, so a turn `x' = W - x`
+sends a sampled point to another sampled point only when `W` is a multiple of
+the cell. Otherwise the copy lands at a different PHASE against the grid and
+identical geometry produces a different surface.
+
+It did, and it was invisible: every blocker in the house had an exact rotated
+partner, and the two copies still came out at 4,072 stances against 3,986,
+with different route counts for the same rooms - hall 3 against 2, landing 3
+against 2. In play the two teams raided at 89% and 28%. The world was 3185 x
+3430; at 3200 x 3440 the counts match exactly and the raiding evened to 35%
+and 38%.
+
+So: pick the world size as a multiple of the cell FIRST and let the margins
+fall out of it. `tools/build_house.gd` refuses to write a scene that breaks
+this, because a silently asymmetric level is a balance bug nobody can see.
+
 **The surface is baked, not built.** It is a pure function of static geometry
 and a body size, so the baker computes it and stores it in the level `.tres`
 (`WalkableSurfaceDef`); loading reads two flat arrays. For the grey-box house
