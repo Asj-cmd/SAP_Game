@@ -27,7 +27,18 @@ That is the whole setup. Leave it running in the background.
 > relays the connection for you. That is coming; it is not here yet, and it
 > should not be what stops us testing.
 
-## 2. Run the game
+## 2. Get the build
+
+If you have one already, skip to running it. To make one from the source:
+
+```
+godot --headless --path godot --export-release "Windows Desktop"
+```
+
+It lands in `build/CashGrab.exe` - one file, about 110 MB, no installer. Send
+the whole thing to whoever is playing.
+
+## 3. Run the game
 
 Unzip anywhere and run **CashGrab.exe**. No installer.
 
@@ -64,15 +75,14 @@ CashGrab.exe -- --join=05ZG-0001-W5FG
 
 Codes are not case-sensitive and the dashes do not matter.
 
-## 3. Playing
+## 4. Playing
 
 | | |
 |---|---|
 | Move | `W A S D` |
 | Look | mouse |
 | Grab / drop cash | `Q` |
-| Seize an intruder | `E` |
-| Free a team-mate | `R` |
+| Seize an intruder, or free a team-mate | `SPACE` |
 | Release the mouse | `Esc` |
 | Save a screenshot | `F12` |
 
@@ -80,10 +90,19 @@ Steal cash from the other family's vault and get it back to yours. On your own
 ground you can seize an intruder, which sends them to your basement until a
 team-mate reaches them — **except** in a safe room.
 
+`SPACE` is one button for both: it asks for a seize and a release at the same
+time and the rules pick. Seizing needs an intruder on ground you own; freeing
+needs a held team-mate within reach; no position satisfies both.
+
+**You cannot seize someone in your own vault for the first 5 seconds after they
+enter it** - that is the safe room, and it is deliberate. Nor in the garden
+between the houses, which belongs to nobody, nor in your own basement. Anywhere
+else on your own ground is fair game.
+
 **Add bots** with `F3` on the host if you want more bodies in the match. They
 fill both sides evenly or not at all.
 
-## 4. What we want to know
+## 5. What we want to know
 
 Please say what you actually felt, not what you think is useful. "I don't know,
 it was annoying" is a better report than a theory.
@@ -99,7 +118,7 @@ it was annoying" is a better report than a theory.
 Press `F12` when something looks wrong. Screenshots land in
 `%APPDATA%\Godot\app_userdata\Cash Grab\`.
 
-## 5. If it goes wrong
+## 6. If it goes wrong
 
 | What you see | What it means |
 |---|---|
