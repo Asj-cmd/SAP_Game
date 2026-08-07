@@ -26,7 +26,14 @@ extends SceneTree
 
 # ---- the threshold set (WORLD_AUTHORING.md §12) ----
 const STEP: float = 30.0
-const STOREY: float = 240.0 ## 8 steps exactly - §12: it has to divide
+const STOREY: float = 300.0 ## 10 steps exactly - §12: it has to divide
+## How tall the thing walking the house LOOKS.
+##
+## The simulation's body is a sphere of radius BODY, which is all the rules need
+## - but a stairwell has to clear the VISIBLE body or a climbing character's
+## head goes through the floor before their feet reach the top of the flight.
+## Geometry is dimensioned for the body; this is the body you can see.
+const BODY_HEIGHT: float = 180.0
 const BODY: float = 20.0 ## TuningDef.actor_radius
 
 # ---- room dimensions (WORLD_AUTHORING.md §10) ----
@@ -219,26 +226,39 @@ func _left_face(_level: float) -> Array[Vector2]:
 ## top to step off onto.
 func _stairwell_z() -> Rect2:
 	var from: float = STAIR_A_Z + RUN * float(_covered()) - 40.0
-	return Rect2(STAIR_A_X, from, FLIGHT_W,
-		STAIR_A_Z + RUN * float(TREADS) + 40.0 - from)
+	var to: float = minf(STAIR_A_Z + RUN * float(TREADS) + 40.0, HOUSE_D - WALL)
+	return Rect2(STAIR_A_X, from, FLIGHT_W, to - from)
 
 func _stairwell_x() -> Rect2:
 	var from: float = STAIR_B_X + RUN * float(_covered()) - 40.0
-	return Rect2(from, STAIR_B_Z,
-		STAIR_B_X + RUN * float(TREADS) + 40.0 - from, FLIGHT_W)
+	var to: float = minf(STAIR_B_X + RUN * float(TREADS) + 40.0, HOUSE_W - WALL)
+	return Rect2(from, STAIR_B_Z, to - from, FLIGHT_W)
 
-## The first tread whose standing body would have its head in the slab above.
+## The first tread from which the floor above has to be open.
 ##
-## Worked out the way the FILL will see it, not from the clear height: a body
-## occupies the layer whose centre is first above its rest height, and the layer
-## is as tall as a step, so the rounding is worth a whole tread (§11).
+## Two conditions, and the opening starts at whichever bites first.
+##
+## The FILL's one: a body occupies the layer whose centre is first above its
+## rest height, and the layer is as tall as a step, so the rounding is worth a
+## whole tread (§11). Below this the walkable surface loses the tread entirely.
+##
+## The EYE's one, which bites much earlier: the visible body is 180 tall, so its
+## head reaches the underside of the slab two treads before its centre does.
+## Sizing the hole from the simulation body alone is why climbing looked like
+## walking up through the floor - the geometry was right and the character was
+## inside it.
 func _covered() -> int:
-	var ceiling: float = GROUND + STOREY - SLAB - BODY
+	var slab_bottom: float = GROUND + STOREY - SLAB
+	var first: int = TREADS
 	for i: int in TREADS:
-		var rest: float = GROUND + STEP * float(i + 1) + BODY
-		if (ceil(rest / STEP - 0.5) + 0.5) * STEP >= ceiling:
-			return i
-	return TREADS
+		var tread_top: float = GROUND + STEP * float(i + 1)
+		var rest: float = tread_top + BODY
+		var head: float = tread_top + BODY_HEIGHT
+		var layer: float = (ceil(rest / STEP - 0.5) + 0.5) * STEP
+		if head > slab_bottom or layer >= slab_bottom - BODY:
+			first = i
+			break
+	return first
 
 func _across(centre: float, width: float) -> Vector2:
 	return Vector2(centre - width * 0.5, centre + width * 0.5)
@@ -270,8 +290,10 @@ func _stamp(turned: bool, team: StringName, side: String) -> void:
 	# Spawns in the front half of the hall, clear of the flight. Cash in the
 	# vault, spread so three bundles are not one grab.
 	for i: int in 3:
+		# Down the far side of the hall from the flight, which grew when the
+		# storey did - the gate caught the first three standing in the stairs.
 		_marker("spawn_%s_%d" % [team, i], _place(AABB(Vector3(
-			LEFT_X + 380.0, GROUND + BODY, FRONT_Z + 200.0 + 180.0 * float(i)),
+			LEFT_X + 570.0, GROUND + BODY, FRONT_Z + 355.0 + 130.0 * float(i)),
 			Vector3.ONE), turned).position)
 		_marker("cash_%s_%d" % [team, i], _place(AABB(Vector3(
 			RIGHT_X + 180.0 + 200.0 * float(i), UPPER + BODY, FRONT_Z + ROOM * 0.5),

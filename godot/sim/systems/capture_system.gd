@@ -119,7 +119,7 @@ func _seize(world: SimWorld, captor: SimEntity, target: SimEntity) -> void:
 
 	var jail: ZoneDef = _jail_for(world, target.team)
 	if jail != null:
-		target.position = jail.bounds.get_center()
+		target.position = _holding_spot(world, jail)
 		target.zone_id = jail.id
 
 	world.emit(CaptureEvent.captured(
@@ -283,3 +283,43 @@ func _capture_hold_ticks(world: SimWorld, target: SimEntity) -> int:
 	if world.tuning != null:
 		return SimWorld.seconds_to_ticks(world.tuning.capture_hold_seconds)
 	return 0
+
+## Where in the pen a prisoner is put: on the FLOOR of it.
+##
+## It used to be `jail.bounds.get_center()`, and a zone is a VOLUME - a room's
+## centre is halfway up the room. A held actor does not fall, because being held
+## is not a state you move in, so the prisoner simply hung in mid-air for the
+## whole sentence. It looked exactly like a bug and it was one.
+##
+## Taken from the walkable surface, which is the thing that knows where the
+## floor is - the same question spawn points already ask (§9: derive, never
+## restate). The volume centre remains the fallback for a fixture with no
+## surface built.
+func _holding_spot(world: SimWorld, jail: ZoneDef) -> Vector3:
+	var centre: Vector3 = jail.bounds.get_center()
+	if world.surface == null or world.surface.is_empty():
+		return centre
+
+	# The LOWEST standing place in the pen, nearest its middle. Not the nearest
+	# standing place to the middle: the pen has a staircase across one end, and
+	# asking for "somewhere to stand near the centre" put the prisoner half way
+	# up it. Being held is a floor, not a place.
+	#
+	# Ties break on the lower node index so two machines agree, the same reason
+	# every other search in the simulation does.
+	var best: int = -1
+	var best_height: float = INF
+	var best_reach: float = INF
+	for node: int in world.surface.size():
+		var stance: Vector3 = world.surface.nodes[node]
+		if not jail.contains_point(stance):
+			continue
+		var reach: float = Vector2(stance.x - centre.x, stance.z - centre.z).length_squared()
+		if stance.y > best_height + 0.01:
+			continue
+		if absf(stance.y - best_height) <= 0.01 and reach >= best_reach:
+			continue
+		best = node
+		best_height = stance.y
+		best_reach = reach
+	return world.surface.nodes[best] if best >= 0 else centre

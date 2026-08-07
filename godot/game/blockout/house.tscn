@@ -3,915 +3,1153 @@
 [ext_resource type="Script" path="res://game/blockout/blockout_zone.gd" id="1_d6sr5"]
 
 [sub_resource type="BoxMesh" id="BoxMesh_txsaa"]
-size = Vector3(2400, 560, 5200)
+size = Vector3(2400, 680, 5200)
 
 [sub_resource type="BoxMesh" id="BoxMesh_d6ldy"]
 size = Vector3(2400, 40, 5200)
 
 [sub_resource type="BoxMesh" id="BoxMesh_hvuvo"]
-size = Vector3(30, 200, 1600)
+size = Vector3(30, 260, 1600)
 
 [sub_resource type="BoxMesh" id="BoxMesh_11nvw"]
-size = Vector3(30, 200, 1072.5)
+size = Vector3(30, 260, 1072.5)
 
 [sub_resource type="BoxMesh" id="BoxMesh_0q8oe"]
-size = Vector3(30, 200, 287.5)
+size = Vector3(30, 40, 240)
 
 [sub_resource type="BoxMesh" id="BoxMesh_20v28"]
-size = Vector3(257.5, 200, 30)
+size = Vector3(30, 260, 287.5)
 
 [sub_resource type="BoxMesh" id="BoxMesh_5tvun"]
-size = Vector3(545, 200, 30)
+size = Vector3(257.5, 260, 30)
 
 [sub_resource type="BoxMesh" id="BoxMesh_8dlvp"]
-size = Vector3(257.5, 200, 30)
+size = Vector3(240, 40, 30)
 
 [sub_resource type="BoxMesh" id="BoxMesh_r8xsi"]
-size = Vector3(257.5, 200, 30)
+size = Vector3(545, 260, 30)
 
 [sub_resource type="BoxMesh" id="BoxMesh_2x8xe"]
-size = Vector3(545, 200, 30)
+size = Vector3(240, 40, 30)
 
 [sub_resource type="BoxMesh" id="BoxMesh_iofwc"]
-size = Vector3(257.5, 200, 30)
+size = Vector3(257.5, 260, 30)
 
 [sub_resource type="BoxMesh" id="BoxMesh_rko4x"]
-size = Vector3(30, 200, 257.5)
+size = Vector3(257.5, 260, 30)
 
 [sub_resource type="BoxMesh" id="BoxMesh_uvgnn"]
-size = Vector3(30, 200, 545)
+size = Vector3(240, 40, 30)
 
 [sub_resource type="BoxMesh" id="BoxMesh_sttdy"]
-size = Vector3(30, 200, 257.5)
+size = Vector3(545, 260, 30)
 
 [sub_resource type="BoxMesh" id="BoxMesh_vy2ef"]
-size = Vector3(257.5, 200, 30)
+size = Vector3(240, 40, 30)
 
 [sub_resource type="BoxMesh" id="BoxMesh_d58dl"]
-size = Vector3(257.5, 200, 30)
+size = Vector3(257.5, 260, 30)
 
 [sub_resource type="BoxMesh" id="BoxMesh_sgbof"]
-size = Vector3(30, 200, 1600)
+size = Vector3(30, 260, 257.5)
 
 [sub_resource type="BoxMesh" id="BoxMesh_0xart"]
-size = Vector3(30, 200, 1600)
+size = Vector3(30, 40, 240)
 
 [sub_resource type="BoxMesh" id="BoxMesh_rlcbe"]
-size = Vector3(1042.5, 200, 30)
+size = Vector3(30, 260, 545)
 
 [sub_resource type="BoxMesh" id="BoxMesh_op1v7"]
-size = Vector3(257.5, 200, 30)
+size = Vector3(30, 40, 240)
 
 [sub_resource type="BoxMesh" id="BoxMesh_haw64"]
-size = Vector3(1042.5, 200, 30)
+size = Vector3(30, 260, 257.5)
 
 [sub_resource type="BoxMesh" id="BoxMesh_4hmdt"]
-size = Vector3(257.5, 200, 30)
+size = Vector3(257.5, 260, 30)
 
 [sub_resource type="BoxMesh" id="BoxMesh_le2l0"]
-size = Vector3(30, 200, 257.5)
+size = Vector3(240, 40, 30)
 
 [sub_resource type="BoxMesh" id="BoxMesh_ataa7"]
-size = Vector3(30, 200, 545)
+size = Vector3(257.5, 260, 30)
 
 [sub_resource type="BoxMesh" id="BoxMesh_l2jwy"]
-size = Vector3(30, 200, 257.5)
+size = Vector3(30, 260, 1600)
 
 [sub_resource type="BoxMesh" id="BoxMesh_l1xyr"]
-size = Vector3(257.5, 200, 30)
+size = Vector3(30, 260, 1600)
 
 [sub_resource type="BoxMesh" id="BoxMesh_2umrh"]
-size = Vector3(257.5, 200, 30)
+size = Vector3(1042.5, 260, 30)
 
 [sub_resource type="BoxMesh" id="BoxMesh_r5mav"]
-size = Vector3(1600, 40, 100)
+size = Vector3(240, 40, 30)
 
 [sub_resource type="BoxMesh" id="BoxMesh_rtaft"]
-size = Vector3(1116, 40, 220)
+size = Vector3(257.5, 260, 30)
 
 [sub_resource type="BoxMesh" id="BoxMesh_y16co"]
-size = Vector3(148, 40, 220)
+size = Vector3(1042.5, 260, 30)
 
 [sub_resource type="BoxMesh" id="BoxMesh_yh2qy"]
-size = Vector3(1600, 40, 296)
+size = Vector3(240, 40, 30)
 
 [sub_resource type="BoxMesh" id="BoxMesh_gn2pp"]
-size = Vector3(200, 40, 336)
+size = Vector3(257.5, 260, 30)
 
 [sub_resource type="BoxMesh" id="BoxMesh_i3ku3"]
-size = Vector3(1180, 40, 336)
+size = Vector3(30, 260, 257.5)
 
 [sub_resource type="BoxMesh" id="BoxMesh_shwh6"]
-size = Vector3(1600, 40, 648)
+size = Vector3(30, 40, 240)
 
 [sub_resource type="BoxMesh" id="BoxMesh_wwf65"]
-size = Vector3(1600, 40, 1600)
+size = Vector3(30, 260, 545)
 
 [sub_resource type="BoxMesh" id="BoxMesh_rwtkt"]
-size = Vector3(220, 30, 64)
+size = Vector3(30, 40, 240)
 
 [sub_resource type="BoxMesh" id="BoxMesh_h2yes"]
-size = Vector3(220, 60, 64)
+size = Vector3(30, 260, 257.5)
 
 [sub_resource type="BoxMesh" id="BoxMesh_h7yul"]
-size = Vector3(220, 90, 64)
+size = Vector3(257.5, 260, 30)
 
 [sub_resource type="BoxMesh" id="BoxMesh_grqud"]
-size = Vector3(220, 120, 64)
+size = Vector3(240, 40, 30)
 
 [sub_resource type="BoxMesh" id="BoxMesh_b83k2"]
-size = Vector3(220, 150, 64)
+size = Vector3(257.5, 260, 30)
 
 [sub_resource type="BoxMesh" id="BoxMesh_1x5h1"]
-size = Vector3(220, 180, 64)
-
-[sub_resource type="BoxMesh" id="BoxMesh_xsiki"]
-size = Vector3(220, 210, 64)
-
-[sub_resource type="BoxMesh" id="BoxMesh_r05yy"]
-size = Vector3(220, 240, 64)
-
-[sub_resource type="BoxMesh" id="BoxMesh_80ej4"]
-size = Vector3(64, 30, 220)
-
-[sub_resource type="BoxMesh" id="BoxMesh_nlane"]
-size = Vector3(64, 60, 220)
-
-[sub_resource type="BoxMesh" id="BoxMesh_s5672"]
-size = Vector3(64, 90, 220)
-
-[sub_resource type="BoxMesh" id="BoxMesh_30ebs"]
-size = Vector3(64, 120, 220)
-
-[sub_resource type="BoxMesh" id="BoxMesh_m2a5r"]
-size = Vector3(64, 150, 220)
-
-[sub_resource type="BoxMesh" id="BoxMesh_6vyn4"]
-size = Vector3(64, 180, 220)
-
-[sub_resource type="BoxMesh" id="BoxMesh_0qyec"]
-size = Vector3(64, 210, 220)
-
-[sub_resource type="BoxMesh" id="BoxMesh_to6x2"]
-size = Vector3(64, 240, 220)
-
-[sub_resource type="BoxMesh" id="BoxMesh_awnij"]
-size = Vector3(755, 240, 1540)
-
-[sub_resource type="BoxMesh" id="BoxMesh_uiafi"]
-size = Vector3(755, 240, 755)
-
-[sub_resource type="BoxMesh" id="BoxMesh_khep0"]
-size = Vector3(755, 240, 755)
-
-[sub_resource type="BoxMesh" id="BoxMesh_usnsv"]
-size = Vector3(755, 240, 1540)
-
-[sub_resource type="BoxMesh" id="BoxMesh_wysk2"]
-size = Vector3(755, 240, 755)
-
-[sub_resource type="BoxMesh" id="BoxMesh_mitpq"]
-size = Vector3(755, 240, 755)
-
-[sub_resource type="BoxMesh" id="BoxMesh_xn06y"]
-size = Vector3(30, 200, 1600)
-
-[sub_resource type="BoxMesh" id="BoxMesh_twbph"]
-size = Vector3(30, 200, 1072.5)
-
-[sub_resource type="BoxMesh" id="BoxMesh_56fi3"]
-size = Vector3(30, 200, 287.5)
-
-[sub_resource type="BoxMesh" id="BoxMesh_cmao5"]
-size = Vector3(257.5, 200, 30)
-
-[sub_resource type="BoxMesh" id="BoxMesh_0pvoy"]
-size = Vector3(545, 200, 30)
-
-[sub_resource type="BoxMesh" id="BoxMesh_na7or"]
-size = Vector3(257.5, 200, 30)
-
-[sub_resource type="BoxMesh" id="BoxMesh_xqiiu"]
-size = Vector3(257.5, 200, 30)
-
-[sub_resource type="BoxMesh" id="BoxMesh_b8qv1"]
-size = Vector3(545, 200, 30)
-
-[sub_resource type="BoxMesh" id="BoxMesh_etlct"]
-size = Vector3(257.5, 200, 30)
-
-[sub_resource type="BoxMesh" id="BoxMesh_ut7c8"]
-size = Vector3(30, 200, 257.5)
-
-[sub_resource type="BoxMesh" id="BoxMesh_xnpya"]
-size = Vector3(30, 200, 545)
-
-[sub_resource type="BoxMesh" id="BoxMesh_d5vcl"]
-size = Vector3(30, 200, 257.5)
-
-[sub_resource type="BoxMesh" id="BoxMesh_yft3w"]
-size = Vector3(257.5, 200, 30)
-
-[sub_resource type="BoxMesh" id="BoxMesh_44s2r"]
-size = Vector3(257.5, 200, 30)
-
-[sub_resource type="BoxMesh" id="BoxMesh_axg76"]
-size = Vector3(30, 200, 1600)
-
-[sub_resource type="BoxMesh" id="BoxMesh_wjglc"]
-size = Vector3(30, 200, 1600)
-
-[sub_resource type="BoxMesh" id="BoxMesh_x6uiw"]
-size = Vector3(1042.5, 200, 30)
-
-[sub_resource type="BoxMesh" id="BoxMesh_4t2cn"]
-size = Vector3(257.5, 200, 30)
-
-[sub_resource type="BoxMesh" id="BoxMesh_5a85p"]
-size = Vector3(1042.5, 200, 30)
-
-[sub_resource type="BoxMesh" id="BoxMesh_w1w20"]
-size = Vector3(257.5, 200, 30)
-
-[sub_resource type="BoxMesh" id="BoxMesh_wukte"]
-size = Vector3(30, 200, 257.5)
-
-[sub_resource type="BoxMesh" id="BoxMesh_dr42c"]
-size = Vector3(30, 200, 545)
-
-[sub_resource type="BoxMesh" id="BoxMesh_aldho"]
-size = Vector3(30, 200, 257.5)
-
-[sub_resource type="BoxMesh" id="BoxMesh_4nec2"]
-size = Vector3(257.5, 200, 30)
-
-[sub_resource type="BoxMesh" id="BoxMesh_y7ya0"]
-size = Vector3(257.5, 200, 30)
-
-[sub_resource type="BoxMesh" id="BoxMesh_3cdqw"]
 size = Vector3(1600, 40, 100)
 
-[sub_resource type="BoxMesh" id="BoxMesh_roau5"]
-size = Vector3(1116, 40, 220)
+[sub_resource type="BoxMesh" id="BoxMesh_xsiki"]
+size = Vector3(988, 40, 220)
 
-[sub_resource type="BoxMesh" id="BoxMesh_37070"]
-size = Vector3(148, 40, 220)
+[sub_resource type="BoxMesh" id="BoxMesh_r05yy"]
+size = Vector3(30, 40, 220)
 
-[sub_resource type="BoxMesh" id="BoxMesh_siqi7"]
-size = Vector3(1600, 40, 296)
+[sub_resource type="BoxMesh" id="BoxMesh_80ej4"]
+size = Vector3(1600, 40, 168)
 
-[sub_resource type="BoxMesh" id="BoxMesh_l2cm8"]
-size = Vector3(200, 40, 336)
+[sub_resource type="BoxMesh" id="BoxMesh_nlane"]
+size = Vector3(200, 40, 592)
 
-[sub_resource type="BoxMesh" id="BoxMesh_45gis"]
-size = Vector3(1180, 40, 336)
+[sub_resource type="BoxMesh" id="BoxMesh_s5672"]
+size = Vector3(1180, 40, 592)
 
-[sub_resource type="BoxMesh" id="BoxMesh_f0tia"]
-size = Vector3(1600, 40, 648)
+[sub_resource type="BoxMesh" id="BoxMesh_30ebs"]
+size = Vector3(1600, 40, 520)
 
-[sub_resource type="BoxMesh" id="BoxMesh_rqg7k"]
+[sub_resource type="BoxMesh" id="BoxMesh_m2a5r"]
 size = Vector3(1600, 40, 1600)
 
-[sub_resource type="BoxMesh" id="BoxMesh_obocy"]
+[sub_resource type="BoxMesh" id="BoxMesh_6vyn4"]
 size = Vector3(220, 30, 64)
 
-[sub_resource type="BoxMesh" id="BoxMesh_g72ra"]
+[sub_resource type="BoxMesh" id="BoxMesh_0qyec"]
 size = Vector3(220, 60, 64)
 
-[sub_resource type="BoxMesh" id="BoxMesh_ndppj"]
+[sub_resource type="BoxMesh" id="BoxMesh_to6x2"]
 size = Vector3(220, 90, 64)
 
-[sub_resource type="BoxMesh" id="BoxMesh_rhrfg"]
+[sub_resource type="BoxMesh" id="BoxMesh_awnij"]
 size = Vector3(220, 120, 64)
 
-[sub_resource type="BoxMesh" id="BoxMesh_2hoo6"]
+[sub_resource type="BoxMesh" id="BoxMesh_uiafi"]
 size = Vector3(220, 150, 64)
 
-[sub_resource type="BoxMesh" id="BoxMesh_rtg2k"]
+[sub_resource type="BoxMesh" id="BoxMesh_khep0"]
 size = Vector3(220, 180, 64)
 
-[sub_resource type="BoxMesh" id="BoxMesh_a6l0n"]
+[sub_resource type="BoxMesh" id="BoxMesh_usnsv"]
 size = Vector3(220, 210, 64)
 
-[sub_resource type="BoxMesh" id="BoxMesh_u6kk0"]
+[sub_resource type="BoxMesh" id="BoxMesh_wysk2"]
 size = Vector3(220, 240, 64)
 
-[sub_resource type="BoxMesh" id="BoxMesh_875eq"]
+[sub_resource type="BoxMesh" id="BoxMesh_mitpq"]
+size = Vector3(220, 270, 64)
+
+[sub_resource type="BoxMesh" id="BoxMesh_xn06y"]
+size = Vector3(220, 300, 64)
+
+[sub_resource type="BoxMesh" id="BoxMesh_twbph"]
 size = Vector3(64, 30, 220)
 
-[sub_resource type="BoxMesh" id="BoxMesh_rchwo"]
+[sub_resource type="BoxMesh" id="BoxMesh_56fi3"]
 size = Vector3(64, 60, 220)
 
-[sub_resource type="BoxMesh" id="BoxMesh_84mfc"]
+[sub_resource type="BoxMesh" id="BoxMesh_cmao5"]
 size = Vector3(64, 90, 220)
 
-[sub_resource type="BoxMesh" id="BoxMesh_kpmbr"]
+[sub_resource type="BoxMesh" id="BoxMesh_0pvoy"]
 size = Vector3(64, 120, 220)
 
-[sub_resource type="BoxMesh" id="BoxMesh_skl5g"]
+[sub_resource type="BoxMesh" id="BoxMesh_na7or"]
 size = Vector3(64, 150, 220)
 
-[sub_resource type="BoxMesh" id="BoxMesh_2uhr3"]
+[sub_resource type="BoxMesh" id="BoxMesh_xqiiu"]
 size = Vector3(64, 180, 220)
 
-[sub_resource type="BoxMesh" id="BoxMesh_4whxw"]
+[sub_resource type="BoxMesh" id="BoxMesh_b8qv1"]
 size = Vector3(64, 210, 220)
 
-[sub_resource type="BoxMesh" id="BoxMesh_avtr5"]
+[sub_resource type="BoxMesh" id="BoxMesh_etlct"]
 size = Vector3(64, 240, 220)
 
+[sub_resource type="BoxMesh" id="BoxMesh_ut7c8"]
+size = Vector3(64, 270, 220)
+
+[sub_resource type="BoxMesh" id="BoxMesh_xnpya"]
+size = Vector3(64, 300, 220)
+
+[sub_resource type="BoxMesh" id="BoxMesh_d5vcl"]
+size = Vector3(755, 300, 1540)
+
+[sub_resource type="BoxMesh" id="BoxMesh_yft3w"]
+size = Vector3(755, 300, 755)
+
+[sub_resource type="BoxMesh" id="BoxMesh_44s2r"]
+size = Vector3(755, 300, 755)
+
+[sub_resource type="BoxMesh" id="BoxMesh_axg76"]
+size = Vector3(755, 300, 1540)
+
+[sub_resource type="BoxMesh" id="BoxMesh_wjglc"]
+size = Vector3(755, 300, 755)
+
+[sub_resource type="BoxMesh" id="BoxMesh_x6uiw"]
+size = Vector3(755, 300, 755)
+
+[sub_resource type="BoxMesh" id="BoxMesh_4t2cn"]
+size = Vector3(30, 260, 1600)
+
+[sub_resource type="BoxMesh" id="BoxMesh_5a85p"]
+size = Vector3(30, 260, 1072.5)
+
+[sub_resource type="BoxMesh" id="BoxMesh_w1w20"]
+size = Vector3(30, 40, 240)
+
+[sub_resource type="BoxMesh" id="BoxMesh_wukte"]
+size = Vector3(30, 260, 287.5)
+
+[sub_resource type="BoxMesh" id="BoxMesh_dr42c"]
+size = Vector3(257.5, 260, 30)
+
+[sub_resource type="BoxMesh" id="BoxMesh_aldho"]
+size = Vector3(240, 40, 30)
+
+[sub_resource type="BoxMesh" id="BoxMesh_4nec2"]
+size = Vector3(545, 260, 30)
+
+[sub_resource type="BoxMesh" id="BoxMesh_y7ya0"]
+size = Vector3(240, 40, 30)
+
+[sub_resource type="BoxMesh" id="BoxMesh_3cdqw"]
+size = Vector3(257.5, 260, 30)
+
+[sub_resource type="BoxMesh" id="BoxMesh_roau5"]
+size = Vector3(257.5, 260, 30)
+
+[sub_resource type="BoxMesh" id="BoxMesh_37070"]
+size = Vector3(240, 40, 30)
+
+[sub_resource type="BoxMesh" id="BoxMesh_siqi7"]
+size = Vector3(545, 260, 30)
+
+[sub_resource type="BoxMesh" id="BoxMesh_l2cm8"]
+size = Vector3(240, 40, 30)
+
+[sub_resource type="BoxMesh" id="BoxMesh_45gis"]
+size = Vector3(257.5, 260, 30)
+
+[sub_resource type="BoxMesh" id="BoxMesh_f0tia"]
+size = Vector3(30, 260, 257.5)
+
+[sub_resource type="BoxMesh" id="BoxMesh_rqg7k"]
+size = Vector3(30, 40, 240)
+
+[sub_resource type="BoxMesh" id="BoxMesh_obocy"]
+size = Vector3(30, 260, 545)
+
+[sub_resource type="BoxMesh" id="BoxMesh_g72ra"]
+size = Vector3(30, 40, 240)
+
+[sub_resource type="BoxMesh" id="BoxMesh_ndppj"]
+size = Vector3(30, 260, 257.5)
+
+[sub_resource type="BoxMesh" id="BoxMesh_rhrfg"]
+size = Vector3(257.5, 260, 30)
+
+[sub_resource type="BoxMesh" id="BoxMesh_2hoo6"]
+size = Vector3(240, 40, 30)
+
+[sub_resource type="BoxMesh" id="BoxMesh_rtg2k"]
+size = Vector3(257.5, 260, 30)
+
+[sub_resource type="BoxMesh" id="BoxMesh_a6l0n"]
+size = Vector3(30, 260, 1600)
+
+[sub_resource type="BoxMesh" id="BoxMesh_u6kk0"]
+size = Vector3(30, 260, 1600)
+
+[sub_resource type="BoxMesh" id="BoxMesh_875eq"]
+size = Vector3(1042.5, 260, 30)
+
+[sub_resource type="BoxMesh" id="BoxMesh_rchwo"]
+size = Vector3(240, 40, 30)
+
+[sub_resource type="BoxMesh" id="BoxMesh_84mfc"]
+size = Vector3(257.5, 260, 30)
+
+[sub_resource type="BoxMesh" id="BoxMesh_kpmbr"]
+size = Vector3(1042.5, 260, 30)
+
+[sub_resource type="BoxMesh" id="BoxMesh_skl5g"]
+size = Vector3(240, 40, 30)
+
+[sub_resource type="BoxMesh" id="BoxMesh_2uhr3"]
+size = Vector3(257.5, 260, 30)
+
+[sub_resource type="BoxMesh" id="BoxMesh_4whxw"]
+size = Vector3(30, 260, 257.5)
+
+[sub_resource type="BoxMesh" id="BoxMesh_avtr5"]
+size = Vector3(30, 40, 240)
+
 [sub_resource type="BoxMesh" id="BoxMesh_ek1e6"]
-size = Vector3(755, 240, 1540)
+size = Vector3(30, 260, 545)
 
 [sub_resource type="BoxMesh" id="BoxMesh_unn5y"]
-size = Vector3(755, 240, 755)
+size = Vector3(30, 40, 240)
 
 [sub_resource type="BoxMesh" id="BoxMesh_pjjhu"]
-size = Vector3(755, 240, 755)
+size = Vector3(30, 260, 257.5)
 
 [sub_resource type="BoxMesh" id="BoxMesh_560ec"]
-size = Vector3(755, 240, 1540)
+size = Vector3(257.5, 260, 30)
 
 [sub_resource type="BoxMesh" id="BoxMesh_kq8xh"]
-size = Vector3(755, 240, 755)
+size = Vector3(240, 40, 30)
 
 [sub_resource type="BoxMesh" id="BoxMesh_ls1on"]
-size = Vector3(755, 240, 755)
+size = Vector3(257.5, 260, 30)
 
 [sub_resource type="BoxMesh" id="BoxMesh_r7b41"]
-size = Vector3(2400, 520, 2400)
+size = Vector3(1600, 40, 100)
 
 [sub_resource type="BoxMesh" id="BoxMesh_1vfx7"]
-size = Vector3(2400, 520, 400)
+size = Vector3(988, 40, 220)
 
 [sub_resource type="BoxMesh" id="BoxMesh_lqh0f"]
-size = Vector3(2400, 520, 2400)
+size = Vector3(30, 40, 220)
 
-[node name="HouseBlockout" type="Node3D" unique_id=555571838]
+[sub_resource type="BoxMesh" id="BoxMesh_hn4i8"]
+size = Vector3(1600, 40, 168)
 
-[node name="shell" type="MeshInstance3D" parent="." unique_id=2093422932]
-transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 1200, 280, 2600)
+[sub_resource type="BoxMesh" id="BoxMesh_p4ekw"]
+size = Vector3(200, 40, 592)
+
+[sub_resource type="BoxMesh" id="BoxMesh_betax"]
+size = Vector3(1180, 40, 592)
+
+[sub_resource type="BoxMesh" id="BoxMesh_72l0a"]
+size = Vector3(1600, 40, 520)
+
+[sub_resource type="BoxMesh" id="BoxMesh_lr135"]
+size = Vector3(1600, 40, 1600)
+
+[sub_resource type="BoxMesh" id="BoxMesh_7yqf3"]
+size = Vector3(220, 30, 64)
+
+[sub_resource type="BoxMesh" id="BoxMesh_5xsh0"]
+size = Vector3(220, 60, 64)
+
+[sub_resource type="BoxMesh" id="BoxMesh_xpti1"]
+size = Vector3(220, 90, 64)
+
+[sub_resource type="BoxMesh" id="BoxMesh_pb7bc"]
+size = Vector3(220, 120, 64)
+
+[sub_resource type="BoxMesh" id="BoxMesh_pnmcb"]
+size = Vector3(220, 150, 64)
+
+[sub_resource type="BoxMesh" id="BoxMesh_fquxx"]
+size = Vector3(220, 180, 64)
+
+[sub_resource type="BoxMesh" id="BoxMesh_15m0m"]
+size = Vector3(220, 210, 64)
+
+[sub_resource type="BoxMesh" id="BoxMesh_mgkd6"]
+size = Vector3(220, 240, 64)
+
+[sub_resource type="BoxMesh" id="BoxMesh_1tmrq"]
+size = Vector3(220, 270, 64)
+
+[sub_resource type="BoxMesh" id="BoxMesh_2furj"]
+size = Vector3(220, 300, 64)
+
+[sub_resource type="BoxMesh" id="BoxMesh_kvmf4"]
+size = Vector3(64, 30, 220)
+
+[sub_resource type="BoxMesh" id="BoxMesh_vyvga"]
+size = Vector3(64, 60, 220)
+
+[sub_resource type="BoxMesh" id="BoxMesh_lcnc5"]
+size = Vector3(64, 90, 220)
+
+[sub_resource type="BoxMesh" id="BoxMesh_q1480"]
+size = Vector3(64, 120, 220)
+
+[sub_resource type="BoxMesh" id="BoxMesh_kv4mf"]
+size = Vector3(64, 150, 220)
+
+[sub_resource type="BoxMesh" id="BoxMesh_alpgt"]
+size = Vector3(64, 180, 220)
+
+[sub_resource type="BoxMesh" id="BoxMesh_tuoi8"]
+size = Vector3(64, 210, 220)
+
+[sub_resource type="BoxMesh" id="BoxMesh_wdbat"]
+size = Vector3(64, 240, 220)
+
+[sub_resource type="BoxMesh" id="BoxMesh_nn4bb"]
+size = Vector3(64, 270, 220)
+
+[sub_resource type="BoxMesh" id="BoxMesh_0c46l"]
+size = Vector3(64, 300, 220)
+
+[sub_resource type="BoxMesh" id="BoxMesh_34xo8"]
+size = Vector3(755, 300, 1540)
+
+[sub_resource type="BoxMesh" id="BoxMesh_pd2r3"]
+size = Vector3(755, 300, 755)
+
+[sub_resource type="BoxMesh" id="BoxMesh_8uwv6"]
+size = Vector3(755, 300, 755)
+
+[sub_resource type="BoxMesh" id="BoxMesh_kikwi"]
+size = Vector3(755, 300, 1540)
+
+[sub_resource type="BoxMesh" id="BoxMesh_wmvdx"]
+size = Vector3(755, 300, 755)
+
+[sub_resource type="BoxMesh" id="BoxMesh_q2tyy"]
+size = Vector3(755, 300, 755)
+
+[sub_resource type="BoxMesh" id="BoxMesh_s3676"]
+size = Vector3(2400, 640, 2400)
+
+[sub_resource type="BoxMesh" id="BoxMesh_uk5uj"]
+size = Vector3(2400, 640, 400)
+
+[sub_resource type="BoxMesh" id="BoxMesh_8o1a8"]
+size = Vector3(2400, 640, 2400)
+
+[node name="HouseBlockout" type="Node3D" unique_id=1994829791]
+
+[node name="shell" type="MeshInstance3D" parent="." unique_id=1064275773]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 1200, 340, 2600)
 mesh = SubResource("BoxMesh_txsaa")
 
-[node name="blocker_1" type="MeshInstance3D" parent="." unique_id=1993416568]
+[node name="blocker_1" type="MeshInstance3D" parent="." unique_id=1333999649]
 transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 1200, 20, 2600)
 mesh = SubResource("BoxMesh_d6ldy")
 
-[node name="blocker_2" type="MeshInstance3D" parent="." unique_id=1354962126]
-transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 415, 140, 1100)
+[node name="blocker_2" type="MeshInstance3D" parent="." unique_id=1710444213]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 415, 170, 1100)
 mesh = SubResource("BoxMesh_hvuvo")
 
-[node name="blocker_3" type="MeshInstance3D" parent="." unique_id=629365446]
-transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 1985, 140, 836.25)
+[node name="blocker_3" type="MeshInstance3D" parent="." unique_id=2059003759]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 1985, 170, 836.25)
 mesh = SubResource("BoxMesh_11nvw")
 
-[node name="blocker_4" type="MeshInstance3D" parent="." unique_id=53553874]
-transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 1985, 140, 1756.25)
+[node name="blocker_4" type="MeshInstance3D" parent="." unique_id=1590930068]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 1985, 280, 1492.5)
 mesh = SubResource("BoxMesh_0q8oe")
 
-[node name="blocker_5" type="MeshInstance3D" parent="." unique_id=1872091844]
-transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 558.75, 140, 315)
+[node name="blocker_5" type="MeshInstance3D" parent="." unique_id=1629387463]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 1985, 170, 1756.25)
 mesh = SubResource("BoxMesh_20v28")
 
-[node name="blocker_6" type="MeshInstance3D" parent="." unique_id=1639529661]
-transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 1200, 140, 315)
+[node name="blocker_6" type="MeshInstance3D" parent="." unique_id=1128735844]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 558.75, 170, 315)
 mesh = SubResource("BoxMesh_5tvun")
 
-[node name="blocker_7" type="MeshInstance3D" parent="." unique_id=580944337]
-transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 1841.25, 140, 315)
+[node name="blocker_7" type="MeshInstance3D" parent="." unique_id=479509037]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 807.5, 280, 315)
 mesh = SubResource("BoxMesh_8dlvp")
 
-[node name="blocker_8" type="MeshInstance3D" parent="." unique_id=1514774498]
-transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 558.75, 140, 1885)
+[node name="blocker_8" type="MeshInstance3D" parent="." unique_id=205107083]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 1200, 170, 315)
 mesh = SubResource("BoxMesh_r8xsi")
 
-[node name="blocker_9" type="MeshInstance3D" parent="." unique_id=821486527]
-transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 1200, 140, 1885)
+[node name="blocker_9" type="MeshInstance3D" parent="." unique_id=133908909]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 1592.5, 280, 315)
 mesh = SubResource("BoxMesh_2x8xe")
 
-[node name="blocker_10" type="MeshInstance3D" parent="." unique_id=1430494052]
-transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 1841.25, 140, 1885)
+[node name="blocker_10" type="MeshInstance3D" parent="." unique_id=250453889]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 1841.25, 170, 315)
 mesh = SubResource("BoxMesh_iofwc")
 
-[node name="blocker_11" type="MeshInstance3D" parent="." unique_id=1476040183]
-transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 1200, 140, 458.75)
+[node name="blocker_11" type="MeshInstance3D" parent="." unique_id=1274111602]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 558.75, 170, 1885)
 mesh = SubResource("BoxMesh_rko4x")
 
-[node name="blocker_12" type="MeshInstance3D" parent="." unique_id=739159090]
-transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 1200, 140, 1100)
+[node name="blocker_12" type="MeshInstance3D" parent="." unique_id=1427083022]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 807.5, 280, 1885)
 mesh = SubResource("BoxMesh_uvgnn")
 
-[node name="blocker_13" type="MeshInstance3D" parent="." unique_id=2034841291]
-transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 1200, 140, 1741.25)
+[node name="blocker_13" type="MeshInstance3D" parent="." unique_id=397889207]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 1200, 170, 1885)
 mesh = SubResource("BoxMesh_sttdy")
 
-[node name="blocker_14" type="MeshInstance3D" parent="." unique_id=1242419599]
-transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 1343.75, 140, 1100)
+[node name="blocker_14" type="MeshInstance3D" parent="." unique_id=94864267]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 1592.5, 280, 1885)
 mesh = SubResource("BoxMesh_vy2ef")
 
-[node name="blocker_15" type="MeshInstance3D" parent="." unique_id=1632619310]
-transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 1841.25, 140, 1100)
+[node name="blocker_15" type="MeshInstance3D" parent="." unique_id=1005277787]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 1841.25, 170, 1885)
 mesh = SubResource("BoxMesh_d58dl")
 
-[node name="blocker_16" type="MeshInstance3D" parent="." unique_id=1447969221]
-transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 415, 380, 1100)
+[node name="blocker_16" type="MeshInstance3D" parent="." unique_id=1145517617]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 1200, 170, 458.75)
 mesh = SubResource("BoxMesh_sgbof")
 
-[node name="blocker_17" type="MeshInstance3D" parent="." unique_id=1385489709]
-transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 1985, 380, 1100)
+[node name="blocker_17" type="MeshInstance3D" parent="." unique_id=1985887421]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 1200, 280, 707.5)
 mesh = SubResource("BoxMesh_0xart")
 
-[node name="blocker_18" type="MeshInstance3D" parent="." unique_id=1761574113]
-transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 951.25, 380, 315)
+[node name="blocker_18" type="MeshInstance3D" parent="." unique_id=976640750]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 1200, 170, 1100)
 mesh = SubResource("BoxMesh_rlcbe")
 
-[node name="blocker_19" type="MeshInstance3D" parent="." unique_id=333132045]
-transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 1841.25, 380, 315)
+[node name="blocker_19" type="MeshInstance3D" parent="." unique_id=399070406]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 1200, 280, 1492.5)
 mesh = SubResource("BoxMesh_op1v7")
 
-[node name="blocker_20" type="MeshInstance3D" parent="." unique_id=1619215148]
-transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 951.25, 380, 1885)
+[node name="blocker_20" type="MeshInstance3D" parent="." unique_id=1022013860]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 1200, 170, 1741.25)
 mesh = SubResource("BoxMesh_haw64")
 
-[node name="blocker_21" type="MeshInstance3D" parent="." unique_id=5224564]
-transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 1841.25, 380, 1885)
+[node name="blocker_21" type="MeshInstance3D" parent="." unique_id=553768]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 1343.75, 170, 1100)
 mesh = SubResource("BoxMesh_4hmdt")
 
-[node name="blocker_22" type="MeshInstance3D" parent="." unique_id=311454479]
-transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 1200, 380, 458.75)
+[node name="blocker_22" type="MeshInstance3D" parent="." unique_id=565034555]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 1592.5, 280, 1100)
 mesh = SubResource("BoxMesh_le2l0")
 
-[node name="blocker_23" type="MeshInstance3D" parent="." unique_id=772681963]
-transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 1200, 380, 1100)
+[node name="blocker_23" type="MeshInstance3D" parent="." unique_id=30623332]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 1841.25, 170, 1100)
 mesh = SubResource("BoxMesh_ataa7")
 
-[node name="blocker_24" type="MeshInstance3D" parent="." unique_id=707978089]
-transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 1200, 380, 1741.25)
+[node name="blocker_24" type="MeshInstance3D" parent="." unique_id=1920053035]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 415, 470, 1100)
 mesh = SubResource("BoxMesh_l2jwy")
 
-[node name="blocker_25" type="MeshInstance3D" parent="." unique_id=410751304]
-transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 1343.75, 380, 1100)
+[node name="blocker_25" type="MeshInstance3D" parent="." unique_id=1683279092]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 1985, 470, 1100)
 mesh = SubResource("BoxMesh_l1xyr")
 
-[node name="blocker_26" type="MeshInstance3D" parent="." unique_id=798136889]
-transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 1841.25, 380, 1100)
+[node name="blocker_26" type="MeshInstance3D" parent="." unique_id=298134736]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 951.25, 470, 315)
 mesh = SubResource("BoxMesh_2umrh")
 
-[node name="blocker_27" type="MeshInstance3D" parent="." unique_id=483790638]
-transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 1200, 260, 350)
+[node name="blocker_27" type="MeshInstance3D" parent="." unique_id=1083640963]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 1592.5, 580, 315)
 mesh = SubResource("BoxMesh_r5mav")
 
-[node name="blocker_28" type="MeshInstance3D" parent="." unique_id=968393981]
-transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 958, 260, 510)
+[node name="blocker_28" type="MeshInstance3D" parent="." unique_id=164591306]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 1841.25, 470, 315)
 mesh = SubResource("BoxMesh_rtaft")
 
-[node name="blocker_29" type="MeshInstance3D" parent="." unique_id=1099117234]
-transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 1926, 260, 510)
+[node name="blocker_29" type="MeshInstance3D" parent="." unique_id=63081937]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 951.25, 470, 1885)
 mesh = SubResource("BoxMesh_y16co")
 
-[node name="blocker_30" type="MeshInstance3D" parent="." unique_id=926011987]
-transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 1200, 260, 768)
+[node name="blocker_30" type="MeshInstance3D" parent="." unique_id=1972027840]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 1592.5, 580, 1885)
 mesh = SubResource("BoxMesh_yh2qy")
 
-[node name="blocker_31" type="MeshInstance3D" parent="." unique_id=1538503391]
-transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 500, 260, 1084)
+[node name="blocker_31" type="MeshInstance3D" parent="." unique_id=865677344]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 1841.25, 470, 1885)
 mesh = SubResource("BoxMesh_gn2pp")
 
-[node name="blocker_32" type="MeshInstance3D" parent="." unique_id=768791567]
-transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 1410, 260, 1084)
+[node name="blocker_32" type="MeshInstance3D" parent="." unique_id=1521621056]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 1200, 470, 458.75)
 mesh = SubResource("BoxMesh_i3ku3")
 
-[node name="blocker_33" type="MeshInstance3D" parent="." unique_id=1938052896]
-transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 1200, 260, 1576)
+[node name="blocker_33" type="MeshInstance3D" parent="." unique_id=1340788120]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 1200, 580, 707.5)
 mesh = SubResource("BoxMesh_shwh6")
 
-[node name="blocker_34" type="MeshInstance3D" parent="." unique_id=1532836474]
-transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 1200, 500, 1100)
+[node name="blocker_34" type="MeshInstance3D" parent="." unique_id=1175183931]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 1200, 470, 1100)
 mesh = SubResource("BoxMesh_wwf65")
 
-[node name="blocker_35" type="MeshInstance3D" parent="." unique_id=1322640728]
-transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 710, 55, 732)
+[node name="blocker_35" type="MeshInstance3D" parent="." unique_id=795453154]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 1200, 580, 1492.5)
 mesh = SubResource("BoxMesh_rwtkt")
 
-[node name="blocker_36" type="MeshInstance3D" parent="." unique_id=1802604329]
-transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 710, 70, 796)
+[node name="blocker_36" type="MeshInstance3D" parent="." unique_id=1048046116]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 1200, 470, 1741.25)
 mesh = SubResource("BoxMesh_h2yes")
 
-[node name="blocker_37" type="MeshInstance3D" parent="." unique_id=966191039]
-transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 710, 85, 860)
+[node name="blocker_37" type="MeshInstance3D" parent="." unique_id=1363375626]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 1343.75, 470, 1100)
 mesh = SubResource("BoxMesh_h7yul")
 
-[node name="blocker_38" type="MeshInstance3D" parent="." unique_id=814770881]
-transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 710, 100, 924)
+[node name="blocker_38" type="MeshInstance3D" parent="." unique_id=798356974]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 1592.5, 580, 1100)
 mesh = SubResource("BoxMesh_grqud")
 
-[node name="blocker_39" type="MeshInstance3D" parent="." unique_id=254681873]
-transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 710, 115, 988)
+[node name="blocker_39" type="MeshInstance3D" parent="." unique_id=957649567]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 1841.25, 470, 1100)
 mesh = SubResource("BoxMesh_b83k2")
 
-[node name="blocker_40" type="MeshInstance3D" parent="." unique_id=675839057]
-transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 710, 130, 1052)
+[node name="blocker_40" type="MeshInstance3D" parent="." unique_id=932701892]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 1200, 320, 350)
 mesh = SubResource("BoxMesh_1x5h1")
 
-[node name="blocker_41" type="MeshInstance3D" parent="." unique_id=1191160446]
-transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 710, 145, 1116)
+[node name="blocker_41" type="MeshInstance3D" parent="." unique_id=1410441939]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 894, 320, 510)
 mesh = SubResource("BoxMesh_xsiki")
 
-[node name="blocker_42" type="MeshInstance3D" parent="." unique_id=1663337843]
-transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 710, 160, 1180)
+[node name="blocker_42" type="MeshInstance3D" parent="." unique_id=856595899]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 1985, 320, 510)
 mesh = SubResource("BoxMesh_r05yy")
 
-[node name="blocker_43" type="MeshInstance3D" parent="." unique_id=541153076]
-transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 1332, 55, 510)
+[node name="blocker_43" type="MeshInstance3D" parent="." unique_id=1691427478]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 1200, 320, 704)
 mesh = SubResource("BoxMesh_80ej4")
 
-[node name="blocker_44" type="MeshInstance3D" parent="." unique_id=1094889636]
-transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 1396, 70, 510)
+[node name="blocker_44" type="MeshInstance3D" parent="." unique_id=1277453259]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 500, 320, 1084)
 mesh = SubResource("BoxMesh_nlane")
 
-[node name="blocker_45" type="MeshInstance3D" parent="." unique_id=387963390]
-transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 1460, 85, 510)
+[node name="blocker_45" type="MeshInstance3D" parent="." unique_id=632571750]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 1410, 320, 1084)
 mesh = SubResource("BoxMesh_s5672")
 
-[node name="blocker_46" type="MeshInstance3D" parent="." unique_id=41651741]
-transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 1524, 100, 510)
+[node name="blocker_46" type="MeshInstance3D" parent="." unique_id=1075111820]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 1200, 320, 1640)
 mesh = SubResource("BoxMesh_30ebs")
 
-[node name="blocker_47" type="MeshInstance3D" parent="." unique_id=463415847]
-transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 1588, 115, 510)
+[node name="blocker_47" type="MeshInstance3D" parent="." unique_id=1125368628]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 1200, 620, 1100)
 mesh = SubResource("BoxMesh_m2a5r")
 
-[node name="blocker_48" type="MeshInstance3D" parent="." unique_id=1450647732]
-transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 1652, 130, 510)
+[node name="blocker_48" type="MeshInstance3D" parent="." unique_id=1265183575]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 710, 55, 732)
 mesh = SubResource("BoxMesh_6vyn4")
 
-[node name="blocker_49" type="MeshInstance3D" parent="." unique_id=612627324]
-transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 1716, 145, 510)
+[node name="blocker_49" type="MeshInstance3D" parent="." unique_id=616828138]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 710, 70, 796)
 mesh = SubResource("BoxMesh_0qyec")
 
-[node name="blocker_50" type="MeshInstance3D" parent="." unique_id=828273884]
-transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 1780, 160, 510)
+[node name="blocker_50" type="MeshInstance3D" parent="." unique_id=1795876456]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 710, 85, 860)
 mesh = SubResource("BoxMesh_to6x2")
 
-[node name="zone_hall_a" type="MeshInstance3D" parent="." unique_id=474375339]
-transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 807.5, 160, 1100)
+[node name="blocker_51" type="MeshInstance3D" parent="." unique_id=1552170068]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 710, 100, 924)
 mesh = SubResource("BoxMesh_awnij")
+
+[node name="blocker_52" type="MeshInstance3D" parent="." unique_id=1402312421]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 710, 115, 988)
+mesh = SubResource("BoxMesh_uiafi")
+
+[node name="blocker_53" type="MeshInstance3D" parent="." unique_id=290426186]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 710, 130, 1052)
+mesh = SubResource("BoxMesh_khep0")
+
+[node name="blocker_54" type="MeshInstance3D" parent="." unique_id=180181222]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 710, 145, 1116)
+mesh = SubResource("BoxMesh_usnsv")
+
+[node name="blocker_55" type="MeshInstance3D" parent="." unique_id=931105552]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 710, 160, 1180)
+mesh = SubResource("BoxMesh_wysk2")
+
+[node name="blocker_56" type="MeshInstance3D" parent="." unique_id=52524549]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 710, 175, 1244)
+mesh = SubResource("BoxMesh_mitpq")
+
+[node name="blocker_57" type="MeshInstance3D" parent="." unique_id=1369118756]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 710, 190, 1308)
+mesh = SubResource("BoxMesh_xn06y")
+
+[node name="blocker_58" type="MeshInstance3D" parent="." unique_id=105495401]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 1332, 55, 510)
+mesh = SubResource("BoxMesh_twbph")
+
+[node name="blocker_59" type="MeshInstance3D" parent="." unique_id=96992081]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 1396, 70, 510)
+mesh = SubResource("BoxMesh_56fi3")
+
+[node name="blocker_60" type="MeshInstance3D" parent="." unique_id=2053264967]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 1460, 85, 510)
+mesh = SubResource("BoxMesh_cmao5")
+
+[node name="blocker_61" type="MeshInstance3D" parent="." unique_id=1215669400]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 1524, 100, 510)
+mesh = SubResource("BoxMesh_0pvoy")
+
+[node name="blocker_62" type="MeshInstance3D" parent="." unique_id=1277083308]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 1588, 115, 510)
+mesh = SubResource("BoxMesh_na7or")
+
+[node name="blocker_63" type="MeshInstance3D" parent="." unique_id=1949345882]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 1652, 130, 510)
+mesh = SubResource("BoxMesh_xqiiu")
+
+[node name="blocker_64" type="MeshInstance3D" parent="." unique_id=2085610995]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 1716, 145, 510)
+mesh = SubResource("BoxMesh_b8qv1")
+
+[node name="blocker_65" type="MeshInstance3D" parent="." unique_id=892639294]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 1780, 160, 510)
+mesh = SubResource("BoxMesh_etlct")
+
+[node name="blocker_66" type="MeshInstance3D" parent="." unique_id=1874558266]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 1844, 175, 510)
+mesh = SubResource("BoxMesh_ut7c8")
+
+[node name="blocker_67" type="MeshInstance3D" parent="." unique_id=1783604116]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 1908, 190, 510)
+mesh = SubResource("BoxMesh_xnpya")
+
+[node name="zone_hall_a" type="MeshInstance3D" parent="." unique_id=1862672903]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 807.5, 190, 1100)
+mesh = SubResource("BoxMesh_d5vcl")
 script = ExtResource("1_d6sr5")
 zone_id = &"hall_a"
 role = 1
 owner_team = &"team_a"
 priority = 1
 
-[node name="zone_kitchen_a" type="MeshInstance3D" parent="." unique_id=756952471]
-transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 1592.5, 160, 1492.5)
-mesh = SubResource("BoxMesh_uiafi")
+[node name="zone_kitchen_a" type="MeshInstance3D" parent="." unique_id=544503546]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 1592.5, 190, 1492.5)
+mesh = SubResource("BoxMesh_yft3w")
 script = ExtResource("1_d6sr5")
 zone_id = &"kitchen_a"
 role = 1
 owner_team = &"team_a"
 priority = 1
 
-[node name="zone_jail_a" type="MeshInstance3D" parent="." unique_id=1857482891]
-transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 1592.5, 160, 707.5)
-mesh = SubResource("BoxMesh_khep0")
+[node name="zone_jail_a" type="MeshInstance3D" parent="." unique_id=1087778920]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 1592.5, 190, 707.5)
+mesh = SubResource("BoxMesh_44s2r")
 script = ExtResource("1_d6sr5")
 zone_id = &"jail_a"
 role = 3
 owner_team = &"team_a"
 priority = 1
 
-[node name="zone_landing_a" type="MeshInstance3D" parent="." unique_id=1909046555]
-transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 807.5, 400, 1100)
-mesh = SubResource("BoxMesh_usnsv")
+[node name="zone_landing_a" type="MeshInstance3D" parent="." unique_id=1851238782]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 807.5, 490, 1100)
+mesh = SubResource("BoxMesh_axg76")
 script = ExtResource("1_d6sr5")
 zone_id = &"landing_a"
 role = 1
 owner_team = &"team_a"
 priority = 1
 
-[node name="zone_vault_a" type="MeshInstance3D" parent="." unique_id=1749467487]
-transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 1592.5, 400, 1492.5)
-mesh = SubResource("BoxMesh_wysk2")
+[node name="zone_vault_a" type="MeshInstance3D" parent="." unique_id=1404166610]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 1592.5, 490, 1492.5)
+mesh = SubResource("BoxMesh_wjglc")
 script = ExtResource("1_d6sr5")
 zone_id = &"vault_a"
 role = 2
 owner_team = &"team_a"
 priority = 1
 
-[node name="zone_bedroom_a" type="MeshInstance3D" parent="." unique_id=1481523720]
-transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 1592.5, 400, 707.5)
-mesh = SubResource("BoxMesh_mitpq")
+[node name="zone_bedroom_a" type="MeshInstance3D" parent="." unique_id=170021043]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 1592.5, 490, 707.5)
+mesh = SubResource("BoxMesh_x6uiw")
 script = ExtResource("1_d6sr5")
 zone_id = &"bedroom_a"
 role = 1
 owner_team = &"team_a"
 priority = 1
 
-[node name="spawn_team_a_0" type="Marker3D" parent="." unique_id=1636157255]
-transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 810, 60, 1315)
+[node name="spawn_team_a_0" type="Marker3D" parent="." unique_id=36920246]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 1000, 60, 1470)
 
-[node name="cash_team_a_0" type="Marker3D" parent="." unique_id=956408202]
-transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 1395, 300, 1492.5)
+[node name="cash_team_a_0" type="Marker3D" parent="." unique_id=1380715593]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 1395, 360, 1492.5)
 
-[node name="spawn_team_a_1" type="Marker3D" parent="." unique_id=2060473416]
-transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 810, 60, 1495)
+[node name="spawn_team_a_1" type="Marker3D" parent="." unique_id=759407470]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 1000, 60, 1600)
 
-[node name="cash_team_a_1" type="Marker3D" parent="." unique_id=1757327001]
-transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 1595, 300, 1492.5)
+[node name="cash_team_a_1" type="Marker3D" parent="." unique_id=1445534958]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 1595, 360, 1492.5)
 
-[node name="spawn_team_a_2" type="Marker3D" parent="." unique_id=1224671903]
-transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 810, 60, 1675)
+[node name="spawn_team_a_2" type="Marker3D" parent="." unique_id=1564684257]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 1000, 60, 1730)
 
-[node name="cash_team_a_2" type="Marker3D" parent="." unique_id=918250445]
-transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 1795, 300, 1492.5)
+[node name="cash_team_a_2" type="Marker3D" parent="." unique_id=573367572]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 1795, 360, 1492.5)
 
-[node name="blocker_51" type="MeshInstance3D" parent="." unique_id=2030948283]
-transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 1985, 140, 4100)
-mesh = SubResource("BoxMesh_xn06y")
-
-[node name="blocker_52" type="MeshInstance3D" parent="." unique_id=831211381]
-transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 415, 140, 4363.75)
-mesh = SubResource("BoxMesh_twbph")
-
-[node name="blocker_53" type="MeshInstance3D" parent="." unique_id=1601652483]
-transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 415, 140, 3443.75)
-mesh = SubResource("BoxMesh_56fi3")
-
-[node name="blocker_54" type="MeshInstance3D" parent="." unique_id=1123709917]
-transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 1841.25, 140, 4885)
-mesh = SubResource("BoxMesh_cmao5")
-
-[node name="blocker_55" type="MeshInstance3D" parent="." unique_id=1804447869]
-transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 1200, 140, 4885)
-mesh = SubResource("BoxMesh_0pvoy")
-
-[node name="blocker_56" type="MeshInstance3D" parent="." unique_id=1235530493]
-transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 558.75, 140, 4885)
-mesh = SubResource("BoxMesh_na7or")
-
-[node name="blocker_57" type="MeshInstance3D" parent="." unique_id=1717773424]
-transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 1841.25, 140, 3315)
-mesh = SubResource("BoxMesh_xqiiu")
-
-[node name="blocker_58" type="MeshInstance3D" parent="." unique_id=50228777]
-transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 1200, 140, 3315)
-mesh = SubResource("BoxMesh_b8qv1")
-
-[node name="blocker_59" type="MeshInstance3D" parent="." unique_id=1952477780]
-transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 558.75, 140, 3315)
-mesh = SubResource("BoxMesh_etlct")
-
-[node name="blocker_60" type="MeshInstance3D" parent="." unique_id=64932072]
-transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 1200, 140, 4741.25)
-mesh = SubResource("BoxMesh_ut7c8")
-
-[node name="blocker_61" type="MeshInstance3D" parent="." unique_id=570877840]
-transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 1200, 140, 4100)
-mesh = SubResource("BoxMesh_xnpya")
-
-[node name="blocker_62" type="MeshInstance3D" parent="." unique_id=1115044506]
-transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 1200, 140, 3458.75)
-mesh = SubResource("BoxMesh_d5vcl")
-
-[node name="blocker_63" type="MeshInstance3D" parent="." unique_id=730441060]
-transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 1056.25, 140, 4100)
-mesh = SubResource("BoxMesh_yft3w")
-
-[node name="blocker_64" type="MeshInstance3D" parent="." unique_id=220836668]
-transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 558.75, 140, 4100)
-mesh = SubResource("BoxMesh_44s2r")
-
-[node name="blocker_65" type="MeshInstance3D" parent="." unique_id=1293502361]
-transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 1985, 380, 4100)
-mesh = SubResource("BoxMesh_axg76")
-
-[node name="blocker_66" type="MeshInstance3D" parent="." unique_id=619196928]
-transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 415, 380, 4100)
-mesh = SubResource("BoxMesh_wjglc")
-
-[node name="blocker_67" type="MeshInstance3D" parent="." unique_id=2091490878]
-transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 1448.75, 380, 4885)
-mesh = SubResource("BoxMesh_x6uiw")
-
-[node name="blocker_68" type="MeshInstance3D" parent="." unique_id=1470770065]
-transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 558.75, 380, 4885)
+[node name="blocker_68" type="MeshInstance3D" parent="." unique_id=1621460604]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 1985, 170, 4100)
 mesh = SubResource("BoxMesh_4t2cn")
 
-[node name="blocker_69" type="MeshInstance3D" parent="." unique_id=1110497889]
-transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 1448.75, 380, 3315)
+[node name="blocker_69" type="MeshInstance3D" parent="." unique_id=1687565735]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 415, 170, 4363.75)
 mesh = SubResource("BoxMesh_5a85p")
 
-[node name="blocker_70" type="MeshInstance3D" parent="." unique_id=208263121]
-transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 558.75, 380, 3315)
+[node name="blocker_70" type="MeshInstance3D" parent="." unique_id=1053535051]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 415, 280, 3707.5)
 mesh = SubResource("BoxMesh_w1w20")
 
-[node name="blocker_71" type="MeshInstance3D" parent="." unique_id=776398800]
-transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 1200, 380, 4741.25)
+[node name="blocker_71" type="MeshInstance3D" parent="." unique_id=1704752863]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 415, 170, 3443.75)
 mesh = SubResource("BoxMesh_wukte")
 
-[node name="blocker_72" type="MeshInstance3D" parent="." unique_id=389633898]
-transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 1200, 380, 4100)
+[node name="blocker_72" type="MeshInstance3D" parent="." unique_id=1152263281]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 1841.25, 170, 4885)
 mesh = SubResource("BoxMesh_dr42c")
 
-[node name="blocker_73" type="MeshInstance3D" parent="." unique_id=22611301]
-transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 1200, 380, 3458.75)
+[node name="blocker_73" type="MeshInstance3D" parent="." unique_id=518034503]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 1592.5, 280, 4885)
 mesh = SubResource("BoxMesh_aldho")
 
-[node name="blocker_74" type="MeshInstance3D" parent="." unique_id=1200934862]
-transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 1056.25, 380, 4100)
+[node name="blocker_74" type="MeshInstance3D" parent="." unique_id=505734608]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 1200, 170, 4885)
 mesh = SubResource("BoxMesh_4nec2")
 
-[node name="blocker_75" type="MeshInstance3D" parent="." unique_id=1573602798]
-transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 558.75, 380, 4100)
+[node name="blocker_75" type="MeshInstance3D" parent="." unique_id=909077153]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 807.5, 280, 4885)
 mesh = SubResource("BoxMesh_y7ya0")
 
-[node name="blocker_76" type="MeshInstance3D" parent="." unique_id=521307681]
-transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 1200, 260, 4850)
+[node name="blocker_76" type="MeshInstance3D" parent="." unique_id=1765393229]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 558.75, 170, 4885)
 mesh = SubResource("BoxMesh_3cdqw")
 
-[node name="blocker_77" type="MeshInstance3D" parent="." unique_id=1735523818]
-transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 1442, 260, 4690)
+[node name="blocker_77" type="MeshInstance3D" parent="." unique_id=1692082821]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 1841.25, 170, 3315)
 mesh = SubResource("BoxMesh_roau5")
 
-[node name="blocker_78" type="MeshInstance3D" parent="." unique_id=1916165592]
-transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 474, 260, 4690)
+[node name="blocker_78" type="MeshInstance3D" parent="." unique_id=1866982162]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 1592.5, 280, 3315)
 mesh = SubResource("BoxMesh_37070")
 
-[node name="blocker_79" type="MeshInstance3D" parent="." unique_id=1787950190]
-transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 1200, 260, 4432)
+[node name="blocker_79" type="MeshInstance3D" parent="." unique_id=73630724]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 1200, 170, 3315)
 mesh = SubResource("BoxMesh_siqi7")
 
-[node name="blocker_80" type="MeshInstance3D" parent="." unique_id=915409379]
-transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 1900, 260, 4116)
+[node name="blocker_80" type="MeshInstance3D" parent="." unique_id=495253963]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 807.5, 280, 3315)
 mesh = SubResource("BoxMesh_l2cm8")
 
-[node name="blocker_81" type="MeshInstance3D" parent="." unique_id=1171948617]
-transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 990, 260, 4116)
+[node name="blocker_81" type="MeshInstance3D" parent="." unique_id=515754691]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 558.75, 170, 3315)
 mesh = SubResource("BoxMesh_45gis")
 
-[node name="blocker_82" type="MeshInstance3D" parent="." unique_id=1853836753]
-transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 1200, 260, 3624)
+[node name="blocker_82" type="MeshInstance3D" parent="." unique_id=2023317170]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 1200, 170, 4741.25)
 mesh = SubResource("BoxMesh_f0tia")
 
-[node name="blocker_83" type="MeshInstance3D" parent="." unique_id=1214214866]
-transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 1200, 500, 4100)
+[node name="blocker_83" type="MeshInstance3D" parent="." unique_id=1707922128]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 1200, 280, 4492.5)
 mesh = SubResource("BoxMesh_rqg7k")
 
-[node name="blocker_84" type="MeshInstance3D" parent="." unique_id=1487406235]
-transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 1690, 55, 4468)
+[node name="blocker_84" type="MeshInstance3D" parent="." unique_id=557470483]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 1200, 170, 4100)
 mesh = SubResource("BoxMesh_obocy")
 
-[node name="blocker_85" type="MeshInstance3D" parent="." unique_id=1253716518]
-transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 1690, 70, 4404)
+[node name="blocker_85" type="MeshInstance3D" parent="." unique_id=777259200]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 1200, 280, 3707.5)
 mesh = SubResource("BoxMesh_g72ra")
 
-[node name="blocker_86" type="MeshInstance3D" parent="." unique_id=741891802]
-transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 1690, 85, 4340)
+[node name="blocker_86" type="MeshInstance3D" parent="." unique_id=1040419054]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 1200, 170, 3458.75)
 mesh = SubResource("BoxMesh_ndppj")
 
-[node name="blocker_87" type="MeshInstance3D" parent="." unique_id=1335847697]
-transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 1690, 100, 4276)
+[node name="blocker_87" type="MeshInstance3D" parent="." unique_id=193606111]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 1056.25, 170, 4100)
 mesh = SubResource("BoxMesh_rhrfg")
 
-[node name="blocker_88" type="MeshInstance3D" parent="." unique_id=408484381]
-transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 1690, 115, 4212)
+[node name="blocker_88" type="MeshInstance3D" parent="." unique_id=1763152465]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 807.5, 280, 4100)
 mesh = SubResource("BoxMesh_2hoo6")
 
-[node name="blocker_89" type="MeshInstance3D" parent="." unique_id=1665337343]
-transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 1690, 130, 4148)
+[node name="blocker_89" type="MeshInstance3D" parent="." unique_id=2043689681]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 558.75, 170, 4100)
 mesh = SubResource("BoxMesh_rtg2k")
 
-[node name="blocker_90" type="MeshInstance3D" parent="." unique_id=44182143]
-transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 1690, 145, 4084)
+[node name="blocker_90" type="MeshInstance3D" parent="." unique_id=1055944520]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 1985, 470, 4100)
 mesh = SubResource("BoxMesh_a6l0n")
 
-[node name="blocker_91" type="MeshInstance3D" parent="." unique_id=2067300887]
-transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 1690, 160, 4020)
+[node name="blocker_91" type="MeshInstance3D" parent="." unique_id=2037986226]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 415, 470, 4100)
 mesh = SubResource("BoxMesh_u6kk0")
 
-[node name="blocker_92" type="MeshInstance3D" parent="." unique_id=964587940]
-transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 1068, 55, 4690)
+[node name="blocker_92" type="MeshInstance3D" parent="." unique_id=972951667]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 1448.75, 470, 4885)
 mesh = SubResource("BoxMesh_875eq")
 
-[node name="blocker_93" type="MeshInstance3D" parent="." unique_id=1058099679]
-transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 1004, 70, 4690)
+[node name="blocker_93" type="MeshInstance3D" parent="." unique_id=548906220]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 807.5, 580, 4885)
 mesh = SubResource("BoxMesh_rchwo")
 
-[node name="blocker_94" type="MeshInstance3D" parent="." unique_id=784804789]
-transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 940, 85, 4690)
+[node name="blocker_94" type="MeshInstance3D" parent="." unique_id=593415949]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 558.75, 470, 4885)
 mesh = SubResource("BoxMesh_84mfc")
 
-[node name="blocker_95" type="MeshInstance3D" parent="." unique_id=18339982]
-transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 876, 100, 4690)
+[node name="blocker_95" type="MeshInstance3D" parent="." unique_id=2001322473]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 1448.75, 470, 3315)
 mesh = SubResource("BoxMesh_kpmbr")
 
-[node name="blocker_96" type="MeshInstance3D" parent="." unique_id=907540510]
-transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 812, 115, 4690)
+[node name="blocker_96" type="MeshInstance3D" parent="." unique_id=1401554318]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 807.5, 580, 3315)
 mesh = SubResource("BoxMesh_skl5g")
 
-[node name="blocker_97" type="MeshInstance3D" parent="." unique_id=1498966663]
-transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 748, 130, 4690)
+[node name="blocker_97" type="MeshInstance3D" parent="." unique_id=472519791]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 558.75, 470, 3315)
 mesh = SubResource("BoxMesh_2uhr3")
 
-[node name="blocker_98" type="MeshInstance3D" parent="." unique_id=786790356]
-transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 684, 145, 4690)
+[node name="blocker_98" type="MeshInstance3D" parent="." unique_id=1130559055]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 1200, 470, 4741.25)
 mesh = SubResource("BoxMesh_4whxw")
 
-[node name="blocker_99" type="MeshInstance3D" parent="." unique_id=2051108642]
-transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 620, 160, 4690)
+[node name="blocker_99" type="MeshInstance3D" parent="." unique_id=1002056662]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 1200, 580, 4492.5)
 mesh = SubResource("BoxMesh_avtr5")
 
-[node name="zone_hall_b" type="MeshInstance3D" parent="." unique_id=987614722]
-transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 1592.5, 160, 4100)
+[node name="blocker_100" type="MeshInstance3D" parent="." unique_id=1849774723]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 1200, 470, 4100)
 mesh = SubResource("BoxMesh_ek1e6")
+
+[node name="blocker_101" type="MeshInstance3D" parent="." unique_id=52411596]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 1200, 580, 3707.5)
+mesh = SubResource("BoxMesh_unn5y")
+
+[node name="blocker_102" type="MeshInstance3D" parent="." unique_id=519757654]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 1200, 470, 3458.75)
+mesh = SubResource("BoxMesh_pjjhu")
+
+[node name="blocker_103" type="MeshInstance3D" parent="." unique_id=1767575813]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 1056.25, 470, 4100)
+mesh = SubResource("BoxMesh_560ec")
+
+[node name="blocker_104" type="MeshInstance3D" parent="." unique_id=970429563]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 807.5, 580, 4100)
+mesh = SubResource("BoxMesh_kq8xh")
+
+[node name="blocker_105" type="MeshInstance3D" parent="." unique_id=274317538]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 558.75, 470, 4100)
+mesh = SubResource("BoxMesh_ls1on")
+
+[node name="blocker_106" type="MeshInstance3D" parent="." unique_id=2093932151]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 1200, 320, 4850)
+mesh = SubResource("BoxMesh_r7b41")
+
+[node name="blocker_107" type="MeshInstance3D" parent="." unique_id=1438766498]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 1506, 320, 4690)
+mesh = SubResource("BoxMesh_1vfx7")
+
+[node name="blocker_108" type="MeshInstance3D" parent="." unique_id=1323880894]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 415, 320, 4690)
+mesh = SubResource("BoxMesh_lqh0f")
+
+[node name="blocker_109" type="MeshInstance3D" parent="." unique_id=1733532988]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 1200, 320, 4496)
+mesh = SubResource("BoxMesh_hn4i8")
+
+[node name="blocker_110" type="MeshInstance3D" parent="." unique_id=1679789357]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 1900, 320, 4116)
+mesh = SubResource("BoxMesh_p4ekw")
+
+[node name="blocker_111" type="MeshInstance3D" parent="." unique_id=1809613434]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 990, 320, 4116)
+mesh = SubResource("BoxMesh_betax")
+
+[node name="blocker_112" type="MeshInstance3D" parent="." unique_id=1584492298]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 1200, 320, 3560)
+mesh = SubResource("BoxMesh_72l0a")
+
+[node name="blocker_113" type="MeshInstance3D" parent="." unique_id=2136103680]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 1200, 620, 4100)
+mesh = SubResource("BoxMesh_lr135")
+
+[node name="blocker_114" type="MeshInstance3D" parent="." unique_id=796629178]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 1690, 55, 4468)
+mesh = SubResource("BoxMesh_7yqf3")
+
+[node name="blocker_115" type="MeshInstance3D" parent="." unique_id=328382891]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 1690, 70, 4404)
+mesh = SubResource("BoxMesh_5xsh0")
+
+[node name="blocker_116" type="MeshInstance3D" parent="." unique_id=243894157]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 1690, 85, 4340)
+mesh = SubResource("BoxMesh_xpti1")
+
+[node name="blocker_117" type="MeshInstance3D" parent="." unique_id=1626010959]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 1690, 100, 4276)
+mesh = SubResource("BoxMesh_pb7bc")
+
+[node name="blocker_118" type="MeshInstance3D" parent="." unique_id=563943028]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 1690, 115, 4212)
+mesh = SubResource("BoxMesh_pnmcb")
+
+[node name="blocker_119" type="MeshInstance3D" parent="." unique_id=1165611282]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 1690, 130, 4148)
+mesh = SubResource("BoxMesh_fquxx")
+
+[node name="blocker_120" type="MeshInstance3D" parent="." unique_id=1257869548]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 1690, 145, 4084)
+mesh = SubResource("BoxMesh_15m0m")
+
+[node name="blocker_121" type="MeshInstance3D" parent="." unique_id=1250700690]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 1690, 160, 4020)
+mesh = SubResource("BoxMesh_mgkd6")
+
+[node name="blocker_122" type="MeshInstance3D" parent="." unique_id=1952618603]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 1690, 175, 3956)
+mesh = SubResource("BoxMesh_1tmrq")
+
+[node name="blocker_123" type="MeshInstance3D" parent="." unique_id=599822374]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 1690, 190, 3892)
+mesh = SubResource("BoxMesh_2furj")
+
+[node name="blocker_124" type="MeshInstance3D" parent="." unique_id=351507536]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 1068, 55, 4690)
+mesh = SubResource("BoxMesh_kvmf4")
+
+[node name="blocker_125" type="MeshInstance3D" parent="." unique_id=1436901417]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 1004, 70, 4690)
+mesh = SubResource("BoxMesh_vyvga")
+
+[node name="blocker_126" type="MeshInstance3D" parent="." unique_id=1323626314]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 940, 85, 4690)
+mesh = SubResource("BoxMesh_lcnc5")
+
+[node name="blocker_127" type="MeshInstance3D" parent="." unique_id=1107601786]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 876, 100, 4690)
+mesh = SubResource("BoxMesh_q1480")
+
+[node name="blocker_128" type="MeshInstance3D" parent="." unique_id=1550440927]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 812, 115, 4690)
+mesh = SubResource("BoxMesh_kv4mf")
+
+[node name="blocker_129" type="MeshInstance3D" parent="." unique_id=477823164]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 748, 130, 4690)
+mesh = SubResource("BoxMesh_alpgt")
+
+[node name="blocker_130" type="MeshInstance3D" parent="." unique_id=820830793]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 684, 145, 4690)
+mesh = SubResource("BoxMesh_tuoi8")
+
+[node name="blocker_131" type="MeshInstance3D" parent="." unique_id=1985497377]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 620, 160, 4690)
+mesh = SubResource("BoxMesh_wdbat")
+
+[node name="blocker_132" type="MeshInstance3D" parent="." unique_id=833860300]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 556, 175, 4690)
+mesh = SubResource("BoxMesh_nn4bb")
+
+[node name="blocker_133" type="MeshInstance3D" parent="." unique_id=174352284]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 492, 190, 4690)
+mesh = SubResource("BoxMesh_0c46l")
+
+[node name="zone_hall_b" type="MeshInstance3D" parent="." unique_id=1318310490]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 1592.5, 190, 4100)
+mesh = SubResource("BoxMesh_34xo8")
 script = ExtResource("1_d6sr5")
 zone_id = &"hall_b"
 role = 1
 owner_team = &"team_b"
 priority = 1
 
-[node name="zone_kitchen_b" type="MeshInstance3D" parent="." unique_id=847009686]
-transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 807.5, 160, 3707.5)
-mesh = SubResource("BoxMesh_unn5y")
+[node name="zone_kitchen_b" type="MeshInstance3D" parent="." unique_id=2031441331]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 807.5, 190, 3707.5)
+mesh = SubResource("BoxMesh_pd2r3")
 script = ExtResource("1_d6sr5")
 zone_id = &"kitchen_b"
 role = 1
 owner_team = &"team_b"
 priority = 1
 
-[node name="zone_jail_b" type="MeshInstance3D" parent="." unique_id=735508226]
-transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 807.5, 160, 4492.5)
-mesh = SubResource("BoxMesh_pjjhu")
+[node name="zone_jail_b" type="MeshInstance3D" parent="." unique_id=961435499]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 807.5, 190, 4492.5)
+mesh = SubResource("BoxMesh_8uwv6")
 script = ExtResource("1_d6sr5")
 zone_id = &"jail_b"
 role = 3
 owner_team = &"team_b"
 priority = 1
 
-[node name="zone_landing_b" type="MeshInstance3D" parent="." unique_id=680725077]
-transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 1592.5, 400, 4100)
-mesh = SubResource("BoxMesh_560ec")
+[node name="zone_landing_b" type="MeshInstance3D" parent="." unique_id=1658198848]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 1592.5, 490, 4100)
+mesh = SubResource("BoxMesh_kikwi")
 script = ExtResource("1_d6sr5")
 zone_id = &"landing_b"
 role = 1
 owner_team = &"team_b"
 priority = 1
 
-[node name="zone_vault_b" type="MeshInstance3D" parent="." unique_id=950167137]
-transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 807.5, 400, 3707.5)
-mesh = SubResource("BoxMesh_kq8xh")
+[node name="zone_vault_b" type="MeshInstance3D" parent="." unique_id=635984128]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 807.5, 490, 3707.5)
+mesh = SubResource("BoxMesh_wmvdx")
 script = ExtResource("1_d6sr5")
 zone_id = &"vault_b"
 role = 2
 owner_team = &"team_b"
 priority = 1
 
-[node name="zone_bedroom_b" type="MeshInstance3D" parent="." unique_id=793679457]
-transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 807.5, 400, 4492.5)
-mesh = SubResource("BoxMesh_ls1on")
+[node name="zone_bedroom_b" type="MeshInstance3D" parent="." unique_id=720745172]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 807.5, 490, 4492.5)
+mesh = SubResource("BoxMesh_q2tyy")
 script = ExtResource("1_d6sr5")
 zone_id = &"bedroom_b"
 role = 1
 owner_team = &"team_b"
 priority = 1
 
-[node name="spawn_team_b_0" type="Marker3D" parent="." unique_id=536192046]
-transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 1589, 60, 3884)
+[node name="spawn_team_b_0" type="Marker3D" parent="." unique_id=1944507383]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 1399, 60, 3729)
 
-[node name="cash_team_b_0" type="Marker3D" parent="." unique_id=802755915]
-transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 1004, 300, 3706.5)
+[node name="cash_team_b_0" type="Marker3D" parent="." unique_id=1709850330]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 1004, 360, 3706.5)
 
-[node name="spawn_team_b_1" type="Marker3D" parent="." unique_id=1179988187]
-transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 1589, 60, 3704)
+[node name="spawn_team_b_1" type="Marker3D" parent="." unique_id=508347390]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 1399, 60, 3599)
 
-[node name="cash_team_b_1" type="Marker3D" parent="." unique_id=1066888191]
-transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 804, 300, 3706.5)
+[node name="cash_team_b_1" type="Marker3D" parent="." unique_id=840806031]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 804, 360, 3706.5)
 
-[node name="spawn_team_b_2" type="Marker3D" parent="." unique_id=2111287141]
-transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 1589, 60, 3524)
+[node name="spawn_team_b_2" type="Marker3D" parent="." unique_id=169633323]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 1399, 60, 3469)
 
-[node name="cash_team_b_2" type="Marker3D" parent="." unique_id=2115277029]
-transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 604, 300, 3706.5)
+[node name="cash_team_b_2" type="Marker3D" parent="." unique_id=1194800772]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 604, 360, 3706.5)
 
-[node name="zone_yard_a" type="MeshInstance3D" parent="." unique_id=1162361861]
-transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 1200, 300, 1200)
-mesh = SubResource("BoxMesh_r7b41")
+[node name="zone_yard_a" type="MeshInstance3D" parent="." unique_id=775509243]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 1200, 360, 1200)
+mesh = SubResource("BoxMesh_s3676")
 script = ExtResource("1_d6sr5")
 zone_id = &"yard_a"
 role = 1
 outdoor = true
 owner_team = &"team_a"
 
-[node name="zone_garden" type="MeshInstance3D" parent="." unique_id=225271874]
-transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 1200, 300, 2600)
-mesh = SubResource("BoxMesh_1vfx7")
+[node name="zone_garden" type="MeshInstance3D" parent="." unique_id=1397901837]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 1200, 360, 2600)
+mesh = SubResource("BoxMesh_uk5uj")
 script = ExtResource("1_d6sr5")
 zone_id = &"garden"
 outdoor = true
 
-[node name="zone_yard_b" type="MeshInstance3D" parent="." unique_id=948794166]
-transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 1200, 300, 4000)
-mesh = SubResource("BoxMesh_lqh0f")
+[node name="zone_yard_b" type="MeshInstance3D" parent="." unique_id=608118799]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 1200, 360, 4000)
+mesh = SubResource("BoxMesh_8o1a8")
 script = ExtResource("1_d6sr5")
 zone_id = &"yard_b"
 role = 1

@@ -25,6 +25,8 @@ var camera: ChaseCamera = null
 
 ## Buttons are edge-latched: a tap between two ticks must not be lost, and a
 ## 30 Hz tick is 33 ms - comfortably shorter than a deliberate press.
+## Which buttons were down last frame, so a press can be told from a hold.
+var _held: Dictionary[int, bool] = {}
 var _capture_pressed: bool = false
 var _carry_pressed: bool = false
 var _rescue_pressed: bool = false
@@ -99,10 +101,21 @@ func _read_travel() -> Vector2:
 	# creeps forever and the movement test is judging drift.
 	return Vector2.ZERO if stick.length() < STICK_DEADZONE else stick
 
+## True on the frame a button goes DOWN, not while it is held.
+##
+## Level-triggered was wrong and the carry button showed it: grab and drop are
+## one toggle, so holding Q for n ticks toggled n times and whether you ended up
+## holding the cube came down to the parity of how long you leaned on the key.
+## From the chair that reads as "sometimes I have to press it several times".
+##
+## Seize and free had the quieter version of the same fault - an attempt every
+## tick for as long as the key was down, which is a spray of commands where the
+## player asked for one thing once.
 func _read_button(key: Key, button: JoyButton) -> bool:
-	if device == Device.KEYBOARD_MOUSE:
-		return Input.is_key_pressed(key)
-	return Input.is_joy_button_pressed(pad_id, button)
+	var down: bool = Input.is_key_pressed(key) if device == Device.KEYBOARD_MOUSE 		else Input.is_joy_button_pressed(pad_id, button)
+	var was: bool = _held.get(key, false)
+	_held[key] = down
+	return down and not was
 
 ## Drains one tick's worth of input into commands.
 ##

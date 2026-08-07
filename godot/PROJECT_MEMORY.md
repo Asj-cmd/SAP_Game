@@ -163,6 +163,20 @@ existed before ten seconds of fun did.
 
 `HOUSE_LAYOUT.md` describes the first one and should not be built from.
 
+**Next: the layout is being specified by the player.** The house so far has been
+drawn by whoever was building it, which is why it has been rebuilt twice. A
+described plan is coming; treat this one as scaffolding to be replaced rather
+than something to defend.
+
+**One rule that is NOT a bug, and was measured to check.** A team can seize an
+intruder anywhere on ground it owns - and cannot in the neutral garden, in the
+other house, in its own pen, or in its own vault while the intruder's 5 s
+safe-room grant is running. That last one bites hardest: the raider is protected
+in the very room the defender most wants to catch them in. It is Variant B
+working as specified (`DESIGN_DIRECTION` §4) and it reads from the chair as "I
+cannot put the opponent in jail". Worth revisiting as a design question; it is
+not a fault.
+
 ## 6. Live queue
 
 Items 1-3 are done - see `55e0b9e` and the commit that added this line.
