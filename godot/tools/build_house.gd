@@ -26,7 +26,7 @@ extends SceneTree
 
 # ---- the threshold set (WORLD_AUTHORING.md §12) ----
 const STEP: float = 30.0
-const STOREY: float = 330.0 ## 11 steps exactly - §12: it has to divide
+const STOREY: float = 240.0 ## 8 steps exactly - §12: it has to divide
 const BODY: float = 20.0 ## TuningDef.actor_radius
 
 # ---- room dimensions (WORLD_AUTHORING.md §10) ----
@@ -47,94 +47,66 @@ const FLIGHT_FROM_WALL: float = 50.0
 
 # ---- the plan ----
 #
-#                    ^ garden, and the other house beyond it
-#   ┌──────────┬──────────┬──────────┐
-#   │ LANDING  │  VAULT   │ BEDROOM  │   upper,  y 370
-#   ├──────────┼──────────┼──────────┤
-#   │   HALL   │ KITCHEN  │   JAIL   │   ground, y  40
-#   └──────────┴──────────┴──────────┘
-#     stair        cash        pen
+# Two rooms by two, sixteen metres square. The hall runs the full depth down one
+# side; the other side is two rooms stacked front to back.
 #
-# Ways in, chosen per room rather than solved for:
+#          BACK  (garden, and the way round to it)
+#        +---------+---------+
+#        |         |  JAIL   |   ground        upper: BEDROOM
+#        |  HALL   +---------+
+#        |         | KITCHEN |   ground        upper: VAULT
+#        +---------+---------+
+#          FRONT (facing the other house)
 #
-#   hall      front door, kitchen, front stair
-#   kitchen   hall, jail, garden door
-#   jail      kitchen, end door, back stair
-#   landing   front stair, vault
-#   vault     landing, bedroom       - and a window OUT, one way, to the garden
-#   bedroom   vault, back stair      - and the same
+#   hall/landing   x 30..785,   z 30..1570   - full depth, holds a staircase
+#   jail/bedroom   x 815..1570, z 30..785    - at the BACK, away from the enemy
+#   kitchen/vault  x 815..1570, z 815..1570  - at the front
 #
-# TWO STAIRCASES, AT OPPOSITE ENDS, and that is arithmetic rather than taste. A
-# staircase is a single edge in the route graph, so with one of them EVERY path
-# upstairs crosses it and the vault has exactly one way in however the upper
-# floor is arranged - which is the one-door-one-defender failure with a nicer
-# name. A downward-only escape does not help: it is not a way in.
+# WHY IT IS SHAPED LIKE THIS. The house before was three rooms in a line, one
+# room deep: twenty-four metres by eight, which is a terrace, not a house. Every
+# door was on the front because the front was the only long face. Four faces
+# means a back door, and a back door means somebody can come round.
 #
-# So the choice was between an upstairs vault, two ways into it, and one stair.
-# Any two of those three. The stair count is the cheapest to give up, and two
-# flights at opposite ends is a legible plan: the vault sits between them and no
-# single body holds both.
-#
-# Both upstairs rooms have a window onto the garden, and both are one-way. 330
-# down is a drop you walk away from; 330 up is not a verb this game has. Climb
-# slowly by a contested stair, leave fast and committed - which is the asymmetry
-# an upstairs vault wants, and it costs no structure at all: a window is an
-# absence, and the drop is already in the walkable surface as a directed edge.
-#
-# What used to be here was a trellis - 704 units of external staircase bolted to
-# the front for one window. A driven body climbed it in every lane and the bots'
-# follow could not, which says the geometry was too demanding for anything not
-# being driven, and a player would have found it fiddly for the same reason. A
-# real external climb belongs to a vertical-climb traversal type at near-zero
-# footprint, not to a staircase in costume.
+# WHY THE STOREY IS 240 AND NOT 330. A flight is one tread per step, and a tread
+# has to be 64 long for the walkable fill to find it (§11). Eleven steps is a
+# 704-long staircase in a 755 room - it fills the room, and it has to start hard
+# against a wall, which is why mounting it was awkward. Eight steps is 512, which
+# leaves 243 of landing to walk onto. 240 units is 2.4 m, which is what a real
+# ceiling is; the old 330 was 3.3 m and bought nothing but a stair that did not
+# fit. Still a whole number of steps, which §12 requires.
 const GROUND: float = 40.0
 const UPPER: float = GROUND + STOREY
 const ROOF: float = UPPER + STOREY
 
-const HOUSE_W: float = ROOM * 3.0 + WALL * 4.0 # 2385
-const HOUSE_D: float = ROOM + WALL * 2.0 # 815
+## The room grid, in local coordinates.
+const LEFT_X: float = WALL
+const RIGHT_X: float = WALL * 2.0 + ROOM
+const BACK_Z: float = WALL
+const FRONT_Z: float = WALL * 2.0 + ROOM
+const HOUSE_W: float = ROOM * 2.0 + WALL * 3.0 # 1600
+const HOUSE_D: float = HOUSE_W
+const HALL_D: float = ROOM * 2.0 + WALL # the left column runs the whole depth
+## Where the two dividers sit.
+const SPLIT_X: float = RIGHT_X - WALL * 0.5
+const SPLIT_Z: float = FRONT_Z - WALL * 0.5
 
-const GARDEN_D: float = 1400.0 ## between the two front doors
+## Both flights, placed in the open rather than against a wall.
+const STAIR_A_X: float = LEFT_X + 170.0 ## hall, runs +z
+const STAIR_A_Z: float = BACK_Z + 370.0
+const STAIR_B_X: float = RIGHT_X + 85.0 ## jail, runs +x
+const STAIR_B_Z: float = BACK_Z + 70.0
 
-## THE WORLD IS A WHOLE NUMBER OF SAMPLING CELLS, and that is what makes the two
-## houses the same house.
-##
-## The second house is the first turned 180 degrees: x' = WORLD_W - x. The
-## walkable fill samples at cell centres, so that map sends a sampled point to
-## another sampled point only when WORLD_W is a multiple of the cell - otherwise
-## the turned copy lands at a different phase against the grid and gets a
-## DIFFERENT SURFACE from identical geometry.
-##
-## It did. 4,072 stances on one side against 3,986 on the other, and with them
-## different route counts for the same rooms: hall 3 against 2, landing 3
-## against 2. Every blocker had an exact rotated partner; the drift was entirely
-## in the sampling.
-##
-## The cell is `actor_radius * WalkableSurface.CELL_RADII` = 40, unless the shell
-## is long enough for SHELL_DIVISIONS to bite, which at this size it is not.
+## The world, sized in whole sampling cells - see the check in _initialize and
+## WORLD_AUTHORING §11. Margins fall out of it; nothing is measured from them.
 const CELL: float = 40.0
-const WORLD_W: float = 3200.0 # 80 cells
-const WORLD_D: float = 3440.0 # 86 cells
+const WORLD_W: float = 2400.0 # 60 cells
+const WORLD_D: float = 5200.0 # 130 cells
 const WORLD_H: float = ROOF + SLAB
-
-## Margins fall out of the world size rather than setting it. They are the give
-## in the layout: nothing is measured from them.
+const GARDEN_D: float = 1400.0
 const SIDE: float = (WORLD_W - HOUSE_W) * 0.5
 const BEHIND: float = (WORLD_D - GARDEN_D - HOUSE_D * 2.0) * 0.5
 const HOUSE_X: float = SIDE
 const HOUSE_Z: float = BEHIND
-
-## Slots left to right, as the plan reads.
-const HALL: int = 0
-const MIDDLE: int = 1
-const FAR: int = 2
-
-## Where the two flights sit. Chosen so neither covers a doorway, neither is
-## what you meet coming through one, and neither sits on the spot the rules put
-## a prisoner.
-const FRONT_STAIR_X: float = WALL + 500.0
-const BACK_STAIR_X: float = WALL + (ROOM + WALL) * 2.0 + 20.0
-const BACK_STAIR_Z: float = WALL + 40.0
 
 var _solids: Array[AABB] = []
 var _root: Node3D = null
@@ -178,75 +150,82 @@ func _initialize() -> void:
 
 # ---- one house, in local coordinates ----
 #
-# x runs 0..HOUSE_W across the three slots; z runs 0..HOUSE_D with the FRONT of
-# the house at +z. y is absolute and is never turned.
+# x runs 0..HOUSE_W, z runs 0..HOUSE_D, and the FRONT of the house - the side
+# facing the other house - is +z. y is absolute and is never turned.
 
 func _draw_house() -> void:
 	for level: float in [GROUND, UPPER]:
 		var top: float = level + STOREY - SLAB
-		# Ends own the corners, front and back run between the ends, dividers
-		# run between those. Nothing shares a volume with anything (§7).
-		_wall_x(WALL * 0.5, 0.0, HOUSE_D, level, top, [] as Array[Vector2])
-		_wall_x(HOUSE_W - WALL * 0.5, 0.0, HOUSE_D, level, top, _end_openings(level))
-		_wall_z(WALL * 0.5, WALL, HOUSE_W - WALL, level, top, [] as Array[Vector2])
-		_wall_z(HOUSE_D - WALL * 0.5, WALL, HOUSE_W - WALL, level, top,
-			_front_openings(level))
-		var doorway: Array[Vector2] = [_across(HOUSE_D * 0.5, DOOR)] as Array[Vector2]
-		_wall_x(_slot(MIDDLE) - WALL * 0.5, WALL, HOUSE_D - WALL, level, top, doorway)
-		_wall_x(_slot(FAR) - WALL * 0.5, WALL, HOUSE_D - WALL, level, top, doorway)
+		# Ends own the corners, front and back run between them, dividers run
+		# between those. Nothing shares a volume with anything (§7).
+		_wall_x(WALL * 0.5, 0.0, HOUSE_D, level, top, _left_face(level))
+		_wall_x(HOUSE_W - WALL * 0.5, 0.0, HOUSE_D, level, top, _right_face(level))
+		_wall_z(WALL * 0.5, WALL, HOUSE_W - WALL, level, top, _back_face(level))
+		_wall_z(HOUSE_D - WALL * 0.5, WALL, HOUSE_W - WALL, level, top, _front_face(level))
+		# The hall's long wall, and the one splitting the two rooms beside it.
+		_wall_x(SPLIT_X, WALL, HOUSE_D - WALL, level, top, [
+			_across(BACK_Z + ROOM * 0.5, DOOR), # to the jail / bedroom
+			_across(FRONT_Z + ROOM * 0.5, DOOR), # to the kitchen / vault
+		] as Array[Vector2])
+		_wall_z(SPLIT_Z, RIGHT_X, HOUSE_W - WALL, level, top,
+			[_across(RIGHT_X + ROOM * 0.5, DOOR)] as Array[Vector2])
 
 	_slab(UPPER, Rect2(0.0, 0.0, HOUSE_W, HOUSE_D),
 		[_stairwell_z(), _stairwell_x()] as Array[Rect2])
 	_slab(ROOF, Rect2(0.0, 0.0, HOUSE_W, HOUSE_D), [] as Array[Rect2])
 
-	# Front stair, hall up to the landing, running the depth of the room and set
-	# across from the front door so walking in is not walking under it.
-	_flight_z(FRONT_STAIR_X, FLIGHT_FROM_WALL, GROUND)
-	# Back stair, jail up to the bedroom - so a rescue can leave upstairs.
-	#
-	# Runs ACROSS the room rather than down it. A flight is 704 long and a room
-	# is 755, so one laid down the room's depth covers the whole of one side,
-	# and the jail's two doors and the spot a prisoner is put are all on that
-	# side. The gate caught it as a pen whose centre is inside a blocker, which
-	# is a prisoner in a staircase.
-	_flight_x(BACK_STAIR_X, BACK_STAIR_Z, GROUND)
+	# Hall up to the landing, running the depth of the hall with room to walk
+	# onto it at both ends. Being able to reach a staircase is not a detail: the
+	# last one started 50 from the back wall and had to be approached by walking
+	# into a corner first.
+	_flight_z(STAIR_A_X, STAIR_A_Z, GROUND)
+	# Jail up to the bedroom, running across the room, clear of both its doors
+	# and of the spot the rules put a prisoner.
+	_flight_x(STAIR_B_X, STAIR_B_Z, GROUND)
 
-## The front of the house, facing the garden.
-func _front_openings(level: float) -> Array[Vector2]:
+## Doors on THREE faces, which is what having four faces is for. The house
+## before this had every opening on the side pointing at the enemy, so there was
+## no way to come round the back of anything.
+func _front_face(level: float) -> Array[Vector2]:
 	if level == GROUND:
 		return [
-			_across(_slot(HALL) + 250.0, DOOR), # front door, into the hall
-			_across(_slot(MIDDLE) + ROOM * 0.5, DOOR), # garden door, into the kitchen
+			_across(LEFT_X + ROOM * 0.5, DOOR), # front door, into the hall
+			_across(RIGHT_X + ROOM * 0.5, DOOR), # into the kitchen
 		] as Array[Vector2]
-	# Both upstairs windows: ways OUT, never in. Each is clear of the stairwell
-	# below it, so stepping out drops you into the garden rather than back down
-	# your own stairs.
-	return [
-		_across(_slot(MIDDLE) + ROOM * 0.5, DOOR), # off the vault
-		_across(_slot(FAR) + 150.0, DOOR), # off the bedroom
-	] as Array[Vector2]
+	# The vault's window: a way OUT and never in. 240 down is a drop you walk
+	# away from; 240 up is not a verb this game has. Climb slowly by a contested
+	# stair, leave fast and committed.
+	return [_across(RIGHT_X + ROOM * 0.5, DOOR)] as Array[Vector2]
 
-## The jail's own door, on the end wall, so the pen is not reached only through
-## the kitchen. One door is one defender, and a pen nobody can reach is a
-## rescue that never happens.
-func _end_openings(level: float) -> Array[Vector2]:
+func _back_face(level: float) -> Array[Vector2]:
+	if level == GROUND:
+		return [
+			_across(LEFT_X + ROOM * 0.5, DOOR), # back door, into the hall
+			_across(RIGHT_X + ROOM * 0.5, DOOR), # straight into the jail
+		] as Array[Vector2]
+	return [_across(RIGHT_X + ROOM * 0.5, DOOR)] as Array[Vector2] # off the bedroom
+
+func _right_face(level: float) -> Array[Vector2]:
 	if level != GROUND:
 		return [] as Array[Vector2]
-	return [_across(HOUSE_D * 0.5, DOOR)] as Array[Vector2]
+	return [_across(FRONT_Z + ROOM * 0.5, DOOR)] as Array[Vector2] # side door, kitchen
 
-## The hole the flight needs in the floor above it, from the tread where a
-## standing body's head would otherwise be inside the slab.
-##
-## Worked out the way the FILL will see it, not from the clear height: a body
-## occupies the layer whose centre is first above its rest height, and the layer
-## is as tall as a step, so the rounding is worth a whole tread (§11).
+## Left blank on purpose. A house with a door on every side has no back of it.
+func _left_face(_level: float) -> Array[Vector2]:
+	return [] as Array[Vector2]
+
+## The opening each flight needs in the floor above it, from the tread where a
+## standing body's head would otherwise be inside the slab, plus enough past the
+## top to step off onto.
 func _stairwell_z() -> Rect2:
-	var from: float = FLIGHT_FROM_WALL + RUN * float(_covered()) - 40.0
-	return Rect2(FRONT_STAIR_X, from, FLIGHT_W, HOUSE_D - from)
+	var from: float = STAIR_A_Z + RUN * float(_covered()) - 40.0
+	return Rect2(STAIR_A_X, from, FLIGHT_W,
+		STAIR_A_Z + RUN * float(TREADS) + 40.0 - from)
 
 func _stairwell_x() -> Rect2:
-	var from: float = BACK_STAIR_X + RUN * float(_covered()) - 40.0
-	return Rect2(from, BACK_STAIR_Z, HOUSE_W - WALL - from, FLIGHT_W)
+	var from: float = STAIR_B_X + RUN * float(_covered()) - 40.0
+	return Rect2(from, STAIR_B_Z,
+		STAIR_B_X + RUN * float(TREADS) + 40.0 - from, FLIGHT_W)
 
 ## The first tread whose standing body would have its head in the slab above.
 ##
@@ -261,9 +240,6 @@ func _covered() -> int:
 			return i
 	return TREADS
 
-func _slot(index: int) -> float:
-	return WALL + (ROOM + WALL) * float(index)
-
 func _across(centre: float, width: float) -> Vector2:
 	return Vector2(centre - width * 0.5, centre + width * 0.5)
 
@@ -276,25 +252,29 @@ func _stamp(turned: bool, team: StringName, side: String) -> void:
 	for box: AABB in _solids:
 		_blocker(_place(box, turned))
 
+	# Rooms as rectangles, named where they are. The hall and the landing run
+	# the full depth of the house down one side; the other side is two rooms.
 	var rooms: Array[Array] = [
-		[&"hall", ZoneDef.Role.HOME, HALL, GROUND],
-		[&"kitchen", ZoneDef.Role.HOME, MIDDLE, GROUND],
-		[&"jail", ZoneDef.Role.JAIL, FAR, GROUND],
-		[&"landing", ZoneDef.Role.HOME, HALL, UPPER],
-		[&"vault", ZoneDef.Role.CASH_ROOM, MIDDLE, UPPER],
-		[&"bedroom", ZoneDef.Role.HOME, FAR, UPPER],
+		[&"hall", ZoneDef.Role.HOME, LEFT_X, GROUND, BACK_Z, ROOM, HALL_D],
+		[&"kitchen", ZoneDef.Role.HOME, RIGHT_X, GROUND, FRONT_Z, ROOM, ROOM],
+		[&"jail", ZoneDef.Role.JAIL, RIGHT_X, GROUND, BACK_Z, ROOM, ROOM],
+		[&"landing", ZoneDef.Role.HOME, LEFT_X, UPPER, BACK_Z, ROOM, HALL_D],
+		[&"vault", ZoneDef.Role.CASH_ROOM, RIGHT_X, UPPER, FRONT_Z, ROOM, ROOM],
+		[&"bedroom", ZoneDef.Role.HOME, RIGHT_X, UPPER, BACK_Z, ROOM, ROOM],
 	]
 	for room: Array in rooms:
 		_zone(StringName("%s_%s" % [room[0], side]), room[1], team, 1,
-			_place(AABB(Vector3(_slot(room[2]), room[3], WALL),
-				Vector3(ROOM, STOREY, ROOM)), turned), false)
+			_place(AABB(Vector3(room[2], room[3], room[4]),
+				Vector3(room[5], STOREY, room[6])), turned), false)
 
+	# Spawns in the front half of the hall, clear of the flight. Cash in the
+	# vault, spread so three bundles are not one grab.
 	for i: int in 3:
 		_marker("spawn_%s_%d" % [team, i], _place(AABB(Vector3(
-			_slot(HALL) + 250.0, GROUND + BODY, 200.0 + 180.0 * float(i)),
+			LEFT_X + 380.0, GROUND + BODY, FRONT_Z + 200.0 + 180.0 * float(i)),
 			Vector3.ONE), turned).position)
 		_marker("cash_%s_%d" % [team, i], _place(AABB(Vector3(
-			_slot(MIDDLE) + 180.0 + 200.0 * float(i), UPPER + BODY, HOUSE_D * 0.5),
+			RIGHT_X + 180.0 + 200.0 * float(i), UPPER + BODY, FRONT_Z + ROOM * 0.5),
 			Vector3.ONE), turned).position)
 
 func _place(box: AABB, turned: bool) -> AABB:

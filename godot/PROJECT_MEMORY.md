@@ -120,27 +120,48 @@ than right. Reviewer suggestions about *method* — measure this, build that
 instrument first, separate those concerns — have held up. Weight them
 accordingly.
 
-## 5. The house, and why it was rebuilt
+## 5. The house, and why it was rebuilt twice
 
-The first house was generated to satisfy the routing gate: eighteen rooms, three
-storeys, technically flawless and never fun. Playing it produced sticking, random
-falls into the basement through invisible light wells, and no sense of place.
+**First rebuild.** The generated house - eighteen rooms, three storeys, built to
+satisfy the routing gate - was replaced by a hand-drawn one. Coordinates chosen
+and commented rather than solved for.
 
-It was replaced by a hand-drawn one: **six rooms, two floors, one staircase,
-vault upstairs, jail on the ground, two fronts facing each other across a
-garden.** Coordinates chosen and commented rather than solved for. Ways in: hall
-3, kitchen 3, landing 3, vault 3, jail 2, bedroom 2.
+**Second rebuild, after playing it.** That house was three rooms in a line, one
+room deep: 24 m by 8 m, which is a terrace. Every door was on the front, because
+the front was the only long face - so there was no way to come round the back of
+anything. And a flight of eleven treads is 704 long in a 755 room, so the
+staircase filled the room, started hard against a wall, and had to be approached
+by walking into a corner.
 
-Placement stays generated — two hand-written copies would drift, and asymmetry
-between the houses is a balance bug nobody can see. Rooms are drawn.
+It is now **two rooms by two, sixteen metres square**, over two floors:
 
-Smaller was also faster: p99 73 → 36 ms, over-budget ticks 74 → 11, from nothing
-but a smaller world.
+    hall / landing   full depth down one side, holds a staircase
+    jail / bedroom   at the BACK, away from the enemy house
+    kitchen / vault  at the front
+
+Doors on three of the four faces; the fourth is left blank so the house has a
+back to it. Two staircases, one in the hall and one in the jail, so no single
+body holds the upstairs - a staircase is a single edge in the route graph, and
+with one of them the vault has exactly one way in however the upper floor is
+arranged.
+
+**The storey came down from 330 to 240** - eight steps rather than eleven. That
+is what makes a flight fit a room with floor to spare, and 2.4 m is what a real
+ceiling is. Still a whole number of steps, which §12 requires.
+
+Placement stays generated - two hand-written copies would drift. Rooms are
+drawn.
+
+**Two sampling rules were learned here and are in `WORLD_AUTHORING` §11.** The
+world must be a whole number of fill cells or a turned copy is sampled at a
+different phase and silently differs from its twin. And a floor tint must follow
+the walkable footprint rather than the room rectangle, or it paints over the
+stairwell and the player climbs through what looks like a solid floor.
 
 **The principle:** scale a level after it plays well, not before. Eighteen rooms
 existed before ten seconds of fun did.
 
-`HOUSE_LAYOUT.md` describes the old one and should not be built from.
+`HOUSE_LAYOUT.md` describes the first one and should not be built from.
 
 ## 6. Live queue
 

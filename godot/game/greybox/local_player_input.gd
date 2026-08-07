@@ -64,12 +64,21 @@ func poll(delta: float) -> void:
 
 	_intent = camera.intent_from(_read_travel())
 
-	if _read_button(KEY_E, JOY_BUTTON_A):
+	# SPACE is the one contextual button: seize an intruder, or free a team-mate
+	# who has been seized. It sends BOTH intents and lets the rules decide which
+	# one the situation allows - seizing needs an enemy on ground you own,
+	# freeing needs a held ally in reach, and no position satisfies both.
+	#
+	# One button because the player already knows which they mean. Asking them to
+	# also know which key expresses it is a second decision with no content in
+	# it, and in a chase it is the one they get wrong.
+	var contextual: bool = _read_button(KEY_SPACE, JOY_BUTTON_A)
+	if contextual or _read_button(KEY_E, JOY_BUTTON_B):
 		_capture_pressed = true
+	if contextual or _read_button(KEY_R, JOY_BUTTON_Y):
+		_rescue_pressed = true
 	if _read_button(KEY_Q, JOY_BUTTON_X):
 		_carry_pressed = true
-	if _read_button(KEY_R, JOY_BUTTON_B):
-		_rescue_pressed = true
 
 ## Screen-relative travel: +x right, -y forward. Turned into world space by
 ## the camera.

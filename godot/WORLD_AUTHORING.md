@@ -395,9 +395,22 @@ built to one of them.
 | `vault_height` | 120 | vault | a counter, a windowsill, a low wall, a railing |
 | `crouch_gap` | 130 | crouch | under a counter, a serving hatch, a crawl space |
 | `max_drop_height` | 480 | drop | a first-floor window, a balcony, a stairwell |
-| storey | 330 | stairs | one floor to the next |
+| storey | 240 | stairs | one floor to the next |
 
-**A storey is a whole number of steps, and that is not a rounding.** It was 320,
+**A storey is a whole number of steps, AND SHORT ENOUGH THAT A FLIGHT FITS IN A
+ROOM.** Two constraints, and the second one was learned from the chair.
+
+A flight costs one tread per step and a tread costs 64 (below), so the run is
+`steps × 64`. At eleven steps that is 704 in a 755 room: the staircase fills
+the room, has to start hard against a wall, and has to be approached by
+walking into a corner first — which is what "getting on to the stairs is
+difficult" turned out to be. Eight steps is 512 and leaves 243 of floor to walk
+onto.
+
+240 units is also 2.4 m, which is what a domestic ceiling actually is. 330 was
+3.3 m and bought nothing but a stair that did not fit.
+
+The first constraint, which still holds: it was 320,
 which is eleven treads of 29.09, and eleven treads of 29.09 do not make a
 staircase. The fill quantises height at `layer_height` — 30, the step allowance —
 so a tread is only found when a layer centre falls between its top and the next
