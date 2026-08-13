@@ -128,7 +128,8 @@ lose a pursuer. Windows: west, south.
 
 Ring corridor: Landing A → Vault → Landing B → Bedroom → Landing A.
 
-**Six windows, every one a one-way drop to the garden**, covering all four faces.
+**Eight windows, every one a one-way drop to the garden** — two per room,
+covering all four faces. Exact positions in §11.
 
 ---
 
@@ -319,3 +320,176 @@ shorten.
 
 Do not go below four. Under that there is nowhere to lose a pursuer, and the
 whole design rests on being able to.
+
+---
+
+## 11. Opening schedule
+
+Everything that can be passed through, exhaustively. This is the drawing
+reference — if it is not in this table it is a solid wall.
+
+### House-local coordinates
+
+Origin at the south-west corner of the house, X east, Z north. Walls 30 thick.
+
+```
+   Z=1590 ┌──────────────┬──────────────┐
+          │      NW      │      NE      │
+          │   30–780     │  810–1560    │
+   Z= 810 ├──────────────┼──────────────┤
+   Z= 780 │      SW      │      SE      │
+          │   30–780     │  810–1560    │
+   Z=  30 └──────────────┴──────────────┘
+        X=30           780  810       1560
+```
+
+Internal walls run along X 780–810 and Z 780–810. Outer walls are the 30-thick
+band outside 30…1560 on each side.
+
+### Upper floor — y 600 to 900
+
+| Room | Opening | Face | Type |
+|---|---|---|---|
+| Landing A (NW) | Window | North | One-way drop |
+| Landing A (NW) | Window | West | One-way drop |
+| Landing A (NW) | Laundry chute | East wall, interior | **One-way down to Cellar** |
+| Landing A (NW) | Main stair | interior | Down to Back Hall |
+| Vault (NE) | Window | North | One-way drop |
+| Vault (NE) | Window | East | One-way drop |
+| Bedroom (SW) | Window | West | One-way drop |
+| Bedroom (SW) | Window | South | One-way drop |
+| Landing B (SE) | Window | South | One-way drop |
+| Landing B (SE) | Window | East | One-way drop |
+| Landing B (SE) | Second stair | interior | Down to Front Hall |
+| — | 4 internal doorways | ring | Landing A↔Vault↔Landing B↔Bedroom↔Landing A |
+
+### Ground floor — y 300 to 600
+
+| Room | Opening | Face | Type |
+|---|---|---|---|
+| Back Hall (NW) | **Back door** | North | Two-way |
+| Back Hall (NW) | Window | West | Two-way climb |
+| Back Hall (NW) | Main stair | interior | Up to Landing A **and down to basement** |
+| Kitchen (NE) | **Side door** | East | Two-way |
+| Kitchen (NE) | Window | North | Two-way climb |
+| Living (SW) | Window | West | Two-way climb |
+| Living (SW) | Window | South | Two-way climb |
+| Front Hall (SE) | **Front door** | South | Two-way |
+| Front Hall (SE) | Window | East | Two-way climb |
+| Front Hall (SE) | Second stair | interior | Up to Landing B only |
+| — | 4 internal doorways | ring | Back Hall↔Kitchen↔Front Hall↔Living↔Back Hall |
+
+### Basement — y 0 to 300
+
+L-shaped: NW, NE, SW. The south-east quadrant is solid earth. The three areas
+are **open to each other** — wide arches, not doors.
+
+| Area | Opening | Face | Type |
+|---|---|---|---|
+| Stair foot (NW) | **Exterior basement steps** | North | Two-way, descending from garden |
+| Stair foot (NW) | Main stair | interior | Up to Back Hall |
+| Cellar / JAIL (NE) | Laundry chute exit | ceiling | **One-way in, from Landing A** |
+| Boiler (SW) | **Coal chute** | West | **One-way down from garden** |
+| Boiler (SW) | **Vent** | South | Two-way, crawl height (~90 tall) |
+
+**Totals.** 3 exterior doors, 5 climbable ground windows, 8 upper windows, 3
+basement openings from outside, 2 staircases, 1 chute. Every face of the house
+has at least two ways through it on at least two floors.
+
+---
+
+## 12. The lot — environment map
+
+```
+   Z=3450  ┌─────────────────────────────────────────────────────┐
+           │                                                     │
+           │                              ┌───────────────┐      │
+           │                              │               │      │
+           │                              │   HOUSE B     │      │
+           │                              │   (180°)      │      │
+           │        NEUTRAL               │  front ▲ N    │      │
+           │         BAND                 └───────────────┘      │
+           │                                                     │
+           │      ┌───────────────┐                              │
+           │      │               │                              │
+           │      │   HOUSE A     │          NEUTRAL             │
+           │      │   (0°)        │           BAND               │
+           │      │  front ▼ S    │                              │
+           │      └───────────────┘                              │
+           │                                                     │
+   Z=0     └─────────────────────────────────────────────────────┘
+          X=0                                                  X=4900
+```
+
+| Element | X | Z |
+|---|---|---|
+| Lot (boundary wall) | 0 – 4900 | 0 – 3450 |
+| House A | 550 – 2140 | 550 – 2140 |
+| House B | 2760 – 4350 | 1310 – 2900 |
+| Corridor between houses | 2140 – 2760 | full depth |
+| Outer garden margin | 550 everywhere | 550 everywhere |
+
+**House A** is unrotated: front door faces south. **House B** is rotated 180°:
+front door faces north. They are point-symmetric about the lot centre
+(2450, 1725), so the layout is identical for both teams without mirroring.
+
+### Garden features, per house
+
+Placed in the yard immediately outside the relevant face:
+
+| Feature | Face | Footprint | Note |
+|---|---|---|---|
+| Exterior basement steps | North | ~640 × 250, descending | A stepped pit in the lawn, walled |
+| Coal chute mouth | West | ~200 × 200, sloped | Visible opening at ground level |
+| Vent grille | South | ~240 wide × 90 tall | At ground level, crawl height |
+| Front path | South | — | To the front door |
+| Back path | North | — | To the back door |
+| Side path | East | — | To the side door |
+
+### Spawns, cash, jail
+
+| Thing | Where |
+|---|---|
+| Team spawns (×4) | In the team's own yard, spread along the back and side faces |
+| Cash bundles | In the Vault, upper floor NE |
+| Jail | The Cellar, basement NE |
+
+### Territory
+
+Ground within **400** of a house's outer wall belongs to that house — capture is
+legal there. Everything else, including the corridor between the houses and the
+outer margin, is **neutral** and capture is illegal.
+
+This matters more than it looks. An earlier build put every encounter on neutral
+ground, so no capture was ever legal and the game had no interactions at all.
+**Never let the only safe place also be the only crossing.**
+
+---
+
+## 13. Drawing guide
+
+For anyone producing 2D plans from this document.
+
+**Six drawings.** Three floor plans (upper, ground, basement) plus one lot map.
+Optionally a section through the NW/NE columns showing the stair and chute in
+elevation — that is the clearest way to see the vault sitting above the jail.
+
+**Suggested symbols.**
+
+| Symbol | Means |
+|---|---|
+| Heavy solid line | Wall |
+| Gap in a wall | Doorway (240 wide) |
+| Thin double line | Window — two-way if ground, one-way if upper |
+| Arrow pointing down | One-way drop; label it |
+| Hatched rectangle with arrow | Stair, arrow pointing up |
+| Dashed rectangle | Opening in floor or ceiling (chute, stairwell void) |
+| Dotted outline | Volume on the floor below or above, for alignment |
+
+**Draw all three floors on the same grid and orientation**, north up, so the
+columns line up when the sheets are stacked. The vertical relationships in §3
+are the point; a plan set that cannot be read as a stack loses them.
+
+**Label every opening with its direction.** One-way versus two-way is the single
+most important thing on these drawings, and it is invisible in plan unless
+annotated.
