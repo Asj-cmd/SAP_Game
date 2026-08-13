@@ -17,7 +17,7 @@ method, the mistakes and what they cost, and where things actually stand.
 | `WORLD_AUTHORING.md` | Collision, validator, thresholds, the authoring pipeline | Current |
 | `DESIGN_DIRECTION.md` | What the game is trying to be. Settled decisions, verbs, distribution | Current |
 | `CLAUDE.md` | Testing policy, looking-at-the-screen rule, conventions | Current — binding |
-| `HOUSE_LAYOUT.md` | The eighteen-room three-storey proposal | **Superseded.** See §5 |
+| `HOUSE_LAYOUT.md` | The buildable house spec — floors, vertical stacking, connections, lot | Current. Rewritten; §5 records what it replaced |
 | `PROJECT_MEMORY.md` | This file | Current |
 
 ## 2. Where things stand
