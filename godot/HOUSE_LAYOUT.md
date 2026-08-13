@@ -71,15 +71,22 @@ The basement omits the south-east quadrant.
 | Column | Upper | Ground | Basement |
 |---|---|---|---|
 | **NW** | Landing A | Back Hall | Stair foot |
-| **NE** | **VAULT** | Kitchen | **CELLAR (jail)** |
-| **SW** | Bedroom | Living Room | Boiler |
+| **NE** | **VAULT** (cash) | Kitchen | **CELLAR (jail)** |
+| **SW** | **BEDROOM** (cash) | Living Room | Boiler |
 | **SE** | Landing B | Front Hall | *solid earth* |
 
-Two consequences worth stating:
+Three consequences worth stating:
+
+**Both upstairs rooms are cash rooms**, and the bundles are **split randomly
+between them at the start of every round**. A raider does not know where the
+money is until they are up there, so scouting has value and a defender cannot
+pre-position perfectly either. Two `CASH_ROOM` zones; the split is a spawn rule,
+not new machinery.
 
 **The vault sits directly above the jail**, two floors up in the same corner of
 the house. The two objectives are vertically stacked, which makes the building
-legible — the cash and the prison are the same corner, top and bottom.
+legible — the cash and the prison are the same corner, top and bottom. The
+second cash room sits diagonally opposite it, so the pair spans the floor.
 
 **The NW column is the spine.** The main stair runs its full height, basement to
 top. It is the only staircase reaching the basement; the second stair serves
@@ -118,11 +125,14 @@ Garden sits at ground-floor level. The basement is genuinely below grade.
 east wall and drops down the NW/NE boundary into the cellar, two floors below.
 Windows: north, west.
 
-**Vault** (NE) — the cash. Doors from *both* landings, so neither stair is the
-only approach. Windows: north, east.
+**Vault** (NE) — a cash room. Doors from *both* landings, so neither stair is the
+only approach. Windows: north, east. The chute shaft occupies a **200 × 200
+column in its north-west corner** and is a blocker at this level as well as in
+the Kitchen below — the shaft is sealed everywhere except its intake and its
+exit.
 
-**Bedroom** (SW) — no objective. It exists as circulation and as somewhere to
-lose a pursuer. Windows: west, south.
+**Bedroom** (SW) — the second cash room. Windows: west, south. Diagonally
+opposite the Vault, so covering both means crossing the floor.
 
 **Landing B** (SE) — head of the second stair. Windows: south, east.
 
@@ -161,8 +171,9 @@ and down to the cellar.
 
 Ring corridor: Back Hall → Kitchen → Front Hall → Living → Back Hall.
 
-**Three doors on three faces, four climbable windows on the remaining face and
-beyond.** Seven ways onto this floor.
+**Three doors on three faces, plus five climbable windows** (Back Hall west,
+Kitchen north, Living west, Living south, Front Hall east). **Eight ways onto
+this floor.**
 
 ---
 
@@ -177,9 +188,9 @@ guarantee it.
         ┌───────────────┬───────────────┐
         │  STAIR FOOT   │    CELLAR     │
         │               │   = JAIL      │
-   WEST │  exterior ────┤   ▲ chute in  │ EAST
-        │  steps ▲      │               │
-        ├───────────────┼───────────────┘
+   WEST │               │   ▲ chute in  │ EAST
+        │               │   exterior ▲  │
+        ├───────────────┼─── steps ─────┘
         │    BOILER     │
         │  ◄ coal chute │      solid earth
         │  ◄ vent       │
@@ -187,16 +198,31 @@ guarantee it.
                     SOUTH
 ```
 
-**Cellar** (NE) — the jail. The laundry chute lands here.
+**Cellar** (NE) — the jail. The laundry chute lands here, and the **exterior
+basement steps** rise from the north garden directly into it.
 
 **Boiler** (SW) — **coal chute** in the west face (one-way down from the garden)
 and a **vent** in the south face at crawl height (two-way, slow).
 
-**Stair foot** (NW) — main stair, and **exterior basement steps** rising to the
-north garden.
+**Stair foot** (NW) — the main stair, and the only quadrant touching both others.
 
-All three areas are open to each other. A released prisoner has the stair, the
-exterior steps, and the vent — three ways out, on three faces.
+### Why the exterior steps open into the Cellar and not the Stair foot
+
+Because the basement is L-shaped, the Cellar and the Boiler touch only at a
+corner — they cannot share an arch. So the only two openings possible are
+Stair foot ↔ Cellar and Stair foot ↔ Boiler.
+
+Put the exterior steps in the Stair foot and **every** route into the jail runs
+through that one arch: min cut to the Cellar is 1, the gate refuses to load the
+level, and one defender standing in the Stair foot holds the entire basement.
+
+Opening the steps into the Cellar itself gives the jail two independent routes —
+the arch, and its own door to the north garden. It also makes "a rescue can skip
+the house entirely" literal: you come down the outside steps and you are at the
+cell.
+
+A released prisoner therefore has the exterior steps (north), the main stair
+(via the arch), and the vent (via the arch and the Boiler).
 
 ---
 
@@ -212,7 +238,7 @@ exterior steps, and the vent — three ways out, on three faces.
 | Main stair | — | two-way, all three floors | The spine |
 | Second stair | — | two-way, ground↔upper | Bypasses the main stair entirely |
 | Laundry chute | — | **one-way down** | Upper landing → jail, two floors instantly |
-| Exterior basement steps | N | two-way | Reach the jail without entering the house |
+| Exterior basement steps | N | two-way | Descends into the **Cellar** itself — a rescue can skip the house entirely |
 | Coal chute | W | **one-way down** | Fast way into the basement, no way back |
 | Vent | S | two-way, crawl | Slow, low, arrives unseen |
 
@@ -354,6 +380,7 @@ band outside 30…1560 on each side.
 | Landing A (NW) | Window | West | One-way drop |
 | Landing A (NW) | Laundry chute | East wall, interior | **One-way down to Cellar** |
 | Landing A (NW) | Main stair | interior | Down to Back Hall |
+| Vault (NE) | Chute shaft (sealed) | NW corner, 200 × 200 | BLOCKER — keep clear |
 | Vault (NE) | Window | North | One-way drop |
 | Vault (NE) | Window | East | One-way drop |
 | Bedroom (SW) | Window | West | One-way drop |
@@ -386,8 +413,8 @@ are **open to each other** — wide arches, not doors.
 
 | Area | Opening | Face | Type |
 |---|---|---|---|
-| Stair foot (NW) | **Exterior basement steps** | North | Two-way, descending from garden |
 | Stair foot (NW) | Main stair | interior | Up to Back Hall |
+| Cellar / JAIL (NE) | **Exterior basement steps** | North | Two-way, descending from the north garden |
 | Cellar / JAIL (NE) | Laundry chute exit | ceiling | **One-way in, from Landing A** |
 | Boiler (SW) | **Coal chute** | West | **One-way down from garden** |
 | Boiler (SW) | **Vent** | South | Two-way, crawl height (~90 tall) |
@@ -437,21 +464,21 @@ front door faces north. They are point-symmetric about the lot centre
 
 Placed in the yard immediately outside the relevant face:
 
-| Feature | Face | Footprint | Note |
-|---|---|---|---|
-| Exterior basement steps | North | ~640 × 250, descending | A stepped pit in the lawn, walled |
-| Coal chute mouth | West | ~200 × 200, sloped | Visible opening at ground level |
-| Vent grille | South | ~240 wide × 90 tall | At ground level, crawl height |
-| Front path | South | — | To the front door |
-| Back path | North | — | To the back door |
-| Side path | East | — | To the side door |
+| Feature | Face | Footprint | Placement (house-local) | Note |
+|---|---|---|---|---|
+| Exterior basement steps | North | 250 wide × 640 run, descending 300 | X 1280–1530 · Z 1590–2230 | Walled pit in the lawn, at the **east end** of the north face so it lands in the Cellar. Reaches the jail without entering the house |
+| Coal chute mouth | West | ~200 × 200, sloped | X −200–0 · Z 305–505 | Visible opening at ground level, one-way down into the Boiler |
+| Vent grille | South | 240 wide × 90 tall | X 285–525 · Z −60–0 | Ground level, crawl height, two-way |
+| Front path | South | 240 wide | X 1065–1305, running south | To the front door |
+| Back path | North | 240 wide | X 340–580, running north | To the back door. Well west of the steps pit — no collision |
+| Side path | East | 240 wide | Z 1065–1305, running east | To the side door, facing the contested middle |
 
 ### Spawns, cash, jail
 
 | Thing | Where |
 |---|---|
 | Team spawns (×4) | In the team's own yard, spread along the back and side faces |
-| Cash bundles | In the Vault, upper floor NE |
+| Cash bundles | **Split randomly each round between the two upper cash rooms** — Vault (NE) and Bedroom (SW) |
 | Jail | The Cellar, basement NE |
 
 ### Territory
