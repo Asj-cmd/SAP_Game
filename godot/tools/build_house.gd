@@ -309,33 +309,74 @@ func _stairs() -> void:
 ## mid-landing spans both at half height, and the second climbs the eastern half
 ## back down the z axis - so a body arrives at the top having turned 180 degrees,
 ## in 580 of depth rather than 640 of straight run.
+## TREADS ARE TREADS, NOT COLUMNS.
+##
+## Each step is a slab one riser thick at its own height - not a solid block from
+## floor level up. That distinction is invisible in a single-storey house and
+## fatal in a stacked one: the main stair runs basement->ground->upper in the SAME
+## footprint, so filling each tread down to its storey's floor makes the flight
+## above into a solid ceiling over the flight below. Measured: blocker_139,
+## occupying y 300..600, sat directly on the basement stair's top tread and the
+## fill dropped every tread whose body would not fit under it. The basement
+## became enterable and not escapable, and the upper floor unreachable, from one
+## cause with two faces.
+##
+## A real staircase is a thin ramp with open space beneath it. So is this one.
 func _switchback(x: float, z: float, base: float) -> void:
 	var half: float = base + STEP * float(HALF_FLIGHT)
 	for i: int in HALF_FLIGHT:
-		_solid(AABB(Vector3(x, base, z + RUN * float(i)),
-			Vector3(FLIGHT_W, STEP * float(i + 1), RUN)))
-	# Mid-landing: full width, both flights, at half height.
-	_solid(AABB(Vector3(x, base, z + FLIGHT_RUN),
-		Vector3(STAIR_W, half - base, LANDING_D)))
+		var top: float = base + STEP * float(i + 1)
+		_solid(AABB(Vector3(x, top - STEP, z + RUN * float(i)),
+			Vector3(FLIGHT_W, STEP, RUN)))
+	# Mid-landing: full width, both flights, one riser thick at half height.
+	_solid(AABB(Vector3(x, half - STEP, z + FLIGHT_RUN),
+		Vector3(STAIR_W, STEP, LANDING_D)))
 	for i: int in HALF_FLIGHT:
 		var top: float = half + STEP * float(i + 1)
 		_solid(AABB(
-			Vector3(x + FLIGHT_W, base, z + FLIGHT_RUN - RUN * float(i + 1)),
-			Vector3(FLIGHT_W, top - base, RUN)))
+			Vector3(x + FLIGHT_W, top - STEP, z + FLIGHT_RUN - RUN * float(i + 1)),
+			Vector3(FLIGHT_W, STEP, RUN)))
 
 ## The opening a flight needs in the floor above it.
 ##
-## Sized for the VISIBLE body over the CLIMB, and flush with the geometry at the
-## ARRIVAL. A 180-tall character reaches the underside of the slab well before
-## its centre does, so the hole is generous over the treads - but a switchback
-## finishes back at the end it started from, and overshooting there cut the floor
-## out from under the body exactly where it steps off. Twenty units of missing
-## slab at the top of the stairs, which read as a whole basement that could be
-## entered and not left.
+## NOT the stair footprint - a strip over the ARRIVING half only.
 ##
-## So: flush at z (the arrival edge), generous everywhere else.
+## A switchback climbs one storey in two halves. The first half tops out at
+## mid-height, nowhere near the ceiling; only the second half approaches the
+## floor it arrives at, and only its last treads foul the slab. Measured on this
+## geometry: with a 300 storey and a 40 slab there is 260 clear, so a tread whose
+## top is within `SLAB + 2 * BODY` of the floor above has no room for the body
+## and the fill drops it.
+##
+##   step 2  top 240  clear 20   step 3  top 270  clear -10
+##   step 4  top 300  clear -40  body needs 40
+##
+## Cutting the whole footprint instead is what a rectangle forces, and it takes
+## the floor out from under the departing flight's head - so the body has nothing
+## to step onto and the storey below becomes enterable but not escapable. Both
+## halves of that were tried; each fixed one end and broke the other. The shape
+## has to be asymmetric because the two flights are.
 func _stairwell(x: float, z: float) -> Rect2:
-	return Rect2(x - 20.0, z, STAIR_W + 40.0, STAIR_D + 20.0)
+	# Which treads foul the slab: those whose body would reach into it. The TOP
+	# tread does not - it arrives level with the floor above, so it IS floor, and
+	# opening the slab there leaves the body nothing to step onto. Measured as a
+	# 148-unit gap of open air at the head of every flight, which read as an
+	# upper storey that could not be reached at all.
+	var fouls: float = SLAB + BODY * 2.0
+	var first: int = HALF_FLIGHT ## count back from the top tread
+	for i: int in HALF_FLIGHT:
+		var top: float = STOREY * 0.5 + STEP * float(i + 1)
+		if top + BODY * 2.0 > STOREY - SLAB:
+			first = i
+			break
+	# The arriving half climbs BACK towards `z`, so tread i sits at
+	# z + FLIGHT_RUN - RUN*(i+1). Open the slab from the first fouling tread up
+	# to - but not including - the top one.
+	var from_z: float = z + RUN
+	var to_z: float = z + FLIGHT_RUN - RUN * float(first)
+	if to_z <= from_z:
+		return Rect2(x + FLIGHT_W - BODY, z + RUN, FLIGHT_W + BODY * 2.0, RUN)
+	return Rect2(x + FLIGHT_W - BODY, from_z, FLIGHT_W + BODY * 2.0, to_z - from_z)
 
 ## §4. The chute shaft, sealed everywhere except its intake and its exit.
 ##
