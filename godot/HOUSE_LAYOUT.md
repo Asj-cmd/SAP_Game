@@ -1,522 +1,418 @@
 # The house — layout specification
 
-The buildable plan. Supersedes everything previously in this file (the
-eighteen-room three-storey proposal, which was generated to satisfy a routing
-gate rather than drawn for play, and was retired).
+Two phases. **Phase 1 is the whole build order right now**; Phase 2 is written
+down so it can be verified in advance, and built only once Phase 1 has been
+played and is fun.
 
-Three floors, four quadrants each, six rooms, two staircases. Compact and
-heavily perforated: the possibility space comes from connection density, not
-floor area.
+This replaces every previous version of this file. The eighteen-room generated
+house, the three-room terrace, and the three-storey 1590 plan are all retired.
+Their reasoning is in git history and in `PROJECT_MEMORY.md` §5.
 
-## 0. What changes from what is built
+---
 
-The house at `b3a5f0f` is already two-by-two with doors on three faces, six
-rooms over **two** floors, jail on the ground. This spec keeps that footprint and
-its room shapes. The delta:
+## 0. Why two phases
 
-| Change | Why |
+This house has been rebuilt three times, and every rebuild had the same cause:
+**too much was built before anything was played.** Eighteen rooms before ten
+seconds of fun. Then a terrace with all its doors on one face. Then a plan whose
+thirteen person-sized window openings made a suburban house read as a car park.
+
+Phase 1 is a two-storey house that can be judged. Phase 2 adds a basement, and
+carries the least-proven idea in the design — that rescue should mean going
+*down*. Nobody has played that. It may be excellent or it may be a long walk, and
+there is no way to know from a diagram.
+
+**Nothing in Phase 1 reserves space for Phase 2.** Shaping a building around an
+unplayed feature is the same mistake in miniature. When the basement arrives it
+gets its own coordinates, written by someone who has played the floors above it.
+
+---
+
+# PHASE 1 — the two-storey house
+
+## 1. What changed, and why
+
+| Change | Reason |
 |---|---|
-| **Add a basement**; move the jail down into it | Puts maximum vertical distance between the two objectives — a thief goes up then down, a rescuer down then up, and they cross by construction |
-| **Add a second staircase** at the opposite corner | Two independent approaches to the vault; one defender cannot hold both |
-| **Add a Living Room** (SW ground) and **Boiler** (SW basement) | Completes the ring corridor on each floor, so a chase can circulate instead of cornering |
-| **Every exterior wall gets windows** | Upper ones are one-way drops, ground ones are two-way climbs. This is where most of the new movement comes from |
-| **Add chute, coal chute, vent, exterior basement steps** | Five ways into the basement, three of them from outside on three different faces |
-| **Reposition the two houses** point-symmetric and diagonally offset | Garden wraps fully around both; all four faces become live |
+| Rooms **750 → 1000** | A switchback stair is 580 × 560. In a 750 room that *is* the room. At 1000 it sits in a corner and leaves an L of open floor ~420 wide — enough to run around it |
+| Stairs sit **in the corner of a room**, against two walls | No room is "the stair room". Every quadrant is a real room, and the staircase becomes an obstacle to chase around rather than a space that eats one |
+| Passable openings **13 → 7** | Making every window person-sized is what produced the car park. Most windows are now small, high, and solid |
+| **Two floors, not three** | See §0 |
+| Jail is the **only ground room with no exterior opening** | Rescue must cost something. With the jail off the basement it would otherwise be the easiest thing in the game |
 
-Nothing here requires a new engine concept. Directed edges, drops, and the
-escapability check already exist.
-
----
-
-## 1. The three principles this is built on
-
-**Permeability beats size.** A small house with four exposed faces, windows
-everywhere and three vertical routes has a larger movement space than a sprawl
-of corridors. Every room touches an exterior wall, so every room has a way out.
-Nobody can be cornered — only made to pay for leaving.
-
-**Windows are openings, and gravity writes the rule.** You can always jump out;
-you can rarely climb in. Upper windows are therefore one-way escapes and ground
-windows are two-way but slow. No player needs this explained.
-
-**Up is slow and contested; down is fast and free.** Stairs are the only way up.
-Any window is a way down. Entering is a careful problem, leaving is an explosive
-one — which is the rhythm a heist wants.
-
----
+**Retracted:** the earlier principle that "nobody can ever be cornered". That is
+what drove the porosity. Some rooms *should* be risky to enter — being cornered
+occasionally is drama, not a design failure.
 
 ## 2. Dimensions
 
 | Thing | Value | Why |
 |---|---|---|
-| Quadrant | 750 × 750 | Above the 755 camera minimum at the diagonal; below it a chase camera lives in a wall |
-| House footprint | ~1590 square | Two quadrants plus walls |
+| Room | 1000 × 1000 | Holds a corner staircase and still has usable floor |
 | Wall | 30 | |
+| House footprint | **2090 square** | Two rooms plus three walls |
 | Storey height | 300 | 260 clear over a 180 body |
-| Doorway | 240 wide | Run through mid-chase, not sidle through |
-| Step | 30 rise, 64 run | `TuningDef.step_up_height` and the fill's edge rule |
-| Stair, per storey | 10 steps | **Switchback**: two flights of 5 (320 run each) plus a mid-landing |
+| Doorway | 240 wide × 240 tall | Run through mid-chase, not sidle through |
+| Step | 30 rise, 64 run | `TuningDef.step_up_height`; 64 because the tread above eats 20 for body radius and the remainder must clear a 40 fill cell |
+| Stair per storey | 10 steps, **switchback** | Two flights of 5 (320 run each) either side of a 260 landing |
+| Stair footprint | **580 × 560** | Fits a corner; leaves ~420 clear on two sides |
 
-**Switchback stairs are not cosmetic.** A straight flight needs 640 of floor to
-land in; two straight staircases would eat most of a small house. Folded in half
-they fit a quadrant, which is the only reason this plan can afford two.
+**Why the stair cannot be smaller.** 300 of climb at 30 a step is ten steps, and
+64 of run each is 640 straight. Real stairs are barely better — 3 m of rise at
+proper proportions is about 4.8 m of run. A staircase is genuinely a large
+object. Folding it into a switchback is the only real saving, and putting it in a
+corner rather than its own room is what recovers the floor area.
 
----
+## 3. Quadrants and coordinates
 
-## 3. Vertical stacking
-
-Quadrants are named by compass corner and stack identically on every floor.
-The basement omits the south-east quadrant.
-
-| Column | Upper | Ground | Basement |
-|---|---|---|---|
-| **NW** | Landing A | Back Hall | Stair foot |
-| **NE** | **VAULT** (cash) | Kitchen | **CELLAR (jail)** |
-| **SW** | **BEDROOM** (cash) | Living Room | Boiler |
-| **SE** | Landing B | Front Hall | *solid earth* |
-
-Three consequences worth stating:
-
-**Both upstairs rooms are cash rooms**, and the bundles are **split randomly
-between them at the start of every round**. A raider does not know where the
-money is until they are up there, so scouting has value and a defender cannot
-pre-position perfectly either. Two `CASH_ROOM` zones; the split is a spawn rule,
-not new machinery.
-
-**The vault sits directly above the jail**, two floors up in the same corner of
-the house. The two objectives are vertically stacked, which makes the building
-legible — the cash and the prison are the same corner, top and bottom. The
-second cash room sits diagonally opposite it, so the pair spans the floor.
-
-**The NW column is the spine.** The main stair runs its full height, basement to
-top. It is the only staircase reaching the basement; the second stair serves
-ground-to-upper only, and the earth under it is solid.
-
-### Heights
-
-Garden sits at ground-floor level. The basement is genuinely below grade.
+House-local: origin at the south-west corner, **X east, Z north**.
 
 ```
-   y = 900   roof
-   y = 600   upper floor
-   y = 300   ground floor  ←  garden / terrain surface
-   y =   0   basement floor
+   Z=2090  ┌────────────────┬────────────────┐
+           │       NW       │       NE       │
+           │   30 – 1030    │  1060 – 2060   │
+   Z=1060  ├────────────────┼────────────────┤
+   Z=1030  │       SW       │       SE       │
+           │   30 – 1030    │  1060 – 2060   │
+   Z=30    └────────────────┴────────────────┘
+         X=30            1030  1060        2060
 ```
 
----
+Internal walls run along **X 1030–1060** and **Z 1030–1060**. Diagonal quadrants
+(NW/SE and NE/SW) touch only at a point and can never share a door.
 
-## 4. UPPER FLOOR
+### Vertical stack
 
-```
-                    NORTH
-        ┌───────────────┬───────────────┐
-        │   LANDING A   │     VAULT     │
-        │               │               │
-   WEST │  stair down   │   the cash    │ EAST
-        │  chute ▼ ─────┤               │
-        ├───────────────┼───────────────┤
-        │    BEDROOM    │   LANDING B   │
-        │               │  stair down   │
-        └───────────────┴───────────────┘
-                    SOUTH
-```
+| Quadrant | Ground | Upper |
+|---|---|---|
+| **SE** | Front Hall — front door (S), **main stair** | Landing A — head of main stair |
+| **NE** | Kitchen — side door (E) | **MASTER BEDROOM — cash** |
+| **NW** | Back Hall — back door (N), **second stair** | Landing B — head of second stair |
+| **SW** | **JAIL** — no exterior opening | **STUDY — cash** |
 
-**Landing A** (NW) — head of the main stair. The **laundry chute** opens in its
-east wall and drops down the NW/NE boundary into the cellar, two floors below.
-Windows: north, west.
+Two things fall out of this and both are deliberate:
 
-**Vault** (NE) — a cash room. Doors from *both* landings, so neither stair is the
-only approach. Windows: north, east. The chute shaft occupies a **200 × 200
-column in its north-west corner** and is a blocker at this level as well as in
-the Kitchen below — the shaft is sealed everywhere except its intake and its
-exit.
+**The two staircases are diagonally opposite** (SE and NW), so going up one and
+down the other means crossing the whole floor. That is the loop a chase needs.
 
-**Bedroom** (SW) — the second cash room. Windows: west, south. Diagonally
-opposite the Vault, so covering both means crossing the floor.
+**Neither staircase lands in a cash room.** They arrive in SE and NW; the cash is
+in NE and SW. So you never step off a stair straight onto the money, and each
+cash room opens onto *both* landings — two independent approaches, neither
+holdable by one defender.
 
-**Landing B** (SE) — head of the second stair. Windows: south, east.
-
-Ring corridor: Landing A → Vault → Landing B → Bedroom → Landing A.
-
-**Eight windows, every one a one-way drop to the garden** — two per room,
-covering all four faces. Exact positions in §11.
-
----
-
-## 5. GROUND FLOOR
+## 4. GROUND FLOOR — y 0 to 300
 
 ```
-                    NORTH
-        ┌───────────────┬───────────────┐
-        │   BACK HALL   │    KITCHEN    │
-        │  ▲ back door  │               │
-   WEST │  stair up     │  side door ►  │ EAST
-        │  stair down   │               │
-        ├───────────────┼───────────────┤
-        │    LIVING     │  FRONT HALL   │
-        │               │  stair up     │
-        │               │  ▼ front door │
-        └───────────────┴───────────────┘
-                    SOUTH
+                      NORTH
+        ┌────────────────┬────────────────┐
+        │  ▲ back door   │                │
+        │   BACK HALL    │    KITCHEN     │
+   WEST │ ╱second stair╲ │   side door ►  │ EAST
+        │  (NW corner)   │                │
+        ├────────────────┼────────────────┤
+        │                │  FRONT HALL    │
+        │      JAIL      │ ╲main stair╱   │
+        │  no way out    │  (SE corner)   │
+        │                │  ▼ front door  │
+        └────────────────┴────────────────┘
+                      SOUTH
 ```
 
-**Back Hall** (NW) — **back door** north. Main stair runs both up to the landing
-and down to the cellar.
+**Front Hall** (SE) — the **front door** on the south face. **Main stair** in the
+south-east corner, against the east and south walls. One passable window on the
+east face.
 
-**Kitchen** (NE) — **side door** east. Windows: north, east.
+**Kitchen** (NE) — the **side door** on the east face, looking at the contested
+middle of the lot.
 
-**Living Room** (SW) — no exterior door, but two climbable windows: west, south.
+**Back Hall** (NW) — the **back door** on the north face. **Second stair** in the
+north-west corner, against the west and north walls. One passable window on the
+west face.
 
-**Front Hall** (SE) — **front door** south. Second stair up only.
+**Jail** (SW) — **the only room in the house with no exterior opening.** Reached
+from the Front Hall or the Back Hall, and from nowhere else. A rescuer must get
+inside and cross the ground floor, then get back out with their teammate.
 
-Ring corridor: Back Hall → Kitchen → Front Hall → Living → Back Hall.
+Ring corridor: Front Hall → Kitchen → Back Hall → Jail → Front Hall.
 
-**Three doors on three faces, plus five climbable windows** (Back Hall west,
-Kitchen north, Living west, Living south, Front Hall east). **Eight ways onto
-this floor.**
+**Five ways onto this floor**, one per face plus one: front door (S), back door
+(N), side door (E), Back Hall window (W), Front Hall window (E).
 
----
-
-## 6. BASEMENT
-
-L-shaped, under NW/NE/SW. One open space rather than partitioned rooms — a
-prisoner must have more than one way out, and open space is the cheapest way to
-guarantee it.
+## 5. UPPER FLOOR — y 300 to 600
 
 ```
-                    NORTH
-        ┌───────────────┬───────────────┐
-        │  STAIR FOOT   │    CELLAR     │
-        │               │   = JAIL      │
-   WEST │               │   ▲ chute in  │ EAST
-        │               │   exterior ▲  │
-        ├───────────────┼─── steps ─────┘
-        │    BOILER     │
-        │  ◄ coal chute │      solid earth
-        │  ◄ vent       │
-        └───────────────┘
-                    SOUTH
+                      NORTH
+        ┌────────────────┬────────────────┐
+        │   LANDING B    │ MASTER BEDROOM │
+        │ ╱second stair╲ │     CASH       │
+   WEST │   stair down   │  window ▼ E    │ EAST
+        │                │                │
+        ├────────────────┼────────────────┤
+        │     STUDY      │   LANDING A    │
+        │      CASH      │ ╲main stair╱   │
+        │  window ▼ S    │   stair down   │
+        └────────────────┴────────────────┘
+                      SOUTH
 ```
 
-**Cellar** (NE) — the jail. The laundry chute lands here, and the **exterior
-basement steps** rise from the north garden directly into it.
+**Landing A** (SE) — head of the main stair. Circulation only.
 
-**Boiler** (SW) — **coal chute** in the west face (one-way down from the garden)
-and a **vent** in the south face at crawl height (two-way, slow).
+**Master Bedroom** (NE) — a cash room. Doors to **both** landings. One passable
+window on the east face — a **one-way drop** to the garden.
 
-**Stair foot** (NW) — the main stair, and the only quadrant touching both others.
+**Landing B** (NW) — head of the second stair. Circulation only.
 
-### Why the exterior steps open into the Cellar and not the Stair foot
+**Study** (SW) — the second cash room. Doors to **both** landings. One passable
+window on the south face — a **one-way drop**.
 
-Because the basement is L-shaped, the Cellar and the Boiler touch only at a
-corner — they cannot share an arch. So the only two openings possible are
-Stair foot ↔ Cellar and Stair foot ↔ Boiler.
+Ring corridor: Landing A → Master Bedroom → Landing B → Study → Landing A.
 
-Put the exterior steps in the Stair foot and **every** route into the jail runs
-through that one arch: min cut to the Cellar is 1, the gate refuses to load the
-level, and one defender standing in the Stair foot holds the entire basement.
+**Cash is split randomly between the two cash rooms at the start of every
+round.** A raider does not know where the money is until they are upstairs, so
+scouting is worth something and a defender cannot pre-position perfectly. Two
+`CASH_ROOM` zones; the split is a spawn rule, not new machinery.
 
-Opening the steps into the Cellar itself gives the jail two independent routes —
-the arch, and its own door to the north garden. It also makes "a rescue can skip
-the house entirely" literal: you come down the outside steps and you are at the
-cell.
+The two cash rooms are diagonally opposite, so covering both means crossing the
+floor.
 
-A released prisoner therefore has the exterior steps (north), the main stair
-(via the arch), and the vent (via the arch and the Boiler).
+## 6. Windows — the important change
 
----
+**Most windows are not openings.** This is what stops the building reading as a
+car park, and it is also better play: one window you know you can jump out of is
+a landmark, thirteen identical ones are wallpaper.
 
-## 7. Connections
+### Decorative windows — solid, not passable
 
-| Route | Faces | Direction | Character |
-|---|---|---|---|
-| Front door | S | two-way | Obvious, watchable |
-| Back door | N | two-way | Obvious, watchable |
-| Side door | E | two-way | Obvious, watchable |
-| Ground windows ×4 | W, S, N, E | two-way | Slow to climb in, quick to leave |
-| Upper windows ×6 | all four | **one-way down** | Escape from anywhere upstairs |
-| Main stair | — | two-way, all three floors | The spine |
-| Second stair | — | two-way, ground↔upper | Bypasses the main stair entirely |
-| Laundry chute | — | **one-way down** | Upper landing → jail, two floors instantly |
-| Exterior basement steps | N | two-way | Descends into the **Cellar** itself — a rescue can skip the house entirely |
-| Coal chute | W | **one-way down** | Fast way into the basement, no way back |
-| Vent | S | two-way, crawl | Slow, low, arrives unseen |
+Every room gets **one or two** on each exterior face it owns. Roughly **900 wide
+× 600 tall, sill at +900**. They are wall as far as the simulation is concerned —
+they exist to make the elevation read as a house and to let light in.
 
-**Five ways into the basement**, three of them from outside, on three faces.
+Draw them. Do not put them in the collision openings list.
 
----
+### Passable openings — seven in the whole house
 
-## 8. Why it is shaped like this
+| # | Opening | Room | Face | Direction |
+|---|---|---|---|---|
+| 1 | **Front door** | Front Hall (SE) | South | Two-way |
+| 2 | **Back door** | Back Hall (NW) | North | Two-way |
+| 3 | **Side door** | Kitchen (NE) | East | Two-way |
+| 4 | Ground window | Back Hall (NW) | West | Two-way, slow climb |
+| 5 | Ground window | Front Hall (SE) | East | Two-way, slow climb |
+| 6 | **Escape window** | Master Bedroom (NE) | East | **One-way drop** |
+| 7 | **Escape window** | Study (SW) | South | **One-way drop** |
 
-**Two diagonal staircases make a genuine loop.** Up the north-west, across the
-top, down the south-east, back across the ground floor. A chase can circulate
-indefinitely rather than ending in a corner.
+The two escape windows must be **visually distinct** from the decorative ones —
+full height, or standing open, or a balcony rail. A player has to be able to tell
+at a glance which one they can leave through.
 
-**The two stairs do not meet.** Main stair lands on Landing A, second stair on
-Landing B, and the vault opens onto both. So there are two independent
-approaches to the cash, and one defender cannot hold them.
+**Gravity writes the rule.** Any passable window can be jumped out of. Only the
+ground-floor pair can be climbed into, and slowly. Nothing in this house is an
+invisible trapdoor.
 
-**The objectives pull vertically apart.** Vault at the top, jail at the bottom.
-A thief goes up then down; a rescuer goes down then up. They cross by
-construction rather than by luck.
+## 7. Opening schedule — Phase 1
 
-**Every one-way route goes downward and is visible.** No invisible trapdoors —
-that mistake was made once with light wells and confirmed unpleasant on first
-contact. Gravity makes the rule self-explaining.
+Openings are centred on their room's face unless noted. Doorway heads at +240;
+ground window sill +90, head +240; escape window sill +80, head +240.
 
-**The laundry chute is the most interesting hole in the building.** From the top
-landing it drops into the enemy jail. Two readings, both good: a rescuer dives in
-for an instant rescue and is then stuck in the basement with the person they came
-for; or a thief cornered upstairs escapes the chase and lands in the worst room
-in the house.
+### Ground floor (y 0–300)
 
-**The exterior basement steps let a rescue skip the house entirely.** So the
-defender must choose between guarding the vault at the top and the jail outside
-the bottom. Neither can be abandoned.
+| Tag | Element | Room | Face / wall | Local coords (X, Z) | Direction |
+|---|---|---|---|---|---|
+| G1 | Front door | Front Hall | South outer | X 1440–1680 · Z 0–30 | Two-way |
+| G2 | Window | Front Hall | East outer | X 2060–2090 · Z 410–650 | Two-way climb |
+| G3 | Main stair | Front Hall | SE corner | X 1450–2010 · Z 60–640 | Up to Landing A |
+| G4 | Side door | Kitchen | East outer | X 2060–2090 · Z 1440–1680 | Two-way |
+| G5 | Back door | Back Hall | North outer | X 410–650 · Z 2060–2090 | Two-way |
+| G6 | Window | Back Hall | West outer | X 0–30 · Z 1440–1680 | Two-way climb |
+| G7 | Second stair | Back Hall | NW corner | X 80–640 · Z 1450–2030 | Up to Landing B |
+| D1 | Doorway | Front Hall ↔ Kitchen | Internal Z 1030–1060 | X 1440–1680 · Z 1030–1060 | Two-way |
+| D2 | Doorway | Kitchen ↔ Back Hall | Internal X 1030–1060 | X 1030–1060 · Z 1440–1680 | Two-way |
+| D3 | Doorway | Back Hall ↔ Jail | Internal Z 1030–1060 | X 410–650 · Z 1030–1060 | Two-way |
+| D4 | Doorway | Jail ↔ Front Hall | Internal X 1030–1060 | X 1030–1060 · Z 410–650 | Two-way |
 
-**The vent is the patience route.** Crawl height, slow, but it arrives unseen.
-Once a noise model exists it becomes the stealth option, and it costs one hole.
+### Upper floor (y 300–600)
 
-**The basement is harder to reach than the top floor** — one staircase down
-versus two up. Stealing should be easier than rescuing; a rescue should feel like
-a favour someone did you.
+| Tag | Element | Room | Face / wall | Local coords (X, Z) | Direction |
+|---|---|---|---|---|---|
+| U1 | Main stair head | Landing A | SE corner | X 1450–2010 · Z 60–640 | Down to Front Hall |
+| U2 | Escape window | Master Bedroom | East outer | X 2060–2090 · Z 1440–1680 | **One-way down** |
+| U3 | Second stair head | Landing B | NW corner | X 80–640 · Z 1450–2030 | Down to Back Hall |
+| U4 | Escape window | Study | South outer | X 410–650 · Z 0–30 | **One-way down** |
+| D5 | Doorway | Landing A ↔ Master Bedroom | Internal Z 1030–1060 | X 1440–1680 · Z 1030–1060 | Two-way |
+| D6 | Doorway | Master Bedroom ↔ Landing B | Internal X 1030–1060 | X 1030–1060 · Z 1440–1680 | Two-way |
+| D7 | Doorway | Landing B ↔ Study | Internal Z 1030–1060 | X 410–650 · Z 1030–1060 | Two-way |
+| D8 | Doorway | Study ↔ Landing A | Internal X 1030–1060 | X 1030–1060 · Z 410–650 | Two-way |
 
----
+Anything not in these two tables is solid wall.
+
+## 8. Routes — what the gate should see
+
+| Zone | Independent routes from outdoors | Notes |
+|---|---|---|
+| Master Bedroom (cash) | 2 | Main stair → Landing A → D5; second stair → Landing B → D6 |
+| Study (cash) | 2 | Second stair → Landing B → D7; main stair → Landing A → D8 |
+| Jail | 2 | Front Hall → D4; Back Hall → D3 |
+
+All three role-bearing zones sit at **min cut 2** — passing `routes_required`,
+below `routes_wanted` (3), so the bake will print advisories. **That is expected.
+Do not add routes to silence them.** Three-everywhere is what commissioned the
+eighteen-room maze; the floor is 2 and the playtest decides the rest.
 
 ## 9. The lot
 
-Two identical houses, **rotated 180° and point-symmetric about the centre of the
-lot** — automatically fair, with no mirroring (mirroring in x once produced two
-houses facing the same way).
+Two identical houses, **rotated 180° and point-symmetric about the lot centre**
+(2690, 1845). Not mirrored — mirroring in X once produced two houses facing the
+same way.
 
 ```
-   ┌──────────────────────────────────────────────────┐
-   │                                    ┌──────────┐  │
-   │                                    │          │  │
-   │              ┌──────────┐          │ HOUSE B  │  │
-   │              │          │          │  front ▲ │  │
-   │              │ HOUSE A  │          └──────────┘  │
-   │              │ ▼ front  │                        │
-   │              └──────────┘                        │
-   └──────────────────────────────────────────────────┘
+   ┌────────────────────────────────────────────────┐
+   │                              ┌────────────┐    │
+   │                              │  HOUSE B   │    │
+   │        ┌────────────┐        │  rot 180°  │    │
+   │        │  HOUSE A   │        │  front ▲ N │    │
+   │        │   rot 0°   │        └────────────┘    │
+   │        │  front ▼ S │                          │
+   │        └────────────┘                          │
+   └────────────────────────────────────────────────┘
 ```
 
-| | X (east) | Z (north) |
+| Element | X (east) | Z (north) |
 |---|---|---|
-| Lot | 0 – 4900 | 0 – 3450 |
-| House A | 550 – 2140 | 550 – 2140 |
-| House B | 2760 – 4350 | 1310 – 2900 |
+| Lot / boundary wall | 0 – 5380 | 0 – 3690 |
+| House A | 350 – 2440 | 350 – 2440 |
+| House B | 2940 – 5030 | 1250 – 3340 |
+| Corridor between | 2440 – 2940 | full depth |
+| Lot centre | 2690 | 1845 |
 
-House A unrotated: its front door faces **south**. House B rotated 180°: its
-front door faces **north**. The houses are offset diagonally, so House B sits
-north-east of House A.
+House-local → world, House A: `world = local + (350, 350)`.
+House B: `world.x = 5030 − local.x`, `world.z = 3340 − local.z`.
 
-**Garden wraps completely around both.** You can walk a full circle around either
-house — 550 of clearance on the outer faces, a 620-wide corridor between them.
-That is what makes all four faces live, and it means a chase leaving the house
-continues outside rather than ending.
+**The houses got bigger; the garden got smaller.** Margins are 350 (was 550) and
+the corridor is 500 (was 620). This is deliberate and it is the trade worth
+knowing: a bigger house means fewer accidental encounters, and thin encounter
+rates have bitten this project twice. Growing the house *and* the lot would make
+it worse. Keep the buildings close.
 
-### The consequence worth noticing
-
-Because they are point-symmetric and offset, **each house's front door faces
-away from the other.** The nearest entrances to an attacker are the *back and
-side* doors — and the front door becomes the long way round, a flanking option
-rather than the default.
-
-That was not the original intent but it is better than it: the contested middle
-of the lot is served by side doors and windows, and the obvious entrance is the
-far one.
+Each front door faces **away** from the other house, so the nearest entrances to
+an attacker are the back and side doors and the front door is a flank.
 
 ### Territory
 
-Ground within roughly 400 of a house's walls belongs to that house — capture is
-legal there. The diagonal band through the middle of the lot is neutral, and
-crossing it is safe. This matters: an earlier build put every encounter on
-neutral ground and no capture was ever legal, so the game had no interactions at
-all. Never let the only safe place also be the only crossing.
+Ground within **400** of a house's outer wall belongs to that house — capture is
+legal there. The corridor and outer margin are neutral and capture is illegal.
 
----
-
-## 10. If it needs to be smaller
-
-Cut in this order: **the Bedroom** first (fold into Landing A, leaving three
-spaces upstairs), then **the Living Room** (the ground ring becomes an L). That
-reaches four rooms and loses no route — only the loop tightens and chases
-shorten.
-
-Do not go below four. Under that there is nowhere to lose a pursuer, and the
-whole design rests on being able to.
-
----
-
-## 11. Opening schedule
-
-Everything that can be passed through, exhaustively. This is the drawing
-reference — if it is not in this table it is a solid wall.
-
-### House-local coordinates
-
-Origin at the south-west corner of the house, X east, Z north. Walls 30 thick.
-
-```
-   Z=1590 ┌──────────────┬──────────────┐
-          │      NW      │      NE      │
-          │   30–780     │  810–1560    │
-   Z= 810 ├──────────────┼──────────────┤
-   Z= 780 │      SW      │      SE      │
-          │   30–780     │  810–1560    │
-   Z=  30 └──────────────┴──────────────┘
-        X=30           780  810       1560
-```
-
-Internal walls run along X 780–810 and Z 780–810. Outer walls are the 30-thick
-band outside 30…1560 on each side.
-
-### Upper floor — y 600 to 900
-
-| Room | Opening | Face | Type |
-|---|---|---|---|
-| Landing A (NW) | Window | North | One-way drop |
-| Landing A (NW) | Window | West | One-way drop |
-| Landing A (NW) | Laundry chute | East wall, interior | **One-way down to Cellar** |
-| Landing A (NW) | Main stair | interior | Down to Back Hall |
-| Vault (NE) | Chute shaft (sealed) | NW corner, 200 × 200 | BLOCKER — keep clear |
-| Vault (NE) | Window | North | One-way drop |
-| Vault (NE) | Window | East | One-way drop |
-| Bedroom (SW) | Window | West | One-way drop |
-| Bedroom (SW) | Window | South | One-way drop |
-| Landing B (SE) | Window | South | One-way drop |
-| Landing B (SE) | Window | East | One-way drop |
-| Landing B (SE) | Second stair | interior | Down to Front Hall |
-| — | 4 internal doorways | ring | Landing A↔Vault↔Landing B↔Bedroom↔Landing A |
-
-### Ground floor — y 300 to 600
-
-| Room | Opening | Face | Type |
-|---|---|---|---|
-| Back Hall (NW) | **Back door** | North | Two-way |
-| Back Hall (NW) | Window | West | Two-way climb |
-| Back Hall (NW) | Main stair | interior | Up to Landing A **and down to basement** |
-| Kitchen (NE) | **Side door** | East | Two-way |
-| Kitchen (NE) | Window | North | Two-way climb |
-| Living (SW) | Window | West | Two-way climb |
-| Living (SW) | Window | South | Two-way climb |
-| Front Hall (SE) | **Front door** | South | Two-way |
-| Front Hall (SE) | Window | East | Two-way climb |
-| Front Hall (SE) | Second stair | interior | Up to Landing B only |
-| — | 4 internal doorways | ring | Back Hall↔Kitchen↔Front Hall↔Living↔Back Hall |
-
-### Basement — y 0 to 300
-
-L-shaped: NW, NE, SW. The south-east quadrant is solid earth. The three areas
-are **open to each other** — wide arches, not doors.
-
-| Area | Opening | Face | Type |
-|---|---|---|---|
-| Stair foot (NW) | Main stair | interior | Up to Back Hall |
-| Cellar / JAIL (NE) | **Exterior basement steps** | North | Two-way, descending from the north garden |
-| Cellar / JAIL (NE) | Laundry chute exit | ceiling | **One-way in, from Landing A** |
-| Boiler (SW) | **Coal chute** | West | **One-way down from garden** |
-| Boiler (SW) | **Vent** | South | Two-way, crawl height (~90 tall) |
-
-**Totals.** 3 exterior doors, 5 climbable ground windows, 8 upper windows, 3
-basement openings from outside, 2 staircases, 1 chute. Every face of the house
-has at least two ways through it on at least two floors.
-
----
-
-## 12. The lot — environment map
-
-```
-   Z=3450  ┌─────────────────────────────────────────────────────┐
-           │                                                     │
-           │                              ┌───────────────┐      │
-           │                              │               │      │
-           │                              │   HOUSE B     │      │
-           │                              │   (180°)      │      │
-           │        NEUTRAL               │  front ▲ N    │      │
-           │         BAND                 └───────────────┘      │
-           │                                                     │
-           │      ┌───────────────┐                              │
-           │      │               │                              │
-           │      │   HOUSE A     │          NEUTRAL             │
-           │      │   (0°)        │           BAND               │
-           │      │  front ▼ S    │                              │
-           │      └───────────────┘                              │
-           │                                                     │
-   Z=0     └─────────────────────────────────────────────────────┘
-          X=0                                                  X=4900
-```
-
-| Element | X | Z |
-|---|---|---|
-| Lot (boundary wall) | 0 – 4900 | 0 – 3450 |
-| House A | 550 – 2140 | 550 – 2140 |
-| House B | 2760 – 4350 | 1310 – 2900 |
-| Corridor between houses | 2140 – 2760 | full depth |
-| Outer garden margin | 550 everywhere | 550 everywhere |
-
-**House A** is unrotated: front door faces south. **House B** is rotated 180°:
-front door faces north. They are point-symmetric about the lot centre
-(2450, 1725), so the layout is identical for both teams without mirroring.
-
-### Garden features, per house
-
-Placed in the yard immediately outside the relevant face:
-
-| Feature | Face | Footprint | Placement (house-local) | Note |
-|---|---|---|---|---|
-| Exterior basement steps | North | 250 wide × 640 run, descending 300 | X 1280–1530 · Z 1590–2230 | Walled pit in the lawn, at the **east end** of the north face so it lands in the Cellar. Reaches the jail without entering the house |
-| Coal chute mouth | West | ~200 × 200, sloped | X −200–0 · Z 305–505 | Visible opening at ground level, one-way down into the Boiler |
-| Vent grille | South | 240 wide × 90 tall | X 285–525 · Z −60–0 | Ground level, crawl height, two-way |
-| Front path | South | 240 wide | X 1065–1305, running south | To the front door |
-| Back path | North | 240 wide | X 340–580, running north | To the back door. Well west of the steps pit — no collision |
-| Side path | East | 240 wide | Z 1065–1305, running east | To the side door, facing the contested middle |
+Never let the only safe place also be the only crossing. An earlier build put
+every encounter on neutral ground, so no capture was ever legal and the game had
+no interactions at all.
 
 ### Spawns, cash, jail
 
 | Thing | Where |
 |---|---|
-| Team spawns (×4) | In the team's own yard, spread along the back and side faces |
-| Cash bundles | **Split randomly each round between the two upper cash rooms** — Vault (NE) and Bedroom (SW) |
-| Jail | The Cellar, basement NE |
+| Team spawns ×4 | Own yard, spread along the back and side faces |
+| Cash bundles | **Split randomly each round** between Master Bedroom (NE upper) and Study (SW upper) |
+| Jail | Ground floor, SW quadrant |
 
-### Territory
+## 10. Drawing guide
 
-Ground within **400** of a house's outer wall belongs to that house — capture is
-legal there. Everything else, including the corridor between the houses and the
-outer margin, is **neutral** and capture is illegal.
-
-This matters more than it looks. An earlier build put every encounter on neutral
-ground, so no capture was ever legal and the game had no interactions at all.
-**Never let the only safe place also be the only crossing.**
-
----
-
-## 13. Drawing guide
-
-For anyone producing 2D plans from this document.
-
-**Six drawings.** Three floor plans (upper, ground, basement) plus one lot map.
-Optionally a section through the NW/NE columns showing the stair and chute in
-elevation — that is the clearest way to see the vault sitting above the jail.
-
-**Suggested symbols.**
+**Three sheets**: ground plan, upper plan, lot map. Optionally a section through
+the SE column showing the main stair in elevation.
 
 | Symbol | Means |
 |---|---|
 | Heavy solid line | Wall |
-| Gap in a wall | Doorway (240 wide) |
-| Thin double line | Window — two-way if ground, one-way if upper |
-| Arrow pointing down | One-way drop; label it |
-| Hatched rectangle with arrow | Stair, arrow pointing up |
-| Dashed rectangle | Opening in floor or ceiling (chute, stairwell void) |
-| Dotted outline | Volume on the floor below or above, for alignment |
+| Gap in a wall | Doorway, 240 wide |
+| Thin double line, **hatched** | Decorative window — **solid**, not a route |
+| Thin double line, **open** | Passable window — annotate direction |
+| Arrow pointing down | One-way drop |
+| Hatched rectangle, arrow up | Stair flight |
+| Dashed rectangle | Stairwell void in the floor above |
 
-**Draw all three floors on the same grid and orientation**, north up, so the
-columns line up when the sheets are stacked. The vertical relationships in §3
-are the point; a plan set that cannot be read as a stack loses them.
+Draw both floors on the same grid, north up, so the columns stack. **Annotate
+direction on every passable opening** — one-way versus two-way is the most
+important fact here and is invisible in plan. And distinguish decorative from
+passable windows clearly; conflating them is exactly the error this revision
+fixes.
 
-**Label every opening with its direction.** One-way versus two-way is the single
-most important thing on these drawings, and it is invisible in plan unless
-annotated.
+---
+
+# PHASE 2 — the basement
+
+**Do not build this until Phase 1 has been played and is fun.** Written now so it
+can be reviewed in advance, not so it can be started early.
+
+## 11. What Phase 2 changes
+
+The jail moves from the ground floor down into a basement, and the SW ground
+quadrant becomes a **Living Room** — an ordinary room with two passable windows
+on the west and south faces.
+
+That single move is the point of the phase: it puts maximum vertical distance
+between the two objectives. Cash upstairs, prison underground. **A thief goes up
+then down; a rescuer goes down then up. They cross by construction rather than by
+luck.**
+
+## 12. The basement
+
+**L-shaped**, under NW, SW and SE. The **NE quadrant is not excavated** — solid
+earth, because the Kitchen's side door and the ground beneath it stay undisturbed.
+
+| Quadrant | Basement |
+|---|---|
+| SE | Stair foot — main stair continues down from the Front Hall |
+| SW | **CELLAR — the jail** |
+| NW | Boiler — coal chute (W), vent (S… see below) |
+| NE | *solid earth* |
+
+Heights shift down by one storey: basement floor `y = −300`, ground `y = 0`,
+upper `y = 300`. Garden stays at ground level, so the basement is below grade.
+
+Only the **main stair** reaches the basement. The second stair still stops at the
+ground floor, and the earth under the NW quadrant is excavated but not connected
+to it. Rescue therefore has one interior route and must otherwise come from
+outside.
+
+## 13. Basement openings
+
+The cellar and the boiler are **open to each other** through a 480 arch — they
+are adjacent (SW touches NW along Z 1030–1060), so this is possible. The stair
+foot connects to the cellar along X 1030–1060.
+
+| Element | Area | Face | Direction | Note |
+|---|---|---|---|---|
+| Main stair foot | Stair foot (SE) | interior | Two-way | The only interior route down |
+| Arch | Stair foot ↔ Cellar | internal, X 1030–1060 | Open, 480 wide | |
+| Arch | Cellar ↔ Boiler | internal, Z 1030–1060 | Open, 480 wide | |
+| **Exterior basement steps** | **Cellar (SW)** | South | Two-way | Walled pit in the lawn, 250 × 640 run, descending 300. **Lands in the cellar itself** |
+| **Coal chute** | Boiler (NW) | West | **One-way down** | Sloped mouth in the west garden, 200 × 200 |
+| **Vent** | Boiler (NW) | North | Two-way, crawl | 240 wide × 90 tall. Slow, low, arrives unseen |
+| **Laundry chute** | intake Landing B (NW upper) → exit Cellar | interior shaft | **One-way down** | Two storeys. Shaft 200 × 200, sealed at the ground floor and a blocker there and in Landing B's floor |
+
+**The exterior steps land in the Cellar, not the stair foot.** This is a
+correction already paid for once: with the steps in the stair foot, every route
+to the jail funnelled through one arch — min cut 1, gate refuses to load, one
+defender holds the whole basement. Landing them in the cellar gives the jail its
+own outside door and makes "a rescue can skip the house" literal.
+
+**Routes to the Cellar:** exterior steps, the arch from the stair foot, the arch
+from the boiler, and the chute one-way in. Min cut ≥ 2. ✔
+
+## 14. The chute is the interesting one
+
+From the upper landing it drops two storeys straight into the enemy jail. Two
+readings, both good:
+
+- A rescuer dives in for an instant rescue — and is then stuck in the basement
+  with the person they came for, both needing a way out.
+- A thief cornered upstairs escapes the chase, and lands in the worst room in the
+  house.
+
+That is a real decision with a real consequence, from one hole in a wall.
+
+## 15. Phase 2 acceptance
+
+Before building it, Phase 1 must have been **played by two humans** and judged
+worth extending. If the two-storey house is not fun, a basement will not rescue
+it — and the specific question Phase 2 answers, *"is a rescue that means
+descending two floors better than one across a landing?"*, is only answerable by
+someone who has felt the shorter version first.
