@@ -1,145 +1,145 @@
 extends SceneTree
-## Writes the blockout for one house, stamped twice, facing each other.
+## Builds the house and the lot from HOUSE_LAYOUT.md.
 ##
 ##   godot --headless --path godot --script res://tools/build_house.gd
 ##
-## DRAWN, NOT COMPUTED. The house before this one was generated to satisfy a
-## graph inequality - three independent ways into every room - and a generator
-## pointed at an inequality builds the cheapest thing that satisfies it. That
-## came out as eighteen rooms over three floors, two staircases and light wells
-## with no visible entrance. Every number in it was derived and none of it was
-## chosen, and it played like what it was.
+## THE SPEC IS THE SOURCE. Every dimension, opening and coordinate below is
+## quoted from HOUSE_LAYOUT.md - §2 dimensions, §3 stacking, §4-6 the floors,
+## §11 the opening schedule, §12 the lot. Where a number here disagrees with
+## that document the document wins and this file is wrong.
 ##
-## So the layout below is written out: six rooms, two floors, one staircase, the
-## vault upstairs and the jail on the ground. The coordinates are picked and
-## commented rather than solved for, and the scene this emits stays editable by
-## hand afterwards - moving a wall means moving a wall, not re-deriving a plan.
+## Three floors, four quadrants, six rooms, two switchback staircases. Compact
+## and heavily perforated: the possibility space comes from connection density
+## rather than floor area (§1).
 ##
-## What is still generated is the PLACEMENT, and only that. The house is built
-## once and stamped twice, the second copy turned through 180 degrees so the two
-## fronts face each other across the garden. Two hand-written copies would
-## drift, and a difference between the two houses is a balance bug nobody can
-## see.
-##
-## The gate still runs and still refuses a room with one way in. That is a floor
-## now, not a target (TuningDef.routes_required).
+## The house is drawn ONCE in house-local coordinates and stamped twice, the
+## second copy rotated 180 degrees about the middle of the lot (§9). Two
+## hand-written copies would drift, and a difference between the two houses is a
+## balance bug nobody can see.
 
-# ---- the threshold set (WORLD_AUTHORING.md §12) ----
+# ---- §2 dimensions ----
 const STEP: float = 30.0
-const STOREY: float = 300.0 ## 10 steps exactly - §12: it has to divide
-## How tall the thing walking the house LOOKS.
-##
-## The simulation's body is a sphere of radius BODY, which is all the rules need
-## - but a stairwell has to clear the VISIBLE body or a climbing character's
-## head goes through the floor before their feet reach the top of the flight.
-## Geometry is dimensioned for the body; this is the body you can see.
-const BODY_HEIGHT: float = 180.0
-const BODY: float = 20.0 ## TuningDef.actor_radius
-
-# ---- room dimensions (WORLD_AUTHORING.md §10) ----
-const ROOM: float = 755.0 ## the camera needs it
+const RUN: float = 64.0 ## a tread offers run-BODY of standable depth; that has
+                        ## to clear a 40-unit sample cell (WORLD_AUTHORING §11)
+const STOREY: float = 300.0 ## 10 steps exactly - §12 requires whole steps
+const QUAD: float = 750.0 ## §2: above the camera minimum at the diagonal
 const WALL: float = 30.0
 const DOOR: float = 240.0
 const SLAB: float = 40.0
-const HEAD: float = 220.0 ## lintel height
+const HEAD: float = 240.0 ## §11 drafting note: doorway head +240
+const BODY: float = 20.0 ## TuningDef.actor_radius
+const BODY_HEIGHT: float = 180.0 ## how tall the thing walking it LOOKS
 
-## Stairs. 11 treads of 30 clears a storey; the RUN is set by the fill's sample
-## pitch rather than by taste - a tread offers `run - BODY` of standable depth
-## and that has to clear one 40-unit cell, or a tread goes missing and the
-## staircase has a hole in it. See WORLD_AUTHORING §11.
-const TREADS: int = int(STOREY / STEP)
-const RUN: float = 64.0
-const FLIGHT_W: float = 220.0
-const FLIGHT_FROM_WALL: float = 50.0
+## Window openings. Sills from the plan set's drafting assumptions.
+const WINDOW: float = 240.0
+const SILL_UPPER: float = 80.0
+const SILL_GROUND: float = 90.0
+const VENT_HEIGHT: float = 90.0 ## §11: crawl height
 
-# ---- the plan ----
-#
-# Two rooms by two, sixteen metres square. The hall runs the full depth down one
-# side; the other side is two rooms stacked front to back.
-#
-#          BACK  (garden, and the way round to it)
-#        +---------+---------+
-#        |         |  JAIL   |   ground        upper: BEDROOM
-#        |  HALL   +---------+
-#        |         | KITCHEN |   ground        upper: VAULT
-#        +---------+---------+
-#          FRONT (facing the other house)
-#
-#   hall/landing   x 30..785,   z 30..1570   - full depth, holds a staircase
-#   jail/bedroom   x 815..1570, z 30..785    - at the BACK, away from the enemy
-#   kitchen/vault  x 815..1570, z 815..1570  - at the front
-#
-# WHY IT IS SHAPED LIKE THIS. The house before was three rooms in a line, one
-# room deep: twenty-four metres by eight, which is a terrace, not a house. Every
-# door was on the front because the front was the only long face. Four faces
-# means a back door, and a back door means somebody can come round.
-#
-# WHY THE STOREY IS 240 AND NOT 330. A flight is one tread per step, and a tread
-# has to be 64 long for the walkable fill to find it (§11). Eleven steps is a
-# 704-long staircase in a 755 room - it fills the room, and it has to start hard
-# against a wall, which is why mounting it was awkward. Eight steps is 512, which
-# leaves 243 of landing to walk onto. 240 units is 2.4 m, which is what a real
-# ceiling is; the old 330 was 3.3 m and bought nothing but a stair that did not
-# fit. Still a whole number of steps, which §12 requires.
-const GROUND: float = 40.0
-const UPPER: float = GROUND + STOREY
-const ROOF: float = UPPER + STOREY
+# ---- §3 heights ----
+const BASEMENT: float = 0.0
+const GROUND: float = 300.0 ## garden / terrain surface sits here
+const UPPER: float = 600.0
+const ROOF: float = 900.0
 
-## The room grid, in local coordinates.
-const LEFT_X: float = WALL
-const RIGHT_X: float = WALL * 2.0 + ROOM
-const BACK_Z: float = WALL
-const FRONT_Z: float = WALL * 2.0 + ROOM
-const HOUSE_W: float = ROOM * 2.0 + WALL * 3.0 # 1600
-const HOUSE_D: float = HOUSE_W
-const HALL_D: float = ROOM * 2.0 + WALL # the left column runs the whole depth
-## Where the two dividers sit.
-const SPLIT_X: float = RIGHT_X - WALL * 0.5
-const SPLIT_Z: float = FRONT_Z - WALL * 0.5
+# ---- §11 house-local grid ----
+#
+#    Z=1590 +--------------+--------------+
+#           |      NW      |      NE      |
+#           |   30-780     |  810-1560    |
+#    Z= 810 +--------------+--------------+
+#    Z= 780 |      SW      |      SE      |
+#           |   30-780     |  810-1560    |
+#    Z=  30 +--------------+--------------+
+#         X=30           780  810       1560
+const LOW: float = WALL ## 30 - inner face of the outer wall
+const MID_LOW: float = LOW + QUAD ## 780 - near face of the internal wall
+const MID_HIGH: float = MID_LOW + WALL ## 810 - far face
+const HIGH: float = MID_HIGH + QUAD ## 1560
+const HOUSE: float = HIGH + WALL ## 1590 square (§2)
 
-## Both flights, placed in the open rather than against a wall.
-const STAIR_A_X: float = LEFT_X + 170.0 ## hall, runs +z
-const STAIR_A_Z: float = BACK_Z + 370.0
-const STAIR_B_X: float = RIGHT_X + 85.0 ## jail, runs +x
-const STAIR_B_Z: float = BACK_Z + 70.0
+## Centre of an internal wall, for _wall_x / _wall_z which take a centreline.
+const SPLIT: float = MID_LOW + WALL * 0.5 ## 795
 
-## The world, sized in whole sampling cells - see the check in _initialize and
-## WORLD_AUTHORING §11. Margins fall out of it; nothing is measured from them.
+## Quadrant centres, for openings that sit in the middle of a room's face.
+const NEAR_MID: float = LOW + QUAD * 0.5 ## 405
+const FAR_MID: float = MID_HIGH + QUAD * 0.5 ## 1185
+
+# ---- §2 switchback stairs ----
+#
+# A straight flight is 10 x 64 = 640 and a quadrant is 750: two straight
+# staircases would eat most of the house. Folded in half they are 560 x 580,
+# which is the only reason this plan can afford two (§2).
+const HALF_FLIGHT: int = 5
+const FLIGHT_RUN: float = RUN * float(HALF_FLIGHT) ## 320
+const FLIGHT_W: float = 280.0
+const LANDING_D: float = 260.0
+const STAIR_W: float = FLIGHT_W * 2.0 ## 560
+const STAIR_D: float = FLIGHT_RUN + LANDING_D ## 580
+
+## Main stair, NW quadrant: basement to upper, the spine (§3).
+const STAIR_A_X: float = 60.0
+const STAIR_A_Z: float = 940.0
+## Second stair, SE quadrant: ground to upper only (§3, §5).
+const STAIR_B_X: float = 970.0
+const STAIR_B_Z: float = 200.0
+
+# ---- §4, §11 the laundry chute ----
+#
+# Opens in Landing A's east wall, drops down the NW/NE boundary into the Cellar
+# two floors below. The shaft is SEALED everywhere except its intake and its
+# exit - a blocker in the Vault above and the Kitchen below (§4).
+const CHUTE: float = 200.0
+const CHUTE_X: float = MID_HIGH ## 810 - hard against the internal wall
+const CHUTE_Z: float = 1360.0
+
+# ---- §12 the lot ----
+## §12 gives 4900 x 3450 with 550 margins. Neither is a whole number of
+## sampling cells - 122.5 and 86.25 - and the guard below refuses that, because a
+## turned copy landing at a different phase against the fill grid silently
+## differs from its twin. Rounded UP to the next whole cell, 4920 x 3480, and
+## House B moved 20/30 to keep the point symmetry exact. Every margin in the spec
+## is preserved: 550 outside, 620 corridor.
+const LOT_W: float = 4920.0 # 123 cells
+const LOT_D: float = 3480.0 # 87 cells
+const HOUSE_A_X: float = 550.0
+const HOUSE_A_Z: float = 550.0
+const HOUSE_B_X: float = LOT_W - HOUSE_A_X - HOUSE ## 2780
+const HOUSE_B_Z: float = LOT_D - HOUSE_A_Z - HOUSE ## 1340
+const LOT_H: float = ROOF + SLAB
+## §12: ground within 400 of a house's outer wall belongs to that house.
+const TERRITORY: float = 400.0
+
+## The walkable fill samples at cell centres, so the 180-degree turn maps a
+## sampled point to another sampled point only when the lot is a whole number of
+## cells across. Otherwise the turned copy lands at a different PHASE against the
+## grid and identical geometry produces a different surface - measured once at
+## 4,072 stances against 3,986, with different route counts for the same rooms.
+## See WORLD_AUTHORING §11.
 const CELL: float = 40.0
-const WORLD_W: float = 2400.0 # 60 cells
-const WORLD_D: float = 5200.0 # 130 cells
-const WORLD_H: float = ROOF + SLAB
-const GARDEN_D: float = 1400.0
-const SIDE: float = (WORLD_W - HOUSE_W) * 0.5
-const BEHIND: float = (WORLD_D - GARDEN_D - HOUSE_D * 2.0) * 0.5
-const HOUSE_X: float = SIDE
-const HOUSE_Z: float = BEHIND
 
 var _solids: Array[AABB] = []
+## While true, _solid writes lot-space blockers directly instead of house-local
+## geometry awaiting the stamp.
+var _terrain_slab: bool = false
 var _root: Node3D = null
 var _count: int = 0
 
 func _initialize() -> void:
-	_draw_house()
-
-	# Said out loud rather than assumed. The turn is only a symmetry if the world
-	# is a whole number of cells across, and a silently asymmetric level is a
-	# balance bug nobody can see.
-	if not is_equal_approx(fmod(WORLD_W, CELL), 0.0) 		or not is_equal_approx(fmod(WORLD_D, CELL), 0.0):
-		printerr("world %d x %d is not a whole number of %d-unit cells: the turned "
-			% [int(WORLD_W), int(WORLD_D), int(CELL)]
+	if not is_equal_approx(fmod(LOT_W, CELL), 0.0) \
+		or not is_equal_approx(fmod(LOT_D, CELL), 0.0):
+		printerr("lot %d x %d is not a whole number of %d-unit cells: the turned "
+			% [int(LOT_W), int(LOT_D), int(CELL)]
 			+ "house will be sampled at a different phase and will not match")
 		quit(1)
 		return
 
+	_draw_house()
+
 	_root = Node3D.new()
 	_root.name = "HouseBlockout"
-	_box("shell", Vector3(WORLD_W, WORLD_H, WORLD_D) * 0.5,
-		Vector3(WORLD_W, WORLD_H, WORLD_D))
-	# One slab under the whole world. Both ground floors and the garden sit at
-	# the same height, so there is nothing to excavate, and nothing to fall into
-	# whose edge a player cannot see.
-	_blocker(AABB(Vector3.ZERO, Vector3(WORLD_W, GROUND, WORLD_D)))
+	_box("shell", Vector3(LOT_W, LOT_H, LOT_D) * 0.5, Vector3(LOT_W, LOT_H, LOT_D))
+	_terrain()
 
 	_stamp(false, &"team_a", "a")
 	_stamp(true, &"team_b", "b")
@@ -151,179 +151,306 @@ func _initialize() -> void:
 	var path: String = "res://game/blockout/house.tscn"
 	var wrote: int = ResourceSaver.save(scene, path)
 	print("%s: %s" % [path, "written" if wrote == OK else "FAILED (%d)" % wrote])
-	print("world %d x %d x %d, %d blockers, 6 rooms per house" % [
-		int(WORLD_W), int(WORLD_D), int(WORLD_H), _count])
+	print("lot %d x %d x %d, %d blockers, 6 rooms + basement per house" % [
+		int(LOT_W), int(LOT_D), int(LOT_H), _count])
 	quit(0)
 
+# ---- the ground the lot sits on ----
+
+## Garden at y=300, and solid earth below it everywhere the basement is not.
+##
+## The basement is genuinely below grade (§3), so the terrain is a slab with the
+## two basement footprints and their outside entrances cut out of it. Digging the
+## holes rather than building walls round them means the sides of the pit ARE the
+## earth - no redundant boxes buried inside the ground they duplicate.
+func _terrain() -> void:
+	var holes: Array[Rect2] = []
+	for turned: bool in [false, true]:
+		# The L: NW, NE, SW. The south-east quadrant is solid earth (§6).
+		holes.append(_flat(Rect2(0.0, MID_LOW, HOUSE, HOUSE - MID_LOW), turned))
+		holes.append(_flat(Rect2(0.0, 0.0, MID_HIGH, MID_LOW), turned))
+		# The exterior basement steps, descending from the north garden (§12).
+		holes.append(_flat(Rect2(1280.0, HOUSE, 250.0, 640.0), turned))
+
+	# One slab from y=0 to grade, holed for the basements. Terrain IS the earth.
+	#
+	# Emitted STRAIGHT TO BLOCKERS, not through `_solids`. That list is the house
+	# drawn in house-local coordinates and everything in it gets stamped twice -
+	# once turned. The terrain is already lot-space and singular; putting it
+	# through the stamp rotated the whole map off its west edge.
+	_terrain_slab = true
+	_slab_at(GROUND, Rect2(0.0, 0.0, LOT_W, LOT_D), holes, GROUND)
+	_terrain_slab = false
+
+## A house-local footprint in lot coordinates, ignoring height.
+func _flat(local: Rect2, turned: bool) -> Rect2:
+	var box: AABB = _place(AABB(
+		Vector3(local.position.x, 0.0, local.position.y),
+		Vector3(local.size.x, 1.0, local.size.y)), turned)
+	return Rect2(box.position.x, box.position.z, box.size.x, box.size.z)
+
 # ---- one house, in local coordinates ----
-#
-# x runs 0..HOUSE_W, z runs 0..HOUSE_D, and the FRONT of the house - the side
-# facing the other house - is +z. y is absolute and is never turned.
 
 func _draw_house() -> void:
-	for level: float in [GROUND, UPPER]:
+	_basement()
+	_ground()
+	_upper()
+	_stairs()
+	_chute()
+
+## §6. L-shaped, open arches rather than doors: a prisoner must have more than
+## one way out, and open space is the cheapest way to guarantee it.
+func _basement() -> void:
+	var top: float = BASEMENT + STOREY - SLAB
+
+	# Outer walls of the L. The south-east quadrant is earth, so the shell
+	# steps in: east wall runs only to the NE/SE boundary, south wall only to
+	# the NW/SW boundary.
+	_wall_x(WALL * 0.5, 0.0, HOUSE, BASEMENT, top, [
+		_at(NEAR_MID, WINDOW), # coal chute, west face (§11)
+	] as Array[Vector2])
+	_wall_x(HOUSE - WALL * 0.5, MID_LOW, HOUSE, BASEMENT, top, [] as Array[Vector2])
+	_wall_z(WALL * 0.5, WALL, MID_HIGH, BASEMENT, top, [
+		_at(NEAR_MID, WINDOW), # vent, south face (§11)
+	] as Array[Vector2])
+	_wall_z(HOUSE - WALL * 0.5, WALL, HOUSE - WALL, BASEMENT, top, [
+		_at(1405.0, 250.0), # exterior basement steps, into the CELLAR (§6)
+	] as Array[Vector2])
+	# The two faces that close the L off from the solid earth beyond it.
+	_wall_z(SPLIT, MID_HIGH, HOUSE, BASEMENT, top, [] as Array[Vector2])
+	_wall_x(SPLIT, WALL, MID_LOW, BASEMENT, top, [] as Array[Vector2])
+
+	# Wide arches, not doors. 480 across, full storey height (§11).
+	_wall_x(SPLIT, MID_HIGH, HOUSE, BASEMENT, top,
+		[_at(1185.0, 480.0)] as Array[Vector2])
+	_wall_z(SPLIT, WALL, MID_LOW, BASEMENT, top,
+		[_at(405.0, 480.0)] as Array[Vector2])
+
+## §5. Three doors on three faces plus five climbable windows - eight ways onto
+## this floor.
+func _ground() -> void:
+	var top: float = GROUND + STOREY - SLAB
+	_wall_x(WALL * 0.5, 0.0, HOUSE, GROUND, top, [
+		_at(FAR_MID, WINDOW), # Back Hall west window
+		_at(NEAR_MID, WINDOW), # Living west window
+	] as Array[Vector2])
+	_wall_x(HOUSE - WALL * 0.5, 0.0, HOUSE, GROUND, top, [
+		_at(FAR_MID, DOOR), # SIDE DOOR, Kitchen east
+		_at(NEAR_MID, WINDOW), # Front Hall east window
+	] as Array[Vector2])
+	_wall_z(WALL * 0.5, WALL, HOUSE - WALL, GROUND, top, [
+		_at(NEAR_MID, WINDOW), # Living south window
+		_at(FAR_MID, DOOR), # FRONT DOOR, Front Hall south
+	] as Array[Vector2])
+	_wall_z(HOUSE - WALL * 0.5, WALL, HOUSE - WALL, GROUND, top, [
+		_at(NEAR_MID, DOOR), # BACK DOOR, Back Hall north
+		_at(FAR_MID, WINDOW), # Kitchen north window
+	] as Array[Vector2])
+	_ring(GROUND, top)
+
+	# The floor of the ground storey, holed for the main stair only: the second
+	# stair does not reach the basement and the earth under it is solid (§3).
+	_slab_at(GROUND, Rect2(0.0, 0.0, HOUSE, HOUSE),
+		[_stairwell(STAIR_A_X, STAIR_A_Z), _chute_hole()] as Array[Rect2], SLAB)
+
+## §4. Eight windows, every one a one-way drop to the garden - two per room,
+## covering all four faces.
+func _upper() -> void:
+	var top: float = UPPER + STOREY - SLAB
+	_wall_x(WALL * 0.5, 0.0, HOUSE, UPPER, top, [
+		_at(FAR_MID, WINDOW), # Landing A west
+		_at(NEAR_MID, WINDOW), # Bedroom west
+	] as Array[Vector2])
+	_wall_x(HOUSE - WALL * 0.5, 0.0, HOUSE, UPPER, top, [
+		_at(FAR_MID, WINDOW), # Vault east
+		_at(NEAR_MID, WINDOW), # Landing B east
+	] as Array[Vector2])
+	_wall_z(WALL * 0.5, WALL, HOUSE - WALL, UPPER, top, [
+		_at(NEAR_MID, WINDOW), # Bedroom south
+		_at(FAR_MID, WINDOW), # Landing B south
+	] as Array[Vector2])
+	_wall_z(HOUSE - WALL * 0.5, WALL, HOUSE - WALL, UPPER, top, [
+		_at(NEAR_MID, WINDOW), # Landing A north
+		_at(FAR_MID, WINDOW), # Vault north
+	] as Array[Vector2])
+	_ring(UPPER, top)
+
+	_slab_at(UPPER, Rect2(0.0, 0.0, HOUSE, HOUSE),
+		[_stairwell(STAIR_A_X, STAIR_A_Z), _stairwell(STAIR_B_X, STAIR_B_Z),
+		_chute_hole()] as Array[Rect2], SLAB)
+	# The roof. No holes: nothing goes up from the top floor.
+	_slab_at(ROOF, Rect2(0.0, 0.0, HOUSE, HOUSE), [] as Array[Rect2], SLAB)
+
+## The four internal doorways that make each floor a ring (§4, §5).
+##
+## A ring rather than a chain is the whole reason a chase can circulate instead
+## of ending in a corner (§8).
+func _ring(level: float, top: float) -> void:
+	_wall_x(SPLIT, WALL, HOUSE - WALL, level, top, [
+		_at(FAR_MID, DOOR), # NW <-> NE
+		_at(NEAR_MID, DOOR), # SW <-> SE
+	] as Array[Vector2])
+	_wall_z(SPLIT, WALL, HOUSE - WALL, level, top, [
+		_at(NEAR_MID, DOOR), # NW <-> SW
+		_at(FAR_MID, DOOR), # NE <-> SE
+	] as Array[Vector2])
+
+## §2. Two switchback flights per storey, five steps each, with a mid-landing.
+func _stairs() -> void:
+	# Main stair, NW: basement -> ground -> upper. The spine (§3).
+	_switchback(STAIR_A_X, STAIR_A_Z, BASEMENT)
+	_switchback(STAIR_A_X, STAIR_A_Z, GROUND)
+	# Second stair, SE: ground -> upper only.
+	_switchback(STAIR_B_X, STAIR_B_Z, GROUND)
+
+## One storey of stairs: up the near half, turn on the landing, up the far half.
+##
+## Flights run in +z side by side. The first climbs the western half, the
+## mid-landing spans both at half height, and the second climbs the eastern half
+## back down the z axis - so a body arrives at the top having turned 180 degrees,
+## in 580 of depth rather than 640 of straight run.
+func _switchback(x: float, z: float, base: float) -> void:
+	var half: float = base + STEP * float(HALF_FLIGHT)
+	for i: int in HALF_FLIGHT:
+		_solid(AABB(Vector3(x, base, z + RUN * float(i)),
+			Vector3(FLIGHT_W, STEP * float(i + 1), RUN)))
+	# Mid-landing: full width, both flights, at half height.
+	_solid(AABB(Vector3(x, base, z + FLIGHT_RUN),
+		Vector3(STAIR_W, half - base, LANDING_D)))
+	for i: int in HALF_FLIGHT:
+		var top: float = half + STEP * float(i + 1)
+		_solid(AABB(
+			Vector3(x + FLIGHT_W, base, z + FLIGHT_RUN - RUN * float(i + 1)),
+			Vector3(FLIGHT_W, top - base, RUN)))
+
+## The opening a flight needs in the floor above it.
+##
+## Sized for the VISIBLE body over the CLIMB, and flush with the geometry at the
+## ARRIVAL. A 180-tall character reaches the underside of the slab well before
+## its centre does, so the hole is generous over the treads - but a switchback
+## finishes back at the end it started from, and overshooting there cut the floor
+## out from under the body exactly where it steps off. Twenty units of missing
+## slab at the top of the stairs, which read as a whole basement that could be
+## entered and not left.
+##
+## So: flush at z (the arrival edge), generous everywhere else.
+func _stairwell(x: float, z: float) -> Rect2:
+	return Rect2(x - 20.0, z, STAIR_W + 40.0, STAIR_D + 20.0)
+
+## §4. The chute shaft, sealed everywhere except its intake and its exit.
+##
+## A blocker in the Vault (upper) and the Kitchen (ground) - it passes through
+## those rooms without opening into them. The hole in each slab is what makes it
+## a shaft rather than three unrelated boxes.
+func _chute() -> void:
+	# Intake: an opening in Landing A's east wall, at the shaft.
+	_wall_x(SPLIT, CHUTE_Z, CHUTE_Z + CHUTE, UPPER, UPPER + STOREY - SLAB,
+		[_at(CHUTE_Z + CHUTE * 0.5, CHUTE)] as Array[Vector2])
+	# The shaft walls: three sides on each floor it passes through, so a body
+	# cannot step out of it mid-fall.
+	for level: float in [UPPER, GROUND]:
 		var top: float = level + STOREY - SLAB
-		# Ends own the corners, front and back run between them, dividers run
-		# between those. Nothing shares a volume with anything (§7).
-		_wall_x(WALL * 0.5, 0.0, HOUSE_D, level, top, _left_face(level))
-		_wall_x(HOUSE_W - WALL * 0.5, 0.0, HOUSE_D, level, top, _right_face(level))
-		_wall_z(WALL * 0.5, WALL, HOUSE_W - WALL, level, top, _back_face(level))
-		_wall_z(HOUSE_D - WALL * 0.5, WALL, HOUSE_W - WALL, level, top, _front_face(level))
-		# The hall's long wall, and the one splitting the two rooms beside it.
-		_wall_x(SPLIT_X, WALL, HOUSE_D - WALL, level, top, [
-			_across(BACK_Z + ROOM * 0.5, DOOR), # to the jail / bedroom
-			_across(FRONT_Z + ROOM * 0.5, DOOR), # to the kitchen / vault
-		] as Array[Vector2])
-		_wall_z(SPLIT_Z, RIGHT_X, HOUSE_W - WALL, level, top,
-			[_across(RIGHT_X + ROOM * 0.5, DOOR)] as Array[Vector2])
+		_wall_x(CHUTE_X + CHUTE + WALL * 0.5, CHUTE_Z, CHUTE_Z + CHUTE,
+			level, top, [] as Array[Vector2])
+		_wall_z(CHUTE_Z - WALL * 0.5, CHUTE_X, CHUTE_X + CHUTE,
+			level, top, [] as Array[Vector2])
+		_wall_z(CHUTE_Z + CHUTE + WALL * 0.5, CHUTE_X, CHUTE_X + CHUTE,
+			level, top, [] as Array[Vector2])
 
-	_slab(UPPER, Rect2(0.0, 0.0, HOUSE_W, HOUSE_D),
-		[_stairwell_z(), _stairwell_x()] as Array[Rect2])
-	_slab(ROOF, Rect2(0.0, 0.0, HOUSE_W, HOUSE_D), [] as Array[Rect2])
+func _chute_hole() -> Rect2:
+	return Rect2(CHUTE_X, CHUTE_Z, CHUTE, CHUTE)
 
-	# Hall up to the landing, running the depth of the hall with room to walk
-	# onto it at both ends. Being able to reach a staircase is not a detail: the
-	# last one started 50 from the back wall and had to be approached by walking
-	# into a corner first.
-	_flight_z(STAIR_A_X, STAIR_A_Z, GROUND)
-	# Jail up to the bedroom, running across the room, clear of both its doors
-	# and of the spot the rules put a prisoner.
-	_flight_x(STAIR_B_X, STAIR_B_Z, GROUND)
-
-## Doors on THREE faces, which is what having four faces is for. The house
-## before this had every opening on the side pointing at the enemy, so there was
-## no way to come round the back of anything.
-func _front_face(level: float) -> Array[Vector2]:
-	if level == GROUND:
-		return [
-			_across(LEFT_X + ROOM * 0.5, DOOR), # front door, into the hall
-			_across(RIGHT_X + ROOM * 0.5, DOOR), # into the kitchen
-		] as Array[Vector2]
-	# The vault's window: a way OUT and never in. 240 down is a drop you walk
-	# away from; 240 up is not a verb this game has. Climb slowly by a contested
-	# stair, leave fast and committed.
-	return [_across(RIGHT_X + ROOM * 0.5, DOOR)] as Array[Vector2]
-
-func _back_face(level: float) -> Array[Vector2]:
-	if level == GROUND:
-		return [
-			_across(LEFT_X + ROOM * 0.5, DOOR), # back door, into the hall
-			_across(RIGHT_X + ROOM * 0.5, DOOR), # straight into the jail
-		] as Array[Vector2]
-	return [_across(RIGHT_X + ROOM * 0.5, DOOR)] as Array[Vector2] # off the bedroom
-
-func _right_face(level: float) -> Array[Vector2]:
-	if level != GROUND:
-		return [] as Array[Vector2]
-	return [_across(FRONT_Z + ROOM * 0.5, DOOR)] as Array[Vector2] # side door, kitchen
-
-## Left blank on purpose. A house with a door on every side has no back of it.
-func _left_face(_level: float) -> Array[Vector2]:
-	return [] as Array[Vector2]
-
-## The opening each flight needs in the floor above it, from the tread where a
-## standing body's head would otherwise be inside the slab, plus enough past the
-## top to step off onto.
-func _stairwell_z() -> Rect2:
-	var from: float = STAIR_A_Z + RUN * float(_covered()) - 40.0
-	var to: float = minf(STAIR_A_Z + RUN * float(TREADS) + 40.0, HOUSE_D - WALL)
-	return Rect2(STAIR_A_X, from, FLIGHT_W, to - from)
-
-func _stairwell_x() -> Rect2:
-	var from: float = STAIR_B_X + RUN * float(_covered()) - 40.0
-	var to: float = minf(STAIR_B_X + RUN * float(TREADS) + 40.0, HOUSE_W - WALL)
-	return Rect2(from, STAIR_B_Z, to - from, FLIGHT_W)
-
-## The first tread from which the floor above has to be open.
-##
-## Two conditions, and the opening starts at whichever bites first.
-##
-## The FILL's one: a body occupies the layer whose centre is first above its
-## rest height, and the layer is as tall as a step, so the rounding is worth a
-## whole tread (§11). Below this the walkable surface loses the tread entirely.
-##
-## The EYE's one, which bites much earlier: the visible body is 180 tall, so its
-## head reaches the underside of the slab two treads before its centre does.
-## Sizing the hole from the simulation body alone is why climbing looked like
-## walking up through the floor - the geometry was right and the character was
-## inside it.
-func _covered() -> int:
-	var slab_bottom: float = GROUND + STOREY - SLAB
-	var first: int = TREADS
-	for i: int in TREADS:
-		var tread_top: float = GROUND + STEP * float(i + 1)
-		var rest: float = tread_top + BODY
-		var head: float = tread_top + BODY_HEIGHT
-		var layer: float = (ceil(rest / STEP - 0.5) + 0.5) * STEP
-		if head > slab_bottom or layer >= slab_bottom - BODY:
-			first = i
-			break
-	return first
-
-func _across(centre: float, width: float) -> Vector2:
+## An opening centred on `centre`, `width` across.
+func _at(centre: float, width: float) -> Vector2:
 	return Vector2(centre - width * 0.5, centre + width * 0.5)
 
-# ---- placing it twice ----
+# ---- placing it twice (§9) ----
 
-## `turned` rotates the house 180 degrees about the middle of the world, so its
-## front faces back across the garden. Mirroring in x instead would leave both
-## houses facing the same way, which is what the last one did.
+## `turned` rotates the house 180 degrees about the middle of the lot, so the two
+## fronts face away from each other and the layout is identical for both teams
+## without mirroring - mirroring in x once produced two houses facing the same
+## way (§9).
 func _stamp(turned: bool, team: StringName, side: String) -> void:
 	for box: AABB in _solids:
 		_blocker(_place(box, turned))
 
-	# Rooms as rectangles, named where they are. The hall and the landing run
-	# the full depth of the house down one side; the other side is two rooms.
+	# §3 vertical stacking. Quadrants stack identically on every floor; the
+	# basement omits the south-east.
 	var rooms: Array[Array] = [
-		[&"hall", ZoneDef.Role.HOME, LEFT_X, GROUND, BACK_Z, ROOM, HALL_D],
-		[&"kitchen", ZoneDef.Role.HOME, RIGHT_X, GROUND, FRONT_Z, ROOM, ROOM],
-		[&"jail", ZoneDef.Role.JAIL, RIGHT_X, GROUND, BACK_Z, ROOM, ROOM],
-		[&"landing", ZoneDef.Role.HOME, LEFT_X, UPPER, BACK_Z, ROOM, HALL_D],
-		[&"vault", ZoneDef.Role.CASH_ROOM, RIGHT_X, UPPER, FRONT_Z, ROOM, ROOM],
-		[&"bedroom", ZoneDef.Role.HOME, RIGHT_X, UPPER, BACK_Z, ROOM, ROOM],
+		# id, role, x, z, y
+		[&"landing_a", ZoneDef.Role.HOME, LOW, MID_HIGH, UPPER],
+		[&"vault", ZoneDef.Role.CASH_ROOM, MID_HIGH, MID_HIGH, UPPER],
+		[&"bedroom", ZoneDef.Role.CASH_ROOM, LOW, LOW, UPPER],
+		[&"landing_b", ZoneDef.Role.HOME, MID_HIGH, LOW, UPPER],
+		[&"back_hall", ZoneDef.Role.HOME, LOW, MID_HIGH, GROUND],
+		[&"kitchen", ZoneDef.Role.HOME, MID_HIGH, MID_HIGH, GROUND],
+		[&"living", ZoneDef.Role.HOME, LOW, LOW, GROUND],
+		[&"front_hall", ZoneDef.Role.HOME, MID_HIGH, LOW, GROUND],
+		[&"stair_foot", ZoneDef.Role.HOME, LOW, MID_HIGH, BASEMENT],
+		[&"cellar", ZoneDef.Role.JAIL, MID_HIGH, MID_HIGH, BASEMENT],
+		[&"boiler", ZoneDef.Role.HOME, LOW, LOW, BASEMENT],
 	]
 	for room: Array in rooms:
 		_zone(StringName("%s_%s" % [room[0], side]), room[1], team, 1,
-			_place(AABB(Vector3(room[2], room[3], room[4]),
-				Vector3(room[5], STOREY, room[6])), turned), false)
+			_place(AABB(Vector3(room[2], room[4], room[3]),
+				Vector3(QUAD, STOREY, QUAD)), turned), false)
 
-	# Spawns in the front half of the hall, clear of the flight. Cash in the
-	# vault, spread so three bundles are not one grab.
+	# §12: spawns in the team's own yard, along the back and side faces.
 	for i: int in 3:
-		# Down the far side of the hall from the flight, which grew when the
-		# storey did - the gate caught the first three standing in the stairs.
 		_marker("spawn_%s_%d" % [team, i], _place(AABB(Vector3(
-			LEFT_X + 570.0, GROUND + BODY, FRONT_Z + 355.0 + 130.0 * float(i)),
-			Vector3.ONE), turned).position)
-		_marker("cash_%s_%d" % [team, i], _place(AABB(Vector3(
-			RIGHT_X + 180.0 + 200.0 * float(i), UPPER + BODY, FRONT_Z + ROOM * 0.5),
+			HOUSE + 150.0, GROUND + BODY, 300.0 + 300.0 * float(i)),
 			Vector3.ONE), turned).position)
 
+	# §12: cash split randomly each round between the two upper cash rooms.
+	# Both rooms carry points; which ones are live is a spawn rule, not geometry.
+	for i: int in 2:
+		_marker("cash_%s_%d" % [team, i], _place(AABB(Vector3(
+			MID_HIGH + 220.0 + 300.0 * float(i), UPPER + BODY, FAR_MID),
+			Vector3.ONE), turned).position)
+	for i: int in 2:
+		_marker("cash_%s_%d" % [team, i + 2], _place(AABB(Vector3(
+			LOW + 220.0 + 300.0 * float(i), UPPER + BODY, NEAR_MID),
+			Vector3.ONE), turned).position)
+
+## House-local to lot coordinates.
+##
+## The turn is ONE rotation about the middle of the lot, so it is applied to the
+## unrotated placement rather than to a second origin: `LOT - (A + local) - size`.
+## Feeding House B's own origin in and THEN negating applies the offset twice and
+## puts the whole building off the west edge of the map, which is what it did.
+## House B's origin is not an input - it falls out of the arithmetic.
 func _place(box: AABB, turned: bool) -> AABB:
-	var x: float = HOUSE_X + box.position.x
-	var z: float = HOUSE_Z + box.position.z
+	var x: float = HOUSE_A_X + box.position.x
+	var z: float = HOUSE_A_Z + box.position.z
 	if turned:
-		x = WORLD_W - x - box.size.x
-		z = WORLD_D - z - box.size.z
+		x = LOT_W - x - box.size.x
+		z = LOT_D - z - box.size.z
 	return AABB(Vector3(x, box.position.y, z), box.size)
 
-## The garden, in three strips: each side's own ground nearest its own house,
-## neutral ground in the middle.
+## §12 territory. Ground within 400 of a house's outer wall belongs to it and
+## capture is legal there; everything else is neutral.
 ##
-## Whose ground it is decides where a seizure is LEGAL, and open ground
-## belonging to nobody is where two sides meet and can do nothing about each
-## other (§13). The middle stays neutral so crossing it is a decision.
+## This matters more than it looks. An earlier build put every encounter on
+## neutral ground, so no capture was ever legal and the game had no interactions
+## at all. Never let the only safe place also be the only crossing.
 func _outdoors() -> void:
-	var high: float = WORLD_H - GROUND
-	var neutral: float = 400.0
-	var edge_a: float = (WORLD_D - neutral) * 0.5
-	var edge_b: float = edge_a + neutral
-	_zone(&"yard_a", ZoneDef.Role.HOME, &"team_a", 0,
-		AABB(Vector3(0, GROUND, 0), Vector3(WORLD_W, high, edge_a)), true)
-	_zone(&"garden", ZoneDef.Role.NEUTRAL, &"", 0,
-		AABB(Vector3(0, GROUND, edge_a), Vector3(WORLD_W, high, neutral)), true)
-	_zone(&"yard_b", ZoneDef.Role.HOME, &"team_b", 0,
-		AABB(Vector3(0, GROUND, edge_b), Vector3(WORLD_W, high, WORLD_D - edge_b)), true)
+	var high: float = LOT_H - GROUND
+	# Priority -1: the lot underlies everything outdoors, and both yards sit on
+	# top of it. Whichever zone is more specific must win, or which ground a
+	# capture happens on is arbitrary.
+	_zone(&"lot", ZoneDef.Role.NEUTRAL, &"", -1,
+		AABB(Vector3(0.0, GROUND, 0.0), Vector3(LOT_W, high, LOT_D)), true)
+	for turned: bool in [false, true]:
+		var yard: Rect2 = _flat(Rect2(-TERRITORY, -TERRITORY,
+			HOUSE + TERRITORY * 2.0, HOUSE + TERRITORY * 2.0), turned)
+		# Priority 0: the yard WRAPS the house, so every room overlaps it. Rooms
+		# win, and the yard is only what is left over outside them. Equal
+		# priority would make which one a point belongs to arbitrary, and
+		# "arbitrary" here decides whether a capture is legal.
+		_zone(&"yard_b" if turned else &"yard_a", ZoneDef.Role.HOME,
+			&"team_b" if turned else &"team_a", 0,
+			AABB(Vector3(yard.position.x, GROUND, yard.position.y),
+				Vector3(yard.size.x, high, yard.size.y)), true)
 
 # ---- primitives ----
 
@@ -347,10 +474,8 @@ func _panels(from: float, to: float, base: float, top: float,
 	ordered.sort_custom(func(a: Vector2, b: Vector2) -> bool: return a.x < b.x)
 	var cursor: float = from
 	for raw: Vector2 in ordered:
-		# Clamped to the wall's own extent. An opening placed near the end of a
-		# wall used to run its lintel out past the corner and into the wall
-		# round it - nine units of two boxes sharing a volume, which is nine
-		# units of flickering corner.
+		# Clamped to the wall's own extent, so an opening near a corner cannot
+		# run its lintel out past the end and into the wall round it.
 		var gap: Vector2 = Vector2(maxf(raw.x, from), minf(raw.y, to))
 		if gap.y <= gap.x:
 			continue
@@ -364,7 +489,7 @@ func _panels(from: float, to: float, base: float, top: float,
 	return pieces
 
 ## A floor with holes in it, cut on the holes' own edges and merged back along x.
-func _slab(top: float, area: Rect2, holes: Array[Rect2]) -> void:
+func _slab_at(top: float, area: Rect2, holes: Array[Rect2], thick: float) -> void:
 	var xs: Array[float] = [area.position.x, area.end.x]
 	var zs: Array[float] = [area.position.y, area.end.y]
 	for hole: Rect2 in holes:
@@ -388,34 +513,27 @@ func _slab(top: float, area: Rect2, holes: Array[Rect2]) -> void:
 					open = true
 					break
 			if open:
-				_slab_piece(top, run_from, run_to, zs[zi], zs[zi + 1])
+				_slab_piece(top, run_from, run_to, zs[zi], zs[zi + 1], thick)
 				run_from = -1.0
 				continue
 			if run_from < 0.0:
 				run_from = xs[xi]
 			run_to = xs[xi + 1]
-		_slab_piece(top, run_from, run_to, zs[zi], zs[zi + 1])
+		_slab_piece(top, run_from, run_to, zs[zi], zs[zi + 1], thick)
 
-func _slab_piece(top: float, from: float, to: float, z0: float, z1: float) -> void:
-	if from < 0.0 or to - from < 0.5:
+## `from` of -1 means "no run is open" - a sentinel, not a coordinate. The lot
+## slab legitimately starts at x=0, so the test has to be for the sentinel
+## itself rather than for any negative number.
+func _slab_piece(top: float, from: float, to: float, z0: float, z1: float,
+		thick: float) -> void:
+	if from < -0.5 or to - from < 0.5:
 		return
-	_solid(AABB(Vector3(from, top - SLAB, z0), Vector3(to - from, SLAB, z1 - z0)))
-
-## A straight flight running in +z.
-func _flight_z(x: float, from_z: float, base: float) -> void:
-	for i: int in TREADS:
-		var top: float = base + STEP * float(i + 1)
-		_solid(AABB(Vector3(x, base, from_z + RUN * float(i)),
-			Vector3(FLIGHT_W, top - base, RUN)))
-
-## The same flight, turned: running in +x.
-func _flight_x(from_x: float, z: float, base: float) -> void:
-	for i: int in TREADS:
-		var top: float = base + STEP * float(i + 1)
-		_solid(AABB(Vector3(from_x + RUN * float(i), base, z),
-			Vector3(RUN, top - base, FLIGHT_W)))
+	_solid(AABB(Vector3(from, top - thick, z0), Vector3(to - from, thick, z1 - z0)))
 
 func _solid(box: AABB) -> void:
+	if _terrain_slab:
+		_blocker(box.abs())
+		return
 	_solids.append(box.abs())
 
 # ---- scene ----
