@@ -77,12 +77,41 @@ const LANDING_D: float = 260.0
 const STAIR_W: float = FLIGHT_W * 2.0 ## 560
 const STAIR_D: float = FLIGHT_RUN + LANDING_D ## 580
 
+## Both stairs are CENTRED in their quadrant, snapped to the 40 sampling grid.
+##
+## North is -z: NW is the low-x, low-z corner. Both of these used to be in the
+## wrong quadrant - A at z=940 was in SW (Bedroom / Living / Boiler) and B at
+## z=200 was in NE (Vault / Kitchen). The comments below were right the whole
+## time; the numbers were not. It broke far more than the geometry, because §6's
+## basement argument rests on the main stair landing in the NW Stair foot: with
+## A in the SW the cellar and boiler lost their second way out and the escape-
+## ability gate was correct to refuse the level.
+##
+## Centring leaves 95 of slack on x and 85 on z inside a 750 quadrant - enough
+## that the body-grown stairwell opening stays clear of all four walls.
+
+## §12: team spawns sit in the team's OWN yard, spread along the back and side
+## faces. House-local, so `_place` mirrors them onto B's own yard.
+##
+## They used to be at x = HOUSE + 150, which is 150 PAST the east wall - in the
+## corridor between the two houses. That is the contested middle: both teams
+## started on neutral ground, nobody started at home, and the yard a defender is
+## supposed to own was empty at the whistle.
+##
+## Negative x is the back (west) face; the third sits off the north side face so
+## a squad does not spawn in a single line.
+const SPAWN_LOCAL: Array[Vector2] = [
+	Vector2(-150.0, 400.0),
+	Vector2(-150.0, 1000.0),
+	Vector2(400.0, -150.0),
+]
+
 ## Main stair, NW quadrant: basement to upper, the spine (§3).
-const STAIR_A_X: float = 60.0
-const STAIR_A_Z: float = 940.0
+const STAIR_A_X: float = 120.0
+const STAIR_A_Z: float = 120.0
 ## Second stair, SE quadrant: ground to upper only (§3, §5).
-const STAIR_B_X: float = 970.0
-const STAIR_B_Z: float = 200.0
+const STAIR_B_X: float = 920.0
+const STAIR_B_Z: float = 880.0
 
 # ---- §4, §11 the laundry chute ----
 #
@@ -356,27 +385,35 @@ func _switchback(x: float, z: float, base: float) -> void:
 ## to step onto and the storey below becomes enterable but not escapable. Both
 ## halves of that were tried; each fixed one end and broke the other. The shape
 ## has to be asymmetric because the two flights are.
+## DERIVED FROM THE TREADS THEMSELVES, never from an index or a fraction.
+##
+## The opening is the WHOLE stair footprint, grown by a body radius. That is not
+## a conservative approximation - it is what the numbers force, and three
+## earlier attempts to cut something smarter than this all failed:
+##
+##   - Ask of each tread "would a body standing on it have its head in the slab
+##     above". Clear height under a slab is STOREY - SLAB = 260, a body is
+##     BODY_HEIGHT = 180 tall, so the answer is yes for every tread above 80 -
+##     which is everything from the third step up, both flights, and the whole
+##     mid-landing. The minimal hole IS the footprint. Every version that
+##     returned less than this left a tread roofed, no stance was generated on
+##     it, and the fill correctly refused the resulting 60 climb.
+##   - Two of those versions were additionally wrong about WHICH treads: one
+##     counted the fouling index from the bottom of the flight and used it as an
+##     offset from the top; one excluded the top tread on the theory that it "is
+##     floor" (it is not - it tops out level with the storey ceiling with 40 of
+##     slab above it).
+##
+## The lesson worth keeping: a staircase between two floors 300 apart is a
+## SHAFT, not a notch in a slab. §3's stacking table already said so by giving
+## each staircase its own footprint on every floor. The body's height, not the
+## step geometry, is what decides it.
+##
+## Grown by BODY on all four sides because the fill works in body centres: a
+## body walking the edge of the flight needs its whole radius clear of the slab,
+## not just the point under its feet.
 func _stairwell(x: float, z: float) -> Rect2:
-	# Which treads foul the slab: those whose body would reach into it. The TOP
-	# tread does not - it arrives level with the floor above, so it IS floor, and
-	# opening the slab there leaves the body nothing to step onto. Measured as a
-	# 148-unit gap of open air at the head of every flight, which read as an
-	# upper storey that could not be reached at all.
-	var fouls: float = SLAB + BODY * 2.0
-	var first: int = HALF_FLIGHT ## count back from the top tread
-	for i: int in HALF_FLIGHT:
-		var top: float = STOREY * 0.5 + STEP * float(i + 1)
-		if top + BODY * 2.0 > STOREY - SLAB:
-			first = i
-			break
-	# The arriving half climbs BACK towards `z`, so tread i sits at
-	# z + FLIGHT_RUN - RUN*(i+1). Open the slab from the first fouling tread up
-	# to - but not including - the top one.
-	var from_z: float = z + RUN
-	var to_z: float = z + FLIGHT_RUN - RUN * float(first)
-	if to_z <= from_z:
-		return Rect2(x + FLIGHT_W - BODY, z + RUN, FLIGHT_W + BODY * 2.0, RUN)
-	return Rect2(x + FLIGHT_W - BODY, from_z, FLIGHT_W + BODY * 2.0, to_z - from_z)
+	return Rect2(x - BODY, z - BODY, STAIR_W + BODY * 2.0, STAIR_D + BODY * 2.0)
 
 ## §4. The chute shaft, sealed everywhere except its intake and its exit.
 ##
@@ -439,7 +476,7 @@ func _stamp(turned: bool, team: StringName, side: String) -> void:
 	# §12: spawns in the team's own yard, along the back and side faces.
 	for i: int in 3:
 		_marker("spawn_%s_%d" % [team, i], _place(AABB(Vector3(
-			HOUSE + 150.0, GROUND + BODY, 300.0 + 300.0 * float(i)),
+			SPAWN_LOCAL[i].x, GROUND + BODY, SPAWN_LOCAL[i].y),
 			Vector3.ONE), turned).position)
 
 	# §12: cash split randomly each round between the two upper cash rooms.
@@ -481,17 +518,36 @@ func _outdoors() -> void:
 	# capture happens on is arbitrary.
 	_zone(&"lot", ZoneDef.Role.NEUTRAL, &"", -1,
 		AABB(Vector3(0.0, GROUND, 0.0), Vector3(LOT_W, high, LOT_D)), true)
+	# §12 states territory as a DISTANCE - "ground within 400 of a house's outer
+	# wall". Zones are boxes, so the box is the approximation, and the naive
+	# version of it does not work: the two houses are point-symmetric about the
+	# lot centre rather than side by side, so their z ranges interleave (A
+	# 550..2140, B 1340..2930). Two squares wrapping them overlap by 1600 on z
+	# at ANY territory value - shrinking it does not help, because the overlap
+	# is caused by the diagonal offset, not by the size.
+	#
+	# Two HOME zones overlapping at equal priority is a hard refusal, and
+	# rightly: the overlap covers ground a spawn can sit on, and which team owns
+	# a point decides whether a capture there is legal.
+	#
+	# So each yard is clipped at the lot's x midline. The corridor is the
+	# divider the plan already draws, the split is point-symmetric so neither
+	# team is favoured, and 320 of the 400 survives on the contested east face -
+	# the one face where the exact figure matters.
+	var midline: float = LOT_W * 0.5
 	for turned: bool in [false, true]:
 		var yard: Rect2 = _flat(Rect2(-TERRITORY, -TERRITORY,
 			HOUSE + TERRITORY * 2.0, HOUSE + TERRITORY * 2.0), turned)
+		var from_x: float = maxf(yard.position.x, midline) if turned else yard.position.x
+		var to_x: float = yard.end.x if turned else minf(yard.end.x, midline)
 		# Priority 0: the yard WRAPS the house, so every room overlaps it. Rooms
 		# win, and the yard is only what is left over outside them. Equal
 		# priority would make which one a point belongs to arbitrary, and
 		# "arbitrary" here decides whether a capture is legal.
 		_zone(&"yard_b" if turned else &"yard_a", ZoneDef.Role.HOME,
 			&"team_b" if turned else &"team_a", 0,
-			AABB(Vector3(yard.position.x, GROUND, yard.position.y),
-				Vector3(yard.size.x, high, yard.size.y)), true)
+			AABB(Vector3(from_x, GROUND, yard.position.y),
+				Vector3(to_x - from_x, high, yard.size.y)), true)
 
 # ---- primitives ----
 
