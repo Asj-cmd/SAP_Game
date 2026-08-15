@@ -35,8 +35,10 @@ gets its own coordinates, written by someone who has played the floors above it.
 | Change | Reason |
 |---|---|
 | Rooms **750 → 1000** | A staircase is 640 long. In a 750 room it spans the whole depth; at 1000 it is a strip along one wall with two-thirds of the room still clear |
-| **Straight flight hugging one wall** — no switchback | A switchback puts a landing in the middle of the room and occupies 324,800 as a solid block. A straight flight against a wall occupies **179,200** — 45% less, and all of it against the perimeter where it obstructs nothing |
-| Stair base sits **beside the doorway**, not facing it | You walk in and turn to climb, rather than meeting a wall of steps head-on |
+| **Straight flight hugging one wall** — no switchback | A switchback puts a landing in the middle of the room and occupies it as a solid block. A straight flight against a wall keeps the whole thing on the perimeter, where it obstructs nothing |
+| Stair base sits **beside the doorway**, not facing it, with a **120 flat landing** before the first riser | You walk in, and have a moment of level floor, before turning to climb — rather than meeting a wall of steps head-on |
+| Step run **64 → 48** | 64 run put the flight at 25°, closer to a ramp than a stair once it was actually played. 48 gives 32° while staying clear of the fill's 40-unit sampling cell |
+| Stairwell void is the **whole footprint**, not a tuned partial cut | A partial cut (open only the top part of the run) looked right on paper and was visibly wrong in play — the ceiling didn't line up with where a climbing body's head actually was, and a player watched the character clip through solid floor. The stair owns its whole corner already; cutting all of it is simpler and cannot drift out of alignment with the geometry it is supposed to match |
 | Passable openings **13 → 7** | Making every window person-sized is what produced the car park. Most windows are now small, high, and solid |
 | **Two floors, not three** | See §0 |
 | Jail is the **only ground room with no exterior opening** | Rescue must cost something. With the jail off the basement it would otherwise be the easiest thing in the game |
@@ -49,40 +51,51 @@ occasionally is drama, not a design failure.
 
 | Thing | Value | Why |
 |---|---|---|
-| Room | 1000 × 1000 | A 640 stair strip along one wall still leaves 1000 × 720 clear |
+| Room | 1000 × 1000 | A 480 stair strip plus a 120 landing along one wall still leaves most of the room clear |
 | Wall | 30 | |
 | House footprint | **2090 square** | Two rooms plus three walls |
 | Storey height | 300 | 260 clear over a 180 body |
 | Doorway | 240 wide × 240 tall | Run through mid-chase, not sidle through |
-| Step | 30 rise, 64 run | `TuningDef.step_up_height`; 64 because the tread above eats 20 for body radius and the remainder must clear a 40 fill cell |
+| Step | 30 rise, 48 run | `TuningDef.step_up_height`; 48 keeps 8 units of slack over the fill's 40-unit sampling cell — enough that a column centre cannot miss a tread, the failure a shorter run risks |
 | Stair per storey | 10 steps, **one straight flight** | No switchback, no mid-landing |
-| Stair footprint | **640 × 280**, against an exterior wall | 179,200 occupied, all of it on the perimeter |
-| Stairwell void above | **384 × 280**, the top of the run | See below — smaller than the flight |
+| Flat landing before the first step | **120** | So the flight does not start flush against the doorway you just walked through |
+| Stair footprint | **480 × 280** flight + 120 landing = **600 × 280** total, against an exterior wall | All of it on the perimeter |
+| Stairwell void above | **The whole footprint, base to top** | See below — deliberately not tuned tighter than the flight |
 
-**Why straight beats switchback.** Both climb 300 in ten steps of 64 run. The
-difference is where the floor goes:
+**Why straight beats switchback.** Both climb 300 in ten steps. The difference
+is where the floor goes:
 
-| | Footprint | Occupied | Shape |
-|---|---|---|---|
-| Straight, against a wall | 640 × 280 | **179,200** | Strip on the perimeter |
-| U switchback | 580 × 560 | 324,800 | Solid block, landing mid-room |
-| L quarter-turn | 600 × 600 | 257,600 | Two walls, awkward inner pocket |
+| | Footprint | Shape |
+|---|---|---|
+| Straight, against a wall | 600 × 280 | Strip on the perimeter |
+| U switchback | 580 × 560 | Solid block, landing mid-room |
+| L quarter-turn | 600 × 600 | Two walls, awkward inner pocket |
 
 A switchback saves *length* and spends *area* — and it parks a landing in the
 middle of the room, floating, which is exactly the defect visible in the first
 build. At 750 rooms the length mattered enough to be worth it. At 1000 it does
-not: a 640 strip along one wall leaves 1000 × 720 completely clear.
+not: a stair strip along one wall leaves most of the room completely clear.
 
 This is how PUBG houses do it, and how most real houses do it. The switchback
 was solving a problem the larger rooms had already solved.
 
-**The stairwell void is smaller than the flight.** A climbing body only needs the
-floor above to be open once its head reaches the slab. Feet at step *n* are at
-30*n*, head at 30*n* + 180, and the slab is at 300 — so steps 0–4 pass underneath
-it and the hole is only needed from step 4 onward.
+**48 run, not 64.** The first straight-stair build kept the switchback's 64 run,
+which put the flight at 25° — visibly too shallow, closer to a ramp than a
+stair. 48 run gives 32°, a real staircase angle, while staying 8 units clear of
+the 40-unit fill-sampling cell so a walkable stance is never at risk of landing
+on a tread boundary. Below roughly 44 that margin gets uncomfortably thin; 48
+was chosen with slack to spare rather than cut to the minimum.
 
-**Void = the last 384 of the run × 280 wide.** The first 256 of the flight sits
-under solid floor, which is what a real staircase looks like from above.
+**The stairwell void is the WHOLE footprint, not a tight cut.** An earlier
+version cut only the top part of the run, on the theory that a climbing body's
+head only needs the ceiling gone once it is tall enough to hit it. That
+derivation was correct in principle and wrong in practice: the cut it produced
+did not line up with where the body's head actually was, and a player watching
+from outside saw the character clip through solid floor mid-climb. The stair
+already owns its whole corner of the room — nothing else needs that ceiling —
+so the fix is to stop being clever and cut the entire footprint, landing
+included, base to top. A void larger than strictly necessary is invisible; one
+that is wrong by even a small margin is not.
 
 ## 3. Quadrants and coordinates
 
@@ -168,12 +181,12 @@ Ring corridor: Front Hall → Kitchen → Back Hall → Jail → Front Hall.
         ┌────────────────┬────────────────┐
         │ ║ LANDING B    │ MASTER BEDROOM │
         │ ║ stair down   │     CASH       │
-   WEST │ ║ void 384x280 │  window ▼ E    │ EAST
+   WEST │ ║ void 600x280 │  window ▼ E    │ EAST
         │                │                │
         ├────────────────┼────────────────┤
         │     STUDY      │  LANDING A   ║ │
         │      CASH      │  stair down  ║ │
-        │  window ▼ S    │  void 384x280║ │
+        │  window ▼ S    │  void 600x280║ │
         └────────────────┴────────────────┘
                       SOUTH
 ```
@@ -243,11 +256,11 @@ ground window sill +90, head +240; escape window sill +80, head +240.
 |---|---|---|---|---|---|
 | G1 | Front door | Front Hall | South outer | X 1440–1680 · Z 0–30 | Two-way |
 | G2 | Window | Front Hall | East outer, **north of the stair top** | X 2060–2090 · Z 745–985 | Two-way climb |
-| G3 | Main stair | Front Hall | Against east wall, running north | X 1780–2060 · Z 60–700 | Up to Landing A. Base at Z 60, beside the front door |
+| G3 | Main stair | Front Hall | Against east wall, running north | X 1780–2060 · Z 60–660 (120 flat landing, then 480 flight) | Up to Landing A. Base at Z 60, beside the front door |
 | G4 | Side door | Kitchen | East outer | X 2060–2090 · Z 1440–1680 | Two-way |
 | G5 | Back door | Back Hall | North outer | X 410–650 · Z 2060–2090 | Two-way |
 | G6 | Window | Back Hall | West outer, **south of the stair top** | X 0–30 · Z 1105–1345 | Two-way climb |
-| G7 | Second stair | Back Hall | Against west wall, running south | X 30–310 · Z 1390–2030 | Up to Landing B. Base at Z 2030, beside the back door |
+| G7 | Second stair | Back Hall | Against west wall, running south | X 30–310 · Z 1430–2030 (120 flat landing at the top, then 480 flight down) | Up to Landing B. Base at Z 2030, beside the back door |
 | D1 | Doorway | Front Hall ↔ Kitchen | Internal Z 1030–1060 | X 1440–1680 · Z 1030–1060 | Two-way |
 | D2 | Doorway | Kitchen ↔ Back Hall | Internal X 1030–1060 | X 1030–1060 · Z 1440–1680 | Two-way |
 | D3 | Doorway | Back Hall ↔ Jail | Internal Z 1030–1060 | X 410–650 · Z 1030–1060 | Two-way |
@@ -257,9 +270,9 @@ ground window sill +90, head +240; escape window sill +80, head +240.
 
 | Tag | Element | Room | Face / wall | Local coords (X, Z) | Direction |
 |---|---|---|---|---|---|
-| U1 | Main stair head + **floor void** | Landing A | Against east wall | Void X 1780–2060 · Z 316–700 | Down to Front Hall. Floor solid over Z 60–316 |
+| U1 | Main stair head + **floor void** | Landing A | Against east wall | Void X 1780–2060 · Z 60–660 — the WHOLE stair footprint, base to top | Down to Front Hall |
 | U2 | Escape window | Master Bedroom | East outer | X 2060–2090 · Z 1440–1680 | **One-way down** |
-| U3 | Second stair head + **floor void** | Landing B | Against west wall | Void X 30–310 · Z 1390–1774 | Down to Back Hall. Floor solid over Z 1774–2030 |
+| U3 | Second stair head + **floor void** | Landing B | Against west wall | Void X 30–310 · Z 1430–2030 — the WHOLE stair footprint, base to top | Down to Back Hall |
 | U4 | Escape window | Study | South outer | X 410–650 · Z 0–30 | **One-way down** |
 | D5 | Doorway | Landing A ↔ Master Bedroom | Internal Z 1030–1060 | X 1440–1680 · Z 1030–1060 | Two-way |
 | D6 | Doorway | Master Bedroom ↔ Landing B | Internal X 1030–1060 | X 1030–1060 · Z 1440–1680 | Two-way |

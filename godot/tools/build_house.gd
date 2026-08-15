@@ -10,9 +10,10 @@ extends SceneTree
 ##
 ## PHASE 1 ONLY: two floors, four quadrants, six rooms (Front Hall, Kitchen,
 ## Back Hall, Jail / Landing A, Master Bedroom, Landing B, Study - eight room
-## instances across two floors), two switchback staircases each living in the
-## corner of the room it serves. No basement - §0 is explicit that Phase 1
-## reserves no space for Phase 2, so nothing below tries to.
+## instances across two floors), two straight staircases each hugging an
+## exterior wall in the corner of the room it serves. No basement - §0 is
+## explicit that Phase 1 reserves no space for Phase 2, so nothing below tries
+## to.
 ##
 ## The house is drawn ONCE in house-local coordinates and stamped twice, the
 ## second copy rotated 180 degrees about the middle of the lot (§9). Two
@@ -67,29 +68,35 @@ const FAR_MID: float = MID_HIGH + QUAD * 0.5 ## 1560
 
 # ---- §2 straight stairs, hugging an exterior wall ----
 #
-# Ten steps, one flight, no switchback and no mid-landing: 640 x 280, all of it
-# a strip along the wall. Occupies 179,200 against the switchback's 324,800 -
-# the switchback was solving a problem the 1000 room had already solved, and
-# it left a landing floating in the middle of the room. See §2's table.
-const FLIGHT_RUN: float = RUN * 10.0 ## 640 - full climb in one run
+# Ten steps, one flight, no switchback and no mid-landing, run shortened from
+# 64 to 48 so the flight reads as a stair rather than a ramp - 25 degrees was
+# too shallow. 30 rise over 48 run is 32 degrees, still comfortably above the
+# fill's 40-unit sampling cell (8 units of slack; below ~40 a column centre can
+# miss a tread's centre entirely and the fill silently drops a stance, the same
+# class of bug the lot-alignment guard exists to catch elsewhere in this file).
+# Total flight 480, not 640 - a real saving on top of the switchback's removal.
+const FLIGHT_RUN: float = RUN * 10.0 ## 480 - full climb in one run
 const FLIGHT_W: float = 280.0
+
+## Flat clearance before the first riser, so the flight does not start flush
+## against the doorway you just walked through. Purely a gap in front of the
+## bottom step; the stair's own footprint (and therefore the floor cut above
+## it) still starts at the base coordinate below.
+const STAIR_LANDING: float = 120.0
 
 ## §7 G3: main stair, Front Hall (SE), against the EAST wall, running NORTH.
 ## Base at Z 60, beside the front door, so you enter and turn right to climb.
-## Schedule: X 1780-2060, Z 60-700.
+## The first riser sits STAIR_LANDING past the base; the schedule's Z 60-700
+## footprint shrinks accordingly (see _stairs).
 const STAIR_A_X: float = 1780.0
 const STAIR_A_Z: float = 60.0
 ## §7 G7: second stair, Back Hall (NW), against the WEST wall, running SOUTH.
 ## Base at Z 2030, beside the back door, so you enter and turn left to climb.
-## Schedule: X 30-310, Z 1390-2030. The flight climbs from its base (high Z)
-## toward low Z, the mirror direction of stair A, so _straight_flight takes an
-## explicit direction rather than assuming +z.
+## The flight climbs from its base (high Z) toward low Z, the mirror direction
+## of stair A, so _straight_flight takes an explicit direction rather than
+## assuming +z.
 const STAIR_B_X: float = 30.0
 const STAIR_B_Z: float = 2030.0
-
-## §7 U1/U3: the stairwell void is the top 384 of the run, not the whole
-## flight - see the derivation on _stairwell below.
-const VOID_D: float = 384.0
 
 # ---- §9 the lot ----
 ## §9 gives 5380 x 3690 with 350 margins and a 500 corridor. Neither dimension
@@ -280,8 +287,10 @@ func _stairs() -> void:
 ## One storey of stairs: ten steps in a single flight, hugging a wall.
 ##
 ## `dir` is +1.0 or -1.0: the flight climbs from (x, z) toward increasing or
-## decreasing z. Step i's near edge is at z + dir * RUN * i, so both stairs
-## share one function despite climbing opposite ways.
+## decreasing z. The first riser sits STAIR_LANDING past `z` so the flight does
+## not start flush against the doorway; step i's near edge is at
+## z + dir * (STAIR_LANDING + RUN * i), so both stairs share one function
+## despite climbing opposite ways.
 ##
 ## TREADS ARE TREADS, NOT COLUMNS. Each step is a slab one riser thick at its
 ## own height, not a solid block from floor level up - a solid block would
@@ -292,30 +301,34 @@ func _stairs() -> void:
 func _straight_flight(x: float, z: float, base: float, dir: float) -> void:
 	for i: int in 10:
 		var top: float = base + STEP * float(i + 1)
-		var near: float = z + dir * RUN * float(i)
+		var near: float = z + dir * (STAIR_LANDING + RUN * float(i))
 		var lo: float = minf(near, near + dir * RUN)
 		_solid(AABB(Vector3(x, top - STEP, lo), Vector3(FLIGHT_W, STEP, RUN)))
 
 ## The opening a flight needs in the floor above it.
 ##
-## A climbing body only needs the floor above open once its own head reaches
-## the slab. Feet at step i are at STEP*i, head at STEP*i + BODY_HEIGHT, and
-## the slab sits at STOREY (300) - so steps 0-3 (heads at 180/210/240/270) pass
-## under solid floor, and step 4 onward (head 300+) fouls it. That is
-## RUN * 4 = 256 of the flight clear, VOID_D = 384 remaining.
+## An earlier version cut only the top of the run - the theory being a
+## climbing body's head only reaches the slab once it is far enough up the
+## flight - and it produced exactly the failure a partial cut invites: the
+## visible ceiling did not line up with where a body's head actually was,
+## because the cut was derived from a per-step head-height calculation rather
+## than from the flight's own geometry, and the two drifted. A player watching
+## from outside saw the character clip through solid floor.
 ##
-## Unlike the retired switchback's shaft, this void is NOT grown by BODY: the
-## flight runs flush against the exterior wall, so there is no room-side edge
-## for a body to clip past the way there was in the middle of an open floor.
-## The spec's own schedule numbers (U1/U3) carry no such padding either.
+## The stair already owns its whole corner of the room - nothing else needs
+## that ceiling - so the fix is to stop being clever and cut the WHOLE
+## footprint, landing included, base to top. A void that is larger than
+## strictly necessary is invisible; a void that is wrong by even one cell is
+## not.
 ##
-## `dir` matches _straight_flight: the void sits at the ARRIVING end of the
-## run, i.e. the far end from the base, regardless of which way z runs.
+## `dir` matches _straight_flight: the footprint runs from the base (at `z`)
+## to the top of the flight, `STAIR_LANDING + FLIGHT_RUN` further along in
+## whichever direction the stair climbs.
 func _stairwell(x: float, z: float, dir: float) -> Rect2:
-	var far: float = z + dir * FLIGHT_RUN
-	var near: float = far - dir * VOID_D
-	var lo: float = minf(near, far)
-	return Rect2(x, lo, FLIGHT_W, VOID_D)
+	var far: float = z + dir * (STAIR_LANDING + FLIGHT_RUN)
+	var lo: float = minf(z, far)
+	var hi: float = maxf(z, far)
+	return Rect2(x, lo, FLIGHT_W, hi - lo)
 
 ## An opening centred on `centre`, `width` across.
 func _at(centre: float, width: float) -> Vector2:
