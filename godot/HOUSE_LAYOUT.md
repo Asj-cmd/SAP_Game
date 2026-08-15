@@ -241,7 +241,7 @@ Draw them. Do not put them in the collision openings list.
 | 3 | **Side door** | Kitchen (NE) | East | Two-way |
 | 4 | Ground window | Back Hall (NW) | West | Two-way, slow climb |
 | 5 | Ground window | Front Hall (SE) | East | Two-way, slow climb |
-| 6 | **Escape window** | Master Bedroom (NE) | East | **One-way drop** |
+| 6 | **Escape window** | Master Bedroom (NE) | **North** | **One-way drop** |
 | 7 | **Escape window** | Study (SW) | South | **One-way drop** |
 
 The two escape windows must be **visually distinct** from the decorative ones —
@@ -251,6 +251,16 @@ at a glance which one they can leave through.
 **Gravity writes the rule.** Any passable window can be jumped out of. Only the
 ground-floor pair can be climbed into, and slowly. Nothing in this house is an
 invisible trapdoor.
+
+**No upper-floor escape may open onto the face nearest the other house.** A
+one-way drop is instant, so an escape on the near side lets a raider take the
+cash and be home before anyone reaches the stairs — which defeats the whole
+sneak-in-sneak-out shape of the building. On House A that rules out the **east**
+face, which looks straight across the 500 corridor at House B; the same
+constraint applies to House B's west face under the 180° rotation.
+
+This is a standing rule, not a note about one window. Any escape opening added
+later is subject to it.
 
 ## 7. Opening schedule — Phase 1
 
