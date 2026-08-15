@@ -265,8 +265,8 @@ func _upper() -> void:
 	])
 
 	_slab_at(UPPER, Rect2(0.0, 0.0, HOUSE, HOUSE),
-		[_stairwell(STAIR_A_X, STAIR_A_Z, 1.0), _stairwell(STAIR_B_X, STAIR_B_Z, -1.0)]
-			as Array[Rect2], SLAB)
+		[_stairwell(STAIR_A_X, STAIR_A_Z, 1.0, -1.0),
+		_stairwell(STAIR_B_X, STAIR_B_Z, -1.0, 1.0)] as Array[Rect2], SLAB)
 	# The roof. No holes: nothing goes up from the top floor.
 	_slab_at(ROOF, Rect2(0.0, 0.0, HOUSE, HOUSE), [] as Array[Rect2], SLAB)
 
@@ -292,6 +292,10 @@ func _ring(level: float, top: float, _tags: Array[StringName]) -> void:
 ## (south) from its base at the back door - the mirror direction, so the base
 ## sits beside its own door rather than both stairs climbing the same way.
 ##
+## Stair A hugs the EAST wall, so its open flank faces -x. Stair B hugs the
+## WEST wall, so its open flank faces +x. That is a mirror, not a rotation,
+## so it cannot be derived from `dir` and is passed as `open_side` for the
+## stairwell void to grow the correct way (see _stairwell).
 func _stairs() -> void:
 	_straight_flight(STAIR_A_X, STAIR_A_Z, GROUND, 1.0) # main stair, +z
 	_straight_flight(STAIR_B_X, STAIR_B_Z, GROUND, -1.0) # second stair, -z
@@ -311,28 +315,35 @@ func _stairs() -> void:
 ## stacked-stair collision) cannot recur here, but the shape stays correct
 ## regardless.
 ##
-## OPEN UNDERNEATH, DELIBERATELY. A player reported being able to walk in
-## from the side and stand behind the low steps, and five successive attempts
-## to close that off - a full-height side wall, a per-step segmented wall, the
-## wall merged into a widened soffit, a raised landing kerb, and finally the
-## whole thing rebuilt around the landing as riser zero - each either broke
-## the walkable fill's stance connectivity outright or produced a new visible
-## artifact: a doubled stepped profile, a floating block at the entry, a
-## residual gap. Every one of them was verified by gate and probe before being
-## shown, and every one was still visibly wrong on screen.
+## SOLID UNDERNEATH. Floating treads leave walkable floor under the flight, so
+## the fill puts stances there, a body walks under the stairs, and its head
+## goes into the treads above - which is what "walking through the steps"
+## actually is. Measured: 118 mid-flight stances had a standing body's head
+## inside geometry, and the overlaps named TREADS, not the slab.
 ##
-## The treads alone have never been visually wrong. So the enclosure is gone
-## and the open underside stands as a known, bounded cosmetic issue rather
-## than a sixth attempt at the same fix. If it needs closing later, the thing
-## to reach for is a mesh that is not an axis-aligned box stack - the
-## constraint every attempt above actually broke against - not another
-## arrangement of boxes.
+## The soffit under each tread removes them. It is the tread's own box
+## extended down to the floor - same x, same z, same width, no separate
+## object anywhere near a tread.
+##
+## THAT DISTINCTION IS THE WHOLE LESSON of five failed attempts to close this.
+## Every one of them bundled the soffit with a SIDE WALL to shut the open
+## flank as well, and the side wall is what broke things: a solid that merely
+## sits NEAR a tread shrinks the body-radius-grown footprint around the
+## adjacent stance column and the fill drops the route, so the upper floor
+## went unreachable. An isolation test proved it at the time - soffit alone
+## passed the gate clean, side wall alone failed it - and that result got lost
+## under four more rounds of trying to make the wall work. The wall is not
+## here. The open flank stays open, and the underside is closed, which is the
+## half of the problem that is actually solvable with axis-aligned boxes.
 func _straight_flight(x: float, z: float, base: float, dir: float) -> void:
 	for i: int in 10:
 		var top: float = base + STEP * float(i + 1)
 		var near: float = z + dir * (STAIR_LANDING + RUN * float(i))
 		var lo: float = minf(near, near + dir * RUN)
 		_solid(AABB(Vector3(x, top - STEP, lo), Vector3(FLIGHT_W, STEP, RUN)))
+		# Step 0 sits on the floor, so its soffit is zero-height and _blocker
+		# drops it. Every other step gets the void beneath it filled.
+		_solid(AABB(Vector3(x, base, lo), Vector3(FLIGHT_W, top - STEP - base, RUN)))
 
 ## The opening a flight needs in the floor above it.
 ##
@@ -350,14 +361,33 @@ func _straight_flight(x: float, z: float, base: float, dir: float) -> void:
 ## strictly necessary is invisible; a void that is wrong by even one cell is
 ## not.
 ##
+## GROWN BY A BODY RADIUS on every side a body can overhang. The fill puts a
+## stance at a body's CENTRE, so a body standing on the outermost sliver of a
+## tread has 20 units of itself hanging past the tread's edge. Cut the void to
+## the flight's exact footprint and that overhang is inside the slab - which is
+## precisely the "walking through the steps" a player sees, with the capsule
+## sunk waist-deep at the top of the run.
+##
+## Grown on THREE sides, not four. The flight hugs an exterior wall along one
+## long side, and a body cannot overhang into a wall that is already stopping
+## it - growing there would push the void into the wall's own footprint and
+## cut a slot through the building (measured: x reaches 2080 against an inner
+## face at 2060). `open_side` is -1.0 when the open flank is at low x (stair A,
+## hugging the east wall) and +1.0 when it is at high x (stair B, hugging the
+## west wall).
+##
 ## `dir` matches _straight_flight: the footprint runs from the base (at `z`)
 ## to the top of the flight, `STAIR_LANDING + FLIGHT_RUN` further along in
-## whichever direction the stair climbs.
-func _stairwell(x: float, z: float, dir: float) -> Rect2:
+## whichever direction the stair climbs. Both ENDS are grown regardless of
+## `dir` - a body overhangs the bottom of the run stepping on, and the top of
+## it stepping off.
+func _stairwell(x: float, z: float, dir: float, open_side: float) -> Rect2:
 	var far: float = z + dir * (STAIR_LANDING + FLIGHT_RUN)
-	var lo: float = minf(z, far)
-	var hi: float = maxf(z, far)
-	return Rect2(x, lo, FLIGHT_W, hi - lo)
+	var lo: float = minf(z, far) - BODY
+	var hi: float = maxf(z, far) + BODY
+	var from_x: float = x - (BODY if open_side < 0.0 else 0.0)
+	var to_x: float = x + FLIGHT_W + (BODY if open_side > 0.0 else 0.0)
+	return Rect2(from_x, lo, to_x - from_x, hi - lo)
 
 ## An opening centred on `centre`, `width` across.
 func _at(centre: float, width: float) -> Vector2:
