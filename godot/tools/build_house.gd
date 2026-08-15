@@ -65,28 +65,31 @@ const SPLIT: float = MID_LOW + WALL * 0.5 ## 1045
 const NEAR_MID: float = LOW + QUAD * 0.5 ## 530
 const FAR_MID: float = MID_HIGH + QUAD * 0.5 ## 1560
 
-# ---- §2 switchback stairs, in the corner of their room ----
+# ---- §2 straight stairs, hugging an exterior wall ----
 #
-# A straight flight is 10 x 64 = 640; folded into a switchback it is 580 x 560,
-# which is what lets it sit in a corner and still leave an L of open floor.
-const HALF_FLIGHT: int = 5
-const FLIGHT_RUN: float = RUN * float(HALF_FLIGHT) ## 320
+# Ten steps, one flight, no switchback and no mid-landing: 640 x 280, all of it
+# a strip along the wall. Occupies 179,200 against the switchback's 324,800 -
+# the switchback was solving a problem the 1000 room had already solved, and
+# it left a landing floating in the middle of the room. See §2's table.
+const FLIGHT_RUN: float = RUN * 10.0 ## 640 - full climb in one run
 const FLIGHT_W: float = 280.0
-const LANDING_D: float = 260.0
-const STAIR_W: float = FLIGHT_W * 2.0 ## 560
-const STAIR_D: float = FLIGHT_RUN + LANDING_D ## 580
 
-## §7 G3/U1: main stair, Front Hall (SE), against the east and south walls.
-## The flight's own footprint is 560 (x) x 580 (z); _switchback's first flight
-## runs +x from (x,z) and the second returns to x+FLIGHT_W, so this origin
-## is the SOUTH-WEST corner of the footprint, placed to land the schedule's
-## X 1450-2010, Z 60-640 exactly.
-const STAIR_A_X: float = 1450.0
+## §7 G3: main stair, Front Hall (SE), against the EAST wall, running NORTH.
+## Base at Z 60, beside the front door, so you enter and turn right to climb.
+## Schedule: X 1780-2060, Z 60-700.
+const STAIR_A_X: float = 1780.0
 const STAIR_A_Z: float = 60.0
-## §7 G7/U3: second stair, Back Hall (NW), against the west and north walls.
-## Schedule: X 80-640, Z 1450-2030.
-const STAIR_B_X: float = 80.0
-const STAIR_B_Z: float = 1450.0
+## §7 G7: second stair, Back Hall (NW), against the WEST wall, running SOUTH.
+## Base at Z 2030, beside the back door, so you enter and turn left to climb.
+## Schedule: X 30-310, Z 1390-2030. The flight climbs from its base (high Z)
+## toward low Z, the mirror direction of stair A, so _straight_flight takes an
+## explicit direction rather than assuming +z.
+const STAIR_B_X: float = 30.0
+const STAIR_B_Z: float = 2030.0
+
+## §7 U1/U3: the stairwell void is the top 384 of the run, not the whole
+## flight - see the derivation on _stairwell below.
+const VOID_D: float = 384.0
 
 # ---- §9 the lot ----
 ## §9 gives 5380 x 3690 with 350 margins and a 500 corridor. Neither dimension
@@ -190,14 +193,15 @@ func _draw_house() -> void:
 ## ground windows (Back Hall west, Front Hall east), both slow two-way climbs.
 func _ground() -> void:
 	var top: float = GROUND + STOREY - SLAB
-	# West outer: Back Hall window (G6).
+	# West outer: Back Hall window (G6), moved south of the second stair's top.
 	_wall_x(WALL * 0.5, 0.0, HOUSE, GROUND, top, [
-		_at(FAR_MID, WINDOW), # G6 Back Hall (NW) west window
+		Vector2(1105.0, 1345.0), # G6 Back Hall (NW) west window, south of stair top
 	] as Array[Vector2])
-	# East outer: Kitchen side door (G4), Front Hall window (G2).
+	# East outer: Kitchen side door (G4), Front Hall window (G2, north of the
+	# main stair's top).
 	_wall_x(HOUSE - WALL * 0.5, 0.0, HOUSE, GROUND, top, [
 		_at(FAR_MID, DOOR), # G4 SIDE DOOR, Kitchen (NE) east
-		_at(NEAR_MID, WINDOW), # G2 Front Hall (SE) east window
+		Vector2(745.0, 985.0), # G2 Front Hall (SE) east window, north of stair top
 	] as Array[Vector2])
 	# South outer: Front Hall front door (G1).
 	_wall_z(WALL * 0.5, WALL, HOUSE - WALL, GROUND, top, [
@@ -243,7 +247,7 @@ func _upper() -> void:
 	])
 
 	_slab_at(UPPER, Rect2(0.0, 0.0, HOUSE, HOUSE),
-		[_stairwell(STAIR_A_X, STAIR_A_Z), _stairwell(STAIR_B_X, STAIR_B_Z)]
+		[_stairwell(STAIR_A_X, STAIR_A_Z, 1.0), _stairwell(STAIR_B_X, STAIR_B_Z, -1.0)]
 			as Array[Rect2], SLAB)
 	# The roof. No holes: nothing goes up from the top floor.
 	_slab_at(ROOF, Rect2(0.0, 0.0, HOUSE, HOUSE), [] as Array[Rect2], SLAB)
@@ -263,58 +267,55 @@ func _ring(level: float, top: float, _tags: Array[StringName]) -> void:
 		_at(FAR_MID, DOOR), # NE <-> SE / Kitchen <-> Front Hall, Bedroom <-> Landing A
 	] as Array[Vector2])
 
-## §2. One switchback flight per storey per stair, five steps each, with a
-## mid-landing. Both stairs now only climb ONE storey (ground -> upper) since
-## Phase 1 has no basement - the old spine/second-stair distinction is gone.
+## §2. One straight flight per stair, ten steps, no switchback. Both stairs
+## climb ONE storey (ground -> upper) since Phase 1 has no basement.
+##
+## Stair A runs +z (north) from its base at the front door. Stair B runs -z
+## (south) from its base at the back door - the mirror direction, so the base
+## sits beside its own door rather than both stairs climbing the same way.
 func _stairs() -> void:
-	_switchback(STAIR_A_X, STAIR_A_Z, GROUND) # main stair, Front Hall (SE)
-	_switchback(STAIR_B_X, STAIR_B_Z, GROUND) # second stair, Back Hall (NW)
+	_straight_flight(STAIR_A_X, STAIR_A_Z, GROUND, 1.0) # main stair, +z
+	_straight_flight(STAIR_B_X, STAIR_B_Z, GROUND, -1.0) # second stair, -z
 
-## One storey of stairs: up the near half, turn on the landing, up the far half.
+## One storey of stairs: ten steps in a single flight, hugging a wall.
 ##
-## Flights run in +z side by side. The first climbs the western half, the
-## mid-landing spans both at half height, and the second climbs the eastern
-## half back down the z axis - so a body arrives at the top having turned 180
-## degrees, in 580 of depth rather than 640 of straight run.
-## TREADS ARE TREADS, NOT COLUMNS.
+## `dir` is +1.0 or -1.0: the flight climbs from (x, z) toward increasing or
+## decreasing z. Step i's near edge is at z + dir * RUN * i, so both stairs
+## share one function despite climbing opposite ways.
 ##
-## Each step is a slab one riser thick at its own height - not a solid block
-## from floor level up. Filling a tread down to its storey's floor would make
-## the flight into a solid ceiling over whatever is beneath it. Phase 1 only
-## stacks one storey per stair so the failure mode that caused (the three-
-## storey build's stacked-stair collision) cannot recur here, but the shape
-## stays correct regardless of how many storeys eventually share a footprint.
-func _switchback(x: float, z: float, base: float) -> void:
-	var half: float = base + STEP * float(HALF_FLIGHT)
-	for i: int in HALF_FLIGHT:
+## TREADS ARE TREADS, NOT COLUMNS. Each step is a slab one riser thick at its
+## own height, not a solid block from floor level up - a solid block would
+## make the flight a ceiling over whatever is beneath it. Phase 1 only stacks
+## one storey per stair, so that failure mode (the three-storey build's
+## stacked-stair collision) cannot recur here, but the shape stays correct
+## regardless.
+func _straight_flight(x: float, z: float, base: float, dir: float) -> void:
+	for i: int in 10:
 		var top: float = base + STEP * float(i + 1)
-		_solid(AABB(Vector3(x, top - STEP, z + RUN * float(i)),
-			Vector3(FLIGHT_W, STEP, RUN)))
-	# Mid-landing: full width, both flights, one riser thick at half height.
-	_solid(AABB(Vector3(x, half - STEP, z + FLIGHT_RUN),
-		Vector3(STAIR_W, STEP, LANDING_D)))
-	for i: int in HALF_FLIGHT:
-		var top: float = half + STEP * float(i + 1)
-		_solid(AABB(
-			Vector3(x + FLIGHT_W, top - STEP, z + FLIGHT_RUN - RUN * float(i + 1)),
-			Vector3(FLIGHT_W, STEP, RUN)))
+		var near: float = z + dir * RUN * float(i)
+		var lo: float = minf(near, near + dir * RUN)
+		_solid(AABB(Vector3(x, top - STEP, lo), Vector3(FLIGHT_W, STEP, RUN)))
 
 ## The opening a flight needs in the floor above it.
 ##
-## The clear height under a slab is STOREY - SLAB = 260, and a body is
-## BODY_HEIGHT = 180 tall, so every tread above 80 fouls the floor above -
-## which is every tread from the third step up, both flights, and the whole
-## mid-landing. The minimal hole IS the stair footprint. This was measured and
-## fought for across the previous (three-storey) build; seeded straight from
-## that conclusion here rather than re-derived, because the conclusion does
-## not depend on how many storeys share the footprint - only on STOREY, SLAB
-## and BODY_HEIGHT, none of which changed in Phase 1.
+## A climbing body only needs the floor above open once its own head reaches
+## the slab. Feet at step i are at STEP*i, head at STEP*i + BODY_HEIGHT, and
+## the slab sits at STOREY (300) - so steps 0-3 (heads at 180/210/240/270) pass
+## under solid floor, and step 4 onward (head 300+) fouls it. That is
+## RUN * 4 = 256 of the flight clear, VOID_D = 384 remaining.
 ##
-## Grown by BODY on all four sides because the fill works in body centres: a
-## body walking the edge of the flight needs its whole radius clear of the
-## slab, not just the point under its feet.
-func _stairwell(x: float, z: float) -> Rect2:
-	return Rect2(x - BODY, z - BODY, STAIR_W + BODY * 2.0, STAIR_D + BODY * 2.0)
+## Unlike the retired switchback's shaft, this void is NOT grown by BODY: the
+## flight runs flush against the exterior wall, so there is no room-side edge
+## for a body to clip past the way there was in the middle of an open floor.
+## The spec's own schedule numbers (U1/U3) carry no such padding either.
+##
+## `dir` matches _straight_flight: the void sits at the ARRIVING end of the
+## run, i.e. the far end from the base, regardless of which way z runs.
+func _stairwell(x: float, z: float, dir: float) -> Rect2:
+	var far: float = z + dir * FLIGHT_RUN
+	var near: float = far - dir * VOID_D
+	var lo: float = minf(near, far)
+	return Rect2(x, lo, FLIGHT_W, VOID_D)
 
 ## An opening centred on `centre`, `width` across.
 func _at(centre: float, width: float) -> Vector2:
