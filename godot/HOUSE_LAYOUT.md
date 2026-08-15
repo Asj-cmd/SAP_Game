@@ -39,6 +39,8 @@ gets its own coordinates, written by someone who has played the floors above it.
 | Stair base sits **beside the doorway**, not facing it, with a **120 flat landing** before the first riser | You walk in, and have a moment of level floor, before turning to climb — rather than meeting a wall of steps head-on |
 | Step run **64 → 48** | 64 run put the flight at 25°, closer to a ramp than a stair once it was actually played. 48 gives 32° while staying clear of the fill's 40-unit sampling cell |
 | Stairwell void is the **whole footprint**, not a tuned partial cut | A partial cut (open only the top part of the run) looked right on paper and was visibly wrong in play — the ceiling didn't line up with where a climbing body's head actually was, and a player watched the character clip through solid floor. The stair owns its whole corner already; cutting all of it is simpler and cannot drift out of alignment with the geometry it is supposed to match |
+| Stair flight is **closed underneath and on its open side** | The bare treads left the space behind and beneath the flight walkable — a player could walk in at floor level, past the first couple of risers, and end up standing inside or behind the stair. A soffit (floor to tread-bottom) and a segmented side wall close it, matching real stair construction |
+| Master Bedroom's escape window: **east → north** | East looked straight across the 500-unit corridor at the other house — the closest, most exposed wall either building has. A raider could grab the cash and be home in seconds, which defeats the sneak-in-sneak-out design the whole house is built around. North faces open lot instead |
 | Passable openings **13 → 7** | Making every window person-sized is what produced the car park. Most windows are now small, high, and solid |
 | **Two floors, not three** | See §0 |
 | Jail is the **only ground room with no exterior opening** | Rescue must cost something. With the jail off the basement it would otherwise be the easiest thing in the game |
@@ -178,10 +180,10 @@ Ring corridor: Front Hall → Kitchen → Back Hall → Jail → Front Hall.
 
 ```
                       NORTH
-        ┌────────────────┬────────────────┐
+        ┌───────window ▼─┬────────────────┐
         │ ║ LANDING B    │ MASTER BEDROOM │
         │ ║ stair down   │     CASH       │
-   WEST │ ║ void 600x280 │  window ▼ E    │ EAST
+   WEST │ ║ void 600x280 │                │ EAST
         │                │                │
         ├────────────────┼────────────────┤
         │     STUDY      │  LANDING A   ║ │
@@ -194,7 +196,12 @@ Ring corridor: Front Hall → Kitchen → Back Hall → Jail → Front Hall.
 **Landing A** (SE) — head of the main stair. Circulation only.
 
 **Master Bedroom** (NE) — a cash room. Doors to **both** landings. One passable
-window on the east face — a **one-way drop** to the garden.
+window on the **north** face — a **one-way drop** to the garden. Not east: the
+east face looks straight across the 500-unit corridor at the other house, the
+closest and most exposed wall either building has, and an escape route there
+let a raider grab the cash and be home in seconds. North faces open lot
+instead — the other house sits diagonally offset and is not directly across
+from this wall the way it is the east one.
 
 **Landing B** (NW) — head of the second stair. Circulation only.
 
@@ -271,7 +278,7 @@ ground window sill +90, head +240; escape window sill +80, head +240.
 | Tag | Element | Room | Face / wall | Local coords (X, Z) | Direction |
 |---|---|---|---|---|---|
 | U1 | Main stair head + **floor void** | Landing A | Against east wall | Void X 1780–2060 · Z 60–660 — the WHOLE stair footprint, base to top | Down to Front Hall |
-| U2 | Escape window | Master Bedroom | East outer | X 2060–2090 · Z 1440–1680 | **One-way down** |
+| U2 | Escape window | Master Bedroom | North outer | X 1440–1680 · Z 2060–2090 | **One-way down.** Moved off the east face, which looked straight across the corridor at the other house |
 | U3 | Second stair head + **floor void** | Landing B | Against west wall | Void X 30–310 · Z 1430–2030 — the WHOLE stair footprint, base to top | Down to Back Hall |
 | U4 | Escape window | Study | South outer | X 410–650 · Z 0–30 | **One-way down** |
 | D5 | Doorway | Landing A ↔ Master Bedroom | Internal Z 1030–1060 | X 1440–1680 · Z 1030–1060 | Two-way |

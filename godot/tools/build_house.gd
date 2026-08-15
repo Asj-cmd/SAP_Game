@@ -22,8 +22,11 @@ extends SceneTree
 
 # ---- §2 dimensions ----
 const STEP: float = 30.0
-const RUN: float = 64.0 ## a tread offers run-BODY of standable depth; that has
-                        ## to clear a 40-unit sample cell (WORLD_AUTHORING §11)
+const RUN: float = 48.0 ## 30 rise / 48 run = 32 degrees, a real stair angle -
+                        ## see HOUSE_LAYOUT.md §2 "48 run, not 64". Stays 8
+                        ## units clear of the fill's 40-unit sampling cell
+                        ## (WORLD_AUTHORING §11) so a column centre cannot miss
+                        ## a tread.
 const STOREY: float = 300.0 ## 10 steps exactly
 const QUAD: float = 1000.0 ## §2: room is 1000 square, holds a corner stair
 const WALL: float = 30.0
@@ -236,16 +239,24 @@ func _upper() -> void:
 	var top: float = UPPER + STOREY - SLAB
 	# West outer: Landing B window (decorative per §6 - not in this list).
 	_wall_x(WALL * 0.5, 0.0, HOUSE, UPPER, top, [] as Array[Vector2])
-	# East outer: Master Bedroom escape window (U2).
-	_wall_x(HOUSE - WALL * 0.5, 0.0, HOUSE, UPPER, top, [
-		_at(FAR_MID, WINDOW), # U2 Master Bedroom (NE) escape window, one-way down
-	] as Array[Vector2])
-	# South outer: Study escape window (U4).
+	# East outer: nothing passable. This face looks straight across the 500-unit
+	# corridor at the other house - the closest, most exposed wall either house
+	# has - so no escape route opens onto it (see U2 below).
+	_wall_x(HOUSE - WALL * 0.5, 0.0, HOUSE, UPPER, top, [] as Array[Vector2])
+	# South outer: Study escape window (U4). Already the away-facing side - the
+	# same face the front door opens onto - so it needed no change.
 	_wall_z(WALL * 0.5, WALL, HOUSE - WALL, UPPER, top, [
 		_at(NEAR_MID, WINDOW), # U4 Study (SW) escape window, one-way down
 	] as Array[Vector2])
-	# North outer: nothing passable (Landing B's north face is decorative only).
-	_wall_z(HOUSE - WALL * 0.5, WALL, HOUSE - WALL, UPPER, top, [] as Array[Vector2])
+	# North outer: Master Bedroom escape window (U2). Moved off the east wall,
+	# which faced straight across the corridor at the other house - a raider
+	# could grab the cash and be over the sill and home in seconds, defeating
+	# the sneak-in-sneak-out design entirely. North faces open lot instead:
+	# the other house is offset diagonally and does not sit across from this
+	# wall the way it does the east one.
+	_wall_z(HOUSE - WALL * 0.5, WALL, HOUSE - WALL, UPPER, top, [
+		_at(FAR_MID, WINDOW), # U2 Master Bedroom (NE) escape window, one-way down
+	] as Array[Vector2])
 	_ring(UPPER, top, [
 		&"D5", # Landing A <-> Master Bedroom
 		&"D6", # Master Bedroom <-> Landing B
@@ -280,9 +291,14 @@ func _ring(level: float, top: float, _tags: Array[StringName]) -> void:
 ## Stair A runs +z (north) from its base at the front door. Stair B runs -z
 ## (south) from its base at the back door - the mirror direction, so the base
 ## sits beside its own door rather than both stairs climbing the same way.
+##
+## Stair A hugs the EAST wall (its high-x edge touches it, so the open room-
+## facing side is at -x). Stair B hugs the WEST wall (its low-x edge touches
+## it, so the open side is at +x) - mirror images, not the same shape rotated,
+## so the side-wall direction is passed explicitly rather than assumed.
 func _stairs() -> void:
-	_straight_flight(STAIR_A_X, STAIR_A_Z, GROUND, 1.0) # main stair, +z
-	_straight_flight(STAIR_B_X, STAIR_B_Z, GROUND, -1.0) # second stair, -z
+	_straight_flight(STAIR_A_X, STAIR_A_Z, GROUND, 1.0, -1.0) # main stair, +z
+	_straight_flight(STAIR_B_X, STAIR_B_Z, GROUND, -1.0, 1.0) # second stair, -z
 
 ## One storey of stairs: ten steps in a single flight, hugging a wall.
 ##
@@ -298,12 +314,41 @@ func _stairs() -> void:
 ## one storey per stair, so that failure mode (the three-storey build's
 ## stacked-stair collision) cannot recur here, but the shape stays correct
 ## regardless.
-func _straight_flight(x: float, z: float, base: float, dir: float) -> void:
+##
+## The treads alone leave the flight open underneath and on its inner (room-
+## facing) side - a body can walk in at floor level, past the first couple of
+## risers, and end up standing inside or behind the stair. Two more solids
+## close that off without turning the flight into a ceiling over anything
+## beneath it, since nothing IS beneath it in Phase 1:
+##
+##   - a SOFFIT under each tread, floor to tread-bottom, closing the underside
+##     the way a real stair's stringer does. Safe here specifically because
+##     each stair only ever carries one storey's climb - stacking this under
+##     another flight would recreate the collision the three-storey build hit.
+##   - a SIDE WALL on the open long edge, floor to storey ceiling, closing the
+##     one side that isn't already against the exterior wall the stair hugs.
+##     `open_side` is -1.0 if that edge is at the flight's low-x side (stair A,
+##     which hugs the east wall) or +1.0 if at the high-x side (stair B, which
+##     hugs the west wall) - the two stairs are mirror images, not the same
+##     shape rotated, so this cannot be derived from `dir` alone.
+func _straight_flight(x: float, z: float, base: float, dir: float,
+		open_side: float) -> void:
+	var wall_x: float = x - WALL if open_side < 0.0 else x + FLIGHT_W
 	for i: int in 10:
 		var top: float = base + STEP * float(i + 1)
 		var near: float = z + dir * (STAIR_LANDING + RUN * float(i))
 		var lo: float = minf(near, near + dir * RUN)
 		_solid(AABB(Vector3(x, top - STEP, lo), Vector3(FLIGHT_W, STEP, RUN)))
+		_solid(AABB(Vector3(x, base, lo), Vector3(FLIGHT_W, top - STEP - base, RUN)))
+		# Side wall, one segment per step rather than one tall continuous box -
+		# a single box spanning the whole flight's height broke the fill's
+		# stance connectivity (measured: with it in place every upper-floor
+		# zone became unreachable, and removing it alone restored the gate).
+		# Segmented to match each step's own rise instead, the same pattern
+		# already proven safe by the soffit above.
+		_solid(AABB(Vector3(wall_x, base, lo), Vector3(WALL, top - STEP - base, RUN)))
+	# The landing in front of the first riser also needs its open side closed.
+	_solid(AABB(Vector3(wall_x, base, z), Vector3(WALL, STOREY - SLAB, dir * STAIR_LANDING)).abs())
 
 ## The opening a flight needs in the floor above it.
 ##
