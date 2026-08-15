@@ -34,8 +34,9 @@ gets its own coordinates, written by someone who has played the floors above it.
 
 | Change | Reason |
 |---|---|
-| Rooms **750 → 1000** | A switchback stair is 580 × 560. In a 750 room that *is* the room. At 1000 it sits in a corner and leaves an L of open floor ~420 wide — enough to run around it |
-| Stairs sit **in the corner of a room**, against two walls | No room is "the stair room". Every quadrant is a real room, and the staircase becomes an obstacle to chase around rather than a space that eats one |
+| Rooms **750 → 1000** | A staircase is 640 long. In a 750 room it spans the whole depth; at 1000 it is a strip along one wall with two-thirds of the room still clear |
+| **Straight flight hugging one wall** — no switchback | A switchback puts a landing in the middle of the room and occupies 324,800 as a solid block. A straight flight against a wall occupies **179,200** — 45% less, and all of it against the perimeter where it obstructs nothing |
+| Stair base sits **beside the doorway**, not facing it | You walk in and turn to climb, rather than meeting a wall of steps head-on |
 | Passable openings **13 → 7** | Making every window person-sized is what produced the car park. Most windows are now small, high, and solid |
 | **Two floors, not three** | See §0 |
 | Jail is the **only ground room with no exterior opening** | Rescue must cost something. With the jail off the basement it would otherwise be the easiest thing in the game |
@@ -48,20 +49,40 @@ occasionally is drama, not a design failure.
 
 | Thing | Value | Why |
 |---|---|---|
-| Room | 1000 × 1000 | Holds a corner staircase and still has usable floor |
+| Room | 1000 × 1000 | A 640 stair strip along one wall still leaves 1000 × 720 clear |
 | Wall | 30 | |
 | House footprint | **2090 square** | Two rooms plus three walls |
 | Storey height | 300 | 260 clear over a 180 body |
 | Doorway | 240 wide × 240 tall | Run through mid-chase, not sidle through |
 | Step | 30 rise, 64 run | `TuningDef.step_up_height`; 64 because the tread above eats 20 for body radius and the remainder must clear a 40 fill cell |
-| Stair per storey | 10 steps, **switchback** | Two flights of 5 (320 run each) either side of a 260 landing |
-| Stair footprint | **580 × 560** | Fits a corner; leaves ~420 clear on two sides |
+| Stair per storey | 10 steps, **one straight flight** | No switchback, no mid-landing |
+| Stair footprint | **640 × 280**, against an exterior wall | 179,200 occupied, all of it on the perimeter |
+| Stairwell void above | **384 × 280**, the top of the run | See below — smaller than the flight |
 
-**Why the stair cannot be smaller.** 300 of climb at 30 a step is ten steps, and
-64 of run each is 640 straight. Real stairs are barely better — 3 m of rise at
-proper proportions is about 4.8 m of run. A staircase is genuinely a large
-object. Folding it into a switchback is the only real saving, and putting it in a
-corner rather than its own room is what recovers the floor area.
+**Why straight beats switchback.** Both climb 300 in ten steps of 64 run. The
+difference is where the floor goes:
+
+| | Footprint | Occupied | Shape |
+|---|---|---|---|
+| Straight, against a wall | 640 × 280 | **179,200** | Strip on the perimeter |
+| U switchback | 580 × 560 | 324,800 | Solid block, landing mid-room |
+| L quarter-turn | 600 × 600 | 257,600 | Two walls, awkward inner pocket |
+
+A switchback saves *length* and spends *area* — and it parks a landing in the
+middle of the room, floating, which is exactly the defect visible in the first
+build. At 750 rooms the length mattered enough to be worth it. At 1000 it does
+not: a 640 strip along one wall leaves 1000 × 720 completely clear.
+
+This is how PUBG houses do it, and how most real houses do it. The switchback
+was solving a problem the larger rooms had already solved.
+
+**The stairwell void is smaller than the flight.** A climbing body only needs the
+floor above to be open once its head reaches the slab. Feet at step *n* are at
+30*n*, head at 30*n* + 180, and the slab is at 300 — so steps 0–4 pass underneath
+it and the hole is only needed from step 4 onward.
+
+**Void = the last 384 of the run × 280 wide.** The first 256 of the flight sits
+under solid floor, which is what a real staircase looks like from above.
 
 ## 3. Quadrants and coordinates
 
@@ -106,28 +127,30 @@ holdable by one defender.
                       NORTH
         ┌────────────────┬────────────────┐
         │  ▲ back door   │                │
-        │   BACK HALL    │    KITCHEN     │
-   WEST │ ╱second stair╲ │   side door ►  │ EAST
-        │  (NW corner)   │                │
+        │ ║ BACK HALL    │    KITCHEN     │
+   WEST │ ║ stair up     │   side door ►  │ EAST
+        │ ║ (west wall)  │                │
         ├────────────────┼────────────────┤
-        │                │  FRONT HALL    │
-        │      JAIL      │ ╲main stair╱   │
-        │  no way out    │  (SE corner)   │
+        │                │  FRONT HALL  ║ │
+        │      JAIL      │  stair up    ║ │
+        │  no way out    │  (east wall) ║ │
         │                │  ▼ front door  │
         └────────────────┴────────────────┘
                       SOUTH
 ```
 
-**Front Hall** (SE) — the **front door** on the south face. **Main stair** in the
-south-east corner, against the east and south walls. One passable window on the
-east face.
+**Front Hall** (SE) — the **front door** on the south face. **Main stair** runs
+north up the **east wall**, base at the south end so it sits *beside* the front
+door rather than facing it: you enter and turn right to climb. One passable
+window on the east face, north of the stair top.
 
 **Kitchen** (NE) — the **side door** on the east face, looking at the contested
 middle of the lot.
 
-**Back Hall** (NW) — the **back door** on the north face. **Second stair** in the
-north-west corner, against the west and north walls. One passable window on the
-west face.
+**Back Hall** (NW) — the **back door** on the north face. **Second stair** runs
+south down the **west wall**, base at the north end beside the back door: enter
+and turn left to climb. One passable window on the west face, south of the stair
+top.
 
 **Jail** (SW) — **the only room in the house with no exterior opening.** Reached
 from the Front Hall or the Back Hall, and from nowhere else. A rescuer must get
@@ -143,14 +166,14 @@ Ring corridor: Front Hall → Kitchen → Back Hall → Jail → Front Hall.
 ```
                       NORTH
         ┌────────────────┬────────────────┐
-        │   LANDING B    │ MASTER BEDROOM │
-        │ ╱second stair╲ │     CASH       │
-   WEST │   stair down   │  window ▼ E    │ EAST
+        │ ║ LANDING B    │ MASTER BEDROOM │
+        │ ║ stair down   │     CASH       │
+   WEST │ ║ void 384x280 │  window ▼ E    │ EAST
         │                │                │
         ├────────────────┼────────────────┤
-        │     STUDY      │   LANDING A    │
-        │      CASH      │ ╲main stair╱   │
-        │  window ▼ S    │   stair down   │
+        │     STUDY      │  LANDING A   ║ │
+        │      CASH      │  stair down  ║ │
+        │  window ▼ S    │  void 384x280║ │
         └────────────────┴────────────────┘
                       SOUTH
 ```
@@ -219,12 +242,12 @@ ground window sill +90, head +240; escape window sill +80, head +240.
 | Tag | Element | Room | Face / wall | Local coords (X, Z) | Direction |
 |---|---|---|---|---|---|
 | G1 | Front door | Front Hall | South outer | X 1440–1680 · Z 0–30 | Two-way |
-| G2 | Window | Front Hall | East outer | X 2060–2090 · Z 410–650 | Two-way climb |
-| G3 | Main stair | Front Hall | SE corner | X 1450–2010 · Z 60–640 | Up to Landing A |
+| G2 | Window | Front Hall | East outer, **north of the stair top** | X 2060–2090 · Z 745–985 | Two-way climb |
+| G3 | Main stair | Front Hall | Against east wall, running north | X 1780–2060 · Z 60–700 | Up to Landing A. Base at Z 60, beside the front door |
 | G4 | Side door | Kitchen | East outer | X 2060–2090 · Z 1440–1680 | Two-way |
 | G5 | Back door | Back Hall | North outer | X 410–650 · Z 2060–2090 | Two-way |
-| G6 | Window | Back Hall | West outer | X 0–30 · Z 1440–1680 | Two-way climb |
-| G7 | Second stair | Back Hall | NW corner | X 80–640 · Z 1450–2030 | Up to Landing B |
+| G6 | Window | Back Hall | West outer, **south of the stair top** | X 0–30 · Z 1105–1345 | Two-way climb |
+| G7 | Second stair | Back Hall | Against west wall, running south | X 30–310 · Z 1390–2030 | Up to Landing B. Base at Z 2030, beside the back door |
 | D1 | Doorway | Front Hall ↔ Kitchen | Internal Z 1030–1060 | X 1440–1680 · Z 1030–1060 | Two-way |
 | D2 | Doorway | Kitchen ↔ Back Hall | Internal X 1030–1060 | X 1030–1060 · Z 1440–1680 | Two-way |
 | D3 | Doorway | Back Hall ↔ Jail | Internal Z 1030–1060 | X 410–650 · Z 1030–1060 | Two-way |
@@ -234,9 +257,9 @@ ground window sill +90, head +240; escape window sill +80, head +240.
 
 | Tag | Element | Room | Face / wall | Local coords (X, Z) | Direction |
 |---|---|---|---|---|---|
-| U1 | Main stair head | Landing A | SE corner | X 1450–2010 · Z 60–640 | Down to Front Hall |
+| U1 | Main stair head + **floor void** | Landing A | Against east wall | Void X 1780–2060 · Z 316–700 | Down to Front Hall. Floor solid over Z 60–316 |
 | U2 | Escape window | Master Bedroom | East outer | X 2060–2090 · Z 1440–1680 | **One-way down** |
-| U3 | Second stair head | Landing B | NW corner | X 80–640 · Z 1450–2030 | Down to Back Hall |
+| U3 | Second stair head + **floor void** | Landing B | Against west wall | Void X 30–310 · Z 1390–1774 | Down to Back Hall. Floor solid over Z 1774–2030 |
 | U4 | Escape window | Study | South outer | X 410–650 · Z 0–30 | **One-way down** |
 | D5 | Doorway | Landing A ↔ Master Bedroom | Internal Z 1030–1060 | X 1440–1680 · Z 1030–1060 | Two-way |
 | D6 | Doorway | Master Bedroom ↔ Landing B | Internal X 1030–1060 | X 1030–1060 · Z 1440–1680 | Two-way |
