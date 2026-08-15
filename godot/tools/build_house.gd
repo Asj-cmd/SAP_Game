@@ -317,45 +317,45 @@ func _stairs() -> void:
 ##
 ## The treads alone leave the flight open underneath and on its inner (room-
 ## facing) side - a body can walk in at floor level, past the first couple of
-## risers, and end up standing inside or behind the stair. A SOFFIT under each
-## tread, floor to tread-bottom, closes both at once: it is a real stair's
-## stringer, and it is safe here specifically because each stair only ever
-## carries one storey's climb - stacking this under another flight would
-## recreate the collision the three-storey build hit.
+## risers, and end up standing inside or behind the stair. Closing that off
+## went through three wrong shapes before this one, each found by actually
+## looking at a frame or measuring the fill rather than trusting box
+## arithmetic on paper:
 ##
-## Two things this is NOT, both tried first and both wrong:
+##   1. A single box spanning the whole flight's height on the open side, as
+##      its own separate wall (touching but not merged with the soffit).
+##      Broke the fill's stance connectivity outright - every upper-floor zone
+##      became unreachable.
+##   2. The same box SEGMENTED to match each step's rise, still separate from
+##      the soffit. Fixed the gate, but read as a second stepped profile
+##      running parallel to the real treads.
+##   3. A single continuous box at a fixed LOW height (50, comfortably under
+##      the second step's own surface), on the theory that proximity wasn't
+##      the problem and height was. It broke the gate exactly like attempt 1 -
+##      which disproved that theory outright: a solid that does not touch a
+##      single tread box still shrinks the grown-radius footprint around the
+##      nearest stance column once it is close enough, and 30 units (the
+##      column spacing) is close enough regardless of how short the wall is.
 ##
-##   - A single box spanning the whole flight's height on the open side, as its
-##     own separate wall. That broke the fill's stance connectivity outright -
-##     every upper-floor zone became unreachable, confirmed by removing it
-##     alone and watching the gate pass again.
-##   - The same box SEGMENTED to match each step's rise, as its own separate
-##     wall next to the soffit. That fixed the gate but was visually wrong: a
-##     second stepped profile running parallel to the real treads, plus a
-##     disconnected full-height block at the landing that read as a floating
-##     column. Two staircases side by side, not a closed one.
+## What actually worked, and is kept here: WIDEN the per-step soffit itself by
+## WALL on the open side, so the closing geometry is never a second object
+## sitting NEAR a tread - it is the tread's own soffit, wider. There is only
+## ever one box per step, so there is nothing for the fill to see as an
+## intrusion and nothing for the eye to see as a second staircase.
 ##
-## The fix is that there is no separate wall at all - the soffit is simply
-## WALL wider on the open side, so the one box that already closes the
-## underside also closes the flank, and there is only ever one shape to look
-## at: a straightforward stepped stringer, not a stringer plus a second one
-## standing next to it.
-##
-## `open_side` is -1.0 if the open edge is at the flight's low-x side (stair A,
-## which hugs the east wall) or +1.0 if at the high-x side (stair B, which
-## hugs the west wall) - the two stairs are mirror images, not the same shape
-## rotated, so this cannot be derived from `dir` alone.
+## The one piece that was still wrong: the LANDING'S kerb, which has no tread
+## above it to merge into, stayed only STEP (30) tall - floor height, by the
+## old assumption that the landing needed no more than a kerb. A coverage
+## probe over the footprint at standing height found the whole landing strip
+## still open on its side. Raised to the same clamped height as the tallest
+## per-step segment gets (STOREY - SLAB) - not because the landing needs to be
+## that tall, but because a landing-only exception was exactly the kind of
+## per-piece special-casing that produced bugs 1 through 3, and matching the
+## flight's own rule removes the special case rather than tuning it again.
 func _straight_flight(x: float, z: float, base: float, dir: float,
 		open_side: float) -> void:
 	var skirt_x: float = x - WALL if open_side < 0.0 else x
 	var skirt_w: float = FLIGHT_W + WALL
-	# The skirt's own top tracks each step's rise, but the LAST step's rise
-	# (STEP * 9 = 270) is taller than the clear height under the slab above
-	# (STOREY - SLAB = 260) - ten units of the topmost segment poked through
-	# the ceiling and overlapped it, which is what produced the doubled,
-	# flickering look the treads did not have on their own. Clamped to the
-	# clear height: the true structural stringer would meet the underside of
-	# the landing above at exactly this point anyway.
 	var skirt_limit: float = STOREY - SLAB
 	for i: int in 10:
 		var top: float = base + STEP * float(i + 1)
@@ -364,10 +364,8 @@ func _straight_flight(x: float, z: float, base: float, dir: float,
 		_solid(AABB(Vector3(x, top - STEP, lo), Vector3(FLIGHT_W, STEP, RUN)))
 		var skirt_h: float = minf(top - STEP - base, skirt_limit)
 		_solid(AABB(Vector3(skirt_x, base, lo), Vector3(skirt_w, skirt_h, RUN)))
-	# The landing in front of the first riser is floor-height throughout, so a
-	# thin low kerb (one riser tall) is enough to mark the edge without reading
-	# as a wall nothing else in the room has.
-	_solid(AABB(Vector3(skirt_x, base, z), Vector3(skirt_w, STEP, dir * STAIR_LANDING)).abs())
+	_solid(AABB(Vector3(skirt_x, base, z),
+		Vector3(skirt_w, skirt_limit, dir * STAIR_LANDING)).abs())
 
 ## The opening a flight needs in the floor above it.
 ##
