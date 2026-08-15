@@ -317,38 +317,57 @@ func _stairs() -> void:
 ##
 ## The treads alone leave the flight open underneath and on its inner (room-
 ## facing) side - a body can walk in at floor level, past the first couple of
-## risers, and end up standing inside or behind the stair. Two more solids
-## close that off without turning the flight into a ceiling over anything
-## beneath it, since nothing IS beneath it in Phase 1:
+## risers, and end up standing inside or behind the stair. A SOFFIT under each
+## tread, floor to tread-bottom, closes both at once: it is a real stair's
+## stringer, and it is safe here specifically because each stair only ever
+## carries one storey's climb - stacking this under another flight would
+## recreate the collision the three-storey build hit.
 ##
-##   - a SOFFIT under each tread, floor to tread-bottom, closing the underside
-##     the way a real stair's stringer does. Safe here specifically because
-##     each stair only ever carries one storey's climb - stacking this under
-##     another flight would recreate the collision the three-storey build hit.
-##   - a SIDE WALL on the open long edge, floor to storey ceiling, closing the
-##     one side that isn't already against the exterior wall the stair hugs.
-##     `open_side` is -1.0 if that edge is at the flight's low-x side (stair A,
-##     which hugs the east wall) or +1.0 if at the high-x side (stair B, which
-##     hugs the west wall) - the two stairs are mirror images, not the same
-##     shape rotated, so this cannot be derived from `dir` alone.
+## Two things this is NOT, both tried first and both wrong:
+##
+##   - A single box spanning the whole flight's height on the open side, as its
+##     own separate wall. That broke the fill's stance connectivity outright -
+##     every upper-floor zone became unreachable, confirmed by removing it
+##     alone and watching the gate pass again.
+##   - The same box SEGMENTED to match each step's rise, as its own separate
+##     wall next to the soffit. That fixed the gate but was visually wrong: a
+##     second stepped profile running parallel to the real treads, plus a
+##     disconnected full-height block at the landing that read as a floating
+##     column. Two staircases side by side, not a closed one.
+##
+## The fix is that there is no separate wall at all - the soffit is simply
+## WALL wider on the open side, so the one box that already closes the
+## underside also closes the flank, and there is only ever one shape to look
+## at: a straightforward stepped stringer, not a stringer plus a second one
+## standing next to it.
+##
+## `open_side` is -1.0 if the open edge is at the flight's low-x side (stair A,
+## which hugs the east wall) or +1.0 if at the high-x side (stair B, which
+## hugs the west wall) - the two stairs are mirror images, not the same shape
+## rotated, so this cannot be derived from `dir` alone.
 func _straight_flight(x: float, z: float, base: float, dir: float,
 		open_side: float) -> void:
-	var wall_x: float = x - WALL if open_side < 0.0 else x + FLIGHT_W
+	var skirt_x: float = x - WALL if open_side < 0.0 else x
+	var skirt_w: float = FLIGHT_W + WALL
+	# The skirt's own top tracks each step's rise, but the LAST step's rise
+	# (STEP * 9 = 270) is taller than the clear height under the slab above
+	# (STOREY - SLAB = 260) - ten units of the topmost segment poked through
+	# the ceiling and overlapped it, which is what produced the doubled,
+	# flickering look the treads did not have on their own. Clamped to the
+	# clear height: the true structural stringer would meet the underside of
+	# the landing above at exactly this point anyway.
+	var skirt_limit: float = STOREY - SLAB
 	for i: int in 10:
 		var top: float = base + STEP * float(i + 1)
 		var near: float = z + dir * (STAIR_LANDING + RUN * float(i))
 		var lo: float = minf(near, near + dir * RUN)
 		_solid(AABB(Vector3(x, top - STEP, lo), Vector3(FLIGHT_W, STEP, RUN)))
-		_solid(AABB(Vector3(x, base, lo), Vector3(FLIGHT_W, top - STEP - base, RUN)))
-		# Side wall, one segment per step rather than one tall continuous box -
-		# a single box spanning the whole flight's height broke the fill's
-		# stance connectivity (measured: with it in place every upper-floor
-		# zone became unreachable, and removing it alone restored the gate).
-		# Segmented to match each step's own rise instead, the same pattern
-		# already proven safe by the soffit above.
-		_solid(AABB(Vector3(wall_x, base, lo), Vector3(WALL, top - STEP - base, RUN)))
-	# The landing in front of the first riser also needs its open side closed.
-	_solid(AABB(Vector3(wall_x, base, z), Vector3(WALL, STOREY - SLAB, dir * STAIR_LANDING)).abs())
+		var skirt_h: float = minf(top - STEP - base, skirt_limit)
+		_solid(AABB(Vector3(skirt_x, base, lo), Vector3(skirt_w, skirt_h, RUN)))
+	# The landing in front of the first riser is floor-height throughout, so a
+	# thin low kerb (one riser tall) is enough to mark the edge without reading
+	# as a wall nothing else in the room has.
+	_solid(AABB(Vector3(skirt_x, base, z), Vector3(skirt_w, STEP, dir * STAIR_LANDING)).abs())
 
 ## The opening a flight needs in the floor above it.
 ##
