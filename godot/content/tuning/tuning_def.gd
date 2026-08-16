@@ -14,11 +14,10 @@ extends Resource
 @export var move_speed: float = 440.0
 ## Multiplier applied to move_speed while carrying.
 ##
-## 1.0 for now: carrying does not slow you down. The field and the
-## carry_speed() path stay live precisely so that this is a number a designer
-## dials rather than a code change - set it below 1.0 and laden actors are
-## slower with nothing recompiled.
-@export var carry_speed_scale: float = 1.0
+## Laden actors move slower than free ones, so grabbing a cash bundle costs
+## something on the run out rather than being a free upgrade to your team's
+## speed.
+@export var carry_speed_scale: float = 0.85
 ## Actor body radius, for collision against level geometry. Also acts as the
 ## body's half-height, so a resting actor's centre sits this far above the
 ## floor it stands on.
