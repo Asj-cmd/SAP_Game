@@ -325,16 +325,32 @@ func _stairs() -> void:
 ## extended down to the floor - same x, same z, same width, no separate
 ## object anywhere near a tread.
 ##
-## THAT DISTINCTION IS THE WHOLE LESSON of five failed attempts to close this.
-## Every one of them bundled the soffit with a SIDE WALL to shut the open
-## flank as well, and the side wall is what broke things: a solid that merely
-## sits NEAR a tread shrinks the body-radius-grown footprint around the
-## adjacent stance column and the fill drops the route, so the upper floor
-## went unreachable. An isolation test proved it at the time - soffit alone
-## passed the gate clean, side wall alone failed it - and that result got lost
-## under four more rounds of trying to make the wall work. The wall is not
-## here. The open flank stays open, and the underside is closed, which is the
-## half of the problem that is actually solvable with axis-aligned boxes.
+## THAT DISTINCTION WAS THE LESSON of five failed attempts to close this by
+## adding a wall as well - every one of them broke the fill's stance
+## connectivity, because a solid merely NEAR a tread shrinks the body-radius-
+## grown footprint around the neighbouring stance column. There is no wall
+## here; the open flank stays open.
+##
+## SOFFITS TOUCH, EDGE TO EDGE. Do not inset them, and in particular do not
+## inset one to "make room" for the body-radius growth of its neighbour.
+##
+## The temptation is real, because the overlap it addresses is real: a body
+## settling onto tread N sweeps straight down at tread N's own z, and tread
+## N+1's soffit - immediately adjacent, one riser taller - grows by the body
+## radius under any swept test, reaching backward across the seam into tread
+## N's airspace. Pulling each soffit's near edge back by BODY does stop that,
+## and a targeted probe confirms the specific segment unblocks.
+##
+## It was still wrong, twice over. Visually it is a comb: tread N's soffit is
+## one riser SHORTER than tread N+1's, so it cannot cover the strip N+1 gave
+## up, and the flight renders as a row of detached fins with daylight between
+## them. And it fixed nothing - a six-minute bot match either side of the
+## change produced bit-identical stall counts, same 307 at the same bucket,
+## same digest. Whatever the bots are catching on, it is not this.
+##
+## The stall is a STEERING problem, not a geometry one: mid-climb the bot's
+## move_intent flips from (0,0,1) to a pure lateral (-1,0,0) and the body
+## wedges against the flank. Start at BotDirector._steer(), not here.
 func _straight_flight(x: float, z: float, base: float, dir: float) -> void:
 	for i: int in 10:
 		var top: float = base + STEP * float(i + 1)
