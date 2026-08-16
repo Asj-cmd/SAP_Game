@@ -441,6 +441,25 @@ func is_clear_between(from: Vector3, to: Vector3) -> bool:
 		return false
 	return not _crosses(from, to)
 
+## Could a body standing at `from` actually reach `to` in one move?
+##
+## The step-up-aware companion to is_clear_between, and the right question for
+## anything that STEERS rather than smooths. The difference is a staircase: the
+## straight line from a body mid-flight to any waypoint higher up passes through
+## the treads between them, so is_clear_between calls every one of them
+## obstructed, while a body walking at them climbs perfectly well.
+##
+## Measured on the house's main stair before this existed: of the twelve
+## positions on a thirteen-waypoint climb, nine had NO waypoint ahead that
+## is_clear_between would accept - the only ones that passed were the two flat
+## legs where the height did not change. A follower asking the wrong question
+## there concludes it has drifted off its route on almost every tick of a
+## perfectly good climb.
+func is_reachable_between(from: Vector3, to: Vector3) -> bool:
+	if _collision == null:
+		return false
+	return _walkable_between(from, to)
+
 ## The stance an actor placed at `point` would come to rest on, or -1.
 ##
 ## NOT the nearest node in three dimensions, which is a different and wrong

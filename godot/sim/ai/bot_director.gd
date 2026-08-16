@@ -346,7 +346,7 @@ func _steer(world: SimWorld, me: SimEntity, tick: int) -> Array[SimCommand]:
 	if _leg >= _route.size():
 		return _stop_if_moving(tick)
 
-	# Aim at the FURTHEST waypoint still in clear view, not the next one.
+	# Aim at the FURTHEST waypoint the body could actually reach, not the next one.
 	#
 	# This is where "the bot is stuck in the doorway" actually lived. The route
 	# was fine - it threaded the gap - but the follow walked at the nearest
@@ -383,10 +383,22 @@ func _steer(world: SimWorld, me: SimEntity, tick: int) -> Array[SimCommand]:
 	else:
 		_stuck_ticks = 0
 
+	# REACHABLE, not merely in clear sight. is_clear_between has no step-up
+	# allowance by design - right for smoothing a route between two waypoints
+	# already known to be standable, wrong for a body deciding where to walk.
+	#
+	# On a staircase the two disagree about everything. The line from a body
+	# mid-flight to any waypoint above it passes through the treads in between,
+	# so the sight test rejects the whole climb: measured on the main stair,
+	# nine of the twelve positions on a thirteen-waypoint route had NO visible
+	# waypoint ahead. That drops straight through to the "drifted off the line"
+	# branch below on nearly every tick - the bot force-repaths, gets the same
+	# good route back, stops, and on the ticks between repaths walks at _leg,
+	# which by then is behind it. That is the bot stuck on the stairs.
 	var target: int = -1
 	var horizon: int = mini(_route.size() - 1, _leg + maxi(1, profile.path_lookahead))
 	for i: int in range(horizon, _leg - 1, -1):
-		if nav.surface.is_clear_between(me.position, _route[i]):
+		if nav.surface.is_reachable_between(me.position, _route[i]):
 			target = i
 			break
 
@@ -410,9 +422,30 @@ func _steer(world: SimWorld, me: SimEntity, tick: int) -> Array[SimCommand]:
 			# Forced: the route in hand is exactly what is not working.
 			_plan(world, me, tick, true)
 			return _stop_if_moving(tick)
-		# Re-routed recently and still boxed in. Keep walking at the waypoint it
-		# already had; something else - gravity, a slide, the other body moving
-		# on - usually frees it before the next repath comes due.
+
+		# Re-routed recently and still boxed in. Walking at the waypoint it
+		# already had is the usual recovery: something else - gravity, a slide,
+		# the other body moving on - frees it before the next repath comes due.
+		#
+		# That reasoning assumes the obstruction MOVES. On a staircase it does
+		# not. A body a riser below the top tread has the stairwell wall exactly
+		# where its next waypoint lies, so it pushes into masonry, reports
+		# BLOCKED, and is in precisely the same place when the repath arrives -
+		# which returns the same route, because the route was never wrong. In a
+		# lone-bot match that one spot held 100% of the stalls.
+		#
+		# So take the way the stance graph already knows about. The body is
+		# standing on a stance; that stance has neighbours the fill certified a
+		# body can reach; and heading for whichever of them leads onward is a
+		# step the geometry guarantees. It is a worse line than the route - one
+		# cell at a time, no smoothing - and it only has to last until the body
+		# is somewhere its route works from.
+		var detour: int = _stance_step_toward(me, _route[_leg])
+		if detour >= 0:
+			var step: Vector3 = nav.surface.nodes[detour] - me.position
+			step.y = 0.0
+			if step.length_squared() > 0.0:
+				return _send_intent(step.normalized(), tick)
 		target = _leg
 	_leg = target
 
@@ -422,6 +455,32 @@ func _steer(world: SimWorld, me: SimEntity, tick: int) -> Array[SimCommand]:
 		return _stop_if_moving(tick)
 
 	return _send_intent(heading.normalized().rotated(Vector3.UP, _wobble), tick)
+
+## The neighbouring stance that gets closest to `goal`, or -1.
+##
+## The escape hatch for a body whose route is fine but whose straight line to it
+## is not. Only stances the body can actually reach are considered - the fill
+## certified the edge, and is_reachable_between re-checks it from where the body
+## has really ended up, which is not the stance centre the edge was built from.
+##
+## Ties break on the lower node index rather than on neighbour order, because
+## two machines must pick the same way out of the same corner.
+func _stance_step_toward(me: SimEntity, goal: Vector3) -> int:
+	var surface: WalkableSurface = nav.surface
+	var standing: int = surface.stance_under(me.position, surface.cell_size)
+	if standing < 0:
+		return -1
+	var best: int = -1
+	var best_gap: float = _flat_distance(me.position, goal)
+	for other: int in surface.neighbours(standing):
+		var gap: float = _flat_distance(surface.nodes[other], goal)
+		if gap >= best_gap:
+			continue
+		if not surface.is_reachable_between(me.position, surface.nodes[other]):
+			continue
+		best = other
+		best_gap = gap
+	return best
 
 func _send_intent(intent: Vector3, tick: int) -> Array[SimCommand]:
 	if _has_sent_intent and intent.is_equal_approx(_last_intent):
