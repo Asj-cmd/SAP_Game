@@ -14,7 +14,7 @@ extends SceneTree
 ##      lockstep harness established, and prediction that cannot reproduce it is
 ##      wrong however good it feels.
 
-const EXPECTED_CHECKS: int = 25
+const EXPECTED_CHECKS: int = 26
 
 var _passed: int = 0
 var _failed: int = 0
@@ -89,6 +89,10 @@ func _world() -> SimWorld:
 ## not an omission.
 func _test_policy() -> void:
 	_check("policy/movement is predicted", PredictionPolicy.may_predict(MoveCommand.KIND_MOVE), true)
+	# Stance too: a mispredicted crouch is a few centimetres of your own body,
+	# not a consequence inflicted on somebody else. See PredictionPolicy.
+	_check("policy/stance is predicted",
+		PredictionPolicy.may_predict(StanceCommand.KIND_STANCE), true)
 
 	# Every outcome, named individually so the failure says which one leaked.
 	var outcomes: Array[StringName] = [
@@ -100,9 +104,12 @@ func _test_policy() -> void:
 		_check("policy/%s waits for the host" % kind, PredictionPolicy.may_predict(kind), false)
 
 	# And nothing the codec can carry escaped the list above.
+	var predicted: Array[StringName] = [
+		MoveCommand.KIND_MOVE, StanceCommand.KIND_STANCE,
+	]
 	var unaccounted: int = 0
 	for kind: StringName in CommandCodec.KINDS:
-		if kind != MoveCommand.KIND_MOVE and not outcomes.has(kind):
+		if not predicted.has(kind) and not outcomes.has(kind):
 			unaccounted += 1
 	_check("policy/every command kind is accounted for", unaccounted, 0)
 

@@ -35,6 +35,11 @@ var _rescue_pressed: bool = false
 var _mouse_motion: Vector2 = Vector2.ZERO
 
 var _intent: Vector3 = Vector3.ZERO
+## Held crouch, and the last value actually sent. Change-detected like _intent:
+## a stance command every tick would be a packet per tick saying nothing new.
+var _crouch: bool = false
+var _last_crouch_sent: bool = false
+var _has_sent_crouch: bool = false
 ## Last intent handed to the simulation. Intent persists there, so re-sending
 ## an unchanged one every tick would be noise.
 var _last_sent: Vector3 = Vector3.ZERO
@@ -81,6 +86,12 @@ func poll(delta: float) -> void:
 		_rescue_pressed = true
 	if _read_button(KEY_Q, JOY_BUTTON_X):
 		_carry_pressed = true
+
+	# Crouch is HELD, not pressed. Read level-triggered on purpose - the whole
+	# feel of the verb is "stay down while I hold this", and a toggle would
+	# leave a player crawling because they tapped it once ten seconds ago.
+	# Sent only when it CHANGES, in drain(), like travel intent.
+	_crouch = Input.is_key_pressed(KEY_CTRL) if device == Device.KEYBOARD_MOUSE 		else Input.is_joy_button_pressed(pad_id, JOY_BUTTON_LEFT_STICK)
 
 ## Screen-relative travel: +x right, -y forward. Turned into world space by
 ## the camera.
@@ -134,6 +145,9 @@ func drain(world: SimWorld, tick: int) -> Array[SimCommand]:
 	if _intent_epoch != world.intent_epoch:
 		_intent_epoch = world.intent_epoch
 		_last_sent = Vector3.ZERO
+		# Stance is standing intent too, and is discarded by the same
+		# invalidation - so it has to be re-declared for the same reason.
+		_has_sent_crouch = false
 
 	if not _intent.is_equal_approx(_last_sent):
 		_last_sent = _intent
@@ -141,6 +155,11 @@ func drain(world: SimWorld, tick: int) -> Array[SimCommand]:
 			commands.append(MoveCommand.stop(actor_id, tick))
 		else:
 			commands.append(MoveCommand.move(actor_id, _intent, tick))
+
+	if not _has_sent_crouch or _crouch != _last_crouch_sent:
+		_has_sent_crouch = true
+		_last_crouch_sent = _crouch
+		commands.append(StanceCommand.new(actor_id, _crouch, tick))
 
 	# Targets are chosen here by proximity, exactly as a bot director would
 	# choose them. The simulation re-checks every condition, so a bad pick is

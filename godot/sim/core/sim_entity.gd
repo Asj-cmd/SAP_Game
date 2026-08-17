@@ -26,6 +26,21 @@ enum MotionState {
 	MOVING, ## Displacing this tick.
 	BLOCKED, ## Pushing into geometry: intent, but nowhere to go.
 	HELD, ## Captured. Cannot act until released.
+	VAULTING, ## Crossing a waist-high obstacle. Committed; see MovementSystem.
+}
+
+## How tall the body is right now. Separate from MotionState because it is
+## orthogonal to it: an actor can be CROUCHED and IDLE, CROUCHED and MOVING, or
+## CROUCHED and BLOCKED, and folding the two into one enum would multiply out
+## every combination (ARCHITECTURE.md §9 - movement is a state machine, and this
+## is the second axis of it).
+##
+## Owned by MovementSystem, like MotionState, and for the same reason: two
+## machines must agree, and a value derived from what the renderer is drawing
+## would not survive interpolation or a dropped packet.
+enum Stance {
+	STANDING, ## Full height. The default, and what every rule assumes.
+	CROUCHED, ## Reduced height: fits under a crouch_gap, and moves slower.
 }
 
 ## Sentinel for "no entity" in id-valued fields. Real ids start at 1, assigned
@@ -48,6 +63,23 @@ var motion_state: MotionState = MotionState.IDLE
 ## alongside motion_state to tell walking from falling, and never derives it
 ## from position deltas.
 var is_grounded: bool = false
+## Owned by MovementSystem. See Stance.
+var stance: Stance = Stance.STANDING
+## Whether this actor is ASKING to be crouched. Intent, exactly like
+## move_intent, and for the same reason: the client says what it wants and the
+## simulation decides whether it gets it. An actor under a counter cannot stand
+## up, so wanting to is not the same as doing it.
+var crouch_intent: bool = false
+## Ticks left in a committed vault, 0 when not vaulting.
+##
+## A vault is the one movement in this game that takes time and cannot be
+## abandoned halfway - a body half over a counter has nowhere legal to stand.
+## Counting it in ticks keeps it in the simulation's own units, so it survives
+## a rollback like anything else.
+var vault_ticks: int = 0
+## Where a committed vault is carrying the body to. Meaningless when
+## vault_ticks is 0.
+var vault_to: Vector3 = Vector3.ZERO
 ## Desired direction of travel, magnitude 0..1, in world space.
 ##
 ## Persists until the actor sends a different one, rather than being consumed
@@ -148,6 +180,10 @@ func duplicate_entity() -> SimEntity:
 	copy.velocity = velocity
 	copy.motion_state = motion_state
 	copy.is_grounded = is_grounded
+	copy.stance = stance
+	copy.crouch_intent = crouch_intent
+	copy.vault_ticks = vault_ticks
+	copy.vault_to = vault_to
 	copy.move_intent = move_intent
 	copy.zone_id = zone_id
 	copy.carrying_id = carrying_id
@@ -187,11 +223,12 @@ static func float_bits(value: float) -> int:
 ## Canonical text form, fed into SimWorld's state digest. Floats appear as raw
 ## bits; use to_debug_string() when a human needs to read it.
 func to_digest_string() -> String:
-	return "E%d|k%d|t%s|s%d|p%d,%d,%d|v%d,%d,%d|m%d,%d|i%d,%d,%d|z%s|c%d|h%d|f%s|g%d,%d,%d|x%d|r%d|o%d|n%d|S%s,%d,%d" % [
+	return "E%d|k%d|t%s|s%d|p%d,%d,%d|v%d,%d,%d|m%d,%d|w%d,%d,%d|i%d,%d,%d|z%s|c%d|h%d|f%s|g%d,%d,%d|x%d|r%d|o%d|n%d|S%s,%d,%d" % [
 		id, kind, team, slot,
 		float_bits(position.x), float_bits(position.y), float_bits(position.z),
 		float_bits(velocity.x), float_bits(velocity.y), float_bits(velocity.z),
 		motion_state, 1 if is_grounded else 0,
+		stance, 1 if crouch_intent else 0, vault_ticks,
 		float_bits(move_intent.x), float_bits(move_intent.y), float_bits(move_intent.z),
 		zone_id, carrying_id, carried_by, scored_for_team,
 		float_bits(origin_position.x), float_bits(origin_position.y), float_bits(origin_position.z),

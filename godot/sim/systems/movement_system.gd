@@ -38,12 +38,22 @@ func system_name() -> StringName:
 	return &"MovementSystem"
 
 func handles(kind: StringName) -> bool:
-	return kind == MoveCommand.KIND_MOVE
+	return kind == MoveCommand.KIND_MOVE or kind == StanceCommand.KIND_STANCE
 
 ## Records intent only. Nothing moves until step(), so every actor in a tick
 ## is integrated against the same world rather than against whatever the
 ## actors ahead of it in the command list happened to do first.
 func handle(world: SimWorld, command: SimCommand) -> void:
+	var stance: StanceCommand = command as StanceCommand
+	if stance != null:
+		var who: SimEntity = world.get_entity(stance.actor_id)
+		if who == null or not who.is_actor():
+			return
+		# Intent only. Whether the actor is ACTUALLY crouched is decided in
+		# step(), where there is a world to ask about headroom.
+		who.crouch_intent = stance.wants_crouch
+		return
+
 	var move: MoveCommand = command as MoveCommand
 	if move == null:
 		return
@@ -147,7 +157,17 @@ func _blocking_actor(
 func _resolve(world: SimWorld, actor: SimEntity) -> SimEntity.MotionState:
 	if actor.is_captured:
 		actor.velocity = Vector3.ZERO
+		actor.vault_ticks = 0
+		actor.stance = SimEntity.Stance.STANDING
 		return SimEntity.MotionState.HELD
+
+	# A vault in progress owns the body. Checked before intent, because the
+	# whole point of the verb is that it cannot be abandoned halfway - a body
+	# stopped on top of a counter has nowhere legal to stand.
+	if actor.vault_ticks > 0:
+		return _continue_vault(world, actor)
+
+	_resolve_stance(world, actor)
 
 	# Travel intent is horizontal. Height is gravity's business, so an actor
 	# cannot fly by aiming upward.
@@ -225,12 +245,67 @@ func _sweep(world: SimWorld, mover: SimEntity, from: Vector3, delta: Vector3) ->
 
 ## Content decides pace. A laden actor is slower, which is the entire tension
 ## of carrying something valuable across open ground.
+##
+## Crouching and carrying MULTIPLY rather than taking the lower of the two. A
+## player crawling through a hatch with the cash is doing two slow things at
+## once and should feel it; picking the cheaper of the two penalties would make
+## the second one free.
 func _speed_for(world: SimWorld, actor: SimEntity) -> float:
 	if world.tuning == null:
 		return 0.0
+	var speed: float = world.tuning.move_speed
 	if actor.is_carrying():
-		return world.tuning.carry_speed()
-	return world.tuning.move_speed
+		speed *= world.tuning.carry_speed_scale
+	if actor.stance == SimEntity.Stance.CROUCHED:
+		speed *= world.tuning.crouch_speed_scale
+	return speed
+
+## The collision radius this body presents right now.
+##
+## THE BODY IS A SPHERE, and that is the constraint this whole verb is built
+## around. WorldCollisionDef grows blockers by one radius and tests a POINT -
+## there is no height anywhere in the collision model, so "the same body, but
+## shorter" is not something the predicate can express. A crouched actor is
+## therefore a SMALLER actor: one radius, reduced.
+##
+## Which is the correct reading rather than a workaround. The radius is already
+## documented as doubling for the body's half-height, so shrinking it lowers the
+## body's top by exactly the amount it lowers the body's sides - and a gap that
+## admits the smaller sphere is precisely a gap the standing sphere does not
+## fit through. What it does NOT model is a crouched body being narrower than it
+## is short; that costs a second axis in the collision def, and nothing in the
+## house needs it yet (WORLD_AUTHORING §12 sizes crouch gaps by height alone).
+func _radius_for(world: SimWorld, actor: SimEntity) -> float:
+	if world.tuning == null:
+		return 0.0
+	var radius: float = world.tuning.actor_radius
+	if actor != null and actor.stance == SimEntity.Stance.CROUCHED:
+		return radius * _crouch_radius_scale(world)
+	return radius
+
+## Crouched radius as a fraction of standing.
+##
+## THE COLLISION BODY IS A SPHERE OF `actor_radius`, WITH NO HEIGHT. That is
+## the fact this whole verb has to be built around, and it is worth stating
+## plainly because it makes the obvious derivation wrong: crouch_gap (130) and
+## the visual body height (180) describe a capsule the simulation does not
+## have. A standing body here is 40 units tall, top to bottom - so a "130 clear
+## opening" admits it standing, and sizing a crawl space to §12's number would
+## produce a tunnel everybody walks through upright.
+##
+## So the ratio is authored against what collision actually is. Halving the
+## radius halves the body's height AND its width, which is the shape a sphere
+## can express - and it is enough to make a gap that admits one and refuses the
+## other, which is the only property the verb needs.
+##
+## The cost of the sphere model is that a crouched body is also NARROWER, so it
+## fits through a slot too tight to walk. Nothing in the house is built to
+## exploit that, and a proper capsule with separate height and radius is the
+## real fix if it ever matters (WORLD_AUTHORING §12's numbers assume one).
+const CROUCH_RADIUS_SCALE: float = 0.5
+
+func _crouch_radius_scale(_world: SimWorld) -> float:
+	return CROUCH_RADIUS_SCALE
 
 ## Moves as far as the world allows, sliding along whatever it cannot pass.
 ##
@@ -265,6 +340,12 @@ func _apply_displacement(world: SimWorld, actor: SimEntity, delta: Vector3) -> b
 	if _try_step_up(world, actor, delta):
 		return true
 
+	# Too tall to walk over, low enough to get a leg over: vault it. Tried
+	# after the step-up so a stair tread is never mistaken for a counter -
+	# anything the actor can simply walk up, it walks up.
+	if _try_vault(world, actor, delta):
+		return true
+
 	var moved: bool = false
 	for axis: int in 3:
 		var single_axis: Vector3 = Vector3.ZERO
@@ -275,6 +356,117 @@ func _apply_displacement(world: SimWorld, actor: SimEntity, delta: Vector3) -> b
 			actor.position += single_axis
 			moved = true
 	return moved
+
+## Decides whether the actor is crouched this tick.
+##
+## Two separate questions, and conflating them is the bug this is shaped to
+## avoid. Going DOWN is always allowed: there is nothing to check, because a
+## smaller body fits wherever the larger one did. Coming UP is not, because the
+## thing the actor crouched to get under is still overhead - so standing is
+## granted only when the standing body actually fits where it is.
+##
+## That asymmetry is the entire feel of the verb. Release the key under a
+## counter and nothing happens until you have crawled out, which is what makes
+## a crawl space a commitment rather than a corridor.
+func _resolve_stance(world: SimWorld, actor: SimEntity) -> void:
+	if actor.crouch_intent:
+		if actor.stance != SimEntity.Stance.CROUCHED:
+			# Feet stay where they are and the centre drops, mirroring the way
+			# standing raises it. Without this the body would keep a standing
+			# body's centre height while claiming a crouched radius, and would
+			# hover half a radius off the floor until gravity caught up.
+			var standing: float = world.tuning.actor_radius if world.tuning != null else 0.0
+			var feet: float = actor.position.y - standing
+			actor.position.y = feet + standing * CROUCH_RADIUS_SCALE
+		actor.stance = SimEntity.Stance.CROUCHED
+		return
+	if actor.stance != SimEntity.Stance.CROUCHED:
+		return
+	# Wants up. Only if there is HEADROOM - which is a question about the space
+	# above the body, not about the space it currently occupies.
+	#
+	# Testing the standing body where it stands does not work, and the reason is
+	# worth writing down: a crouched body rests with its centre half a radius
+	# above the floor, so re-testing that same centre at full radius asks
+	# whether a standing body could stand with its middle at ankle height. It
+	# could not - the floor is in the way - and the actor would be unable to
+	# stand up anywhere at all, including open ground.
+	#
+	# So the test is the position the body would MOVE TO: feet stay put, centre
+	# rises to one standing radius above them. Standing up is a small upward
+	# move, and asking whether that move is legal is exactly _can_traverse's
+	# job.
+	if world.collision == null or world.tuning == null:
+		actor.stance = SimEntity.Stance.STANDING
+		return
+	var standing: float = world.tuning.actor_radius
+	var feet: float = actor.position.y - standing * CROUCH_RADIUS_SCALE
+	var upright: Vector3 = Vector3(actor.position.x, feet + standing, actor.position.z)
+	if world.collision.contains(upright, standing) 		and not world.collision.blocks_segment(actor.position, upright, standing):
+		actor.stance = SimEntity.Stance.STANDING
+		actor.position = upright
+
+## Starts a vault when something waist-high is in the way.
+##
+## The shape of the test is "walk over it, but higher than a step": lift to the
+## vault allowance, cross, and require somewhere to land on the far side. The
+## landing check is what stops a vault over a railing into a stairwell being
+## offered as an ordinary move - clearing the obstacle is not the same as
+## surviving what is past it.
+##
+## Committed rather than instant. The body is placed on top of the obstacle and
+## carried across over vault_seconds, which is what makes vaulting into a room
+## a risk: for that long you are high, slow and cannot turn round.
+func _try_vault(world: SimWorld, actor: SimEntity, delta: Vector3) -> bool:
+	if world.tuning == null:
+		return false
+	var rise: float = world.tuning.vault_height
+	if rise <= 0.0:
+		return false
+	# You vault a counter, not a person.
+	if _blocked_by_actor(world, actor, actor.position, actor.position + delta):
+		return false
+	# Feet must be on something. Vaulting out of mid-air is a jump, and this
+	# game does not have one.
+	if not actor.is_grounded:
+		return false
+
+	var raised: Vector3 = actor.position + Vector3(0.0, rise, 0.0)
+	if not _can_traverse(world, actor, actor.position, raised):
+		return false # no room to get up: a wall, not a counter
+	# Reach across at vault height. Deliberately further than one tick of
+	# travel - a counter is a THING with depth, and stopping on top of it is
+	# the failure this whole verb exists to avoid.
+	var across: Vector3 = raised + delta.normalized() * (world.tuning.actor_radius * 4.0)
+	if not _can_traverse(world, actor, raised, across):
+		return false # too deep, or something solid on top
+
+	actor.position = raised
+	actor.vault_to = across
+	actor.vault_ticks = maxi(1, SimWorld.seconds_to_ticks(world.tuning.vault_seconds))
+	actor.velocity = Vector3.ZERO
+	return true
+
+## Carries a committed vault forward one tick.
+##
+## Gravity is deliberately NOT applied while vaulting: the body is on top of the
+## obstacle, and letting it fall would drop it back down the near side on the
+## first tick. It resumes the moment the vault ends, which is what puts the
+## actor on the floor on the far side without anything here knowing where the
+## floor is.
+func _continue_vault(world: SimWorld, actor: SimEntity) -> SimEntity.MotionState:
+	var remaining: float = float(actor.vault_ticks)
+	var step: Vector3 = (actor.vault_to - actor.position) / remaining
+	actor.position = _sweep(world, actor, actor.position, step)
+	actor.vault_ticks -= 1
+	actor.velocity = Vector3.ZERO
+	if actor.vault_ticks <= 0:
+		actor.vault_ticks = 0
+		# Land it: gravity takes over from here.
+		_apply_gravity(world, actor)
+		return SimEntity.MotionState.MOVING
+	actor.is_grounded = false
+	return SimEntity.MotionState.VAULTING
 
 ## Lifts by the step-up allowance, moves across, and settles back down.
 ##
@@ -347,7 +539,7 @@ func _slide_past(
 ## built on, and it made every shared zone face a walkable doorway.
 func _can_traverse(world: SimWorld, mover: SimEntity, from: Vector3, to: Vector3) -> bool:
 	if world.collision != null:
-		var radius: float = world.tuning.actor_radius if world.tuning != null else 0.0
+		var radius: float = _radius_for(world, mover)
 		if not world.collision.contains(to, radius):
 			return false
 		if world.collision.blocks_segment(from, to, radius):

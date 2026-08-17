@@ -23,6 +23,25 @@ extends Resource
 ## floor it stands on.
 @export var actor_radius: float = 20.0
 
+@export_group("Verbs")
+## Multiplier applied to move_speed while crouched.
+##
+## Crouching has to COST something or it is strictly better than standing: it
+## fits everywhere standing fits, plus the gaps standing does not. Slower is
+## the cost, and it is what makes taking the crawl space a decision rather than
+## the obvious move.
+@export var crouch_speed_scale: float = 0.55
+## How long crossing a vaultable obstacle takes, in seconds.
+##
+## The vault's whole design purpose is that it is COMMITTED - once started it
+## plays out, and for this long the body is on top of the counter and cannot
+## turn round. That is what makes vaulting into a room a real risk rather than
+## free movement, and why the number is a tuning value and not a constant.
+@export var vault_seconds: float = 0.35
+
+func crouch_speed() -> float:
+	return move_speed * crouch_speed_scale
+
 @export_group("Gravity")
 ## Downward acceleration in units per second squared. Zero or less means no
 ## gravity is authored and actors do not fall - only ever right for a fixture

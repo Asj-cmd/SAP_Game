@@ -40,8 +40,26 @@ extends RefCounted
 ## jailed is not.
 
 ## The only kinds a client may apply before the host has confirmed them.
+##
+## STANCE IS MOVEMENT, by this file's own test rather than by category. The
+## question the policy asks is what a wrong guess LOOKS like, and a mispredicted
+## crouch is the same artefact as a mispredicted step: your own body is a few
+## centimetres from where you drew it, and it corrects within a frame. Nothing
+## happens to anybody else, and nothing gets undone on screen.
+##
+## Waiting for the host would be actively worse here than for movement, not
+## better. Crouch is held, so the latency would be paid TWICE - once going down
+## and again coming up - and it gates travel: a player crawls into a gap at the
+## host's convenience rather than their own. That is the input latency this
+## policy exists to avoid, with none of the visible-consequence risk that
+## justifies paying it for capture or carry.
+##
+## The one place a guess can be refused is standing up under a counter, and the
+## correction for that is staying crouched - which is a stance the player is
+## already in and already looking at, not a consequence being reversed.
 const PREDICTED: Array[StringName] = [
 	MoveCommand.KIND_MOVE,
+	StanceCommand.KIND_STANCE,
 ]
 
 static func may_predict(kind: StringName) -> bool:

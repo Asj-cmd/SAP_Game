@@ -23,6 +23,8 @@ func _initialize() -> void:
 	_test_kinematic_ground()
 	_test_zone_tracking()
 	_test_actors_are_solid()
+	_test_stance()
+	_test_vault()
 
 	print("\n%d passed, %d failed" % [_passed, _failed])
 	if _failed > 0:
@@ -492,3 +494,135 @@ func _test_actors_are_solid() -> void:
 		again.step(push)
 		replay.step(push)
 	_check("solid/two runs resolve identically", replay.state_digest(), again.state_digest())
+
+# ---- the verbs ----
+
+## Lets gravity bring a body to rest before a verb case begins, so is_grounded
+## is something the world decided rather than something the test asserted.
+func _settle(world: SimWorld) -> void:
+	for i: int in 20:
+		world.step([])
+
+## Body radius for the verb fixtures. Its own constant because every obstacle
+## below is sized as a MULTIPLE of it - the verbs are about how a body relates
+## to geometry, so the two have to move together.
+const VERB_RADIUS: float = 6.0
+## Floor thickness in the verb fixture. The floor is a blocker like any other
+## and has to sit inside the shell, so bodies rest at FLOOR + VERB_RADIUS.
+const FLOOR: float = 10.0
+
+## A world with one waist-high obstacle and one low tunnel, both sized against
+## the SPHERE the simulation actually collides with rather than the capsule
+## §12's numbers describe. See MovementSystem._crouch_radius_scale.
+func _verb_world() -> SimWorld:
+	var room: ZoneDef = ZoneDef.new()
+	room.id = &"room"
+	room.role = ZoneDef.Role.NEUTRAL
+	room.bounds = AABB(Vector3(0, 0, 0), Vector3(400, 200, 200))
+
+	var tuning: TuningDef = TuningDef.new()
+	tuning.move_speed = MOVE_SPEED
+	tuning.actor_radius = VERB_RADIUS
+	# REAL GRAVITY here, unlike the suites above. Both verbs are about how a
+	# body meets geometry vertically: with gravity off, _apply_gravity calls
+	# everything grounded, so "you cannot vault out of mid-air" is a rule the
+	# fixture could not express and the test would pass without testing.
+	tuning.gravity = 2000.0
+	tuning.step_up_height = VERB_RADIUS * 0.5
+	tuning.vault_height = VERB_RADIUS * 4.0
+	tuning.vault_seconds = 0.2
+
+	var collision: WorldCollisionDef = WorldCollisionDef.new()
+	collision.is_fixture = true # a rig, not a level - skips the layout gates
+	collision.bounds = AABB(Vector3(0, 0, 0), Vector3(400, 200, 200))
+	collision.blockers = [
+		# The floor, so gravity has something to land on and `is_grounded`
+		# means what it says. INSIDE the shell - a blocker poking out of it is
+		# refused by the content gate, and a refused world silently has no
+		# collision at all.
+		AABB(Vector3(0, 0, 0), Vector3(400, FLOOR, 200)),
+		# Waist-high: taller than a step, and low enough that a body lifted by
+		# the vault allowance clears its top rather than arriving level with it.
+		AABB(Vector3(100, FLOOR, 0), Vector3(20, VERB_RADIUS * 3.0, 200)),
+		# A lid leaving a gap a CROUCHED body clears and a standing one does
+		# not. Bodies rest with their centre one radius above the floor, so a
+		# standing top reaches FLOOR+2*VERB_RADIUS and a crouched one
+		# FLOOR+1.5*VERB_RADIUS. The underside sits between those two.
+		AABB(Vector3(200, FLOOR + VERB_RADIUS * 1.75, 0), Vector3(20, 100, 200)),
+	]
+
+	var world: SimWorld = SimWorld.new(1)
+	world.configure(GameModeDef.new(), tuning, [room], [], collision)
+	world.add_system(MovementSystem.new())
+	world.match_phase = SimWorld.MatchPhase.PLAYING
+	return world
+
+## Crouch is asked for, not taken: going down is free, coming up needs room.
+func _test_stance() -> void:
+	var world: SimWorld = _verb_world()
+	var actor: SimEntity = _add_actor(world, Vector3(50, FLOOR + VERB_RADIUS, 100))
+	_settle(world)
+
+	_check("stance/starts standing", actor.stance, SimEntity.Stance.STANDING)
+	_step(world, [StanceCommand.crouch(actor.id)] as Array[SimCommand])
+	_check("stance/crouches when asked", actor.stance, SimEntity.Stance.CROUCHED)
+	_step(world, [StanceCommand.stand(actor.id)] as Array[SimCommand])
+	_check("stance/stands again in the open", actor.stance, SimEntity.Stance.STANDING)
+
+	# Crouched, a body fits under the lid; standing, it does not.
+	var under: SimWorld = _verb_world()
+	var crawler: SimEntity = _add_actor(under, Vector3(150, FLOOR + VERB_RADIUS, 100))
+	_settle(under)
+	for i: int in 40:
+		under.step([
+			StanceCommand.crouch(crawler.id), MoveCommand.move(crawler.id, Vector3(1, 0, 0)),
+		] as Array[SimCommand])
+	_check("stance/crouched passes the low gap", crawler.position.x > 240.0, true)
+
+	# And cannot stand back up while under it. Releasing the key is a request.
+	under.step([StanceCommand.stand(crawler.id)] as Array[SimCommand])
+	var trapped: bool = crawler.position.x > 200.0 and crawler.position.x < 240.0
+	if trapped:
+		_check("stance/cannot stand up under the lid",
+			crawler.stance, SimEntity.Stance.CROUCHED)
+	else:
+		# Walked clear of the lid, so standing is legitimate - assert THAT
+		# rather than silently skipping the case.
+		_check("stance/stands once clear of the lid",
+			crawler.stance, SimEntity.Stance.STANDING)
+
+	var blocked: SimWorld = _verb_world()
+	var walker: SimEntity = _add_actor(blocked, Vector3(150, FLOOR + VERB_RADIUS, 100))
+	_settle(blocked)
+	for i: int in 40:
+		blocked.step([MoveCommand.move(walker.id, Vector3(1, 0, 0))] as Array[SimCommand])
+	_check("stance/standing is stopped by the low gap", walker.position.x < 200.0, true)
+
+## A vault is committed: it starts on contact and carries the body across.
+func _test_vault() -> void:
+	var world: SimWorld = _verb_world()
+	var actor: SimEntity = _add_actor(world, Vector3(50, FLOOR + VERB_RADIUS, 100))
+	_settle(world)
+
+	var vaulted: bool = false
+	for i: int in 40:
+		world.step([MoveCommand.move(actor.id, Vector3(1, 0, 0))] as Array[SimCommand])
+		if actor.motion_state == SimEntity.MotionState.VAULTING:
+			vaulted = true
+	_check("vault/reports VAULTING while crossing", vaulted, true)
+	_check("vault/ends up past the obstacle", actor.position.x > 120.0, true)
+	_check("vault/is finished, not stuck on top", actor.vault_ticks, 0)
+
+	# Airborne bodies do not vault: that would be a jump, and there is no jump.
+	# Dropped from height, still falling when it reaches the obstacle: the
+	# vault must be refused, so it arrives against the face and stops.
+	var air: SimWorld = _verb_world()
+	var falling: SimEntity = _add_actor(air, Vector3(50, 150.0, 100))
+	air.step([])
+	_check("vault/a dropped body is airborne", falling.is_grounded, false)
+	var refused: bool = true
+	for i: int in 6:
+		air.step([MoveCommand.move(falling.id, Vector3(1, 0, 0))] as Array[SimCommand])
+		if falling.motion_state == SimEntity.MotionState.VAULTING:
+			refused = false
+	_check("vault/needs feet on the ground", refused, true)

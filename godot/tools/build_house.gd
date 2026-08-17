@@ -36,6 +36,27 @@ const HEAD: float = 240.0 ## §7 drafting note: doorway head +240
 const BODY: float = 20.0 ## TuningDef.actor_radius
 const BODY_HEIGHT: float = 180.0 ## how tall the thing walking it LOOKS
 
+## §12's threshold set. These MUST equal TuningDef's - a counter built to 121
+## when the verb reads 120 is exactly the hand-placed exception WORLD_AUTHORING
+## forbids, and it would be invisible until somebody failed to vault it.
+const VAULT: float = 120.0 ## TuningDef.vault_height - waist, vault over it
+const CROUCH: float = 130.0 ## TuningDef.crouch_gap - clear opening, crawl under
+## Counter depth. A body diameter and a bit: deep enough to be a real obstacle
+## to cross rather than a line to step over, shallow enough that one vault
+## clears it.
+const COUNTER_D: float = 100.0
+## The crawl-space section - its length, the legs at each end, and the
+## thickness of the worktop over it.
+const TUNNEL: float = 240.0 ## a doorway's width, so it reads as a way through
+## Clear height of the crawl space, in the units COLLISION uses rather than the
+## ones §12 quotes. A standing body is a sphere of BODY radius, so it stands
+## 2*BODY tall and a crouched one half that: 30 refuses the first and admits
+## the second. See MovementSystem._crouch_radius_scale for why the sphere is
+## the constraint and what changes if the body ever becomes a capsule.
+const CRAWL: float = 30.0
+const LEG: float = 40.0
+const WORKTOP: float = 30.0
+
 ## Window openings. Sills from §7.
 const WINDOW: float = 240.0 ## passable ground-window climb, and escape windows
 const SILL_UPPER: float = 80.0 ## escape window sill
@@ -231,6 +252,66 @@ func _ground() -> void:
 	# No basement in Phase 1: the ground floor's own slab has nothing below it
 	# to hole for. Only the stairwells punch through to the storey ABOVE, and
 	# that hole lives in _upper()'s slab, not this one.
+
+	_kitchen_counter()
+
+## §12's threshold set, made physical: something to vault, and something to
+## crawl under.
+##
+## The kitchen is where both belong. It is the room with the side door, so it
+## is already a route rather than a dead end, and a counter across a route is
+## the archetypal thing a chase goes OVER instead of around - which is the
+## whole reason the vault verb exists.
+##
+## The counter runs most of the way across the room, leaving a walking gap at
+## one end. That gap is deliberate: a barrier with no way round is a wall, and
+## the interesting decision is "over it, or the long way round it" - which only
+## exists when both are available. A body that vaults arrives faster and lands
+## committed; one that runs round keeps its options.
+##
+## Under the counter is a crawl space: the same barrier, passable a second way,
+## for anyone willing to be slow and low. Three ways past one piece of
+## furniture, all built to authored thresholds and none of them special-cased.
+func _kitchen_counter() -> void:
+	# Kitchen is the NE quadrant: x SPLIT..HOUSE, z SPLIT..HOUSE.
+	var x: float = SPLIT + WALL + 120.0
+	var span: float = QUAD - WALL - 360.0 # walking gap at the far end
+	var z: float = SPLIT + QUAD * 0.5
+
+	# TWO THRESHOLDS CANNOT SHARE ONE SOLID. A worktop at VAULT (120) with a
+	# CROUCH_GAP (130) beneath it would need 250 of counter, which is chest
+	# height and vaultable by nobody. So the counter is built in two sections
+	# along its length, each honest to one threshold.
+	#
+	# The near section is SOLID to vault height: you go over it, and that is
+	# the only way past it.
+	var solid_run: float = span - TUNNEL
+	_solid(AABB(Vector3(x, GROUND, z), Vector3(solid_run, VAULT, COUNTER_D)))
+
+	# The far section is a worktop on legs: you go over it the same way, OR
+	# under it on your belly. The legs are what make the space a tunnel rather
+	# than open floor with a lid - without them a standing body walks straight
+	# through and the crouch verb is decoration.
+	#
+	# ITS UNDERSIDE IS AT `CRAWL`, NOT AT `CROUCH`. §12's 130 describes a
+	# clear opening for a 180-tall body, and the SIMULATION has no such body -
+	# collision is a sphere of BODY radius, so a standing actor is 40 units
+	# tall and would stroll under a 130 gap upright. CRAWL is the same
+	# threshold expressed in the units collision actually uses. See
+	# MovementSystem._crouch_radius_scale; if the body ever becomes a capsule,
+	# this goes back to CROUCH and nothing else changes.
+	# Its top sits one worktop's thickness above the crawl space, so the slab
+	# spans CROUCH..CROUCH+WORKTOP. That top is 160, NOT 120 - a raised counter
+	# is a taller thing to get over, which is the price of the tunnel under it,
+	# and 160 is under max_drop and over vault so it reads as "climb, don't
+	# hop". The vault verb tests the obstacle it actually meets rather than a
+	# list of what is vaultable, so this needs no special case.
+	var far: float = x + solid_run
+	_solid(AABB(Vector3(far, GROUND + CRAWL, z),
+		Vector3(TUNNEL, VAULT + WORKTOP - CRAWL, COUNTER_D)))
+	_solid(AABB(Vector3(far, GROUND, z), Vector3(LEG, CRAWL, COUNTER_D)))
+	_solid(AABB(Vector3(far + TUNNEL - LEG, GROUND, z),
+		Vector3(LEG, CRAWL, COUNTER_D)))
 
 ## §5. Landing A (SE, head of main stair), Master Bedroom (NE, cash), Landing B
 ## (NW, head of second stair), Study (SW, cash). Both cash rooms open onto

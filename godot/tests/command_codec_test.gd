@@ -12,7 +12,7 @@ extends SceneTree
 ## Fidelity is asserted on BIT PATTERNS, never approximately. An approximate
 ## comparison passes for exactly the drift it is supposed to catch.
 
-const EXPECTED_CHECKS: int = 19
+const EXPECTED_CHECKS: int = 21
 
 var _passed: int = 0
 var _failed: int = 0
@@ -58,6 +58,11 @@ func _test_round_trip() -> void:
 		CaptureCommand.release(7, 12, 46),
 		MatchCommand.start(47),
 		MatchCommand.rematch(48),
+		# Both values, because the payload IS the value: a stance command that
+		# survived the wire with its bool flipped would read as the player
+		# releasing crouch, and would look exactly like an ordinary decode.
+		StanceCommand.crouch(7, 49),
+		StanceCommand.stand(7, 50),
 	]
 
 	for command: SimCommand in sent:
