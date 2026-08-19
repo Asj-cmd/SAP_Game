@@ -168,15 +168,8 @@ func _blocking_actor(
 func _resolve(world: SimWorld, actor: SimEntity) -> SimEntity.MotionState:
 	if actor.is_captured:
 		actor.velocity = Vector3.ZERO
-		actor.vault_ticks = 0
 		actor.stance = SimEntity.Stance.STANDING
 		return SimEntity.MotionState.HELD
-
-	# A vault in progress owns the body. Checked before intent, because the
-	# whole point of the verb is that it cannot be abandoned halfway - a body
-	# stopped on top of a counter has nowhere legal to stand.
-	if actor.vault_ticks > 0:
-		return _continue_vault(world, actor)
 
 	_resolve_stance(world, actor)
 	_resolve_jump(world, actor)
@@ -363,12 +356,6 @@ func _apply_displacement(world: SimWorld, actor: SimEntity, delta: Vector3) -> b
 	if _try_step_up(world, actor, delta):
 		return true
 
-	# Too tall to walk over, low enough to get a leg over: vault it. Tried
-	# after the step-up so a stair tread is never mistaken for a counter -
-	# anything the actor can simply walk up, it walks up.
-	if _try_vault(world, actor, delta):
-		return true
-
 	var moved: bool = false
 	for axis: int in 3:
 		var single_axis: Vector3 = Vector3.ZERO
@@ -459,68 +446,6 @@ func _resolve_jump(world: SimWorld, actor: SimEntity) -> void:
 	# Off the ground THIS tick, not next: gravity runs after this and would
 	# otherwise see a grounded actor and cancel the impulse it was just given.
 	actor.is_grounded = false
-
-## Starts a vault when something waist-high is in the way.
-##
-## The shape of the test is "walk over it, but higher than a step": lift to the
-## vault allowance, cross, and require somewhere to land on the far side. The
-## landing check is what stops a vault over a railing into a stairwell being
-## offered as an ordinary move - clearing the obstacle is not the same as
-## surviving what is past it.
-##
-## Committed rather than instant. The body is placed on top of the obstacle and
-## carried across over vault_seconds, which is what makes vaulting into a room
-## a risk: for that long you are high, slow and cannot turn round.
-func _try_vault(world: SimWorld, actor: SimEntity, delta: Vector3) -> bool:
-	if world.tuning == null:
-		return false
-	var rise: float = world.tuning.vault_height
-	if rise <= 0.0:
-		return false
-	# You vault a counter, not a person.
-	if _blocked_by_actor(world, actor, actor.position, actor.position + delta):
-		return false
-	# Feet must be on something. Vaulting out of mid-air is a jump, and this
-	# game does not have one.
-	if not actor.is_grounded:
-		return false
-
-	var raised: Vector3 = actor.position + Vector3(0.0, rise, 0.0)
-	if not _can_traverse(world, actor, actor.position, raised):
-		return false # no room to get up: a wall, not a counter
-	# Reach across at vault height. Deliberately further than one tick of
-	# travel - a counter is a THING with depth, and stopping on top of it is
-	# the failure this whole verb exists to avoid.
-	var across: Vector3 = raised + delta.normalized() * (world.tuning.actor_radius * 4.0)
-	if not _can_traverse(world, actor, raised, across):
-		return false # too deep, or something solid on top
-
-	actor.position = raised
-	actor.vault_to = across
-	actor.vault_ticks = maxi(1, SimWorld.seconds_to_ticks(world.tuning.vault_seconds))
-	actor.velocity = Vector3.ZERO
-	return true
-
-## Carries a committed vault forward one tick.
-##
-## Gravity is deliberately NOT applied while vaulting: the body is on top of the
-## obstacle, and letting it fall would drop it back down the near side on the
-## first tick. It resumes the moment the vault ends, which is what puts the
-## actor on the floor on the far side without anything here knowing where the
-## floor is.
-func _continue_vault(world: SimWorld, actor: SimEntity) -> SimEntity.MotionState:
-	var remaining: float = float(actor.vault_ticks)
-	var step: Vector3 = (actor.vault_to - actor.position) / remaining
-	actor.position = _sweep(world, actor, actor.position, step)
-	actor.vault_ticks -= 1
-	actor.velocity = Vector3.ZERO
-	if actor.vault_ticks <= 0:
-		actor.vault_ticks = 0
-		# Land it: gravity takes over from here.
-		_apply_gravity(world, actor)
-		return SimEntity.MotionState.MOVING
-	actor.is_grounded = false
-	return SimEntity.MotionState.VAULTING
 
 ## Lifts by the step-up allowance, moves across, and settles back down.
 ##

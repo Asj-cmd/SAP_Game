@@ -31,13 +31,6 @@ extends Resource
 ## the cost, and it is what makes taking the crawl space a decision rather than
 ## the obvious move.
 @export var crouch_speed_scale: float = 0.55
-## How long crossing a vaultable obstacle takes, in seconds.
-##
-## The vault's whole design purpose is that it is COMMITTED - once started it
-## plays out, and for this long the body is on top of the counter and cannot
-## turn round. That is what makes vaulting into a room a real risk rather than
-## free movement, and why the number is a tuning value and not a constant.
-@export var vault_seconds: float = 0.35
 ## Upward speed given to a jump, in units per second.
 ##
 ## An IMPULSE, per WORLD_AUTHORING §5: one shove at takeoff, and the existing
@@ -47,8 +40,14 @@ extends Resource
 ##
 ## 900 against gravity 2000 peaks at about 200 units - just over vault_height
 ## (120), well under a storey (300). That is the whole design of the number: a
-## jump gets you onto the things the threshold set says are waist-high, and
+## jump gets you ON TOP OF the things the threshold set says are waist-high, and
 ## never onto the next floor. Stairs stay the way upstairs.
+##
+## It is also why there is no vault verb. An automatic vault did the same
+## traversal, but it moved the body on a scripted path that gravity did not
+## govern - so a vault started under a low ceiling carried the body up through
+## it. Jump clears the same obstacles while remaining an ordinary falling body
+## the whole way, which cannot clip by construction.
 @export var jump_speed: float = 900.0
 
 ## Peak height of a jump, for anyone sizing geometry against it. Derived, never
@@ -80,16 +79,23 @@ func crouch_speed() -> float:
 ## height, ever.
 ##
 ## That is not tidiness. The strategy space comes from players trusting that a
-## thing which LOOKS vaultable IS vaultable, everywhere, and improvising on that
+## thing which LOOKS climbable IS climbable, everywhere, and improvising on that
 ## trust. A single exception teaches them the rule is unreliable, and once they
 ## stop trusting it they stop improvising and the emergent play goes with it
 ## (ARCHITECTURE.md §9 - uniform rules, never curated lists).
 ##
-## The verbs that read these do not exist yet. The GEOMETRY is sized for them
-## now because retrofitting heights into a finished house is the expensive
-## version. See WORLD_AUTHORING.md §12.
+## Jump and crouch read these now; drop and throw do not exist yet. The GEOMETRY
+## is sized for all of them because retrofitting heights into a finished house
+## is the expensive version. See WORLD_AUTHORING.md §12.
 
-## Waist height on a 180-unit body: hop over without slowing down.
+## Waist height on a 180-unit body.
+##
+## A THRESHOLD, not a verb. There is no vault: a jump clears this (measured 188
+## against 120) and lands you on top, which is the same traversal with one less
+## mechanism and no automatic behaviour to be surprised by. What the number
+## still does is size geometry - counters, windowsills, low walls and railings
+## are all built to it, so "waist-high" means one height everywhere and a
+## player who can jump one can jump all of them.
 @export var vault_height: float = 120.0
 ## Clear opening a crouching body passes through. Under a counter, through a
 ## serving hatch, along a crawl space.

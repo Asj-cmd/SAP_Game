@@ -26,7 +26,6 @@ enum MotionState {
 	MOVING, ## Displacing this tick.
 	BLOCKED, ## Pushing into geometry: intent, but nowhere to go.
 	HELD, ## Captured. Cannot act until released.
-	VAULTING, ## Crossing a waist-high obstacle. Committed; see MovementSystem.
 	AIRBORNE, ## Off the ground under its own impulse, or falling.
 }
 
@@ -75,16 +74,6 @@ var crouch_intent: bool = false
 ## cleared the moment it is spent, so a held button is one jump rather than a
 ## jump every tick - the same lesson the carry toggle taught.
 var jump_intent: bool = false
-## Ticks left in a committed vault, 0 when not vaulting.
-##
-## A vault is the one movement in this game that takes time and cannot be
-## abandoned halfway - a body half over a counter has nowhere legal to stand.
-## Counting it in ticks keeps it in the simulation's own units, so it survives
-## a rollback like anything else.
-var vault_ticks: int = 0
-## Where a committed vault is carrying the body to. Meaningless when
-## vault_ticks is 0.
-var vault_to: Vector3 = Vector3.ZERO
 ## Desired direction of travel, magnitude 0..1, in world space.
 ##
 ## Persists until the actor sends a different one, rather than being consumed
@@ -188,8 +177,6 @@ func duplicate_entity() -> SimEntity:
 	copy.stance = stance
 	copy.crouch_intent = crouch_intent
 	copy.jump_intent = jump_intent
-	copy.vault_ticks = vault_ticks
-	copy.vault_to = vault_to
 	copy.move_intent = move_intent
 	copy.zone_id = zone_id
 	copy.carrying_id = carrying_id
@@ -229,13 +216,12 @@ static func float_bits(value: float) -> int:
 ## Canonical text form, fed into SimWorld's state digest. Floats appear as raw
 ## bits; use to_debug_string() when a human needs to read it.
 func to_digest_string() -> String:
-	return "E%d|k%d|t%s|s%d|p%d,%d,%d|v%d,%d,%d|m%d,%d|w%d,%d,%d,%d|i%d,%d,%d|z%s|c%d|h%d|f%s|g%d,%d,%d|x%d|r%d|o%d|n%d|S%s,%d,%d" % [
+	return "E%d|k%d|t%s|s%d|p%d,%d,%d|v%d,%d,%d|m%d,%d|w%d,%d,%d|i%d,%d,%d|z%s|c%d|h%d|f%s|g%d,%d,%d|x%d|r%d|o%d|n%d|S%s,%d,%d" % [
 		id, kind, team, slot,
 		float_bits(position.x), float_bits(position.y), float_bits(position.z),
 		float_bits(velocity.x), float_bits(velocity.y), float_bits(velocity.z),
 		motion_state, 1 if is_grounded else 0,
-		stance, 1 if crouch_intent else 0, vault_ticks,
-		1 if jump_intent else 0,
+		stance, 1 if crouch_intent else 0, 1 if jump_intent else 0,
 		float_bits(move_intent.x), float_bits(move_intent.y), float_bits(move_intent.z),
 		zone_id, carrying_id, carried_by, scored_for_team,
 		float_bits(origin_position.x), float_bits(origin_position.y), float_bits(origin_position.z),

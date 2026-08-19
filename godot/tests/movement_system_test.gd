@@ -24,7 +24,6 @@ func _initialize() -> void:
 	_test_zone_tracking()
 	_test_actors_are_solid()
 	_test_stance()
-	_test_vault()
 	_test_jump()
 
 	print("\n%d passed, %d failed" % [_passed, _failed])
@@ -526,12 +525,11 @@ func _verb_world() -> SimWorld:
 	tuning.actor_radius = VERB_RADIUS
 	# REAL GRAVITY here, unlike the suites above. Both verbs are about how a
 	# body meets geometry vertically: with gravity off, _apply_gravity calls
-	# everything grounded, so "you cannot vault out of mid-air" is a rule the
+	# everything grounded, so "you cannot jump out of mid-air" is a rule the
 	# fixture could not express and the test would pass without testing.
 	tuning.gravity = 2000.0
 	tuning.step_up_height = VERB_RADIUS * 0.5
 	tuning.vault_height = VERB_RADIUS * 4.0
-	tuning.vault_seconds = 0.2
 
 	var collision: WorldCollisionDef = WorldCollisionDef.new()
 	collision.is_fixture = true # a rig, not a level - skips the layout gates
@@ -542,8 +540,7 @@ func _verb_world() -> SimWorld:
 		# refused by the content gate, and a refused world silently has no
 		# collision at all.
 		AABB(Vector3(0, 0, 0), Vector3(400, FLOOR, 200)),
-		# Waist-high: taller than a step, and low enough that a body lifted by
-		# the vault allowance clears its top rather than arriving level with it.
+		# Waist-high: taller than a step, and low enough to jump on top of.
 		AABB(Vector3(100, FLOOR, 0), Vector3(20, VERB_RADIUS * 3.0, 200)),
 		# A lid leaving a gap a CROUCHED body clears and a standing one does
 		# not. Bodies rest with their centre one radius above the floor, so a
@@ -598,35 +595,6 @@ func _test_stance() -> void:
 	for i: int in 40:
 		blocked.step([MoveCommand.move(walker.id, Vector3(1, 0, 0))] as Array[SimCommand])
 	_check("stance/standing is stopped by the low gap", walker.position.x < 200.0, true)
-
-## A vault is committed: it starts on contact and carries the body across.
-func _test_vault() -> void:
-	var world: SimWorld = _verb_world()
-	var actor: SimEntity = _add_actor(world, Vector3(50, FLOOR + VERB_RADIUS, 100))
-	_settle(world)
-
-	var vaulted: bool = false
-	for i: int in 40:
-		world.step([MoveCommand.move(actor.id, Vector3(1, 0, 0))] as Array[SimCommand])
-		if actor.motion_state == SimEntity.MotionState.VAULTING:
-			vaulted = true
-	_check("vault/reports VAULTING while crossing", vaulted, true)
-	_check("vault/ends up past the obstacle", actor.position.x > 120.0, true)
-	_check("vault/is finished, not stuck on top", actor.vault_ticks, 0)
-
-	# Airborne bodies do not vault: that would be a jump, and there is no jump.
-	# Dropped from height, still falling when it reaches the obstacle: the
-	# vault must be refused, so it arrives against the face and stops.
-	var air: SimWorld = _verb_world()
-	var falling: SimEntity = _add_actor(air, Vector3(50, 150.0, 100))
-	air.step([])
-	_check("vault/a dropped body is airborne", falling.is_grounded, false)
-	var refused: bool = true
-	for i: int in 6:
-		air.step([MoveCommand.move(falling.id, Vector3(1, 0, 0))] as Array[SimCommand])
-		if falling.motion_state == SimEntity.MotionState.VAULTING:
-			refused = false
-	_check("vault/needs feet on the ground", refused, true)
 
 ## Jump is an impulse, spent once, and only from the ground.
 func _test_jump() -> void:
