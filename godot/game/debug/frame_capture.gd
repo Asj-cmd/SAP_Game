@@ -34,6 +34,8 @@ var quit_after: bool = false
 ## key is injected through the ordinary input path rather than by reaching past
 ## it, so what the frame shows is what a player would see.
 var grab: bool = false
+## Hold crouch before the shot. A stance is invisible in a still otherwise.
+var crouch: bool = false
 ## Turn the bot path overlay on before capturing. Same reason as `grab`: the
 ## state worth photographing is behind a key nobody can press unattended.
 var paths: bool = false
@@ -64,6 +66,7 @@ func path_for(index: int) -> String:
 ##   --capture                 grab a frame, save it, and exit
 ##   --capture-path=<file>     where to write it
 ##   --capture-delay=<seconds> how long to wait first
+##   --capture-crouch          hold crouch, so the shot shows a ducked body
 ##   --capture-at=x,y,z        stand the camera here instead of behind a body
 ##   --capture-look=x,y,z      point the preceding --capture-at at this
 ##
@@ -91,6 +94,10 @@ static func from_command_line(args: PackedStringArray) -> FrameCapture:
 			request.requested = true
 			request.quit_after = true
 			request.grab = true
+		elif arg == "--capture-crouch":
+			request.requested = true
+			request.quit_after = true
+			request.crouch = true
 		elif arg.begins_with("--capture-at="):
 			var eye: Vector3 = _point(arg.trim_prefix("--capture-at="))
 			request.requested = true

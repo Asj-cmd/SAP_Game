@@ -24,6 +24,21 @@ const CAMERA_COLLISION_LAYER: int = 2
 ## simplification, called out because it is why the mesh needs a vertical
 ## offset to stand ON the floor rather than half-sunk into it.
 const ACTOR_HEIGHT: float = 180.0
+## How tall a crouched actor is drawn, as a fraction of standing.
+##
+## PRESENTATION ONLY. The simulation's crouch is a smaller collision sphere
+## (MovementSystem._crouch_radius_scale); this is the mesh agreeing with it, so
+## a crouched body LOOKS like it fits under the counter it actually fits under.
+## Nothing here feeds back into the rules, and a Blender character with a real
+## crouch pose replaces this by reading the same SimEntity.stance.
+const CROUCH_VIEW_SCALE: float = 0.55
+## How fast the capsule resizes toward its target height, per second.
+##
+## Smoothed rather than snapped because the stance flips in ONE tick and a mesh
+## that halves instantly reads as a glitch rather than as ducking. Fast enough
+## to stay honest about what the collider is doing - a body is only ever a few
+## frames out of step with its own hitbox.
+const CROUCH_VIEW_SPEED: float = 8.0
 ## How proud of the floor a team's floor tint sits. Enough to win the depth
 ## test against the floor it is laid on, little enough not to be a step.
 const PATCH_THICKNESS: float = 0.6
@@ -54,6 +69,9 @@ var _previous: Dictionary[int, SimEntity] = {}
 var _accumulator: float = 0.0
 
 var _actor_views: Dictionary[int, MeshInstance3D] = {}
+## Capsule height currently being drawn per actor, eased toward the stance's
+## target. Presentation state, never read by a rule.
+var _view_heights: Dictionary[int, float] = {}
 var _geometry: Node3D = null
 var _seats: CanvasLayer = null
 var _cameras: Array[ChaseCamera] = []
@@ -111,6 +129,15 @@ func _arm_capture() -> void:
 		_show_paths = true
 		_draw_paths()
 		await get_tree().process_frame
+	if request.crouch:
+		# Through Input, like the grab below: the same key LocalPlayerInput
+		# polls, so the frame shows a real crouch rather than a posed mesh.
+		var duck: InputEventKey = InputEventKey.new()
+		duck.keycode = KEY_SHIFT
+		duck.pressed = true
+		Input.parse_input_event(duck)
+		# Long enough for the eased capsule to finish shrinking.
+		await get_tree().create_timer(0.6).timeout
 	if request.grab:
 		# Through Input, not around it: the same key LocalPlayerInput polls, so
 		# the frame shows the real path rather than a state posed for a photo.
@@ -397,7 +424,7 @@ func _process(delta: float) -> void:
 
 	_advance_remote_clock(delta)
 	_draw_paths()
-	_render(_accumulator / SimWorld.SECONDS_PER_TICK)
+	_render(_accumulator / SimWorld.SECONDS_PER_TICK, delta)
 	_track_cameras(delta)
 	_update_hud()
 
@@ -523,7 +550,7 @@ func _local_actor() -> int:
 ##
 ## Collapsing those into one lookup is one line shorter and puts a capture on
 ## screen that the host may not have agreed to.
-func _render(alpha: float) -> void:
+func _render(alpha: float, delta: float) -> void:
 	var drawn: SimWorld = link.predicted_world()
 	var truth: SimWorld = link.outcome_world()
 	var mine: int = _local_actor()
@@ -545,7 +572,8 @@ func _render(alpha: float) -> void:
 			if earlier != null and earlier.position.distance_to(target) < SNAP_DISTANCE:
 				target = earlier.position.lerp(target, clampf(alpha, 0.0, 1.0))
 
-		view.position = target + _view_offset(entity)
+		view.position = target + _view_offset(
+			entity, _drawn_height(entity_id, entity, view, delta))
 		# Held, carrying and captured are read from the CONFIRMED world on every
 		# role. A guest never guesses at an outcome.
 		view.visible = not (entity.is_carriable() and entity.is_held())
@@ -569,15 +597,52 @@ func _show_reach(mine: int) -> void:
 
 ## Lifts an actor's mesh so it stands ON the floor. The simulation's position
 ## is the centre of a body one radius tall; the capsule is taller than that.
-func _view_offset(entity: SimEntity) -> Vector3:
+##
+## Takes the height being DRAWN rather than ACTOR_HEIGHT, so a crouched capsule
+## keeps its feet on the ground while its head comes down. Offsetting a
+## shortened mesh by the standing half-height would sink it into the floor,
+## which is the same bug this function exists to prevent for the standing case.
+func _view_offset(entity: SimEntity, drawn_height: float) -> Vector3:
 	if not entity.is_actor():
 		return Vector3.ZERO
-	return Vector3(0.0, ACTOR_HEIGHT * 0.5 - level.tuning.actor_radius, 0.0)
+	var radius: float = level.tuning.actor_radius
+	if entity.stance == SimEntity.Stance.CROUCHED:
+		# The simulation drops the body's centre when it crouches, so the feet
+		# are already where they should be - the mesh only has to stop being
+		# offset for a body it is no longer the size of.
+		radius *= MovementSystem.CROUCH_RADIUS_SCALE
+	return Vector3(0.0, drawn_height * 0.5 - radius, 0.0)
+
+## Eases an actor's capsule toward the height its stance calls for, and returns
+## the height actually drawn this frame.
+func _drawn_height(entity_id: int, entity: SimEntity, view: MeshInstance3D,
+		delta: float) -> float:
+	var body: CapsuleMesh = view.mesh as CapsuleMesh
+	if body == null:
+		return ACTOR_HEIGHT
+	var wanted: float = ACTOR_HEIGHT
+	if entity.is_actor() and entity.stance == SimEntity.Stance.CROUCHED:
+		wanted = ACTOR_HEIGHT * CROUCH_VIEW_SCALE
+	var current: float = _view_heights.get(entity_id, wanted)
+	# Exponential ease, framerate-independent: the same motion at 30 fps and
+	# 144, rather than a per-frame fraction that is faster on a better machine.
+	var eased: float = current + (wanted - current) * minf(
+		1.0, CROUCH_VIEW_SPEED * delta)
+	if absf(wanted - eased) < 0.5:
+		eased = wanted
+	_view_heights[entity_id] = eased
+	body.height = eased
+	# A capsule's height includes its two hemispherical caps, so the radius has
+	# to come down with it or Godot clamps the height and the crouch stops
+	# short of what was asked for.
+	body.radius = minf(level.tuning.actor_radius, eased * 0.5)
+	return eased
 
 func _rebuild_views() -> void:
 	for view: MeshInstance3D in _actor_views.values():
 		view.queue_free()
 	_actor_views.clear()
+	_view_heights.clear()
 
 	if _reach_marker == null:
 		_reach_marker = MeshInstance3D.new()
@@ -987,5 +1052,6 @@ func _reset(variant: GreyBoxLevel.SafeVariant) -> void:
 	for view: MeshInstance3D in _actor_views.values():
 		view.queue_free()
 	_actor_views.clear()
+	_view_heights.clear()
 	_banner.text = ""
 	_start(variant)
