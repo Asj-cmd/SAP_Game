@@ -30,6 +30,7 @@ var _held: Dictionary[int, bool] = {}
 var _capture_pressed: bool = false
 var _carry_pressed: bool = false
 var _rescue_pressed: bool = false
+var _jump_pressed: bool = false
 
 ## Mouse motion accrues from events between frames rather than being polled.
 var _mouse_motion: Vector2 = Vector2.ZERO
@@ -71,27 +72,36 @@ func poll(delta: float) -> void:
 
 	_intent = camera.intent_from(_read_travel())
 
-	# SPACE is the one contextual button: seize an intruder, or free a team-mate
-	# who has been seized. It sends BOTH intents and lets the rules decide which
-	# one the situation allows - seizing needs an enemy on ground you own,
-	# freeing needs a held ally in reach, and no position satisfies both.
+	# SPACE is jump - where every player's thumb already goes for it, and the
+	# verb used most often by far.
+	if _read_button(KEY_SPACE, JOY_BUTTON_A):
+		_jump_pressed = true
+
+	# E is the one contextual button: seize an intruder, or free a team-mate who
+	# has been seized. It sends BOTH intents and lets the rules decide which one
+	# the situation allows - seizing needs an enemy on ground you own, freeing
+	# needs a held ally in reach, and no position satisfies both.
 	#
 	# One button because the player already knows which they mean. Asking them to
 	# also know which key expresses it is a second decision with no content in
 	# it, and in a chase it is the one they get wrong.
-	var contextual: bool = _read_button(KEY_SPACE, JOY_BUTTON_A)
-	if contextual or _read_button(KEY_E, JOY_BUTTON_B):
+	var contextual: bool = _read_button(KEY_E, JOY_BUTTON_B)
+	if contextual:
 		_capture_pressed = true
-	if contextual or _read_button(KEY_R, JOY_BUTTON_Y):
 		_rescue_pressed = true
-	if _read_button(KEY_Q, JOY_BUTTON_X):
+	if _read_button(KEY_R, JOY_BUTTON_Y):
+		_rescue_pressed = true
+
+	# Grab and drop on the left mouse button: the cash is the thing you reach
+	# out and take, and it is the only verb aimed at an object in the world.
+	if _read_mouse(MOUSE_BUTTON_LEFT, JOY_BUTTON_X):
 		_carry_pressed = true
 
 	# Crouch is HELD, not pressed. Read level-triggered on purpose - the whole
 	# feel of the verb is "stay down while I hold this", and a toggle would
 	# leave a player crawling because they tapped it once ten seconds ago.
 	# Sent only when it CHANGES, in drain(), like travel intent.
-	_crouch = Input.is_key_pressed(KEY_CTRL) if device == Device.KEYBOARD_MOUSE 		else Input.is_joy_button_pressed(pad_id, JOY_BUTTON_LEFT_STICK)
+	_crouch = Input.is_key_pressed(KEY_SHIFT) if device == Device.KEYBOARD_MOUSE 		else Input.is_joy_button_pressed(pad_id, JOY_BUTTON_LEFT_STICK)
 
 ## Screen-relative travel: +x right, -y forward. Turned into world space by
 ## the camera.
@@ -128,6 +138,21 @@ func _read_button(key: Key, button: JoyButton) -> bool:
 	_held[key] = down
 	return down and not was
 
+## The same edge-latch for a mouse button.
+##
+## Latched under its own key space rather than the keyboard's: MouseButton and
+## Key are separate enumerations that happen to share small integers, so one
+## dictionary keyed on the raw value would have LEFT (1) shadowing whatever Key
+## also numbers 1.
+func _read_mouse(button: MouseButton, pad: JoyButton) -> bool:
+	if device != Device.KEYBOARD_MOUSE:
+		return _read_button(KEY_NONE, pad)
+	var down: bool = Input.is_mouse_button_pressed(button)
+	var slot: int = -int(button) - 1
+	var was: bool = _held.get(slot, false)
+	_held[slot] = down
+	return down and not was
+
 ## Drains one tick's worth of input into commands.
 ##
 ## At most one MoveCommand, and only when the intent actually changed -
@@ -155,6 +180,10 @@ func drain(world: SimWorld, tick: int) -> Array[SimCommand]:
 			commands.append(MoveCommand.stop(actor_id, tick))
 		else:
 			commands.append(MoveCommand.move(actor_id, _intent, tick))
+
+	if _jump_pressed:
+		_jump_pressed = false
+		commands.append(JumpCommand.jump(actor_id, tick))
 
 	if not _has_sent_crouch or _crouch != _last_crouch_sent:
 		_has_sent_crouch = true

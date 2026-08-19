@@ -14,7 +14,7 @@ extends SceneTree
 ##      lockstep harness established, and prediction that cannot reproduce it is
 ##      wrong however good it feels.
 
-const EXPECTED_CHECKS: int = 26
+const EXPECTED_CHECKS: int = 27
 
 var _passed: int = 0
 var _failed: int = 0
@@ -93,6 +93,9 @@ func _test_policy() -> void:
 	# not a consequence inflicted on somebody else. See PredictionPolicy.
 	_check("policy/stance is predicted",
 		PredictionPolicy.may_predict(StanceCommand.KIND_STANCE), true)
+	# And jump: an impulse to your own body, resolved against geometry.
+	_check("policy/jump is predicted",
+		PredictionPolicy.may_predict(JumpCommand.KIND_JUMP), true)
 
 	# Every outcome, named individually so the failure says which one leaked.
 	var outcomes: Array[StringName] = [
@@ -105,7 +108,7 @@ func _test_policy() -> void:
 
 	# And nothing the codec can carry escaped the list above.
 	var predicted: Array[StringName] = [
-		MoveCommand.KIND_MOVE, StanceCommand.KIND_STANCE,
+		MoveCommand.KIND_MOVE, StanceCommand.KIND_STANCE, JumpCommand.KIND_JUMP,
 	]
 	var unaccounted: int = 0
 	for kind: StringName in CommandCodec.KINDS:

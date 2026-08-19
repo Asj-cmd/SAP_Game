@@ -38,6 +38,25 @@ extends Resource
 ## turn round. That is what makes vaulting into a room a real risk rather than
 ## free movement, and why the number is a tuning value and not a constant.
 @export var vault_seconds: float = 0.35
+## Upward speed given to a jump, in units per second.
+##
+## An IMPULSE, per WORLD_AUTHORING §5: one shove at takeoff, and the existing
+## gravity integrator does the rest. Nothing accumulates and there is no
+## hold-to-go-higher, which would be a second integrator and a second thing to
+## desync.
+##
+## 900 against gravity 2000 peaks at about 200 units - just over vault_height
+## (120), well under a storey (300). That is the whole design of the number: a
+## jump gets you onto the things the threshold set says are waist-high, and
+## never onto the next floor. Stairs stay the way upstairs.
+@export var jump_speed: float = 900.0
+
+## Peak height of a jump, for anyone sizing geometry against it. Derived, never
+## authored - two numbers that must agree are one number that drifts.
+func jump_height() -> float:
+	if gravity <= 0.0:
+		return 0.0
+	return (jump_speed * jump_speed) / (2.0 * gravity)
 
 func crouch_speed() -> float:
 	return move_speed * crouch_speed_scale

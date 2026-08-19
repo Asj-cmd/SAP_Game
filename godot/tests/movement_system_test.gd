@@ -25,6 +25,7 @@ func _initialize() -> void:
 	_test_actors_are_solid()
 	_test_stance()
 	_test_vault()
+	_test_jump()
 
 	print("\n%d passed, %d failed" % [_passed, _failed])
 	if _failed > 0:
@@ -626,3 +627,55 @@ func _test_vault() -> void:
 		if falling.motion_state == SimEntity.MotionState.VAULTING:
 			refused = false
 	_check("vault/needs feet on the ground", refused, true)
+
+## Jump is an impulse, spent once, and only from the ground.
+func _test_jump() -> void:
+	var world: SimWorld = _verb_world()
+	var actor: SimEntity = _add_actor(world, Vector3(50, FLOOR + VERB_RADIUS, 100))
+	_settle(world)
+	var resting: float = actor.position.y
+	_check("jump/starts on the ground", actor.is_grounded, true)
+
+	world.step([JumpCommand.jump(actor.id)] as Array[SimCommand])
+	_check("jump/leaves the ground", actor.is_grounded, false)
+	_check("jump/reports AIRBORNE", actor.motion_state, SimEntity.MotionState.AIRBORNE)
+	_check("jump/is rising", actor.velocity.y > 0.0, true)
+
+	# It comes back down on its own, and lands where it started.
+	var peak: float = actor.position.y
+	for i: int in 120:
+		world.step([])
+		peak = maxf(peak, actor.position.y)
+	_check("jump/lands again", actor.is_grounded, true)
+	_close("jump/back where it started", actor.position.y, resting, 1.0)
+	_check("jump/rose while airborne", peak > resting, true)
+
+	# The request is SPENT, not held: one command is one jump, however many
+	# ticks pass before the actor next touches down.
+	var once: SimWorld = _verb_world()
+	var hopper: SimEntity = _add_actor(once, Vector3(50, FLOOR + VERB_RADIUS, 100))
+	_settle(once)
+	once.step([JumpCommand.jump(hopper.id)] as Array[SimCommand])
+	for i: int in 120:
+		once.step([])
+	_check("jump/one command is one jump", hopper.is_grounded, true)
+
+	# And a jump asked for in mid-air is dropped rather than queued - otherwise
+	# it fires by itself the moment the body lands.
+	var air: SimWorld = _verb_world()
+	var flier: SimEntity = _add_actor(air, Vector3(50, 150.0, 100))
+	air.step([])
+	_check("jump/a dropped body is airborne", flier.is_grounded, false)
+	air.step([JumpCommand.jump(flier.id)] as Array[SimCommand])
+	_check("jump/mid-air requests are refused", flier.velocity.y > 0.0, false)
+	for i: int in 200:
+		air.step([])
+	_check("jump/and are not queued for landing", flier.is_grounded, true)
+
+	# Crouched actors stand first. Springing from a crouch is its own verb.
+	var low: SimWorld = _verb_world()
+	var croucher: SimEntity = _add_actor(low, Vector3(50, FLOOR + VERB_RADIUS, 100))
+	_settle(low)
+	low.step([StanceCommand.crouch(croucher.id)] as Array[SimCommand])
+	low.step([JumpCommand.jump(croucher.id)] as Array[SimCommand])
+	_check("jump/refused while crouched", croucher.is_grounded, true)

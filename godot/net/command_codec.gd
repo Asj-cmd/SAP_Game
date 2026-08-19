@@ -31,6 +31,7 @@ const KINDS: Array[StringName] = [
 	MatchCommand.KIND_START_MATCH,
 	MatchCommand.KIND_REMATCH,
 	StanceCommand.KIND_STANCE,
+	JumpCommand.KIND_JUMP,
 ]
 
 ## Ceiling on how many commands one batch may claim to hold.
@@ -67,7 +68,7 @@ static func encode(command: SimCommand) -> PackedByteArray:
 		StanceCommand.KIND_STANCE:
 			buffer.put_u8(1 if (command as StanceCommand).wants_crouch else 0)
 		_:
-			pass # Drop and the match commands carry nothing beyond the header
+			pass # Drop, jump and the match commands carry only the header
 	return buffer.data_array
 
 ## One tick's worth of commands, length-prefixed.
@@ -158,6 +159,8 @@ static func decode(bytes: PackedByteArray) -> SimCommand:
 			if buffer.get_available_bytes() < 1:
 				return null
 			return StanceCommand.new(actor, buffer.get_u8() != 0, tick)
+		JumpCommand.KIND_JUMP:
+			return JumpCommand.jump(actor, tick)
 	return null
 
 ## Byte order is fixed rather than left to the platform. Two machines that

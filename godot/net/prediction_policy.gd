@@ -57,9 +57,17 @@ extends RefCounted
 ## The one place a guess can be refused is standing up under a counter, and the
 ## correction for that is staying crouched - which is a stance the player is
 ## already in and already looking at, not a consequence being reversed.
+##
+## JUMP is the same argument at its sharpest. It is pure self-movement - an
+## impulse to your own body, resolved entirely against geometry - so a
+## mispredicted one is a positional nudge like any other. And it is the verb
+## where waiting would be most obvious: a jump that happens a hundred
+## milliseconds after the button reads as a broken control rather than a slow
+## network, because the player is already watching for the takeoff.
 const PREDICTED: Array[StringName] = [
 	MoveCommand.KIND_MOVE,
 	StanceCommand.KIND_STANCE,
+	JumpCommand.KIND_JUMP,
 ]
 
 static func may_predict(kind: StringName) -> bool:

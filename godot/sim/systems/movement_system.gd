@@ -38,7 +38,7 @@ func system_name() -> StringName:
 	return &"MovementSystem"
 
 func handles(kind: StringName) -> bool:
-	return kind == MoveCommand.KIND_MOVE or kind == StanceCommand.KIND_STANCE
+	return kind == MoveCommand.KIND_MOVE 		or kind == StanceCommand.KIND_STANCE 		or kind == JumpCommand.KIND_JUMP
 
 ## Records intent only. Nothing moves until step(), so every actor in a tick
 ## is integrated against the same world rather than against whatever the
@@ -52,6 +52,17 @@ func handle(world: SimWorld, command: SimCommand) -> void:
 		# Intent only. Whether the actor is ACTUALLY crouched is decided in
 		# step(), where there is a world to ask about headroom.
 		who.crouch_intent = stance.wants_crouch
+		return
+
+	if command.kind == JumpCommand.KIND_JUMP:
+		var jumper: SimEntity = world.get_entity(command.actor_id)
+		if jumper == null or not jumper.is_actor():
+			return
+		# Recorded, not acted on. Whether the jump HAPPENS is decided in step(),
+		# where feet-on-the-ground can be asked about - and the flag is cleared
+		# there too, so an unusable jump is dropped rather than queued up to
+		# fire the moment the actor next lands.
+		jumper.jump_intent = true
 		return
 
 	var move: MoveCommand = command as MoveCommand
@@ -168,6 +179,7 @@ func _resolve(world: SimWorld, actor: SimEntity) -> SimEntity.MotionState:
 		return _continue_vault(world, actor)
 
 	_resolve_stance(world, actor)
+	_resolve_jump(world, actor)
 
 	# Travel intent is horizontal. Height is gravity's business, so an actor
 	# cannot fly by aiming upward.
@@ -190,6 +202,17 @@ func _resolve(world: SimWorld, actor: SimEntity) -> SimEntity.MotionState:
 		actor.velocity.z = 0.0
 
 	_apply_gravity(world, actor)
+
+	# AIRBORNE outranks the horizontal states, and is decided AFTER gravity
+	# because that is the only thing that knows whether the body found ground.
+	# A player walking off a balcony is airborne without ever pressing jump, and
+	# a jumping player is airborne while still steering - so this is a property
+	# of where the body is, not of which button was pressed.
+	#
+	# BLOCKED survives it: pushing into a wall in mid-air is still the state
+	# presentation needs to show, and it is the more specific of the two.
+	if not actor.is_grounded and state != SimEntity.MotionState.BLOCKED:
+		return SimEntity.MotionState.AIRBORNE
 	return state
 
 ## Falls, and lands. See WORLD_AUTHORING.md §5.
@@ -405,6 +428,37 @@ func _resolve_stance(world: SimWorld, actor: SimEntity) -> void:
 	if world.collision.contains(upright, standing) 		and not world.collision.blocks_segment(actor.position, upright, standing):
 		actor.stance = SimEntity.Stance.STANDING
 		actor.position = upright
+
+## Spends a jump request, if the actor is in a position to use one.
+##
+## WORLD_AUTHORING §5: "jump as an impulse". One shove at takeoff and the
+## gravity integrator already in this file does everything after - no airborne
+## accumulator, no hold-to-rise, nothing that needs a second integrator to stay
+## in sync across two machines.
+##
+## The request is cleared whether or not it is granted. A jump pressed in
+## mid-air is DROPPED, not remembered: queuing it would fire the moment the
+## actor next touched down, which reads as the body jumping by itself a second
+## after you asked.
+##
+## Crouched actors stand up first, and jump next tick if the button is still
+## down. Springing from a crouch is a different verb with its own feel, and
+## quietly granting it here would be that verb arriving by accident.
+func _resolve_jump(world: SimWorld, actor: SimEntity) -> void:
+	if not actor.jump_intent:
+		return
+	actor.jump_intent = false
+	if not actor.is_grounded or actor.stance != SimEntity.Stance.STANDING:
+		return
+	if world.tuning == null or world.tuning.gravity <= 0.0:
+		return # no gravity authored: a fixture, where jumping means nothing
+	var speed: float = world.tuning.jump_speed
+	if speed <= 0.0:
+		return
+	actor.velocity.y = speed
+	# Off the ground THIS tick, not next: gravity runs after this and would
+	# otherwise see a grounded actor and cancel the impulse it was just given.
+	actor.is_grounded = false
 
 ## Starts a vault when something waist-high is in the way.
 ##

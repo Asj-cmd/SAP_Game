@@ -12,7 +12,7 @@ extends SceneTree
 ## Fidelity is asserted on BIT PATTERNS, never approximately. An approximate
 ## comparison passes for exactly the drift it is supposed to catch.
 
-const EXPECTED_CHECKS: int = 21
+const EXPECTED_CHECKS: int = 22
 
 var _passed: int = 0
 var _failed: int = 0
@@ -63,6 +63,7 @@ func _test_round_trip() -> void:
 		# releasing crouch, and would look exactly like an ordinary decode.
 		StanceCommand.crouch(7, 49),
 		StanceCommand.stand(7, 50),
+		JumpCommand.jump(7, 51),
 	]
 
 	for command: SimCommand in sent:
