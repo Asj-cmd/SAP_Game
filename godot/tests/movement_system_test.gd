@@ -530,6 +530,9 @@ func _verb_world() -> SimWorld:
 	tuning.gravity = 2000.0
 	tuning.step_up_height = VERB_RADIUS * 0.5
 	tuning.vault_height = VERB_RADIUS * 4.0
+	# A body far taller than the collision sphere, as in the real game: the
+	# ceiling cap is only meaningful when the two differ.
+	tuning.actor_height = VERB_RADIUS * 6.0
 
 	var collision: WorldCollisionDef = WorldCollisionDef.new()
 	collision.is_fixture = true # a rig, not a level - skips the layout gates
@@ -639,6 +642,26 @@ func _test_jump() -> void:
 	for i: int in 200:
 		air.step([])
 	_check("jump/and are not queued for landing", flier.is_grounded, true)
+
+	# UNDER A CEILING the jump is cut down to fit the body being drawn, not the
+	# sphere being collided with. Without this the visible character goes
+	# through the floor above while every collision check reports clear.
+	var roofed: SimWorld = _verb_world()
+	var lid: WorldCollisionDef = roofed.collision
+	var head_room: float = FLOOR + VERB_RADIUS * 6.0 + VERB_RADIUS
+	lid.blockers.append(AABB(
+		Vector3(300, head_room, 0), Vector3(100, 20, 200)))
+	var ducker: SimEntity = _add_actor(roofed, Vector3(340, FLOOR + VERB_RADIUS, 100))
+	_settle(roofed)
+	var rest: float = ducker.position.y
+	roofed.step([JumpCommand.jump(ducker.id)] as Array[SimCommand])
+	var top: float = ducker.position.y
+	for i: int in 90:
+		roofed.step([])
+		top = maxf(top, ducker.position.y)
+	var head: float = top - VERB_RADIUS + roofed.tuning.actor_height
+	_check("jump/a low ceiling caps the jump", top - rest < VERB_RADIUS * 4.0, true)
+	_check("jump/and the drawn body stays under it", head <= head_room + 0.5, true)
 
 	# Crouched actors stand first. Springing from a crouch is its own verb.
 	var low: SimWorld = _verb_world()

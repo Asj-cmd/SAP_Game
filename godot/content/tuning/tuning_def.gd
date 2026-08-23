@@ -23,6 +23,28 @@ extends Resource
 ## floor it stands on.
 @export var actor_radius: float = 20.0
 
+## How tall an actor STANDS, head to heel.
+##
+## The collision body is a sphere of actor_radius - 40 units tall - and the
+## thing a player watches is 180. That gap is a deliberate simplification
+## (see MovementSystem), but it is not free: any rule about VERTICAL room has
+## to use this number, or it reasons about a marble where the player sees a
+## person. Jumping is the case that made it necessary - a 40-tall sphere has
+## headroom under a ceiling that a 180-tall body does not, so a jump sized
+## against the sphere put the visible character through the floor above.
+##
+## Geometry is already built to it: WORLD_AUTHORING §12's thresholds are all
+## quoted for "a 180-unit body".
+@export var actor_height: float = 180.0
+
+## Room above an actor's head before it hits something, standing here.
+##
+## Clamped at zero rather than going negative: a body already intersecting a
+## ceiling has no headroom, not negative headroom, and every caller wants the
+## same answer for both.
+func headroom(clear_height: float) -> float:
+	return maxf(0.0, clear_height - actor_height)
+
 @export_group("Verbs")
 ## Multiplier applied to move_speed while crouched.
 ##

@@ -442,10 +442,53 @@ func _resolve_jump(world: SimWorld, actor: SimEntity) -> void:
 	var speed: float = world.tuning.jump_speed
 	if speed <= 0.0:
 		return
-	actor.velocity.y = speed
+	# CAPPED BY THE CEILING, and by the height of the body a player actually
+	# sees rather than the sphere the rules collide with.
+	#
+	# Those are 180 and 40 units, and the gap is the whole bug: a 40-tall
+	# sphere has headroom under a ceiling that a 180-tall character does not,
+	# so an uncapped jump sent the visible body through the floor above while
+	# every collision check reported clear. Reported from the chair as "the
+	# jump makes the character go through the ceiling", and invisible to any
+	# probe that measured the collider.
+	#
+	# The fix is a smaller impulse, not a blocked one. A jump refused outright
+	# under a low ceiling is a control that silently stops working in half the
+	# house; a jump that goes as high as the room allows still reads as a jump.
+	actor.velocity.y = minf(speed, _jump_speed_under_ceiling(world, actor, speed))
 	# Off the ground THIS tick, not next: gravity runs after this and would
 	# otherwise see a grounded actor and cancel the impulse it was just given.
 	actor.is_grounded = false
+
+## The fastest an actor may leave the ground here without its head hitting
+## something.
+##
+## Finds the ceiling by sweeping the BODY upward - the same _sweep every other
+## movement uses, so it sees exactly the geometry the rules do, including any
+## future one-way or locked traversal. What it measures is where the sphere
+## stops; the head is actor_height above the feet rather than one radius, so
+## the room available to rise is that ceiling minus the standing head.
+##
+## Returns `wanted` untouched when the sweep hits nothing, which is the common
+## case outdoors and under a normal storey.
+func _jump_speed_under_ceiling(world: SimWorld, actor: SimEntity, wanted: float) -> float:
+	var gravity: float = world.tuning.gravity
+	var peak: float = (wanted * wanted) / (2.0 * gravity)
+	var radius: float = world.tuning.actor_radius
+	var feet: float = actor.position.y - radius
+
+	# Only look as far as the jump could actually reach. A sweep beyond that
+	# would find ceilings this jump was never going to trouble.
+	var probe: float = peak + world.tuning.actor_height
+	var top: Vector3 = _sweep(world, actor, actor.position, Vector3(0.0, probe, 0.0))
+	var blocked_at: float = top.y + radius
+	if blocked_at >= actor.position.y + probe - 0.001:
+		return wanted # open sky, or at least nothing within reach
+
+	var room: float = world.tuning.headroom(blocked_at - feet)
+	if room <= 0.0:
+		return 0.0 # standing in a gap no taller than the body: no jump at all
+	return sqrt(2.0 * gravity * room)
 
 ## Lifts by the step-up allowance, moves across, and settles back down.
 ##
