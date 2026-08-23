@@ -193,8 +193,40 @@ Items 1-3 are done - see `55e0b9e` and the commit that added this line.
    was debugged.
 3. ~~Re-measure before the amortised flooding.~~ **Not needed.** p99 113 -> 41 ms
    and 80 -> 18 over-budget ticks in 600, from the smaller world alone.
+3b. ~~Routing floods most of the house.~~ **Halved.** The search runs from both
+   ends now, meeting in the middle: 59% of the nodes settled, p99 93 -> 73 ms,
+   over-budget ticks 58 -> 44. Note that the ROUTES CHANGED - same length,
+   different tie-breaks on 2,908 of 6,599 pairs - which is documented in
+   `NavGraph._trace` and means a replay saved before it will not reproduce.
+
+   **Routing is still the most expensive thing here.** One re-route settles
+   12,004 of 15,987 stances and costs ~41 ms, against a 33 ms tick. Both
+   frontiers still traverse most of the house on a spawn-to-spawn route because
+   there is no heuristic pulling them together. That is the next real
+   performance item, and item 4 is blocked behind it.
 4. **Bot route variety** - it takes the same approach every time, which is
-   solvable after two rounds. Next.
+   solvable after two rounds. **Attempted twice, reverted twice. Do not try a
+   third time without a different idea.**
+
+   The mechanism works and is three lines: the search settles ties by neighbour
+   visiting order, so rotating that order per bot varies the line without
+   lengthening it. Measured 1 -> 3 distinct approaches into each cash room from
+   eight seats, every seat perfectly repeatable, routes staying 19-21 legs.
+
+   It costs more than it is worth. The rotation lands in the innermost loop of
+   the router - once per settled node, twelve thousand times per route - and
+   every way of writing it made the tick worse than not having it:
+
+   | version | p99 | worst |
+   |---|---|---|
+   | no variety (current) | 73-78 ms | ~120 ms |
+   | rotated copy per node | 130 ms | 748 ms |
+   | index with a modulo | 86 ms | 129 ms |
+   | branch hoisted, two loops | 117 ms | 198 ms |
+
+   Against a 33 ms budget, where the baseline is already over 44 ticks in 600.
+   The next real move is making routing cheap enough that this is affordable -
+   see below - not another way to write the rotation.
 5. **Encounter to seizure conversion.** Held until a human has played: 14% may
    be a bot deficiency rather than a game problem, and tuning the game to fix the
    bots would make it worse for people.
