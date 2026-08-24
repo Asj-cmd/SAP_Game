@@ -4,7 +4,7 @@ extends SceneTree
 ##
 ##   godot --headless --path godot --script res://tests/carry_system_test.gd
 
-const EXPECTED_CHECKS: int = 16
+const EXPECTED_CHECKS: int = 24
 const PICKUP_RANGE: float = 40.0
 
 var _passed: int = 0
@@ -16,6 +16,7 @@ func _initialize() -> void:
 	_test_pickup_conditions()
 	_test_drop_and_follow()
 	_test_variant_a_is_playable()
+	_test_throw()
 
 	if _passed + _failed != EXPECTED_CHECKS:
 		_failed += 1
@@ -169,3 +170,71 @@ func _test_variant_a_is_playable() -> void:
 	world_b.step([CarryCommand.pick_up(raider_b.id, cash_b.id)])
 	world_b.step([CaptureCommand.capture(guard_b.id, raider_b.id)])
 	_check("variantB/the grab does not end the shelter", raider_b.is_captured, false)
+
+# ---- throw ----
+
+## A world with a floor and gravity, so an arc means something. The fixtures
+## above deliberately have neither - they test who may hold what, which is a
+## question with no height in it.
+func _throw_world() -> SimWorld:
+	var yard: ZoneDef = ZoneDef.new()
+	yard.id = &"yard"
+	yard.role = ZoneDef.Role.NEUTRAL
+	yard.bounds = AABB(Vector3(0, 0, 0), Vector3(2000, 400, 400))
+
+	var tuning: TuningDef = TuningDef.new()
+	tuning.pickup_range = PICKUP_RANGE
+	tuning.actor_radius = 0.0
+	tuning.gravity = 2000.0
+	tuning.throw_speed = 1100.0
+	tuning.throw_lift = 0.55
+
+	var collision: WorldCollisionDef = WorldCollisionDef.new()
+	collision.is_fixture = true
+	collision.bounds = AABB(Vector3(0, 0, 0), Vector3(2000, 400, 400))
+	collision.blockers = [
+		AABB(Vector3(0, 0, 0), Vector3(2000, 20, 400)), # floor
+		AABB(Vector3(700, 0, 0), Vector3(20, 400, 400)), # a wall to stop one
+	] as Array[AABB]
+
+	var team_a: TeamDef = TeamDef.new()
+	team_a.id = &"team_a"
+	var world: SimWorld = SimWorld.new(1)
+	world.configure(GameModeDef.new(), tuning, [yard], [team_a], collision)
+	world.add_system(CarrySystem.new())
+	world.match_phase = SimWorld.MatchPhase.PLAYING
+	return world
+
+func _test_throw() -> void:
+	var world: SimWorld = _throw_world()
+	var thrower: SimEntity = _add_actor(world, &"team_a", Vector3(100, 30, 200))
+	var cash: SimEntity = _add_cash(world, Vector3(100, 30, 200))
+	thrower.carrying_id = cash.id
+	cash.carried_by = thrower.id
+
+	world.step([ThrowCommand.throw(thrower.id, Vector3(1, 0, 0))] as Array[SimCommand])
+	_check("throw/leaves the hand", thrower.is_carrying(), false)
+	_check("throw/is in flight", cash.in_flight, true)
+	_check("throw/rises first", cash.velocity.y > 0.0, true)
+
+	var start: Vector3 = Vector3(100, 30, 200)
+	var ticks: int = 0
+	while cash.in_flight and ticks < 300:
+		world.step([])
+		ticks += 1
+	_check("throw/comes down", cash.in_flight, false)
+	_check("throw/travelled forward", cash.position.x > start.x + 100.0, true)
+	# The wall at x=700 is what it must not pass.
+	_check("throw/stopped by the wall", cash.position.x <= 700.0, true)
+
+	var landed: Vector3 = cash.position
+	for i: int in 30:
+		world.step([])
+	_check("throw/stays where it landed", cash.position.is_equal_approx(landed), true)
+
+	# Nothing in hand, nothing to throw.
+	var empty: SimWorld = _throw_world()
+	var idle: SimEntity = _add_actor(empty, &"team_a", Vector3(100, 30, 200))
+	var loose: SimEntity = _add_cash(empty, Vector3(100, 30, 200))
+	empty.step([ThrowCommand.throw(idle.id, Vector3(1, 0, 0))] as Array[SimCommand])
+	_check("throw/empty-handed does nothing", loose.in_flight, false)

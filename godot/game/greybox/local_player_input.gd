@@ -31,6 +31,7 @@ var _capture_pressed: bool = false
 var _carry_pressed: bool = false
 var _rescue_pressed: bool = false
 var _jump_pressed: bool = false
+var _throw_pressed: bool = false
 
 ## Mouse motion accrues from events between frames rather than being polled.
 var _mouse_motion: Vector2 = Vector2.ZERO
@@ -96,6 +97,12 @@ func poll(delta: float) -> void:
 	# out and take, and it is the only verb aimed at an object in the world.
 	if _read_mouse(MOUSE_BUTTON_LEFT, JOY_BUTTON_X):
 		_carry_pressed = true
+
+	# Throw on the right mouse button, beside grab, because it is the other
+	# thing you do with what is in your hands. Refused by the rules when you
+	# are carrying nothing, so it needs no state here.
+	if _read_mouse(MOUSE_BUTTON_RIGHT, JOY_BUTTON_RIGHT_SHOULDER):
+		_throw_pressed = true
 
 	# Crouch is HELD, not pressed. Read level-triggered on purpose - the whole
 	# feel of the verb is "stay down while I hold this", and a toggle would
@@ -184,6 +191,15 @@ func drain(world: SimWorld, tick: int) -> Array[SimCommand]:
 	if _jump_pressed:
 		_jump_pressed = false
 		commands.append(JumpCommand.jump(actor_id, tick))
+
+	if _throw_pressed:
+		_throw_pressed = false
+		# Thrown where the camera is looking. The arc is fixed by tuning, so
+		# this is the whole of the player's aim - which is the point (see
+		# ThrowCommand).
+		var aim: Vector3 = camera.intent_from(Vector2(0.0, -1.0)) if camera != null 			else Vector3.ZERO
+		if aim != Vector3.ZERO:
+			commands.append(ThrowCommand.throw(actor_id, aim, tick))
 
 	if not _has_sent_crouch or _crouch != _last_crouch_sent:
 		_has_sent_crouch = true

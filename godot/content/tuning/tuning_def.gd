@@ -72,6 +72,22 @@ func headroom(clear_height: float) -> float:
 ## the whole way, which cannot clip by construction.
 @export var jump_speed: float = 900.0
 
+## How fast a thrown carriable leaves the hand, in units per second.
+##
+## Against gravity 2000 and the fixed launch angle below, 1100 carries a bundle
+## roughly 600 units - past a garden fence, across a corridor, up onto a
+## balcony. Far enough to be worth doing and short enough that it is a pass
+## between team-mates rather than a way to cross the map alone.
+@export var throw_speed: float = 1100.0
+## How steeply a throw leaves the hand, as a fraction of the launch speed put
+## into the vertical.
+##
+## Fixed rather than aimed. DESIGN_DIRECTION §5: low precision, high
+## consequence - a party game breaks when it rewards mechanical skill, so the
+## player chooses WHERE to face and the arc is the same every time. It is also
+## what makes a throw readable to everyone watching it.
+@export var throw_lift: float = 0.55
+
 ## Peak height of a jump, for anyone sizing geometry against it. Derived, never
 ## authored - two numbers that must agree are one number that drifts.
 func jump_height() -> float:

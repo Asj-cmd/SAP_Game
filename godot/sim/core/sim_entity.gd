@@ -89,6 +89,14 @@ var zone_id: StringName = &""
 var carrying_id: int = NO_ENTITY
 ## CARRIABLE: the actor holding it, or NO_ENTITY when at rest.
 var carried_by: int = NO_ENTITY
+## CARRIABLE: in flight after a throw, and still moving.
+##
+## A thrown bundle is NOT a physics body (ARCHITECTURE §2 - physics is not
+## bit-identical across platforms, so it cannot be lockstepped). It is a
+## deterministic ballistic arc integrated by CarrySystem at the fixed timestep,
+## which makes it an ordinary part of the simulation that rolls back and
+## replays like anything else.
+var in_flight: bool = false
 ## CARRIABLE: zone whose score it currently counts toward, empty when in transit.
 var scored_for_team: StringName = &""
 ## Where this entity belongs at the start of a round: an actor's spawn, a
@@ -182,6 +190,7 @@ func duplicate_entity() -> SimEntity:
 	copy.carrying_id = carrying_id
 	copy.carried_by = carried_by
 	copy.scored_for_team = scored_for_team
+	copy.in_flight = in_flight
 	copy.origin_position = origin_position
 	copy.is_captured = is_captured
 	copy.captures_this_round = captures_this_round
@@ -216,7 +225,7 @@ static func float_bits(value: float) -> int:
 ## Canonical text form, fed into SimWorld's state digest. Floats appear as raw
 ## bits; use to_debug_string() when a human needs to read it.
 func to_digest_string() -> String:
-	return "E%d|k%d|t%s|s%d|p%d,%d,%d|v%d,%d,%d|m%d,%d|w%d,%d,%d|i%d,%d,%d|z%s|c%d|h%d|f%s|g%d,%d,%d|x%d|r%d|o%d|n%d|S%s,%d,%d" % [
+	return "E%d|k%d|t%s|s%d|p%d,%d,%d|v%d,%d,%d|m%d,%d|w%d,%d,%d|i%d,%d,%d|z%s|c%d|h%d|f%s,%d|g%d,%d,%d|x%d|r%d|o%d|n%d|S%s,%d,%d" % [
 		id, kind, team, slot,
 		float_bits(position.x), float_bits(position.y), float_bits(position.z),
 		float_bits(velocity.x), float_bits(velocity.y), float_bits(velocity.z),
@@ -224,6 +233,7 @@ func to_digest_string() -> String:
 		stance, 1 if crouch_intent else 0, 1 if jump_intent else 0,
 		float_bits(move_intent.x), float_bits(move_intent.y), float_bits(move_intent.z),
 		zone_id, carrying_id, carried_by, scored_for_team,
+		1 if in_flight else 0,
 		float_bits(origin_position.x), float_bits(origin_position.y), float_bits(origin_position.z),
 		1 if is_captured else 0, capture_ticks_remaining, captured_on_tick,
 		captures_this_round,
@@ -234,11 +244,12 @@ func to_digest_string() -> String:
 ## digest hashes: rounded decimals are for eyes, exact bits are for
 ## correctness. Changing this cannot affect desync detection.
 func to_debug_string() -> String:
-	return "E%d|k%d|t%s|s%d|p%.4f,%.4f,%.4f|v%.4f,%.4f,%.4f|z%s|c%d|h%d|f%s|g%d,%d,%d|x%d|r%d" % [
+	return "E%d|k%d|t%s|s%d|p%.4f,%.4f,%.4f|v%.4f,%.4f,%.4f|z%s|c%d|h%d|f%s,%d|g%d,%d,%d|x%d|r%d" % [
 		id, kind, team, slot,
 		position.x, position.y, position.z,
 		velocity.x, velocity.y, velocity.z,
 		zone_id, carrying_id, carried_by, scored_for_team,
+		1 if in_flight else 0,
 		float_bits(origin_position.x), float_bits(origin_position.y), float_bits(origin_position.z),
 		1 if is_captured else 0, capture_ticks_remaining,
 	]

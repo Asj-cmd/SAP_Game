@@ -947,7 +947,7 @@ func _update_hud() -> void:
 	lines.append("")
 	lines.append("move WASD / left stick    look mouse / right stick")
 	lines.append("jump SPACE or A    crouch SHIFT or LS (hold)")
-	lines.append("seize / free ally E or B    grab-drop LMB / X")
+	lines.append("seize / free ally E or B    grab-drop LMB / X    throw RMB / RB")
 	lines.append("[F4] bot paths %s" % ("on" if _show_paths else "off"))
 	lines.append("[F2] split-screen debug    [F3] bots %s    [F12] save a frame    [Esc] release mouse"
 		% ("on" if _bots_enabled else "off"))
