@@ -18,6 +18,15 @@ extends RefCounted
 ## for the host. There is no latency saving available here that is worth what it
 ## costs to see.
 ##
+## THROW IS ON THAT LIST FOR THE MOMENT THE CASH LEAVES YOUR HANDS, and for
+## nothing after it. The flight itself is ordinary simulation - a ballistic arc
+## integrated tick by tick against real geometry, which every machine computes
+## identically - so the bundle is never teleported and never snapped to a
+## landing spot. What waits for the host is only whether the throw HAPPENED:
+## whether you were holding cash, whether you were captured on that tick. Guess
+## that wrong and a bundle appears in the air and is then yanked back into a
+## hand, which is the artefact this whole policy exists to prevent.
+##
 ## HOW THE LATENCY IS HIDDEN INSTEAD, and this part matters as much as the rule:
 ## presentation starts the ANIMATION on input and commits the OUTCOME on
 ## confirmation. The reach begins the instant the button is pressed; whether it

@@ -160,6 +160,13 @@ func _try_throw(world: SimWorld, command: ThrowCommand) -> void:
 ## readable outcome - a bundle that skitters under furniture is a bundle nobody
 ## can find, and the verb is about passing cash to people rather than about
 ## simulating parcels.
+##
+## A TOSS, not a delivery. Nothing here knows or cares who the thrower meant it
+## for: the bundle lands on the ground where the arc ends and lies there until
+## somebody walks over and picks it up with the ordinary pickup rule. Passing to
+## a team-mate is therefore two players choosing to cooperate rather than a
+## mechanic that finds a receiver, which is the whole reason the verb creates
+## teamwork without a coordination system (DESIGN_DIRECTION §5).
 func _advance_flight(world: SimWorld, carriable: SimEntity) -> void:
 	var gravity: float = world.tuning.gravity if world.tuning != null else 0.0
 	if gravity > 0.0:
