@@ -24,6 +24,12 @@ const CAMERA_COLLISION_LAYER: int = 2
 ## simplification, called out because it is why the mesh needs a vertical
 ## offset to stand ON the floor rather than half-sunk into it.
 const ACTOR_HEIGHT: float = 180.0
+## Edge of the cube a carriable is drawn as.
+##
+## Named because _view_offset needs it: the simulation treats a carriable as a
+## POINT, so a mesh centred on that point buries half of itself in whatever the
+## point is resting on.
+const CASH_SIZE: float = 50.0
 ## How tall a crouched actor is drawn, as a fraction of standing.
 ##
 ## PRESENTATION ONLY. The simulation's crouch is a smaller collision sphere
@@ -603,6 +609,19 @@ func _show_reach(mine: int) -> void:
 ## shortened mesh by the standing half-height would sink it into the floor,
 ## which is the same bug this function exists to prevent for the standing case.
 func _view_offset(entity: SimEntity, drawn_height: float) -> Vector3:
+	if entity.is_carriable():
+		# A carriable is a POINT to the simulation, and CarrySystem rests it
+		# exactly ON the surface it lands on - so a cube centred there has half
+		# its depth below the floor. Reported from a playtest as the cash
+		# sinking into the ground; it was never sinking, it was being drawn
+		# through its own resting point.
+		#
+		# Only while it is loose. A held bundle takes the carrier's position,
+		# which is a body centre rather than a point on the ground, and lifting
+		# it there would float it above the hand.
+		if entity.is_held():
+			return Vector3.ZERO
+		return Vector3(0.0, CASH_SIZE * 0.5, 0.0)
 	if not entity.is_actor():
 		return Vector3.ZERO
 	var radius: float = level.tuning.actor_radius
@@ -664,7 +683,7 @@ func _rebuild_views() -> void:
 			view.mesh = body
 		else:
 			var box: BoxMesh = BoxMesh.new()
-			box.size = Vector3(50, 50, 50)
+			box.size = Vector3(CASH_SIZE, CASH_SIZE, CASH_SIZE)
 			view.mesh = box
 		view.material_override = _flat(_team_colour(entity.team, entity.is_carriable()))
 		add_child(view)
