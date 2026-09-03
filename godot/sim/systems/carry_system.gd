@@ -18,6 +18,10 @@ extends SimSystem
 ## different inputs, and the simulation is built on doing the same work every
 ## time.
 const FLIGHT_SWEEP_STEPS: int = 12
+## How far below a stopped bundle to look for ground before calling it landed.
+## One tick of falling at a walking pace, so a bundle that has genuinely come
+## to rest is caught and one merely scraping a wall is not.
+const SETTLE_PROBE: float = 2.0
 
 func phase() -> SimSystem.Phase:
 	return SimSystem.Phase.INTERACTION
@@ -180,15 +184,49 @@ func _advance_flight(world: SimWorld, carriable: SimEntity) -> void:
 		return
 
 	var to: Vector3 = carriable.position + step
-	if world.collision != null 		and (not world.collision.contains(to, 0.0) 			or world.collision.blocks_segment(carriable.position, to, 0.0)):
-		# Hit something. Come to rest at the last clear point rather than
-		# inside it - the same bisection MovementSystem settles a blocked move
-		# with, so a thrown bundle lands exactly where a walking body would
-		# have stopped.
-		carriable.position = _last_clear(world, carriable.position, step)
+	if world.collision == null or not _hits(world, carriable.position, to):
+		carriable.position = to
+		return
+
+	# Hit something. Come to rest at the last clear point rather than inside
+	# it - the same bisection MovementSystem settles a blocked move with.
+	carriable.position = _last_clear(world, carriable.position, step)
+
+	# WHAT IT HIT DECIDES WHETHER IT HAS LANDED. Treating every collision as a
+	# landing is what made a bundle thrown at a wall stick to the wall, hanging
+	# in the air at head height until somebody jumped and grabbed it at the
+	# same moment - reported from a playtest, and visible in my own probe
+	# output as "stopped at x=2410" without my noticing that 2410 is a wall
+	# rather than a floor.
+	#
+	# So the test is whether there is anything UNDERNEATH. A bundle resting on
+	# a floor, a counter or a stair tread has landed; one that has merely run
+	# out of horizontal room slides down the face it hit and keeps falling,
+	# which is what a real parcel does and what a player expects to see.
+	if _supported(world, carriable.position):
 		_land(carriable)
 		return
-	carriable.position = to
+	# Against a wall in mid-air: drop the horizontal travel and let gravity
+	# carry it down. Keeping the vertical component is what makes it fall
+	# rather than hang.
+	carriable.velocity.x = 0.0
+	carriable.velocity.z = 0.0
+
+## Does the straight move from `from` to `to` leave the world or cross anything?
+func _hits(world: SimWorld, from: Vector3, to: Vector3) -> bool:
+	if not world.collision.contains(to, 0.0):
+		return true
+	return world.collision.blocks_segment(from, to, 0.0)
+
+## Is there something solid immediately below this point?
+##
+## A carriable is a point to the collision system, so "resting on" is a short
+## probe downward rather than a contact test. SETTLE_PROBE is small enough that
+## a bundle stopped against a wall face does not read as supported by the wall,
+## and large enough to catch the floor the bisection just settled it onto.
+func _supported(world: SimWorld, at: Vector3) -> bool:
+	var below: Vector3 = at - Vector3(0.0, SETTLE_PROBE, 0.0)
+	return _hits(world, at, below)
 
 ## The furthest point along `step` that is still clear of geometry.
 func _last_clear(world: SimWorld, from: Vector3, step: Vector3) -> Vector3:

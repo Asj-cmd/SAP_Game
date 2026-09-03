@@ -4,7 +4,7 @@ extends SceneTree
 ##
 ##   godot --headless --path godot --script res://tests/carry_system_test.gd
 
-const EXPECTED_CHECKS: int = 24
+const EXPECTED_CHECKS: int = 29
 const PICKUP_RANGE: float = 40.0
 
 var _passed: int = 0
@@ -232,9 +232,53 @@ func _test_throw() -> void:
 		world.step([])
 	_check("throw/stays where it landed", cash.position.is_equal_approx(landed), true)
 
+	# A WALL IS NOT A FLOOR. Reported from a playtest: a bundle thrown at a wall
+	# stuck to it in mid-air, at head height, and could only be recovered by
+	# jumping and grabbing at the same moment. Every collision was being treated
+	# as a landing.
+	var walled: SimWorld = _throw_world()
+	var pitcher: SimEntity = _add_actor(walled, &"team_a", Vector3(100, 30, 200))
+	var parcel: SimEntity = _add_cash(walled, Vector3(100, 30, 200))
+	pitcher.carrying_id = parcel.id
+	parcel.carried_by = pitcher.id
+	walled.step([ThrowCommand.throw(pitcher.id, Vector3(1, 0, 0))] as Array[SimCommand])
+	var hit_wall: bool = false
+	var flown: int = 0
+	while parcel.in_flight and flown < 300:
+		walled.step([])
+		# The wall at x=700 is the one it will meet first.
+		if parcel.position.x > 600.0 and parcel.position.y > 60.0:
+			hit_wall = true
+		flown += 1
+	_check("throw/reached the wall above the ground", hit_wall, true)
+	_check("throw/did not stick to it", parcel.position.y < 60.0, true)
+	# The floor slab is 20 thick, so anything resting on it sits at y=20.
+	_check("throw/came to rest on the floor", parcel.position.y <= 21.0, true)
+
 	# Nothing in hand, nothing to throw.
 	var empty: SimWorld = _throw_world()
 	var idle: SimEntity = _add_actor(empty, &"team_a", Vector3(100, 30, 200))
 	var loose: SimEntity = _add_cash(empty, Vector3(100, 30, 200))
 	empty.step([ThrowCommand.throw(idle.id, Vector3(1, 0, 0))] as Array[SimCommand])
 	_check("throw/empty-handed does nothing", loose.in_flight, false)
+
+	# A bundle that lands on something raised STAYS on it - the fix for walls
+	# must not turn every surface into one the cash slides off.
+	var shelved: SimWorld = _throw_world()
+	# A low, far shelf: the arc clears its edge and comes down on TOP of it.
+	# A tall one would be struck on the side, which is the wall case above -
+	# right behaviour, different question.
+	shelved.collision.blockers.append(
+		AABB(Vector3(560, 20, 0), Vector3(200, 40, 400)))
+	var lobber: SimEntity = _add_actor(shelved, &"team_a", Vector3(100, 30, 200))
+	var bundle: SimEntity = _add_cash(shelved, Vector3(100, 30, 200))
+	lobber.carrying_id = bundle.id
+	bundle.carried_by = lobber.id
+	shelved.step([ThrowCommand.throw(lobber.id, Vector3(1, 0, 0))] as Array[SimCommand])
+	var spent: int = 0
+	while bundle.in_flight and spent < 300:
+		shelved.step([])
+		spent += 1
+	# The shelf's top is at y=60; the floor it would otherwise reach is y=20.
+	_check("throw/rests on a raised surface", bundle.position.y > 21.0, true)
+	_check("throw/and stops there rather than sliding off", bundle.in_flight, false)
