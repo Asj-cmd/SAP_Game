@@ -13,7 +13,7 @@ extends SceneTree
 ## also drives the sim the way the slice does, so "the grey box runs" is a
 ## claim with evidence rather than a screenshot nobody kept.
 
-const EXPECTED_CHECKS: int = 18
+const EXPECTED_CHECKS: int = 20
 
 var _passed: int = 0
 var _failed: int = 0
@@ -23,6 +23,7 @@ func _initialize() -> void:
 	print("=== Grey-box level ===")
 	_test_both_variants_load()
 	_test_playable()
+	_test_tuning_tracks_defaults()
 
 	if _passed + _failed != EXPECTED_CHECKS:
 		_failed += 1
@@ -115,3 +116,37 @@ func _test_playable() -> void:
 	var halted_at: float = walker.position.x
 	world.step([])
 	_check("play/stops when released", is_equal_approx(walker.position.x, halted_at), true)
+
+## The grey box may only DIFFER from TuningDef's defaults on purpose.
+##
+## A restated value silently stops tracking the thing it restates, and this one
+## did: carry_speed_scale sat at 1.0 here for months after the default became
+## 0.85, so carrying cash cost nothing and the tuning file said otherwise. The
+## test names the intended exceptions, so adding a fourth is a deliberate act
+## and re-stating a matching value fails.
+func _test_tuning_tracks_defaults() -> void:
+	var live: TuningDef = GreyBoxLevel.build_tuning()
+	var stock: TuningDef = TuningDef.new()
+	# Deliberately tighter: the grey box is a small, dense space.
+	var intended: Dictionary[String, float] = {
+		"pickup_range": 70.0, "capture_range": 80.0, "rescue_range": 80.0,
+	}
+	var checked: PackedStringArray = PackedStringArray([
+		"move_speed", "carry_speed_scale", "actor_radius", "actor_height",
+		"crouch_speed_scale", "jump_speed", "throw_speed", "throw_lift",
+		"gravity", "terminal_fall_speed", "step_up_height",
+		"vault_height", "crouch_gap", "max_drop_height",
+		"pickup_range", "capture_range", "rescue_range",
+	])
+	var unexpected: PackedStringArray = PackedStringArray()
+	for field: String in checked:
+		var mine: float = live.get(field)
+		if intended.has(field):
+			if mine != intended[field]:
+				unexpected.append("%s should be %s, is %s" % [field, intended[field], mine])
+			continue
+		if mine != stock.get(field):
+			unexpected.append("%s drifted from the default %s, is %s" % [
+				field, stock.get(field), mine])
+	_check("tuning/only the intended values differ", ", ".join(unexpected), "")
+	_check("tuning/carrying actually costs something", live.carry_speed_scale < 1.0, true)

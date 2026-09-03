@@ -64,16 +64,25 @@ func _init(safe_variant: SafeVariant = SafeVariant.B, level_path: String = LEVEL
 	mode = build_mode(_cash_per_team())
 
 ## Numbers a designer dials, kept apart from the geometry a designer drags.
+##
+## ONLY THE DIFFERENCES FROM TuningDef's OWN DEFAULTS BELONG HERE, and that is a
+## rule learned the hard way. This function used to restate values it agreed
+## with - actor_radius, move_speed, gravity, step_up_height - and one it no
+## longer did: carry_speed_scale sat at 1.0 here for months after the default
+## became 0.85, so laden actors ran at full speed and carrying cash cost
+## nothing. Nobody could see it, because the tuning file said 0.85 and was
+## telling the truth about itself.
+##
+## A restated value is a value that silently stops tracking the thing it
+## restates. If a number here matches the default, delete it.
 static func build_tuning() -> TuningDef:
 	var values: TuningDef = TuningDef.new()
-	values.actor_radius = 20.0
-	values.move_speed = 440.0
-	values.carry_speed_scale = 1.0
+	# Tighter than the defaults on purpose: the grey box is a small, dense
+	# space, and reach that feels right in a house makes every interaction in
+	# here trigger from across the room. Playtest numbers, not arbitrary ones.
 	values.pickup_range = 70.0
 	values.capture_range = 80.0
 	values.rescue_range = 80.0
-	values.gravity = 2000.0
-	values.step_up_height = 30.0
 	return values
 
 static func build_mode(cash_per_team: int) -> GameModeDef:
