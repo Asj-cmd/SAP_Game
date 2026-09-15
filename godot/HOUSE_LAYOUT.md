@@ -53,23 +53,23 @@ occasionally is drama, not a design failure.
 
 | Thing | Value | Why |
 |---|---|---|
-| Room | 1000 × 1000 | A 480 stair strip plus a 120 landing along one wall still leaves most of the room clear |
+| Room | 1000 × 1000 | A 576 stair strip plus a 120 landing along one wall still leaves 304 of the room clear |
 | Wall | 30 | |
 | House footprint | **2090 square** | Two rooms plus three walls |
-| Storey height | 300 | 260 clear over a 180 body |
+| Storey height | **360** | 320 clear over a 180 body — 140 of headroom, enough to jump onto a 120 ledge indoors. Twelve steps of 30. Was 300, which left only 80 and capped the indoor jump at 71 |
 | Doorway | 240 wide × 240 tall | Run through mid-chase, not sidle through |
 | Step | 30 rise, 48 run | `TuningDef.step_up_height`; 48 keeps 8 units of slack over the fill's 40-unit sampling cell — enough that a column centre cannot miss a tread, the failure a shorter run risks |
-| Stair per storey | 10 steps, **one straight flight** | No switchback, no mid-landing |
+| Stair per storey | 12 steps, **one straight flight** | No switchback, no mid-landing. Derived from the storey, not counted by hand |
 | Flat landing before the first step | **120** | So the flight does not start flush against the doorway you just walked through |
-| Stair footprint | **480 × 280** flight + 120 landing = **600 × 280** total, against an exterior wall | All of it on the perimeter |
+| Stair footprint | **576 × 280** flight + 120 landing = **696 × 280** total, against an exterior wall | All of it on the perimeter |
 | Stairwell void above | **The whole footprint, base to top** | See below — deliberately not tuned tighter than the flight |
 
-**Why straight beats switchback.** Both climb 300 in ten steps. The difference
-is where the floor goes:
+**Why straight beats switchback.** Both climb a storey in the same number of
+steps. The difference is where the floor goes:
 
 | | Footprint | Shape |
 |---|---|---|
-| Straight, against a wall | 600 × 280 | Strip on the perimeter |
+| Straight, against a wall | 696 × 280 | Strip on the perimeter |
 | U switchback | 580 × 560 | Solid block, landing mid-room |
 | L quarter-turn | 600 × 600 | Two walls, awkward inner pocket |
 
@@ -136,7 +136,7 @@ in NE and SW. So you never step off a stair straight onto the money, and each
 cash room opens onto *both* landings — two independent approaches, neither
 holdable by one defender.
 
-## 4. GROUND FLOOR — y 0 to 300
+## 4. GROUND FLOOR — y 0 to 360
 
 ```
                       NORTH
@@ -176,7 +176,7 @@ Ring corridor: Front Hall → Kitchen → Back Hall → Jail → Front Hall.
 **Five ways onto this floor**, one per face plus one: front door (S), back door
 (N), side door (E), Back Hall window (W), Front Hall window (E).
 
-## 5. UPPER FLOOR — y 300 to 600
+## 5. UPPER FLOOR — y 360 to 720
 
 ```
                       NORTH
@@ -257,23 +257,23 @@ invisible trapdoor.
 Openings are centred on their room's face unless noted. Doorway heads at +240;
 ground window sill +90, head +240; escape window sill +80, head +240.
 
-### Ground floor (y 0–300)
+### Ground floor (y 0–360)
 
 | Tag | Element | Room | Face / wall | Local coords (X, Z) | Direction |
 |---|---|---|---|---|---|
 | G1 | Front door | Front Hall | South outer | X 1440–1680 · Z 0–30 | Two-way |
 | G2 | Window | Front Hall | East outer, **north of the stair top** | X 2060–2090 · Z 745–985 | Two-way climb |
-| G3 | Main stair | Front Hall | Against east wall, running north | X 1780–2060 · Z 60–660 (120 flat landing, then 480 flight) | Up to Landing A. Base at Z 60, beside the front door |
+| G3 | Main stair | Front Hall | Against east wall, running north | X 1780–2060 · Z 60–756 (120 flat landing, then 576 flight) | Up to Landing A. Base at Z 60, beside the front door |
 | G4 | Side door | Kitchen | East outer | X 2060–2090 · Z 1440–1680 | Two-way |
 | G5 | Back door | Back Hall | North outer | X 410–650 · Z 2060–2090 | Two-way |
 | G6 | Window | Back Hall | West outer, **south of the stair top** | X 0–30 · Z 1105–1345 | Two-way climb |
-| G7 | Second stair | Back Hall | Against west wall, running south | X 30–310 · Z 1430–2030 (120 flat landing at the top, then 480 flight down) | Up to Landing B. Base at Z 2030, beside the back door |
+| G7 | Second stair | Back Hall | Against west wall, running south | X 30–310 · Z 1334–2030 (120 flat landing at the top, then 576 flight down) | Up to Landing B. Base at Z 2030, beside the back door |
 | D1 | Doorway | Front Hall ↔ Kitchen | Internal Z 1030–1060 | X 1440–1680 · Z 1030–1060 | Two-way |
 | D2 | Doorway | Kitchen ↔ Back Hall | Internal X 1030–1060 | X 1030–1060 · Z 1440–1680 | Two-way |
 | D3 | Doorway | Back Hall ↔ Jail | Internal Z 1030–1060 | X 410–650 · Z 1030–1060 | Two-way |
 | D4 | Doorway | Jail ↔ Front Hall | Internal X 1030–1060 | X 1030–1060 · Z 410–650 | Two-way |
 
-### Upper floor (y 300–600)
+### Upper floor (y 360–720)
 
 | Tag | Element | Room | Face / wall | Local coords (X, Z) | Direction |
 |---|---|---|---|---|---|
@@ -407,8 +407,8 @@ earth, because the Kitchen's side door and the ground beneath it stay undisturbe
 | NW | Boiler — coal chute (W), vent (S… see below) |
 | NE | *solid earth* |
 
-Heights shift down by one storey: basement floor `y = −300`, ground `y = 0`,
-upper `y = 300`. Garden stays at ground level, so the basement is below grade.
+Heights shift down by one storey: basement floor `y = −360`, ground `y = 0`,
+upper `y = 360`. Garden stays at ground level, so the basement is below grade.
 
 Only the **main stair** reaches the basement. The second stair still stops at the
 ground floor, and the earth under the NW quadrant is excavated but not connected

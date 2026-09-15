@@ -275,6 +275,41 @@ turned copy landed at a different phase against the grid - 4,072 stances against
 the world in whole cells; the builder now refuses to write a scene that breaks
 it. See `WORLD_AUTHORING.md` §11.
 
+## 6a. The storey is 360, and the house is proportional
+
+Raised from 300 (ten steps) to **360 (twelve)**, before the Blender work, because
+it is a constant here and would be a re-model there.
+
+**It was too MEAN, not too tall.** A 1000-unit room with the old 260 clear
+height was 3.85 wide for every 1 tall, against about 1.67 for a real room - the
+house read as a wide flat box. No horizontal change was needed or made: raising
+the storey moved the room to 3.12 and the whole house to 2.90 : 1, which is
+still generously wide for the camera (§8) without being a corridor with a lid.
+
+**It also fixed the verbs.** 320 of clear height over a 180 body is 140 of
+headroom, and landing on a `vault_height` ledge needs 300 of clear. The indoor
+jump went 71 -> 128 and now gets on top of waist-high things; it could not
+before, and the jump's ceiling cap still holds at zero clipped ticks.
+
+**Three numbers stopped being hand-written.** `UPPER` and `ROOF` were hardcoded
+at 600/900 while `STOREY` said 300 - three values agreeing by hand, which is the
+drift that let `carry_speed_scale` sit wrong for months. They derive now, as does
+`FLIGHT_STEPS` (was a literal `10` in the loop and a `RUN * 10.0` constant).
+
+**Checked, because the point was to break nothing:** both houses still bake to
+4481 stances each (difference 0, so the turned copy still samples in phase);
+raid distances 21 vs 20 legs; escape drop 360 against a max_drop of 480, so the
+one-way balcony still works; the flight is 696 of a 1000 room, leaving 304 of
+floor; lot, margins and corridor untouched; `sim/` and tuning have zero diff.
+458 tests, bot_match DETERMINISTIC with a winner, netcode digests identical.
+
+**One real cost.** Over-budget ticks went 43-47 -> 67-71 of 600, measured three
+times. p99 is about the same (57 -> 65 ms) but more ticks cross the line: taller
+storeys mean longer flights and more stances per column, so bots decide more
+often. Routing is the same speed per route. This does not change the conclusion
+in §6b - the fix is scheduling, not a faster search - but the pressure is higher
+than it was.
+
 ## 6b. What is actually left before Blender
 
 Asked directly, and answered by measuring rather than from memory.

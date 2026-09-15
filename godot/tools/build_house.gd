@@ -27,7 +27,30 @@ const RUN: float = 48.0 ## 30 rise / 48 run = 32 degrees, a real stair angle -
                         ## units clear of the fill's 40-unit sampling cell
                         ## (WORLD_AUTHORING §11) so a column centre cannot miss
                         ## a tread.
-const STOREY: float = 300.0 ## 10 steps exactly
+## §2. A storey is a whole number of steps, and generous rather than economical.
+##
+## 360 is TWELVE steps of 30, which is the first constraint: the walkable fill
+## quantises height at layer_height (= STEP), so a tread is only found when a
+## layer centre falls inside it, and a storey that is not a whole number of
+## steps silently drops treads nobody can climb (WORLD_AUTHORING §12).
+##
+## It was 300 - ten steps, 260 of clear height - and that was too MEAN for the
+## room it sits in, not too tall. A 1000-unit room with a 260 ceiling is 3.85
+## wide for every 1 tall, where a real domestic room is about 1.67; the house
+## read as a wide flat box. At 360 the clear height is 320 and the ratio is
+## 3.12, which is still generously wide but no longer a corridor with a lid.
+##
+## It also buys the headroom the verbs need. A standing body is 180 tall, so
+## 260 of clear height left 80 above the head - not enough to jump ONTO
+## anything, because landing on a vault-height (120) ledge needs the head to
+## reach 300. 320 of clear height gives 140 of headroom and makes every
+## waist-high surface in the house something a player can get on top of.
+##
+## The flight still fits the room, which is the second constraint: twelve
+## treads at 48 is 576, plus a 120 landing, is 696 of a 1000 room - leaving 304
+## of floor to walk onto. Eleven steps in a 755 room was what made the earlier
+## house "difficult to get onto the stairs".
+const STOREY: float = 360.0 ## 12 steps exactly
 const QUAD: float = 1000.0 ## §2: room is 1000 square, holds a corner stair
 const WALL: float = 30.0
 const DOOR: float = 240.0
@@ -43,8 +66,12 @@ const SILL_GROUND: float = 90.0 ## ground window sill
 
 # ---- §3 heights ----
 const GROUND: float = 300.0 ## garden / terrain surface sits here
-const UPPER: float = 600.0
-const ROOF: float = 900.0
+## DERIVED, not restated. These were hardcoded at 600 and 900 while STOREY said
+## 300, which is three numbers that have to agree by hand - exactly the shape of
+## drift that let carry_speed_scale sit wrong for months. Change STOREY and the
+## floors follow.
+const UPPER: float = GROUND + STOREY
+const ROOF: float = UPPER + STOREY
 
 # ---- §3 house-local grid ----
 #
@@ -71,14 +98,23 @@ const FAR_MID: float = MID_HIGH + QUAD * 0.5 ## 1560
 
 # ---- §2 straight stairs, hugging an exterior wall ----
 #
-# Ten steps, one flight, no switchback and no mid-landing, run shortened from
+# One flight per storey, no switchback and no mid-landing, run shortened from
 # 64 to 48 so the flight reads as a stair rather than a ramp - 25 degrees was
 # too shallow. 30 rise over 48 run is 32 degrees, still comfortably above the
 # fill's 40-unit sampling cell (8 units of slack; below ~40 a column centre can
 # miss a tread's centre entirely and the fill silently drops a stance, the same
 # class of bug the lot-alignment guard exists to catch elsewhere in this file).
-# Total flight 480, not 640 - a real saving on top of the switchback's removal.
-const FLIGHT_RUN: float = RUN * 10.0 ## 480 - full climb in one run
+#
+# Twelve treads at 48 is 576 plus a 120 landing, which is 696 of the 1000-unit
+# room the flight stands in - it fits with 304 of floor to spare, and that
+# margin is the point. An eleven-tread flight in a 755 room was what made
+# "getting onto the stairs is difficult" a real complaint.
+## Steps in one flight, derived from the storey rather than counted by hand.
+## STOREY is a whole number of STEPs by construction (see above), so this is
+## exact - and a flight that did not match its storey would either stop short of
+## the floor or punch through it.
+const FLIGHT_STEPS: int = int(STOREY / STEP)
+const FLIGHT_RUN: float = RUN * float(FLIGHT_STEPS) ## full climb in one run
 const FLIGHT_W: float = 280.0
 
 ## Flat clearance before the first riser, so the flight does not start flush
@@ -353,7 +389,7 @@ func _stairs() -> void:
 ## move_intent flips from (0,0,1) to a pure lateral (-1,0,0) and the body
 ## wedges against the flank. Start at BotDirector._steer(), not here.
 func _straight_flight(x: float, z: float, base: float, dir: float) -> void:
-	for i: int in 10:
+	for i: int in FLIGHT_STEPS:
 		var top: float = base + STEP * float(i + 1)
 		var near: float = z + dir * (STAIR_LANDING + RUN * float(i))
 		var lo: float = minf(near, near + dir * RUN)

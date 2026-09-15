@@ -395,29 +395,41 @@ built to one of them.
 | `vault_height` | 120 | vault | a counter, a windowsill, a low wall, a railing |
 | `crouch_gap` | 130 | crouch | under a counter, a serving hatch, a crawl space |
 | `max_drop_height` | 480 | drop | a first-floor window, a balcony, a stairwell |
-| storey | 240 | stairs | one floor to the next |
+| storey | 360 | stairs | one floor to the next |
 
-**A storey is a whole number of steps, AND SHORT ENOUGH THAT A FLIGHT FITS IN A
-ROOM.** Two constraints, and the second one was learned from the chair.
+**A storey is a whole number of steps, SHORT ENOUGH THAT A FLIGHT FITS IN A
+ROOM, and TALL ENOUGH TO JUMP IN.** Three constraints. The third was added after
+the jump verb landed and is the reason the number is now 360 rather than 300.
 
-A flight costs one tread per step and a tread costs 64 (below), so the run is
-`steps × 64`. At eleven steps that is 704 in a 755 room: the staircase fills
-the room, has to start hard against a wall, and has to be approached by
-walking into a corner first — which is what "getting on to the stairs is
-difficult" turned out to be. Eight steps is 512 and leaves 243 of floor to walk
-onto.
+*Whole steps.* The fill quantises height at `layer_height` — 30, the step
+allowance — so a tread is only found when a layer centre falls between its top
+and the next tread's. An earlier 320 storey was eleven treads of 29.09, and a
+29.09 window in a 30 grid misses sometimes: it missed two treads out of
+twenty-two, giving two staircases with a step nobody could climb in a level that
+otherwise passed every check. At exactly 30 every window contains exactly one
+centre, always. **360 = 12 × 30.**
 
-240 units is also 2.4 m, which is what a domestic ceiling actually is. 330 was
-3.3 m and bought nothing but a stair that did not fit.
+*The flight fits.* A tread costs `RUN` (48), so twelve steps is 576, plus a 120
+landing is 696 of the 1000-unit room the flight stands in — 304 of floor left to
+walk onto. An earlier house put eleven 64-unit treads (704) in a 755 room: the
+staircase filled it, had to start hard against a wall, and had to be approached
+by walking into a corner, which is what "getting on to the stairs is difficult"
+turned out to be.
 
-The first constraint, which still holds: it was 320,
-which is eleven treads of 29.09, and eleven treads of 29.09 do not make a
-staircase. The fill quantises height at `layer_height` — 30, the step allowance —
-so a tread is only found when a layer centre falls between its top and the next
-tread's. A 29.09 window in a 30 grid misses sometimes, and it missed two treads
-out of twenty-two: two staircases with a step nobody could climb, in a level
-that otherwise passed every check. At exactly 30 every window contains exactly
-one centre, always. **330 = 11 × 30.**
+*Tall enough to jump in.* A storey of 360 is 320 of clear height under the slab,
+and a standing body is 180, so there are 140 units of headroom. That is what
+makes a jump indoors mean anything: landing ON a `vault_height` ledge needs the
+head to reach 120 + 180 = 300, and the old 300 storey gave only 260 of clear
+height. Indoors the jump was capped to 71 units and could not get onto a single
+waist-high surface in the house; it is 128 now.
+
+**The proportion is the other half of the answer.** 360 was not chosen to be
+economical. A 1000-unit room with the old 260 ceiling was 3.85 units wide for
+every 1 tall, where a real domestic room is about 1.67 — the house read as a
+wide flat box, and the fix was a taller storey rather than a smaller footprint.
+At 320 clear the ratio is 3.12, and the house as a whole is 2090 wide by 720
+tall, or 2.90 : 1. Still generously wide, because the camera needs it (§8), but
+no longer a corridor with a lid.
 
 **No exceptions, ever.** Not one ledge at 140 because it looked better there.
 
