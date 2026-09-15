@@ -60,6 +60,20 @@ func step(world: SimWorld) -> void:
 			_advance_flight(world, carriable)
 			continue
 		if not carriable.is_held():
+			# LOOSE CASH FALLS, however it came to be loose.
+			#
+			# Falling used to be a property of being THROWN, which left every
+			# other way of putting a bundle down hanging in mid-air: dropped
+			# from the hand it stayed at the carrier's centre - twenty units up,
+			# and a whole body's height up if you dropped it mid-jump - and a
+			# bundle spawned at the start of a round or left behind by a
+			# captured carrier never touched the floor either. Reported from the
+			# chair as "the cash floats, and only a toss actually lands it".
+			#
+			# So the arc is not what makes a bundle fall; being unheld is. A
+			# drop is a throw with no velocity, and everything below already
+			# knows how to settle one.
+			_settle(world, carriable)
 			continue
 		var carrier: SimEntity = world.get_entity(carriable.carried_by)
 		if carrier == null:
@@ -68,6 +82,21 @@ func step(world: SimWorld) -> void:
 			carriable.carried_by = SimEntity.NO_ENTITY
 			continue
 		carriable.position = carrier.position
+
+## Starts a loose bundle falling, unless it is already resting on something.
+##
+## Cheap in the common case: a bundle lying on a floor is supported, so this is
+## one downward probe per loose carriable per tick and nothing else. Only the
+## tick where it becomes unsupported costs anything more.
+func _settle(world: SimWorld, carriable: SimEntity) -> void:
+	if world.collision == null:
+		return
+	if _supported(world, carriable.position):
+		return
+	carriable.in_flight = true
+	# Straight down. A dropped bundle inherits nothing from the hand that held
+	# it - that would be a throw, and throwing is a verb the player chooses.
+	carriable.velocity = Vector3.ZERO
 
 func _try_pick_up(world: SimWorld, command: CarryCommand) -> void:
 	var actor: SimEntity = world.get_entity(command.actor_id)

@@ -4,7 +4,7 @@ extends SceneTree
 ##
 ##   godot --headless --path godot --script res://tests/carry_system_test.gd
 
-const EXPECTED_CHECKS: int = 29
+const EXPECTED_CHECKS: int = 33
 const PICKUP_RANGE: float = 40.0
 
 var _passed: int = 0
@@ -232,6 +232,23 @@ func _test_throw() -> void:
 		world.step([])
 	_check("throw/stays where it landed", cash.position.is_equal_approx(landed), true)
 
+	# LOOSE CASH FALLS, however it came to be loose. Reported from a playtest:
+	# a bundle dropped from the hand hung at the carrier's centre, and one
+	# dropped mid-jump hung at head height - only a THROW ever landed, because
+	# falling was a property of the arc rather than of being unheld.
+	var dropped: SimWorld = _throw_world()
+	var holder: SimEntity = _add_actor(dropped, &"team_a", Vector3(100, 120, 200))
+	var loot: SimEntity = _add_cash(dropped, Vector3(100, 120, 200))
+	holder.carrying_id = loot.id
+	loot.carried_by = holder.id
+	dropped.step([CarryCommand.drop(holder.id)] as Array[SimCommand])
+	_check("drop/leaves the hand", holder.is_carrying(), false)
+	for i: int in 120:
+		dropped.step([])
+	# The fixture's floor slab is 20 thick, so resting on it means y=20.
+	_check("drop/falls to the floor", loot.position.y <= 21.0, true)
+	_check("drop/and comes to rest", loot.in_flight, false)
+
 	# A WALL IS NOT A FLOOR. Reported from a playtest: a bundle thrown at a wall
 	# stuck to it in mid-air, at head height, and could only be recovered by
 	# jumping and grabbing at the same moment. Every collision was being treated
@@ -256,11 +273,19 @@ func _test_throw() -> void:
 	_check("throw/came to rest on the floor", parcel.position.y <= 21.0, true)
 
 	# Nothing in hand, nothing to throw.
+	#
+	# Asserted on the bundle not MOVING rather than on in_flight, because loose
+	# cash falls now and this one is spawned above the floor: it is in flight on
+	# the next tick whatever the throw did. What must not happen is it being
+	# launched sideways - a throw nobody had the cash for.
 	var empty: SimWorld = _throw_world()
 	var idle: SimEntity = _add_actor(empty, &"team_a", Vector3(100, 30, 200))
 	var loose: SimEntity = _add_cash(empty, Vector3(100, 30, 200))
+	var where: Vector3 = loose.position
 	empty.step([ThrowCommand.throw(idle.id, Vector3(1, 0, 0))] as Array[SimCommand])
-	_check("throw/empty-handed does nothing", loose.in_flight, false)
+	_check("throw/empty-handed launches nothing",
+		is_equal_approx(loose.position.x, where.x), true)
+	_check("throw/and nobody is left holding it", idle.is_carrying(), false)
 
 	# A bundle that lands on something raised STAYS on it - the fix for walls
 	# must not turn every surface into one the cash slides off.
