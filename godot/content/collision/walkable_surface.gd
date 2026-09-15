@@ -67,6 +67,32 @@ var _edges: Dictionary[int, PackedInt32Array] = {}
 ## The same edges reversed, so the gate can ask what can reach a place as well
 ## as what a place can reach.
 var _incoming: Dictionary[int, PackedInt32Array] = {}
+
+## The same two edge sets, flattened: `out_at[i]` is where node i's targets
+## begin in `out_to`, and they run to `out_at[i + 1]`. Compressed sparse row,
+## which is the shape the BAKED format already uses - from_def used to unpack it
+## into the dictionaries above and to_def packed it back.
+##
+## Kept resident because the dictionary is the single most expensive thing in
+## the router. Measured on the house: a route settles ~10,000 nodes and every
+## one of them costs a hash lookup plus a PackedInt32Array copy, which is 11 of
+## the route's 38 ms - and Dictionary.get with a default allocates a fresh empty
+## array on every miss, so the cheapest nodes are the ones that pay most.
+##
+## The dictionaries stay for neighbours() and neighbours_into(), which the
+## validator and the director use in places where clarity matters more than
+## nanoseconds. Nothing is derived twice: these are built from the same links,
+## in the same order, so a walk over one visits nodes in the order the other
+## would.
+## PUBLIC, and named without an underscore, because a caller in the innermost
+## loop of the router has to index them directly. Going through accessors was
+## measured at WORSE than the dictionary they replaced - three method calls per
+## neighbour cost more than one hash lookup, because GDScript dispatch is not
+## free. Read them; never write them.
+var out_at: PackedInt32Array = PackedInt32Array()
+var out_to: PackedInt32Array = PackedInt32Array()
+var in_at: PackedInt32Array = PackedInt32Array()
+var in_to: PackedInt32Array = PackedInt32Array()
 ## (x,z) column -> the node indices standing in it, ascending by height.
 var _columns: Dictionary[Vector2i, PackedInt32Array] = {}
 
@@ -158,6 +184,7 @@ static func build(
 	surface._mark_solid()
 	surface._find_stances()
 	surface._link_stances()
+	surface._flatten()
 	return surface
 
 ## Restores a surface that was computed by the baker. See WalkableSurfaceDef.
@@ -200,6 +227,7 @@ static func from_def(def: WalkableSurfaceDef, collision: WorldCollisionDef) -> W
 				var back: PackedInt32Array = surface._incoming.get(other, PackedInt32Array())
 				back.append(index)
 				surface._incoming[other] = back
+	surface._flatten()
 	return surface
 
 ## Flattens this surface for storage. The inverse of from_def.
@@ -239,6 +267,24 @@ func neighbours(index: int) -> PackedInt32Array:
 ## is symmetric; different the moment one-way drops exist.
 func neighbours_into(index: int) -> PackedInt32Array:
 	return _incoming.get(index, PackedInt32Array())
+
+## Builds the flat adjacency from the dictionaries. Called once, at the end of
+## every path that produces a surface.
+func _flatten() -> void:
+	var count: int = nodes.size()
+	out_at = PackedInt32Array()
+	out_to = PackedInt32Array()
+	in_at = PackedInt32Array()
+	in_to = PackedInt32Array()
+	out_at.resize(count + 1)
+	in_at.resize(count + 1)
+	for index: int in count:
+		out_at[index] = out_to.size()
+		out_to.append_array(_edges.get(index, PackedInt32Array()))
+		in_at[index] = in_to.size()
+		in_to.append_array(_incoming.get(index, PackedInt32Array()))
+	out_at[count] = out_to.size()
+	in_at[count] = in_to.size()
 
 # ---- building ----
 

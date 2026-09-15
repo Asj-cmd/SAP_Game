@@ -207,11 +207,40 @@ Items 1-3 are done - see `55e0b9e` and the commit that added this line.
    different tie-breaks on 2,908 of 6,599 pairs - which is documented in
    `NavGraph._trace` and means a replay saved before it will not reproduce.
 
-   **Routing is still the most expensive thing here.** One re-route settles
-   12,004 of 15,987 stances and costs ~41 ms, against a 33 ms tick. Both
-   frontiers still traverse most of the house on a spawn-to-spawn route because
-   there is no heuristic pulling them together. That is the next real
-   performance item, and item 4 is blocked behind it.
+3c. ~~Routing costs more than a tick.~~ **Cut by a third.** 38 -> 25 ms a
+   route, p99 68 -> 57 ms, from two changes that turned out to be the only ones
+   that mattered: the surface now keeps its adjacency FLAT (the baked format was
+   already compressed-sparse-row; it was being unpacked into a Dictionary on
+   load and re-packed on save), and the router's queues are PackedInt32Array
+   rather than Array[int].
+
+   **The profile is the useful part, because it contradicts the obvious
+   guesses.** Of a 38 ms route: full-graph allocations 0.02 ms, smoothing 0.9,
+   neighbour lookups 11, and the rest the loop body. The Dictionary lookup was
+   the single biggest line - `Dictionary.get` with a default allocates a fresh
+   array on every miss, once per settled node.
+
+   **Three cleverer things were built, measured and thrown away**, all recorded
+   in `NavGraph` so they are not rebuilt:
+   - accessor methods over the flat arrays - 48 ms, WORSE than the dictionary,
+     because three GDScript dispatches beat one hash lookup;
+   - A* with a bucketed frontier - halves the nodes settled, 10,354 -> 5,414,
+     and is still slower at 35.6 ms because rescanning lanes costs more than the
+     expansions it saves. An admissible heuristic does exist: horizontal cell
+     distance, floored, zero overestimates over 380 pairs. Adding height
+     overestimates by 50% - a stair gains height WHILE moving horizontally;
+   - stopping the distance flood once it reaches a bot's candidates - 30%
+     SLOWER, because the errands are scattered across both houses and reaching
+     them all means visiting 15,839 of 15,987 stances anyway.
+
+   At this size the per-node BOOKKEEPING is the cost, not the node count.
+   Anything clever has to be nearly free to be worth it.
+
+   **What is left.** A route is ~25 ms against a 33 ms tick and a bot decision
+   also floods distances (~14 ms), so a tick doing both still goes over - 43-47
+   of 600. The remaining fix is not a faster search: it is not doing both in one
+   tick, by spreading a decision across several. That is a scheduling change to
+   BotDirector, not an algorithm change to NavGraph.
 4. **Bot route variety** - it takes the same approach every time, which is
    solvable after two rounds. **Attempted twice, reverted twice. Do not try a
    third time without a different idea.**
