@@ -57,6 +57,10 @@ const CROUCH_VIEW_SCALE: float = 0.72
 ## to stay honest about what the collider is doing - a body is only ever a few
 ## frames out of step with its own hitbox.
 const CROUCH_VIEW_SPEED: float = 8.0
+## How fast a drawn body turns to face its travel, per second. Fast enough that
+## a change of direction does not look like drifting, slow enough that the
+## turn is visible rather than instant.
+const FACE_RATE: float = 12.0
 ## How proud of the floor a team's floor tint sits. Enough to win the depth
 ## test against the floor it is laid on, little enough not to be a step.
 const PATCH_THICKNESS: float = 0.6
@@ -90,6 +94,9 @@ var _actor_views: Dictionary[int, MeshInstance3D] = {}
 ## Capsule height currently being drawn per actor, eased toward the stance's
 ## target. Presentation state, never read by a rule.
 var _view_heights: Dictionary[int, float] = {}
+## Which way each drawn body is pointing, eased toward its travel direction.
+## Presentation state; no rule reads it.
+var _facings: Dictionary[int, float] = {}
 var _geometry: Node3D = null
 var _seats: CanvasLayer = null
 var _cameras: Array[ChaseCamera] = []
@@ -479,16 +486,6 @@ func _track_cameras(delta: float) -> void:
 			continue
 		_cameras[seat].follow(view.position - Vector3(0.0, ACTOR_HEIGHT * 0.5, 0.0), delta)
 
-		# Ease the view back behind a running body. Read from the CONFIRMED
-		# world rather than the drawn one: this only needs a direction and a
-		# speed, and the confirmed state is the one both machines agree on.
-		var me: SimEntity = link.outcome_world().get_entity(players[seat].actor_id)
-		if me == null or world.tuning == null or world.tuning.move_speed <= 0.0:
-			continue
-		var travel: Vector3 = Vector3(me.velocity.x, 0.0, me.velocity.z)
-		_cameras[seat].recentre(
-			travel, travel.length() / world.tuning.move_speed, delta)
-
 # ---- what the network changes about drawing ----
 
 ## Picks up the seat the host assigned, once it arrives.
@@ -602,6 +599,7 @@ func _render(alpha: float, delta: float) -> void:
 
 		view.position = target + _view_offset(
 			entity, _drawn_height(entity_id, entity, view, delta))
+		_face(entity_id, entity, view, delta)
 		# Held, carrying and captured are read from the CONFIRMED world on every
 		# role. A guest never guesses at an outcome.
 		view.visible = not (entity.is_carriable() and entity.is_held())
@@ -622,6 +620,33 @@ func _show_reach(mine: int) -> void:
 	_reach_marker.visible = waiting and view != null
 	if _reach_marker.visible:
 		_reach_marker.position = view.position + Vector3(0.0, ACTOR_HEIGHT * 0.75, 0.0)
+
+## Turns a drawn body to face the way it is travelling.
+##
+## PRESENTATION ONLY, and it has to be: the simulation has no notion of facing
+## at all - an actor is a sphere with a velocity, and every rule that could care
+## about direction (capture range, pickup range) is a distance instead. So this
+## is the mesh being polite about which way it points, and nothing reads it.
+##
+## Needed once the camera sits behind the body. A character that runs forward
+## while pointing north looks like it is sliding, and that reads as a bug rather
+## than as a simplification.
+##
+## Falls back to holding the last facing when stopped, rather than snapping to
+## a default: a body that has come to rest is still facing wherever it arrived.
+func _face(entity_id: int, entity: SimEntity, view: Node3D, delta: float) -> void:
+	if not entity.is_actor():
+		return
+	var travel: Vector3 = Vector3(entity.velocity.x, 0.0, entity.velocity.z)
+	if travel.length_squared() < 1.0:
+		return
+	var wanted: float = atan2(travel.x, travel.z)
+	var now: float = _facings.get(entity_id, wanted)
+	# Shortest way round, so crossing the -PI seam does not spin the long way.
+	var gap: float = wrapf(wanted - now, -PI, PI)
+	var turned: float = wrapf(now + gap * minf(1.0, FACE_RATE * delta), -PI, PI)
+	_facings[entity_id] = turned
+	view.rotation = Vector3(0.0, turned, 0.0)
 
 ## Lifts an actor's mesh so it stands ON the floor. The simulation's position
 ## is the centre of a body one radius tall; the capsule is taller than that.
@@ -743,6 +768,7 @@ func _rebuild_views() -> void:
 		view.queue_free()
 	_actor_views.clear()
 	_view_heights.clear()
+	_facings.clear()
 
 	if _reach_marker == null:
 		_reach_marker = MeshInstance3D.new()
@@ -1184,5 +1210,6 @@ func _reset(variant: GreyBoxLevel.SafeVariant) -> void:
 		view.queue_free()
 	_actor_views.clear()
 	_view_heights.clear()
+	_facings.clear()
 	_banner.text = ""
 	_start(variant)
