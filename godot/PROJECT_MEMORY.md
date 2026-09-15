@@ -342,6 +342,23 @@ them:
    obeys it. Worth re-reading before modelling, because rebuilding a modelled
    house costs considerably more than rebuilding a blockout did.
 
+## 6c. Teams are built but not switched on
+
+`team_size` is 1 in the grey box and the whole roster machinery already handles
+more: `SimWorld.populate_roster` spawns a body per slot, `TeamDef` carries a
+spawn point for each, and the house bakes THREE spawns per team. 3v3 is one
+line, not a feature.
+
+Tried it, to see rather than guess. It is dramatically livelier - 47 pick-ups
+against 12, 24 seizures against 6, 53 encounters against 12 - and still
+deterministic. It also ran the full six minutes without a winner, where 1v1
+finishes in four, because more bodies means more rescues and cash changing
+hands faster than either side can bank it.
+
+So it is a TUNING job, not a plumbing one: round length, capture sentence and
+cash-per-team all assume a single raider. Left at 1 until somebody has played
+it, since those numbers are a feel judgement and the bots cannot make it.
+
 ## 7. Two things still owed to the user
 
 **A real two-machine playtest.** Everything network has been proven headless and

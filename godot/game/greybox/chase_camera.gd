@@ -59,7 +59,19 @@ const STICK_DEADZONE: float = 0.15
 
 ## How fast the rig catches up to the body. The rig follows POSITION only, so
 ## this smooths travel without ever smearing the player's aim.
-const FOLLOW_RATE: float = 18.0
+##
+## 45, not 18. At 18 the rig took about 128 ms to close nine tenths of a move,
+## and that sits on TOP of the render interpolation's own tick of delay - the
+## body is drawn between the previous simulation state and the current one, so
+## it is already up to 33 ms behind. Together that was a sixth of a second
+## between pressing a key and the view arriving, which is what "the movement is
+## a little laggy" was describing.
+##
+## At 45 the same move closes in about 51 ms, which is under two frames at 30 Hz
+## and reads as attached rather than dragged. It is still smoothing, not a hard
+## snap: a hard snap would put every tick's quantisation straight into the
+## camera and judder on stairs, where the body steps up in 30-unit jumps.
+const FOLLOW_RATE: float = 45.0
 
 
 
