@@ -3,13 +3,26 @@ extends RefCounted
 ## Standard third-person rig: a yaw pivot at the actor, a pitch pivot, a spring
 ## arm, and the camera on the end of it.
 ##
-## Rotation comes from the LOOK input and from nothing else. The previous
-## version derived facing from the actor's velocity, which is a feedback loop
-## the moment movement becomes camera-relative: the camera turns to face where
-## you are going, which changes where forward is, which turns the camera. Look
-## and move have to be independent, and online they have to be independent for
-## the further reason that hiding, peeking and checking a corner are all things
-## you do while standing still or walking the other way.
+## Rotation comes from the LOOK input, and - only when the player has let go of
+## it - eases back to behind the body.
+##
+## The previous version derived facing from the actor's velocity outright, which
+## is a feedback loop the moment movement becomes camera-relative: the camera
+## turns to face where you are going, which changes where forward is, which
+## turns the camera. That is still forbidden. What is here instead is a RECENTRE
+## that only runs while the look input is idle, so it can never fight the player
+## for the yaw:
+##
+##   mouse moving          free look, untouched
+##   mouse idle, running   eases to behind the body over RECENTRE_DELAY
+##   standing still        stays exactly where it was left
+##
+## The travelling case is the one that needed fixing - reported from the chair
+## as "the third-person view does not fix to the back of the character". The
+## standing case is deliberately left alone, because hiding, peeking and
+## checking a corner are all things you do while stationary or walking the other
+## way, and taking those away to fix the running case would cost more than it
+## bought.
 ##
 ## Presentation only. It reads a position and moves a Camera3D; nothing it does
 ## can change what the rules decide.
@@ -43,6 +56,20 @@ const STICK_DEADZONE: float = 0.15
 ## this smooths travel without ever smearing the player's aim.
 const FOLLOW_RATE: float = 18.0
 
+## Recentring, all three parts of it.
+##
+## How long the look input must be QUIET before the camera starts easing back.
+## Long enough that finishing a deliberate look does not immediately undo it,
+## short enough that it feels like the camera helping rather than resisting.
+const RECENTRE_DELAY: float = 0.55
+## How fast it eases once it starts, per second. Exponential, so it is fastest
+## when most wrong and settles without overshoot.
+const RECENTRE_RATE: float = 3.4
+## How hard the body must be travelling before recentring applies at all, as a
+## fraction of walking speed. A player nudging a stick to reposition is not
+## running, and the camera should leave them alone.
+const RECENTRE_MOVING: float = 0.35
+
 var rig: Node3D = null
 var camera: Camera3D = null
 
@@ -51,6 +78,8 @@ var _arm: SpringArm3D = null
 var _yaw: float = 0.0
 var _pitch: float = deg_to_rad(-12.0)
 var _settled: bool = false
+## Seconds since the look input last moved. Drives the recentre delay.
+var _quiet: float = 0.0
 
 func _init(collision_mask: int = 2) -> void:
 	rig = Node3D.new()
@@ -87,10 +116,38 @@ func _init(collision_mask: int = 2) -> void:
 ## Applies look input. Yaw is unbounded; pitch is clamped so the camera cannot
 ## roll over the top or bury itself in the floor.
 func aim(delta_yaw: float, delta_pitch: float) -> void:
+	if not is_zero_approx(delta_yaw) or not is_zero_approx(delta_pitch):
+		_quiet = 0.0
 	_yaw = wrapf(_yaw - delta_yaw, -PI, PI)
 	_pitch = clampf(_pitch - delta_pitch, PITCH_MIN, PITCH_MAX)
 	rig.rotation = Vector3(0.0, _yaw, 0.0)
 	_pitch_pivot.rotation = Vector3(_pitch, 0.0, 0.0)
+
+## Eases the yaw back to behind `facing`, when the player is running and has not
+## touched the look input recently.
+##
+## `facing` is the body's direction of travel, flattened. It is passed in rather
+## than read, because this class never sees the simulation - presentation hands
+## it a vector and it turns a rig (§1).
+func recentre(facing: Vector3, speed_fraction: float, delta: float) -> void:
+	_quiet += delta
+	if _quiet < RECENTRE_DELAY or speed_fraction < RECENTRE_MOVING:
+		return
+	var flat: Vector2 = Vector2(facing.x, facing.z)
+	if flat.length_squared() <= 0.0:
+		return
+	# The yaw that puts the camera BEHIND the body: looking the way it travels.
+	var wanted: float = atan2(-flat.x, -flat.y)
+	# Shortest way round, so a body facing just past -PI does not spin the long
+	# way to reach it.
+	var gap: float = wrapf(wanted - _yaw, -PI, PI)
+	_yaw = wrapf(_yaw + gap * minf(1.0, RECENTRE_RATE * delta), -PI, PI)
+	rig.rotation = Vector3(0.0, _yaw, 0.0)
+
+## The current yaw. Exposed for a probe, and for nothing in the game - the rig's
+## own rotation is the thing that matters.
+func yaw_for_test() -> float:
+	return _yaw
 
 func aim_from_mouse(motion: Vector2) -> void:
 	aim(motion.x * MOUSE_SENSITIVITY, motion.y * MOUSE_SENSITIVITY)

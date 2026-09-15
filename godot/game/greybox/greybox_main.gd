@@ -42,7 +42,14 @@ const ACTOR_MODEL: String = "res://art/models/character_%s.glb"
 ## a crouched body LOOKS like it fits under the counter it actually fits under.
 ## Nothing here feeds back into the rules, and a Blender character with a real
 ## crouch pose replaces this by reading the same SimEntity.stance.
-const CROUCH_VIEW_SCALE: float = 0.55
+##
+## 0.72, not the collider's 0.5. A person who ducks loses about a quarter of
+## their height - they bend, they do not halve. Squashing a whole figure to the
+## collider's ratio put the head at knee level and read as a body sunk into the
+## floor rather than a crouch, which is the complaint this number answers. The
+## two do not have to agree: the collider is a sphere and the drawing is a
+## person, and only the collider decides what fits.
+const CROUCH_VIEW_SCALE: float = 0.72
 ## How fast the capsule resizes toward its target height, per second.
 ##
 ## Smoothed rather than snapped because the stance flips in ONE tick and a mesh
@@ -472,6 +479,16 @@ func _track_cameras(delta: float) -> void:
 			continue
 		_cameras[seat].follow(view.position - Vector3(0.0, ACTOR_HEIGHT * 0.5, 0.0), delta)
 
+		# Ease the view back behind a running body. Read from the CONFIRMED
+		# world rather than the drawn one: this only needs a direction and a
+		# speed, and the confirmed state is the one both machines agree on.
+		var me: SimEntity = link.outcome_world().get_entity(players[seat].actor_id)
+		if me == null or world.tuning == null or world.tuning.move_speed <= 0.0:
+			continue
+		var travel: Vector3 = Vector3(me.velocity.x, 0.0, me.velocity.z)
+		_cameras[seat].recentre(
+			travel, travel.length() / world.tuning.move_speed, delta)
+
 # ---- what the network changes about drawing ----
 
 ## Picks up the seat the host assigned, once it arrives.
@@ -626,6 +643,13 @@ func _view_offset(entity: SimEntity, drawn_height: float) -> Vector3:
 		# it there would float it above the hand.
 		if entity.is_held():
 			return Vector3.ZERO
+		# THE MODEL NEEDS NO LIFT. It is authored with its origin at its bottom
+		# face, so it already rests on the point the simulation put it at. Only
+		# the fallback CUBE is centred on its own middle and needs raising -
+		# lifting both by half a cube floated the bundle 8 units off the floor,
+		# because the model is 17 tall and the cube is 50.
+		if _cash_model() != null:
+			return Vector3.ZERO
 		return Vector3(0.0, CASH_SIZE * 0.5, 0.0)
 	if not entity.is_actor():
 		return Vector3.ZERO
@@ -660,6 +684,20 @@ func _drawn_height(entity_id: int, entity: SimEntity, view: MeshInstance3D,
 	# to come down with it or Godot clamps the height and the crouch stops
 	# short of what was asked for.
 	body.radius = minf(level.tuning.actor_radius, eased * 0.5)
+
+	# A MODEL PARENTED TO THIS VIEW DOES NOT FOLLOW THE MESH. Resizing a
+	# CapsuleMesh changes the shape this node draws and nothing about its
+	# children, so a character model kept its full height while the offset
+	# below dropped it - which read as the body sinking knee-deep into the
+	# floor rather than ducking. Scaling the NODE squashes the model with it.
+	#
+	# Vertical only. A crouching body gets shorter, not narrower; scaling all
+	# three axes would pinch it inward and make it read as shrinking.
+	var squash: float = eased / ACTOR_HEIGHT
+	for child: Node in view.get_children():
+		var figure: Node3D = child as Node3D
+		if figure != null:
+			figure.scale = Vector3(1.0, squash, 1.0)
 	return eased
 
 ## The cash bundle model, or null when it has not been built.
