@@ -30,6 +30,9 @@ const ACTOR_HEIGHT: float = 180.0
 ## POINT, so a mesh centred on that point buries half of itself in whatever the
 ## point is resting on.
 const CASH_SIZE: float = 50.0
+## Where the modelled bundle lives. Absent until Blender has been run, which is
+## a supported state - see _cash_model.
+const CASH_MODEL: String = "res://art/models/cash.glb"
 ## How tall a crouched actor is drawn, as a fraction of standing.
 ##
 ## PRESENTATION ONLY. The simulation's crouch is a smaller collision sphere
@@ -657,6 +660,19 @@ func _drawn_height(entity_id: int, entity: SimEntity, view: MeshInstance3D,
 	body.radius = minf(level.tuning.actor_radius, eased * 0.5)
 	return eased
 
+## The cash bundle model, or null when it has not been built.
+##
+## Cached rather than loaded per entity: eight bundles in a match, one model.
+static var _cash_scene: PackedScene = null
+static var _cash_looked: bool = false
+
+func _cash_model() -> PackedScene:
+	if not _cash_looked:
+		_cash_looked = true
+		if ResourceLoader.exists(CASH_MODEL):
+			_cash_scene = load(CASH_MODEL) as PackedScene
+	return _cash_scene
+
 func _rebuild_views() -> void:
 	for view: MeshInstance3D in _actor_views.values():
 		view.queue_free()
@@ -682,9 +698,17 @@ func _rebuild_views() -> void:
 			body.height = ACTOR_HEIGHT
 			view.mesh = body
 		else:
-			var box: BoxMesh = BoxMesh.new()
-			box.size = Vector3(CASH_SIZE, CASH_SIZE, CASH_SIZE)
-			view.mesh = box
+			# The modelled bundle if it has been built, the placeholder cube if
+			# not. Art is optional by design: the game has to stay playable and
+			# screenshot-able from a clean checkout before anything is modelled,
+			# and a missing .glb is a cosmetic gap rather than a broken build.
+			var art: PackedScene = _cash_model()
+			if art != null:
+				view.add_child(art.instantiate())
+			else:
+				var box: BoxMesh = BoxMesh.new()
+				box.size = Vector3(CASH_SIZE, CASH_SIZE, CASH_SIZE)
+				view.mesh = box
 		view.material_override = _flat(_team_colour(entity.team, entity.is_carriable()))
 		add_child(view)
 		_actor_views[entity_id] = view
