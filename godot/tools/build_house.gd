@@ -274,40 +274,56 @@ func _ground() -> void:
 ## both landings - two independent approaches, neither holdable alone.
 func _upper() -> void:
 	var top: float = UPPER + STOREY - SLAB
-	# West outer: Master Bedroom escape window (U2), on the FURTHEST face from
-	# the other house. See the note below on why this moved twice.
+	# West outer: Study escape window (U4), toward the front of the house so it
+	# clears stair B - the second flight runs up the inside of this wall from
+	# z 1334 to 2030, and a window over it opens onto the staircase rather than
+	# onto air. NEAR_MID puts it at z 530, well clear.
 	_wall_x(WALL * 0.5, 0.0, HOUSE, UPPER, top, [
-		_at(FAR_MID, WINDOW), # U2 Master Bedroom escape, one-way down
+		_at(NEAR_MID, WINDOW), # U4 Study (SW) escape, one-way down
 	] as Array[Vector2])
 	# East outer: nothing passable. This face looks straight across the 500-unit
 	# corridor at the other house - the closest, most exposed wall either house
 	# has - so no escape route opens onto it (see U2 below).
 	_wall_x(HOUSE - WALL * 0.5, 0.0, HOUSE, UPPER, top, [] as Array[Vector2])
-	# South outer: Study escape window (U4), the second-furthest face.
-	_wall_z(WALL * 0.5, WALL, HOUSE - WALL, UPPER, top, [
-		_at(NEAR_MID, WINDOW), # U4 Study (SW) escape window, one-way down
-	] as Array[Vector2])
-	# North outer: nothing passable, and this is the correction.
+	# South outer: nothing. The Study now escapes west (above), and giving one
+	# room two exits would hand it the cheapest route twice over.
+	_wall_z(WALL * 0.5, WALL, HOUSE - WALL, UPPER, top, [] as Array[Vector2])
+	# North outer: Master Bedroom escape window (U2), and this is the honest
+	# answer rather than the one that sounded best.
 	#
-	# U2 HAS MOVED TWICE, and the second move is the one that worked. It began
-	# on the EAST wall, which faces straight across the corridor, and was moved
-	# to NORTH on the reasoning that the other house sits diagonally and so does
-	# not face this wall. That was measured wrong: the houses are offset
-	# diagonally, so of house A's four faces the distances to house B's centre
-	# run east 1820, NORTH 2613, south 3273, west 3771. North is the
-	# second-NEAREST face, not a far one.
+	# U2 HAS MOVED THREE TIMES and is back where the second move put it. The
+	# history is worth keeping because two of the three were reasoned rather
+	# than measured:
 	#
-	# The cost showed up in play rather than in any check: a player reported
-	# always taking the same route, and the numbers agreed - the raid out was
-	# 20-23 legs and the run home 5, because the escape window dropped a raider
-	# onto the face already pointing at their own house. A one-way drop that
-	# lands you nearly home is not an escape, it is a shortcut, and it made the
-	# whole layout monotonous.
+	#   EAST, originally. Faces straight across the corridor; a raider was over
+	#   the sill and home in seconds.
 	#
-	# Both escape windows now open on the two FURTHEST faces - bedroom west,
-	# study south - so dropping out commits you to running the length of the
-	# building before you are heading home. The escape still exists; it costs
-	# what it was always supposed to cost.
+	#   NORTH, on the reasoning that the houses sit diagonally. Better, but the
+	#   run home was still only 5 legs against 20-23 out, which a player found
+	#   and described as "the same easy monotonous route".
+	#
+	#   WEST, to put it on the furthest face. WRONG TWICE OVER, and the frame
+	#   showed it: the west wall does not border the Master Bedroom at all - the
+	#   bedroom is the NE quadrant and the west wall serves NW and SW - so the
+	#   window opened out of the wrong room, over stair B's flight, which runs
+	#   up the inside of that wall from z 1334 to 2030. It read as broken
+	#   geometry because it was.
+	#
+	# THE BEDROOM HAS ONLY TWO EXTERIOR FACES, east and north, and both are
+	# near: 1648 and 2097 from the other house's centre, against the study's
+	# 3902 and 3681. There is no far wall to move the window to, so it is gone.
+	#
+	# THE NEAR CASH ROOM HAS NO DROP. Take its cash and you carry it back down
+	# the stairs and out of a door, which is the long way and is the point - the
+	# quick exit now belongs to the STUDY, the far room, so crossing the house
+	# to reach it is a real decision rather than a formality. A one-way drop
+	# that lands a raider nearly home was the whole complaint, and on this
+	# quadrant every wall does that.
+	#
+	# The room still has TWO WAYS IN, which is what routes_required actually
+	# checks: both landings open onto it. The window was never one of them - it
+	# is a one-way drop and cannot be entered through - so removing it costs the
+	# gate nothing, and the gate agrees.
 	_wall_z(HOUSE - WALL * 0.5, WALL, HOUSE - WALL, UPPER, top, [] as Array[Vector2])
 	_ring(UPPER, top, [
 		&"D5", # Landing A <-> Master Bedroom
