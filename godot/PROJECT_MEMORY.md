@@ -246,6 +246,38 @@ turned copy landed at a different phase against the grid - 4,072 stances against
 the world in whole cells; the builder now refuses to write a scene that breaks
 it. See `WORLD_AUTHORING.md` §11.
 
+## 6b. What is actually left before Blender
+
+Asked directly, and answered by measuring rather than from memory.
+
+**Nothing BLOCKS the art work.** The export convention WORLD_AUTHORING §6
+specifies is already implemented in `blockout_baker.gd` - it reads `blocker_*`,
+`shell`, `spawn_<team>_<slot>`, `cash_<team>_<index>` and zone nodes out of any
+scene, and nothing in it cares whether that scene came from Godot or a `.glb`.
+Swapping the source changes where the boxes come from and nothing about what
+they mean. Art and collision stay separate by naming, so scenery can never
+silently change what a player walks through.
+
+**One thing gets WORSE after art, not better, and is the strongest candidate
+for doing first.** Routing: p99 68 ms against a 33 ms budget, 48 of 600 ticks
+over, one re-route settling 12,052 of 15,987 stances at 35 ms. The frame has no
+art in it yet. Every prop, light and material lands on top of that, and a
+stutter that is currently "the bots think too hard" becomes indistinguishable
+from "the art is too heavy" once both are true. Diagnosing it now is cheap;
+diagnosing it through a renderer is not.
+
+**Three things that are genuinely optional first**, in the order I would do
+them:
+
+1. Make routing affordable (above). Unblocks queue item 4 as a side effect.
+2. Draw the verbs. Jump and throw are simulation-correct and read as nothing -
+   a thrown bundle moves, but no arc is legible. Cheap, and it makes a
+   playtest worth more.
+3. The scale rule in WORLD_AUTHORING §8 - rooms 7-8 m, doorways 2.4 m, "when
+   the camera and realism disagree, the camera wins". The current house already
+   obeys it. Worth re-reading before modelling, because rebuilding a modelled
+   house costs considerably more than rebuilding a blockout did.
+
 ## 7. Two things still owed to the user
 
 **A real two-machine playtest.** Everything network has been proven headless and
