@@ -33,6 +33,8 @@ const CASH_SIZE: float = 50.0
 ## Where the modelled bundle lives. Absent until Blender has been run, which is
 ## a supported state - see _cash_model.
 const CASH_MODEL: String = "res://art/models/cash.glb"
+## Per-team character models, absent until Blender has been run.
+const ACTOR_MODEL: String = "res://art/models/character_%s.glb"
 ## How tall a crouched actor is drawn, as a fraction of standing.
 ##
 ## PRESENTATION ONLY. The simulation's crouch is a smaller collision sphere
@@ -666,6 +668,31 @@ func _drawn_height(entity_id: int, entity: SimEntity, view: MeshInstance3D,
 static var _cash_scene: PackedScene = null
 static var _cash_looked: bool = false
 
+## Per-team character models, cached. Null until Blender has been run, which is
+## a supported state - the capsule shows through and the game still plays.
+static var _actor_scenes: Dictionary[StringName, PackedScene] = {}
+static var _actor_looked: Dictionary[StringName, bool] = {}
+
+func _actor_model(team: StringName) -> PackedScene:
+	if team == &"":
+		return null
+	if not _actor_looked.get(team, false):
+		_actor_looked[team] = true
+		# team_a -> "a", so one model serves whatever the team is called.
+		var suffix: String = String(team).replace("team_", "")
+		var path: String = ACTOR_MODEL % suffix
+		if ResourceLoader.exists(path):
+			_actor_scenes[team] = load(path) as PackedScene
+	return _actor_scenes.get(team, null)
+
+## A material that draws nothing, for the crouch scaffold under a real model.
+func _invisible() -> StandardMaterial3D:
+	var hide: StandardMaterial3D = StandardMaterial3D.new()
+	hide.transparency = BaseMaterial3D.TRANSPARENCY_ALPHA
+	hide.albedo_color = Color(0.0, 0.0, 0.0, 0.0)
+	hide.shading_mode = BaseMaterial3D.SHADING_MODE_UNSHADED
+	return hide
+
 func _cash_model() -> PackedScene:
 	if not _cash_looked:
 		_cash_looked = true
@@ -692,11 +719,28 @@ func _rebuild_views() -> void:
 	for entity_id: int in world.sorted_entity_ids():
 		var entity: SimEntity = world.entities[entity_id]
 		var view: MeshInstance3D = MeshInstance3D.new()
+		## Whether a model was parented onto this view, in which case the
+		## primitive under it must not be painted over the top of it.
+		var dressed: bool = false
 		if entity.is_actor():
+			# A capsule always, model on top of it when one exists. The capsule
+			# stays because _drawn_height resizes it for the crouch and the rest
+			# of presentation measures against it; the model is parented so it
+			# inherits that squash rather than needing its own crouch pose.
 			var body: CapsuleMesh = CapsuleMesh.new()
 			body.radius = level.tuning.actor_radius
 			body.height = ACTOR_HEIGHT
 			view.mesh = body
+			var figure: PackedScene = _actor_model(entity.team)
+			if figure != null:
+				var art: Node3D = figure.instantiate() as Node3D
+				# The model's origin is its FEET and the capsule's is its
+				# middle, so the figure drops half a body to stand in it.
+				art.position = Vector3(0.0, -ACTOR_HEIGHT * 0.5, 0.0)
+				view.add_child(art)
+				# The capsule becomes the crouch scaffold rather than the thing
+				# seen - see the material choice below.
+				dressed = true
 		else:
 			# The modelled bundle if it has been built, the placeholder cube if
 			# not. Art is optional by design: the game has to stay playable and
@@ -705,11 +749,17 @@ func _rebuild_views() -> void:
 			var art: PackedScene = _cash_model()
 			if art != null:
 				view.add_child(art.instantiate())
+				dressed = true
 			else:
 				var box: BoxMesh = BoxMesh.new()
 				box.size = Vector3(CASH_SIZE, CASH_SIZE, CASH_SIZE)
 				view.mesh = box
-		view.material_override = _flat(_team_colour(entity.team, entity.is_carriable()))
+		# A dressed view keeps its model's own materials and hides the primitive
+		# it was built around; an undressed one is the flat team-coloured shape
+		# the game has always drawn. Hidden by a transparent material rather
+		# than by `visible`, because _drawn_height still resizes the capsule to
+		# carry the crouch and a hidden node would stop being measured.
+		view.material_override = _invisible() if dressed 			else _flat(_team_colour(entity.team, entity.is_carriable()))
 		add_child(view)
 		_actor_views[entity_id] = view
 
