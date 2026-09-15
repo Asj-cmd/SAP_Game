@@ -12,7 +12,13 @@ middle would sink, exactly as the cash bundle did.
 
 STYLE: chunky and readable at distance. This is a chase game seen from a
 third-person camera across a room - silhouette carries everything, detail
-carries nothing. Big head, small limbs, strong team colour on the torso.
+carries nothing. Big head, strong team colour on the torso.
+
+PARTS OVERLAP AT EVERY JOINT. The first version butted them edge to edge, and
+from two metres away the arms hung visibly detached from the shoulders and the
+hands floated under the sleeves. Nothing here is welded or boolean'd - these are
+separate boxes - so the only thing holding the figure together is that each part
+starts INSIDE the one it grows from. Overlap is cheap; a floating limb is not.
 
   blender --background --python build_character.py
 """
@@ -29,92 +35,114 @@ import _common as C  # noqa: E402
 HEIGHT = 180.0   # TuningDef.actor_height
 WIDTH = 40.0     # actor_radius * 2
 
-# Proportions, as fractions of height. Head is deliberately oversized - it is
-# what reads first at distance and it is what makes the tone comic rather than
-# military.
-HEAD = 0.30
-TORSO = 0.34
-LEG = 0.30
-
 TEAMS = {
     "a": {
-        "skin": (0.85, 0.68, 0.55),
-        "shirt": (0.78, 0.22, 0.20),   # matches the team tint in greybox_main
-        "trouser": (0.22, 0.24, 0.32),
-        "hair": (0.24, 0.16, 0.12),
+        "skin": (0.88, 0.71, 0.57),
+        "shirt": (0.78, 0.22, 0.20),   # the team tint greybox_main already uses
+        "cuff": (0.62, 0.16, 0.15),
+        "trouser": (0.25, 0.28, 0.38),
+        "hair": (0.28, 0.18, 0.11),
+        "shoe": (0.16, 0.13, 0.12),
     },
     "b": {
-        "skin": (0.76, 0.60, 0.48),
+        "skin": (0.79, 0.62, 0.49),
         "shirt": (0.22, 0.38, 0.75),
-        "trouser": (0.24, 0.22, 0.26),
-        "hair": (0.16, 0.14, 0.13),
+        "cuff": (0.16, 0.28, 0.58),
+        "trouser": (0.26, 0.24, 0.28),
+        "hair": (0.14, 0.12, 0.11),
+        "shoe": (0.14, 0.13, 0.14),
     },
 }
 
 
 def build(team):
     C.clear()
-    tone = TEAMS[team]
-    skin = C.material("Skin", tone["skin"], rough=0.75)
-    shirt = C.material("Shirt", tone["shirt"], rough=0.8)
-    trouser = C.material("Trouser", tone["trouser"], rough=0.85)
-    hair = C.material("Hair", tone["hair"], rough=0.9)
-    eye = C.material("Eye", (0.08, 0.08, 0.10), rough=0.4)
+    t = TEAMS[team]
+    skin = C.material("Skin", t["skin"], rough=0.75)
+    shirt = C.material("Shirt", t["shirt"], rough=0.8)
+    cuff = C.material("Cuff", t["cuff"], rough=0.8)
+    trouser = C.material("Trouser", t["trouser"], rough=0.85)
+    hair = C.material("Hair", t["hair"], rough=0.9)
+    shoe = C.material("Shoe", t["shoe"], rough=0.6)
+    eye = C.material("Eye", (0.07, 0.07, 0.09), rough=0.3)
 
-    leg_h = HEIGHT * LEG
-    torso_h = HEIGHT * TORSO
-    head_h = HEIGHT * HEAD
+    # EVERYTHING BELOW IS IN SIMULATION UNITS, summing to HEIGHT. An earlier
+    # version wrote the vertical budget as fractions of 1.0 while writing the
+    # horizontal positions as `fraction * WIDTH`, then scaled the result to fit
+    # - so the two axes were in different units and the fit-up multiplied the
+    # whole figure by 181. It exploded. One unit, everywhere, and no rescale.
+    shoe_h = HEIGHT * 0.055
+    leg_h = HEIGHT * 0.300
+    torso_h = HEIGHT * 0.345
+    neck_h = HEIGHT * 0.035
+    head_h = HEIGHT * 0.265
 
-    # Legs, from the floor up. Two stubby blocks rather than one - the gap is
-    # what makes a walk read even without animation.
-    for side, x in (("l", -WIDTH * 0.22), ("r", WIDTH * 0.22)):
-        C.box("leg_%s" % side, (WIDTH * 0.32, WIDTH * 0.34, leg_h),
-              (x, 0.0, leg_h * 0.5), trouser)
-        C.box("shoe_%s" % side, (WIDTH * 0.36, WIDTH * 0.52, leg_h * 0.16),
-              (x, -WIDTH * 0.08, leg_h * 0.08), hair)
+    z_shoe = shoe_h
+    z_leg = z_shoe + leg_h
+    z_torso = z_leg + torso_h
+    z_neck = z_torso + neck_h
 
-    # Torso: tapered, wider at the shoulder, so the silhouette has a direction.
-    torso_z = leg_h + torso_h * 0.5
-    C.box("torso", (WIDTH * 0.78, WIDTH * 0.52, torso_h), (0.0, 0.0, torso_z), shirt)
+    # --- legs -------------------------------------------------------------
+    # Each leg starts BELOW the hip line and the shoe starts below the ankle,
+    # so there is no seam to see through at any angle.
+    for side, x in (("l", -0.24), ("r", 0.24)):
+        C.box("leg_%s" % side, (WIDTH * 0.38, WIDTH * 0.36, leg_h + HEIGHT * 0.05),
+              (x * WIDTH, 0.0, z_shoe + leg_h * 0.5 - HEIGHT * 0.02), trouser)
+        # Shoe: longer than it is wide, pushed forward, so the figure has a
+        # facing even when it is standing still.
+        C.box("shoe_%s" % side, (WIDTH * 0.40, WIDTH * 0.54, shoe_h * 1.6),
+              (x * WIDTH, -0.07 * WIDTH, shoe_h * 0.55), shoe)
 
-    # Arms, hanging slightly out from the body so they clear the torso in
-    # silhouette rather than merging into one blob.
-    for side, x in (("l", -WIDTH * 0.48), ("r", WIDTH * 0.48)):
-        C.box("arm_%s" % side, (WIDTH * 0.20, WIDTH * 0.22, torso_h * 0.82),
-              (x, 0.0, torso_z + torso_h * 0.04), shirt,
-              rot=(0.0, math.radians(6 if side == "l" else -6), 0.0))
-        C.box("hand_%s" % side, (WIDTH * 0.22, WIDTH * 0.24, WIDTH * 0.20),
-              (x, 0.0, torso_z - torso_h * 0.42), skin)
+    # --- torso ------------------------------------------------------------
+    # Two stacked blocks rather than one slab: a wider chest over a narrower
+    # waist reads as a body instead of a fridge, and costs one box.
+    waist_z = z_leg + torso_h * 0.28
+    chest_z = z_leg + torso_h * 0.72
+    C.box("waist", (WIDTH * 0.78, WIDTH * 0.50, torso_h * 0.60),
+          (0.0, 0.0, waist_z), shirt)
+    C.box("chest", (WIDTH * 0.96, WIDTH * 0.58, torso_h * 0.58),
+          (0.0, 0.0, chest_z), shirt)
 
-    # Head: the big readable shape.
-    head_z = leg_h + torso_h + head_h * 0.45
-    C.box("head", (WIDTH * 0.72, WIDTH * 0.66, head_h * 0.86),
-          (0.0, 0.0, head_z), skin)
-    C.box("hair", (WIDTH * 0.76, WIDTH * 0.70, head_h * 0.26),
-          (0.0, 0.0, head_z + head_h * 0.36), hair)
+    # --- arms -------------------------------------------------------------
+    # The sleeve starts INSIDE the chest (x is inboard of the chest's edge) and
+    # hangs past the waist; the hand starts inside the sleeve. That overlap is
+    # what stopped them floating.
+    arm_top = z_torso - torso_h * 0.06
+    arm_len = torso_h * 0.86
+    for side, x in (("l", -0.44), ("r", 0.44)):
+        C.box("sleeve_%s" % side, (WIDTH * 0.24, WIDTH * 0.28, arm_len),
+              (x * WIDTH, 0.0, arm_top - arm_len * 0.5), shirt)
+        C.box("cuff_%s" % side, (WIDTH * 0.25, WIDTH * 0.29, arm_len * 0.18),
+              (x * WIDTH, 0.0, arm_top - arm_len * 0.88), cuff)
+        C.box("hand_%s" % side, (WIDTH * 0.26, WIDTH * 0.30, HEIGHT * 0.085),
+              (x * WIDTH, 0.0, arm_top - arm_len * 0.98), skin)
 
-    # Eyes on the -Y face, which is the direction glTF forward points after the
-    # Y-up conversion. Whoever is chasing you should be able to tell.
-    for x in (-WIDTH * 0.16, WIDTH * 0.16):
-        C.box("eye", (WIDTH * 0.10, WIDTH * 0.06, head_h * 0.14),
-              (x, -WIDTH * 0.33, head_z + head_h * 0.06), eye)
+    # --- neck and head ----------------------------------------------------
+    # The neck sinks into both the chest and the skull, so neither joint shows.
+    C.box("neck", (WIDTH * 0.34, WIDTH * 0.30, neck_h + HEIGHT * 0.04),
+          (0.0, 0.0, z_torso + neck_h * 0.5 - HEIGHT * 0.01), skin)
+    head_z = z_neck + head_h * 0.48
+    C.box("head", (WIDTH * 0.80, WIDTH * 0.70, head_h * 0.92), (0.0, 0.0, head_z), skin)
 
-    # SCALED TO EXACTLY HEIGHT. The proportions above are chosen by eye, and by
-    # eye they came out 166 rather than 180 - the head sits lower than the
-    # fractions suggest because the hair and skull overlap. Rather than tune the
-    # fractions until they happen to sum right, the whole body is scaled to the
-    # number the simulation uses. A character that measures wrong makes every
-    # rule built on actor_height read as broken: what fits under a crouch gap,
-    # what the jump's ceiling cap allows, how tall a body looks beside a door.
+    # Hair as a cap with sides, not a lid: a crown box plus a thin band round
+    # the back and sides, which is what stops it reading as a flat plate.
+    C.box("hair_top", (WIDTH * 0.84, WIDTH * 0.74, head_h * 0.30),
+          (0.0, 0.0, head_z + head_h * 0.34), hair)
+    C.box("hair_back", (WIDTH * 0.84, WIDTH * 0.26, head_h * 0.62),
+          (0.0, 0.23 * WIDTH, head_z + head_h * 0.04), hair)
+
+    # Eyes on the -Y face, which is forward after the glTF Y-up conversion.
+    # Slightly proud of the face so they never z-fight with it.
+    for x in (-0.18, 0.18):
+        C.box("eye", (WIDTH * 0.12, WIDTH * 0.05, head_h * 0.15),
+              (x * WIDTH, -0.355 * WIDTH, head_z + head_h * 0.07), eye)
+
+    # No rescale. The budget above already sums to HEIGHT, so the figure is the
+    # right size by construction - which is the only way to keep it that way
+    # when a proportion is later nudged by eye.
     top = head_z + head_h * 0.49
-    fix = HEIGHT / top
-    for ob in bpy.data.objects:
-        ob.scale = (ob.scale[0] * fix, ob.scale[1] * fix, ob.scale[2] * fix)
-        ob.location = (ob.location[0] * fix, ob.location[1] * fix,
-                       ob.location[2] * fix)
-    print("character %s: %.1f tall before fit, scaled by %.3f -> %.1f" % (
-        team, top, fix, top * fix))
-    return top * fix
+    print("character %s: %.1f tall, %.1f wide (targets %.0f / %.0f)" % (
+        team, top, WIDTH * 0.96, HEIGHT, WIDTH))
 
 
 def main():
