@@ -274,26 +274,41 @@ func _ground() -> void:
 ## both landings - two independent approaches, neither holdable alone.
 func _upper() -> void:
 	var top: float = UPPER + STOREY - SLAB
-	# West outer: Landing B window (decorative per §6 - not in this list).
-	_wall_x(WALL * 0.5, 0.0, HOUSE, UPPER, top, [] as Array[Vector2])
+	# West outer: Master Bedroom escape window (U2), on the FURTHEST face from
+	# the other house. See the note below on why this moved twice.
+	_wall_x(WALL * 0.5, 0.0, HOUSE, UPPER, top, [
+		_at(FAR_MID, WINDOW), # U2 Master Bedroom escape, one-way down
+	] as Array[Vector2])
 	# East outer: nothing passable. This face looks straight across the 500-unit
 	# corridor at the other house - the closest, most exposed wall either house
 	# has - so no escape route opens onto it (see U2 below).
 	_wall_x(HOUSE - WALL * 0.5, 0.0, HOUSE, UPPER, top, [] as Array[Vector2])
-	# South outer: Study escape window (U4). Already the away-facing side - the
-	# same face the front door opens onto - so it needed no change.
+	# South outer: Study escape window (U4), the second-furthest face.
 	_wall_z(WALL * 0.5, WALL, HOUSE - WALL, UPPER, top, [
 		_at(NEAR_MID, WINDOW), # U4 Study (SW) escape window, one-way down
 	] as Array[Vector2])
-	# North outer: Master Bedroom escape window (U2). Moved off the east wall,
-	# which faced straight across the corridor at the other house - a raider
-	# could grab the cash and be over the sill and home in seconds, defeating
-	# the sneak-in-sneak-out design entirely. North faces open lot instead:
-	# the other house is offset diagonally and does not sit across from this
-	# wall the way it does the east one.
-	_wall_z(HOUSE - WALL * 0.5, WALL, HOUSE - WALL, UPPER, top, [
-		_at(FAR_MID, WINDOW), # U2 Master Bedroom (NE) escape window, one-way down
-	] as Array[Vector2])
+	# North outer: nothing passable, and this is the correction.
+	#
+	# U2 HAS MOVED TWICE, and the second move is the one that worked. It began
+	# on the EAST wall, which faces straight across the corridor, and was moved
+	# to NORTH on the reasoning that the other house sits diagonally and so does
+	# not face this wall. That was measured wrong: the houses are offset
+	# diagonally, so of house A's four faces the distances to house B's centre
+	# run east 1820, NORTH 2613, south 3273, west 3771. North is the
+	# second-NEAREST face, not a far one.
+	#
+	# The cost showed up in play rather than in any check: a player reported
+	# always taking the same route, and the numbers agreed - the raid out was
+	# 20-23 legs and the run home 5, because the escape window dropped a raider
+	# onto the face already pointing at their own house. A one-way drop that
+	# lands you nearly home is not an escape, it is a shortcut, and it made the
+	# whole layout monotonous.
+	#
+	# Both escape windows now open on the two FURTHEST faces - bedroom west,
+	# study south - so dropping out commits you to running the length of the
+	# building before you are heading home. The escape still exists; it costs
+	# what it was always supposed to cost.
+	_wall_z(HOUSE - WALL * 0.5, WALL, HOUSE - WALL, UPPER, top, [] as Array[Vector2])
 	_ring(UPPER, top, [
 		&"D5", # Landing A <-> Master Bedroom
 		&"D6", # Master Bedroom <-> Landing B

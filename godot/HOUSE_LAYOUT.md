@@ -241,8 +241,8 @@ Draw them. Do not put them in the collision openings list.
 | 3 | **Side door** | Kitchen (NE) | East | Two-way |
 | 4 | Ground window | Back Hall (NW) | West | Two-way, slow climb |
 | 5 | Ground window | Front Hall (SE) | East | Two-way, slow climb |
-| 6 | **Escape window** | Master Bedroom (NE) | East | **One-way drop** |
-| 7 | **Escape window** | Study (SW) | South | **One-way drop** |
+| 6 | **Escape window** | Master Bedroom (NE) | **West** | **One-way drop** — the face furthest from the other house |
+| 7 | **Escape window** | Study (SW) | South | **One-way drop** — the second-furthest face |
 
 The two escape windows must be **visually distinct** from the decorative ones —
 full height, or standing open, or a balcony rail. A player has to be able to tell
