@@ -342,6 +342,42 @@ them:
    obeys it. Worth re-reading before modelling, because rebuilding a modelled
    house costs considerably more than rebuilding a blockout did.
 
+## 6b-ii. The tick budget is met in 1v1 - and the cause was not routing
+
+**0 of 600 ticks over budget**, from 66, measured three times; p99 about 70 ms
+-> about 25; average bot thinking 7.6 -> 3.4 ms. Behaviour unchanged: bot_match
+returns exactly the numbers it did before (12 pick-ups, 8 deposits, same
+winner, 42 s of stalls).
+
+**The cause was `WalkableSurface.nearest()`, which nobody suspected because one
+call is cheap.** It scanned every stance - 1.4 ms - and a bot asks it once per
+candidate errand, 23 of them, so every DECISION spent 33 ms on it: more than the
+distance flood, and by itself the whole tick. Found by attributing the worst
+ticks to what each bot did on them, which showed a single flood-plus-decide
+costing 55-63 ms when the flood alone measured 14.
+
+It is now bucketed by horizontal cell and searched ring by ring, and it is EXACT
+- it returns the same node the scan did, including the lower-index tie-break.
+Checked over 42,000 queries (ties, bucket edges, far outside the shell, with
+limits) and pinned by a navigation test that was mutation-checked: drop the
+tie-break and it reports 8,032 mismatches. 61x faster for the points the game
+actually asks about.
+
+**Tried and REVERTED: rationing heavy work to one flood-or-route per tick.**
+It looked like the obvious fix and the per-tick attribution even showed it
+working. It still had to go: it took bot_match from 12 pick-ups to 4, stalls
+from 42 s to 182 s, and no winner, because a bot told to wait kept its stale
+route and stuck. One targeted fix (not freezing a deferred bot) changed nothing,
+and 1v1 does not need rationing once nearest() is fast - lifting the cap scored
+0 over budget too. Do not re-add it without a different answer to deferral.
+
+**3v3 is still over** on about 5-6% of ticks (45-54 of 900 with six bots). The
+cost there is the distance flood: ~14 ms to visit 16,000 stances in GDScript,
+and with six bots deciding, those ticks land at a median of ~30 ms. Already on
+the flat adjacency and a packed queue, so there is no cheap exact win left. The
+real options are fewer floods (a coarser per-room distance table) or moving the
+flood to native code. This matters when team_size goes above 1, not before.
+
 ## 6c. Teams are built but not switched on
 
 `team_size` is 1 in the grey box and the whole roster machinery already handles

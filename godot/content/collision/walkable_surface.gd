@@ -93,6 +93,11 @@ var out_at: PackedInt32Array = PackedInt32Array()
 var out_to: PackedInt32Array = PackedInt32Array()
 var in_at: PackedInt32Array = PackedInt32Array()
 var in_to: PackedInt32Array = PackedInt32Array()
+## Stances bucketed by horizontal cell, for nearest(). See _index_nodes.
+var _near_buckets: Dictionary[Vector2i, PackedInt32Array] = {}
+var _near_min: Vector2i = Vector2i.ZERO
+var _near_max: Vector2i = Vector2i.ZERO
+const _NO_NODES: PackedInt32Array = []
 ## (x,z) column -> the node indices standing in it, ascending by height.
 var _columns: Dictionary[Vector2i, PackedInt32Array] = {}
 
@@ -285,6 +290,7 @@ func _flatten() -> void:
 		in_to.append_array(_incoming.get(index, PackedInt32Array()))
 	out_at[count] = out_to.size()
 	in_at[count] = in_to.size()
+	_index_nodes()
 
 # ---- building ----
 
@@ -466,7 +472,86 @@ func _standable(point: Vector3) -> bool:
 ##
 ## Ties break on the lower node index rather than on iteration order, so two
 ## machines asking where a spawn stands get the same answer.
+##
+## INDEXED, AND EXACT. This used to scan every stance, and it is asked a lot: a
+## bot weighing errands asks once per candidate, twenty-three of them, and at
+## 1.4 ms a scan that was 33 ms per decision - more than the distance flood and
+## by itself the whole 33 ms tick. It was the largest single cost in the bot
+## layer and nobody suspected it, because one call is cheap.
+##
+## Now the stances are bucketed by horizontal cell and the search walks outward
+## a ring at a time. It returns THE SAME NODE the scan did, not merely a near
+## one: it stops only when every unexamined bucket is provably at least as far
+## as the best found - and since a tie must still go to the lower index, an
+## exact tie keeps it looking one more ring. Same answer, so nothing that
+## depends on it moves; asserted against the linear scan over the whole house
+## before this replaced it.
 func nearest(point: Vector3, limit: float = INF) -> int:
+	if _near_buckets.is_empty() or cell_size <= 0.0:
+		return _nearest_scan(point, limit)
+	var best: int = -1
+	var best_distance: float = limit * limit if limit < INF else INF
+	var bx: int = int(floor(point.x / cell_size))
+	var bz: int = int(floor(point.z / cell_size))
+	# Furthest ring that could hold a bucket at all, so a point far outside the
+	# surface still terminates.
+	var reach: int = maxi(
+		maxi(absi(bx - _near_min.x), absi(bx - _near_max.x)),
+		maxi(absi(bz - _near_min.y), absi(bz - _near_max.y)))
+	for ring: int in reach + 1:
+		# Everything in this ring or beyond is at least (ring - 1) cells away
+		# horizontally, and 3D distance is never less than horizontal. Strictly
+		# greater than the best means nothing out there can win, not even on
+		# the lower-index tie-break.
+		if ring > 0:
+			var floor_distance: float = float(ring - 1) * cell_size
+			if floor_distance * floor_distance > best_distance:
+				break
+		# The ring's PERIMETER only, walked directly. Walking the whole square
+		# and skipping its inside made each ring cost its area rather than its
+		# edge - cubic in the search radius, and the reason the first version
+		# of this was only three times faster than the scan it replaced.
+		var x_lo: int = maxi(bx - ring, _near_min.x)
+		var x_hi: int = mini(bx + ring, _near_max.x)
+		var z_lo: int = maxi(bz - ring, _near_min.y)
+		var z_hi: int = mini(bz + ring, _near_max.y)
+		if ring == 0:
+			best = _nearest_in(Vector2i(bx, bz), point, best, best_distance)
+			if best >= 0:
+				best_distance = nodes[best].distance_squared_to(point)
+			continue
+		# Top and bottom rows, full width - only where they lie on the grid.
+		for z: int in [bz - ring, bz + ring]:
+			if z < _near_min.y or z > _near_max.y:
+				continue
+			for x: int in range(x_lo, x_hi + 1):
+				best = _nearest_in(Vector2i(x, z), point, best, best_distance)
+				if best >= 0:
+					best_distance = nodes[best].distance_squared_to(point)
+		# Left and right columns, without the corners the rows already took.
+		for x: int in [bx - ring, bx + ring]:
+			if x < _near_min.x or x > _near_max.x:
+				continue
+			for z: int in range(maxi(z_lo, bz - ring + 1), mini(z_hi, bz + ring - 1) + 1):
+				best = _nearest_in(Vector2i(x, z), point, best, best_distance)
+				if best >= 0:
+					best_distance = nodes[best].distance_squared_to(point)
+	return best
+
+## The better of `best` and anything in one bucket, by distance then by lower
+## index - the scan's own tie-break, so the index can never disagree with it.
+func _nearest_in(key: Vector2i, point: Vector3, best: int, best_distance: float) -> int:
+	var bucket: PackedInt32Array = _near_buckets.get(key, _NO_NODES)
+	for index: int in bucket:
+		var distance: float = nodes[index].distance_squared_to(point)
+		if distance < best_distance 				or (distance == best_distance and best >= 0 and index < best):
+			best_distance = distance
+			best = index
+	return best
+
+## The original linear scan: the reference the index is checked against, and the
+## fallback for a surface with no index built.
+func _nearest_scan(point: Vector3, limit: float = INF) -> int:
 	var best: int = -1
 	var best_distance: float = limit * limit if limit < INF else INF
 	for index: int in nodes.size():
@@ -475,6 +560,25 @@ func nearest(point: Vector3, limit: float = INF) -> int:
 			best_distance = distance
 			best = index
 	return best
+
+## Buckets the stances by horizontal cell for nearest(). Built once, alongside
+## the flat adjacency, on every path that produces a surface.
+func _index_nodes() -> void:
+	_near_buckets.clear()
+	if cell_size <= 0.0 or nodes.is_empty():
+		return
+	var lo: Vector2i = Vector2i(2147483647, 2147483647)
+	var hi: Vector2i = Vector2i(-2147483648, -2147483648)
+	for index: int in nodes.size():
+		var at: Vector3 = nodes[index]
+		var key: Vector2i = Vector2i(int(floor(at.x / cell_size)), int(floor(at.z / cell_size)))
+		var bucket: PackedInt32Array = _near_buckets.get(key, PackedInt32Array())
+		bucket.append(index)
+		_near_buckets[key] = bucket
+		lo = Vector2i(mini(lo.x, key.x), mini(lo.y, key.y))
+		hi = Vector2i(maxi(hi.x, key.x), maxi(hi.y, key.y))
+	_near_min = lo
+	_near_max = hi
 
 ## Is the straight line between two points clear of geometry?
 ##

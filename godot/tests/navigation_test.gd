@@ -13,7 +13,7 @@ extends SceneTree
 ## it; the old fill said so, and would have certified a level whose only route
 ## between two houses was over the roof.
 
-const EXPECTED_CHECKS: int = 26
+const EXPECTED_CHECKS: int = 28
 
 ## Fixed rather than derived, so a case states the resolution it needs instead
 ## of depending on the heuristics that pick one for real content.
@@ -33,6 +33,7 @@ func _initialize() -> void:
 	_test_stance_under()
 	_test_routing()
 	_test_baking()
+	_test_nearest_is_exact()
 
 	# Counted BEFORE the guard's own failure is added, or a suite that skipped a
 	# case reports the total it was supposed to reach and reads as a paradox.
@@ -251,3 +252,36 @@ func _test_baking() -> void:
 		stored.matches(moved, RADIUS, STEP_UP), false)
 	_check("bake/and so does a differently sized body",
 		stored.matches(built._collision, RADIUS * 2.0, STEP_UP), false)
+
+## nearest() is INDEXED, and must still give the answer the full scan gives.
+##
+## Everything a bot decides and every route it walks starts from nearest(), so
+## an index that returned a merely-close stance would move every bot in the game
+## and do it silently. Checked against the scan it replaced on a two-level
+## fixture, over a lattice that deliberately lands on stances (exact ties, where
+## the lower index must win), on bucket edges, between stances, outside the
+## shell, and with a limit.
+func _test_nearest_is_exact() -> void:
+	var s: WalkableSurface = _surface([_wall(STEP_UP * 0.5)] as Array[AABB])
+	var mismatches: int = 0
+	var asked: int = 0
+	var x: float = -40.0
+	while x <= 240.0:
+		var z: float = -20.0
+		while z <= 120.0:
+			for y: float in [0.0, FLOOR_TOP, FLOOR_TOP + RADIUS, 150.0]:
+				for limit: float in [INF, CELL * 2.0, 1.0]:
+					var p: Vector3 = Vector3(x, y, z)
+					asked += 1
+					if s.nearest(p, limit) != s._nearest_scan(p, limit):
+						mismatches += 1
+			z += CELL * 0.5
+		x += CELL * 0.5
+	_check("nearest/matches the full scan everywhere (%d queries)" % asked, mismatches, 0)
+	# And on every stance itself, where the distance is zero and only the index
+	# breaks the tie.
+	var on_stance: int = 0
+	for index: int in s.size():
+		if s.nearest(s.nodes[index]) != s._nearest_scan(s.nodes[index]):
+			on_stance += 1
+	_check("nearest/matches on every stance", on_stance, 0)
