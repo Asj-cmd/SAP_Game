@@ -395,6 +395,41 @@ So it is a TUNING job, not a plumbing one: round length, capture sentence and
 cash-per-team all assume a single raider. Left at 1 until somebody has played
 it, since those numbers are a feel judgement and the bots cannot make it.
 
+## 6d. Multiplayer is reachable from a menu
+
+It was complete and unusable: hosting meant `CashGrab.exe -- --host
+--advertise=<ip>` from a command prompt, joining meant typing a code onto a
+command line. The game now opens on a menu - Play solo / Host / Join - and the
+flags still work and skip it, which keeps every tool and capture unchanged
+(`--menu` forces it, for photographing it).
+
+  - The host's address is picked for them: Tailscale (100.64/10) first, then a
+    home-network address, with a note saying who can reach it. The join code
+    CONTAINS the address, so a wrong one makes a code nobody can use - the
+    commonest way a first session fails.
+  - The code is copied to the clipboard on hosting.
+  - A guest that cannot reach the host is told so in 10 s and put back on the
+    menu with the code still typed. It used to wait ~31 s and then say "the
+    host left" about a host that was never there. The deadline is in MatchLink,
+    NOT the transport: ENet's timeout also decides when an established player
+    is dropped, and the reconnect grace depends on that staying generous.
+  - F10 leaves a match and closes the session; hosting again afterwards works,
+    so the port is released.
+  - A failure mid-match is shown, with the way out. It used to be silent.
+
+ONE REAL BUG FIXED: two copies of the game on one machine share
+user://player.cfg, so the guest arrived with the HOST'S identity and the lobby
+treated it as the host reconnecting - handing the guest the host's own body.
+The host is the server and can never be reconnecting, so a guest presenting the
+host's identity is now seated as somebody new.
+
+Verified with two real processes over ENet, the exported .exe, and the lobby,
+loopback, reconcile and prediction harnesses.
+
+STILL OPEN, and both are decisions rather than bugs: one human per team
+(team_size 1, so two people per match), and internet play needs Tailscale on
+both machines until the Steam backend exists.
+
 ## 7. Two things still owed to the user
 
 **A real two-machine playtest.** Everything network has been proven headless and

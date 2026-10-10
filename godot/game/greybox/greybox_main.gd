@@ -128,6 +128,19 @@ var _seat_shown: int = SimEntity.NO_ENTITY
 var _path_markers: Array[MeshInstance3D] = []
 var _show_paths: bool = false
 
+## How this window takes part in a match, and with what. Filled from the command
+## line when one was given, otherwise from the menu - so the tools and the frame
+## capture, which pass flags, never see the menu at all.
+var _role: MatchLink.Role = MatchLink.Role.LOCAL
+var _join_code: String = ""
+var _advertise: String = ""
+var _identity: String = ""
+var _backend: String = "enet"
+var _menu: MainMenu = null
+## Started from the menu rather than from flags, so a failure goes back there
+## with its reason instead of leaving a dead screen behind a banner.
+var _from_menu: bool = false
+
 func _ready() -> void:
 	_build_lighting()
 	_build_hud()
@@ -135,9 +148,88 @@ func _ready() -> void:
 	# unattended run can capture a frame of it. A mode nobody can screenshot is
 	# a mode that quietly rots.
 	_split_screen = OS.get_cmdline_user_args().has("--split")
+	_read_command_line()
+	_menu = MainMenu.new()
+	add_child(_menu)
+	_menu.solo_chosen.connect(_on_solo)
+	_menu.host_chosen.connect(_on_host)
+	_menu.join_chosen.connect(_on_join)
+	if _wants_menu():
+		_menu.open()
+		_capture_mouse(false)
+		# So the menu itself can be photographed (`--menu --capture`).
+		_arm_capture()
+		return
+	_menu.close()
 	_capture_mouse(not _split_screen)
 	_start(GreyBoxLevel.SafeVariant.B)
 	_arm_capture()
+
+## The menu is for a player starting the game plainly. Any flag that already
+## says what to do - a role, a frame capture, the debug split - skips it, which
+## is what keeps every tool and unattended capture working unchanged.
+func _wants_menu() -> bool:
+	if OS.get_cmdline_user_args().has("--menu"):
+		return true
+	for arg: String in OS.get_cmdline_user_args():
+		if arg == "--host" or arg == "--solo" or arg == "--split" \
+				or arg.begins_with("--join") or arg.begins_with("--capture"):
+			return false
+	return true
+
+func _read_command_line() -> void:
+	_role = _role_from_command_line()
+	_join_code = _argument("--join=", "")
+	_advertise = _argument("--advertise=", "")
+	_identity = _argument("--identity=", "")
+	_backend = _argument("--backend=", "enet")
+
+func _on_solo() -> void:
+	_launch(MatchLink.Role.LOCAL, "", "")
+
+func _on_host(address: String) -> void:
+	_launch(MatchLink.Role.HOST, "", address)
+
+func _on_join(code: String) -> void:
+	_launch(MatchLink.Role.GUEST, code, "")
+
+func _launch(role: MatchLink.Role, code: String, address: String) -> void:
+	_role = role
+	_join_code = code
+	_advertise = address
+	_from_menu = true
+	_menu.close()
+	_capture_mouse(not _split_screen)
+	_start(GreyBoxLevel.SafeVariant.B)
+	# The code is what the host has to give somebody, and reading fourteen
+	# characters off a screen to a friend is where they get mistyped.
+	if link != null and link.failure == "" and link.role == MatchLink.Role.HOST:
+		DisplayServer.clipboard_set(link.session_code())
+		_banner.text = "Code copied - paste it to whoever is joining.\n%s" % link.session_code()
+		get_tree().create_timer(6.0).timeout.connect(_clear_code_banner)
+
+func _clear_code_banner() -> void:
+	if _banner.text.begins_with("Code copied"):
+		_banner.text = ""
+
+## Back to the menu, closing the session cleanly - a host's port is released
+## and a guest's peer goes quiet rather than timing out on the far end.
+func _return_to_menu(problem: String) -> void:
+	if link != null:
+		link.close()
+	link = null
+	world = null
+	players.clear()
+	for view: MeshInstance3D in _actor_views.values():
+		view.queue_free()
+	_actor_views.clear()
+	_view_heights.clear()
+	_facings.clear()
+	if _reach_marker != null:
+		_reach_marker.visible = false
+	_banner.text = ""
+	_capture_mouse(false)
+	_menu.open(problem)
 
 # ---- looking at the screen ----
 
@@ -244,8 +336,8 @@ func _start(variant: GreyBoxLevel.SafeVariant) -> void:
 		return
 	_build_geometry()
 
-	var role: MatchLink.Role = _role_from_command_line()
-	var backend: String = _argument("--backend=", "enet")
+	var role: MatchLink.Role = _role
+	var backend: String = _backend
 
 	# A guest needs three worlds: what the host confirmed, what it is guessing,
 	# and somewhere to decode snapshots into before trusting them.
@@ -259,16 +351,16 @@ func _start(variant: GreyBoxLevel.SafeVariant) -> void:
 	match role:
 		MatchLink.Role.HOST:
 			link = MatchLink.host(
-				level, worlds[0], _bots_enabled, backend,
-				_argument("--advertise=", ""), _argument("--identity=", "")
+				level, worlds[0], _bots_enabled, backend, _advertise, _identity
 			)
 		MatchLink.Role.GUEST:
-			link = MatchLink.guest(
-				level, worlds, backend, _argument("--join=", ""), _argument("--identity=", "")
-			)
+			link = MatchLink.guest(level, worlds, backend, _join_code, _identity)
 		_:
 			link = MatchLink.local(level, worlds[0], _bots_enabled)
 	if link.failure != "":
+		if _from_menu:
+			_return_to_menu("Could not start: %s" % link.failure)
+			return
 		_banner.text = "NETWORK\n%s" % link.failure
 		return
 
@@ -430,6 +522,19 @@ func _process(delta: float) -> void:
 	# Drained every FRAME, not every tick. Packets arrive when they arrive, and
 	# holding one until the next simulation step adds latency nobody asked for.
 	link.poll_network()
+	# A session can die mid-match - the host quits, the connection drops for
+	# good - and that used to be silent: the world simply stopped. Say so, and
+	# say how to get out.
+	if link.failure != "":
+		# A join that never got in has nothing on screen worth staying for, so
+		# it goes straight back to the menu with the reason and the code still
+		# typed. A match that WAS running keeps its last frame, so the player
+		# can see where it ended.
+		if _from_menu and link.role == MatchLink.Role.GUEST and link.actor_id == SimEntity.NO_ENTITY:
+			_return_to_menu(link.failure)
+			return
+		_banner.text = "NETWORK   %s\n[F10] back to the menu" % link.failure
+		return
 	_follow_seat()
 	_record_confirmed()
 
@@ -1106,7 +1211,7 @@ func _update_hud() -> void:
 	lines.append("jump SPACE or A    crouch SHIFT or LS (hold)")
 	lines.append("seize / free ally E or B    grab-drop LMB / X    throw RMB / RB")
 	lines.append("[F4] bot paths %s" % ("on" if _show_paths else "off"))
-	lines.append("[F2] split-screen debug    [F3] bots %s    [F12] save a frame    [Esc] release mouse"
+	lines.append("[F10] leave to menu    [F2] split-screen debug    [F3] bots %s    [F12] save a frame    [Esc] release mouse"
 		% ("on" if _bots_enabled else "off"))
 	if _split_screen and Input.get_connected_joypads().size() < 2:
 		lines.append("!! split-screen wants two pads - both seats are on one")
@@ -1124,6 +1229,8 @@ func _network_line() -> String:
 				link.session_code(), link.transport.peers().size(), world.tick,
 			]
 		MatchLink.Role.GUEST:
+			if not link.is_ready():
+				return "CONNECTING to the host...   [F10] cancel"
 			var waiting: String = "  REACHING..." if not link.awaiting().is_empty() else ""
 			return "JOINED   confirmed %d   predicting %+d   remote -%d ticks%s" % [
 				link.outcome_world().tick,
@@ -1155,18 +1262,31 @@ func _phase_name(phase: SimWorld.MatchPhase) -> String:
 func _unhandled_input(event: InputEvent) -> void:
 	var motion: InputEventMouseMotion = event as InputEventMouseMotion
 	if motion != null:
-		if not players.is_empty():
+		if not players.is_empty() and Input.mouse_mode == Input.MOUSE_MODE_CAPTURED:
 			players[0].add_mouse_motion(motion.relative)
 		return
 
 	var key: InputEventKey = event as InputEventKey
 	if key == null or not key.pressed or key.is_echo():
 		return
+	# The menu owns the keyboard while it is up, and with no match there is
+	# nothing for the in-game keys to act on.
+	if _menu != null and _menu.visible:
+		return
+	if link == null:
+		return
 	match key.keycode:
+		KEY_F10:
+			_return_to_menu("")
 		KEY_1:
-			_reset(GreyBoxLevel.SafeVariant.A)
+			# Switching variant rebuilds the session. Only a local match can do
+			# that - a host would be re-opening a port it already holds, and a
+			# guest has no say over the rules.
+			if link.role == MatchLink.Role.LOCAL:
+				_reset(GreyBoxLevel.SafeVariant.A)
 		KEY_2:
-			_reset(GreyBoxLevel.SafeVariant.B)
+			if link.role == MatchLink.Role.LOCAL:
+				_reset(GreyBoxLevel.SafeVariant.B)
 		KEY_F2:
 			# Debug only. The real game is online - one player, one camera, one
 			# mouse - so a second seat here is for watching two bodies while

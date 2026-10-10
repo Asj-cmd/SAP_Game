@@ -42,65 +42,71 @@ the whole thing to whoever is playing.
 
 Unzip anywhere and run **CashGrab.exe**. No installer.
 
-Windows may warn about an unrecognised publisher — the build is not signed.
-*More info* → *Run anyway*.
+Windows may warn about an unrecognised publisher - the build is not signed.
+*More info* -> *Run anyway*.
+
+The game opens on a menu with three choices.
 
 ### The host
 
-Run it with `--host`:
+Press **Host**. The address box is filled in for you: if Tailscale is running
+it picks your Tailscale address (`100.x.y.z`), otherwise your home-network
+address. The note under the box says which, and who can reach it.
 
-- Make a shortcut, or
-- Open the folder, type `cmd` in the address bar, and run:
-  ```
-  CashGrab.exe -- --host
-  ```
-  *(the bare `--` is not a typo — it separates the game's options from Godot's)*
+A **code** like `05ZG-0001-W5FG` appears top-left and is **already copied** -
+paste it to the other player in whatever chat you use.
 
-Top-left it will show a **code** like `05ZG-0001-W5FG`. Read it to the other
-player.
-
-**The code contains this machine's Tailscale address**, so tell the host to use
-their Tailscale IP: find it in the Tailscale window (it looks like
-`100.x.y.z`), and start with
-
-```
-CashGrab.exe -- --host --advertise=100.x.y.z
-```
+> Use the Tailscale address when the other player is in a different house. A
+> home-network address (`192.168.x.x`) only works for someone on the same wifi.
 
 ### The other player
 
-```
-CashGrab.exe -- --join=05ZG-0001-W5FG
-```
+Paste the code into **Join a game** and press **Join** (or Enter). Codes are not
+case-sensitive and the dashes do not matter.
 
-Codes are not case-sensitive and the dashes do not matter.
+You should be in the match within a second. If the host cannot be reached you
+are put back on the menu after about ten seconds with the reason, and the code
+is still in the box to try again.
+
+### On your own
+
+**Play solo** starts a match against a bot on the other team.
+
+**F10** leaves any match and goes back to the menu.
+
+> The command-line flags still work (`CashGrab.exe -- --host`,
+> `-- --join=CODE`, `-- --advertise=100.x.y.z`) for anyone scripting a test.
 
 ## 4. Playing
 
 | | |
 |---|---|
 | Move | `W A S D` |
-| Look | mouse |
-| Grab / drop cash | `Q` |
-| Seize an intruder, or free a team-mate | `SPACE` |
+| Look | mouse - the camera sits behind you and you run where it points |
+| Jump | `SPACE` |
+| Crouch (hold) | `SHIFT` |
+| Grab / drop cash | left mouse button |
+| Throw cash | right mouse button - a toss; it lands and anyone can pick it up |
+| Seize an intruder, or free a team-mate | `E` |
+| Leave to the menu | `F10` |
 | Release the mouse | `Esc` |
 | Save a screenshot | `F12` |
 
 Steal cash from the other family's vault and get it back to yours. On your own
 ground you can seize an intruder, which sends them to your basement until a
-team-mate reaches them — **except** in a safe room.
+team-mate reaches them - **except** in a safe room.
 
-`SPACE` is one button for both: it asks for a seize and a release at the same
-time and the rules pick. Seizing needs an intruder on ground you own; freeing
-needs a held team-mate within reach; no position satisfies both.
+`E` is one button for both: it asks for a seize and a release at the same time
+and the rules pick. Seizing needs an intruder on ground you own; freeing needs a
+held team-mate within reach; no position satisfies both.
 
 **You cannot seize someone in your own vault for the first 5 seconds after they
 enter it** - that is the safe room, and it is deliberate. Nor in the garden
 between the houses, which belongs to nobody, nor in your own basement. Anywhere
 else on your own ground is fair game.
 
-**Add bots** with `F3` on the host if you want more bodies in the match. They
-fill both sides evenly or not at all.
+**It is one player per team for now** - two people per match. Bots fill the
+other seat if nobody joins; a joining player takes it over from the bot.
 
 ## 5. What we want to know
 
@@ -123,11 +129,11 @@ Press `F12` when something looks wrong. Screenshots land in
 | What you see | What it means |
 |---|---|
 | `that is not a session code` | Mistyped. `0` is a zero; there is no letter O in a code. |
-| Nothing happens after joining | The host is not running, or Tailscale is not connected on one end. Check both machines are listed in the Tailscale window. |
+| `could not reach the host` | The host has not pressed Host yet, the code is wrong, or the host used a home-network address and you are in a different house. Ask them to host with Tailscale running, and check both machines are listed in the Tailscale window. |
 | `NETWORK the host left` | Host closed the game. The match ends — there is no host migration yet. |
 | Frozen for a second, then fine | A dropped packet. Expected; it repairs itself. Tell us if it happens a lot. |
 | You stop moving but others carry on | Tell us. That one matters. |
 | Dropped out entirely | Just run the same join command again. You get **your own body back**, wherever it had got to - a bot covers the seat while you are away and hands it straight back. If you come back as a *new* player instead, that is a bug and we want to know. |
 
-Known and not worth reporting: no sound, no menus, no character art, and the
-whole thing is grey boxes.
+Known and not worth reporting: no sound, plain block characters with no
+animation, and grey-box rooms.

@@ -25,6 +25,24 @@ var crew: BotCrew = null
 var transport: SessionTransport = null
 var session: PredictedSession = null
 var failure: String = ""
+## When a guest started trying to reach the host, in wall-clock ms; -1 once it
+## has a seat. Wall clock is fine here - this is the network layer, not a rule.
+var _joining_since: int = -1
+
+## How long a guest waits for a seat before saying it could not reach the host.
+##
+## The transport's own timeout is about thirty seconds, and it cannot simply be
+## shortened: the same timeout decides when an ESTABLISHED player is dropped,
+## and the lobby's reconnect grace depends on that staying generous. So the
+## deadline is for getting in, and lives here. Ten seconds is far longer than a
+## reachable host takes - a seat arrives in well under one - and short enough
+## that a wrong code or a host that has not pressed Host yet is reported while
+## the player is still looking at the screen.
+const JOIN_DEADLINE_MS: int = 10000
+
+## Unreachable rather than gone. Said separately because "the host left" about a
+## host that was never there sends people looking for the wrong problem.
+const UNREACHABLE: String = "could not reach the host - check the code, and that the host has pressed Host"
 
 ## Which body this machine drives. Assigned by the host; a guest is told.
 var actor_id: int = SimEntity.NO_ENTITY
@@ -117,6 +135,7 @@ static func guest(
 		link.failure = "that is not a session code"
 		return link
 	link.transport.join_session(handle)
+	link._joining_since = Time.get_ticks_msec()
 	return link
 
 static func _transport(backend: String) -> SessionTransport:
@@ -241,6 +260,12 @@ func _advance_guest(local_commands: Array[SimCommand]) -> void:
 func poll_network() -> void:
 	if transport == null:
 		return
+	if role == Role.GUEST and _joining_since >= 0 and failure == "":
+		if actor_id != SimEntity.NO_ENTITY:
+			_joining_since = -1
+		elif Time.get_ticks_msec() - _joining_since > JOIN_DEADLINE_MS:
+			failure = UNREACHABLE
+			return
 	for event: NetEvent in transport.poll():
 		match event.kind:
 			NetEvent.Kind.SESSION_READY:
@@ -259,7 +284,8 @@ func poll_network() -> void:
 			NetEvent.Kind.PAYLOAD:
 				_receive(event.peer, event.payload)
 			NetEvent.Kind.SESSION_FAILED:
-				failure = event.reason
+				failure = UNREACHABLE if role == Role.GUEST and actor_id == SimEntity.NO_ENTITY \
+					else event.reason
 
 ## Seats an arriving player under the identity THEY supplied.
 ##
@@ -273,6 +299,20 @@ func _admit(peer: int, token: String) -> void:
 		return
 	if not PlayerIdentity.is_acceptable(token):
 		return # not an identity; not seated
+	# A guest claiming the HOST'S OWN identity is a second copy of the game on
+	# the same machine - both read the same user://player.cfg - and never the
+	# host reconnecting, because the host is the server and cannot leave its
+	# own session. Taken at its word, the lobby treated it as the host
+	# returning and handed it the host's body: the guest drove it and the
+	# person at the host's keyboard lost control of their own character, with
+	# nothing on screen to say why. Seen on a two-window test on one PC.
+	#
+	# So it is seated as somebody new. The derived token is stable for this
+	# connection only, which costs exactly one thing: a second window that
+	# drops and reconnects comes back as a fresh player rather than to its old
+	# seat. Every other player's reconnect is untouched.
+	if token == identity:
+		token = "%s:%d" % [token.left(PlayerIdentity.MAX_LENGTH - 8), peer]
 	var seated: LobbyEvent = lobby.admit(token, peer, "Player %d" % peer, _authoritative.tick)
 	if seated.seat == null:
 		# Genuinely full. Told rather than left guessing - a client that hears
@@ -303,7 +343,9 @@ func _admit(peer: int, token: String) -> void:
 func _depart(peer: int) -> void:
 	if role != Role.HOST:
 		if peer == SessionTransport.HOST_PEER:
-			failure = "the host left"
+			# Never seated means never really there: the session closed while
+			# still knocking, which is an unreachable host, not a departed one.
+			failure = UNREACHABLE if actor_id == SimEntity.NO_ENTITY else "the host left"
 		return
 	for event: LobbyEvent in lobby.note_absence(peer, _authoritative.tick):
 		if event.kind == LobbyEvent.Kind.ENDED:
