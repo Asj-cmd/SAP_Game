@@ -1,0 +1,13 @@
+[gd_resource type="Resource" script_class="GameModeDef" format=3]
+
+[ext_resource type="Script" path="res://content/modes/game_mode_def.gd" id="1_mode"]
+
+[resource]
+script = ExtResource("1_mode")
+id = &"house_4v4"
+display_name = "House 4v4"
+team_size = 4
+round_seconds = 180.0
+pre_round_seconds = 2.0
+capture_seconds = 30.0
+capture_escalation_seconds = 6.0

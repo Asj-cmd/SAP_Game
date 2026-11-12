@@ -1,5 +1,12 @@
 {
-  "max_stall_seconds": 42,
+  "bot_match": {
+    "1": {
+      "max_stall_seconds": 42
+    },
+    "3": {
+      "max_stall_seconds": 400
+    }
+  },
   "require_winner": true,
   "max_over_budget_ticks": 5
 }

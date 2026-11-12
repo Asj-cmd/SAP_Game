@@ -13,7 +13,6 @@ extends SceneTree
 ## exactly - if they ever stop agreeing, replays and netcode are both already
 ## broken and this is where it should surface first.
 
-const TICK_LIMIT: int = 30 * 60 * 6
 ## Ticks between stall samples, and how far a bot must travel in that time to
 ## count as making progress.
 const STALL_WINDOW: int = 30
@@ -40,6 +39,16 @@ var _lone: bool = false
 var _level_path: String = GreyBoxLevel.LEVEL_PATH
 ## `--team-size=N` seats N a side instead of the level's own count; 0 keeps it.
 var _team_size: int = 0
+## `--mode.<field>=<value>` overrides one GameModeDef number for this run, so a
+## tuning sweep is a loop over arguments rather than an edit per try. Applied on
+## top of the mode the team size loads.
+var _mode_overrides: Dictionary[String, String] = {}
+## `--seed=N` plays a different match. One seed is one match: tuning against it
+## alone fits the numbers to that match, so a sweep runs several.
+var _seed: int = 20260802
+## `--once` skips the second, determinism-checking run. For sweeps only; the
+## gate in verify.mjs always plays twice.
+var _once: bool = false
 
 ## `--lone` seats one idle human and one bot, which is the shape the playtest
 ## actually reported: a single bot in a doorway with one person about. Bot
@@ -53,20 +62,34 @@ func _initialize() -> void:
 			_level_path = arg.trim_prefix("--level=")
 		if arg.begins_with("--team-size="):
 			_team_size = int(arg.trim_prefix("--team-size="))
+		if arg.begins_with("--mode.") and arg.contains("="):
+			var pair: PackedStringArray = arg.trim_prefix("--mode.").split("=", true, 1)
+			_mode_overrides[pair[0]] = pair[1]
+		if arg.begins_with("--seed="):
+			_seed = int(arg.trim_prefix("--seed="))
+	_once = OS.get_cmdline_user_args().has("--once")
 	var first: Dictionary = _play()
-	var second: Dictionary = _play()
+	var second: Dictionary = first if _once else _play()
 
 	if first["digest"] != second["digest"]:
 		_locate_divergence(first["hashes"], second["hashes"])
 
-	print("\n--- %s ---" % ("DETERMINISTIC" if first["digest"] == second["digest"] else "DIVERGED"))
+	if _once:
+		print("\n--- ONE RUN (determinism not checked) ---")
+	else:
+		print("\n--- %s ---" % ("DETERMINISTIC" if first["digest"] == second["digest"] else "DIVERGED"))
+	print("seed        %d" % _seed)
 	print("ticks       %d" % first["ticks"])
 	print("surface     %d stances, %d ms to build" % [first["nodes"], first["build_ms"]])
+	print("team size   %d a side" % first["team_size"])
+	print("mode        %s" % first["mode"])
 	print("rounds won  %s" % first["rounds"])
+	for line: String in first["round_log"]:
+		print("              %s" % line)
 	print("cash held   %s" % first["scores"])
 	print("carries     %d pick-ups, %d deposits" % [first["pickups"], first["deposits"]])
 	print("captures    %d seizures, %d rescues" % [first["captures"], first["rescues"]])
-	print("winner      %s" % ("none - ran out of ticks" if first["winner"] == &"" else first["winner"]))
+	print("winner      %s" % ("none - not decided in regulation" if first["winner"] == &"" else first["winner"]))
 	print("encounters  %d within reach, %d of them where a seizure was legal, %d within sight" % [
 		first["encounters"], first["seizable"], first["sightings"]])
 	print("raiding     %s" % _raiding(first))
@@ -110,17 +133,25 @@ func _show_difference(left: String, right: String) -> void:
 		print("  (records identical - the difference is in length: %d vs %d)" % [a.size(), b.size()])
 
 func _play(stop_at: int = -1) -> Dictionary:
-	var level: GreyBoxLevel = GreyBoxLevel.new(GreyBoxLevel.SafeVariant.B, _level_path)
+	# The grey box seats 1v1 for development; the game ships 2v2 to 4v4 (D8),
+	# and each size has its own mode file.
+	var level: GreyBoxLevel = GreyBoxLevel.new(GreyBoxLevel.SafeVariant.B, _level_path,
+		_team_size if _team_size > 0 else GreyBoxLevel.DEFAULT_TEAM_SIZE)
 	if not level.is_loaded():
 		print("no baked level - run tools/bake_blockout.gd")
 		quit(1)
 		return {}
-	# The grey box seats 1v1 for development; the game ships 2v2 to 4v4 (D8).
-	if _team_size > 0:
-		level.mode.team_size = _team_size
+	for field: String in _mode_overrides:
+		var current: Variant = level.mode.get(field)
+		if current == null:
+			print("no mode field %s" % field)
+			quit(1)
+			return {}
+		level.mode.set(field, type_convert(_mode_overrides[field], typeof(current)))
+	var tick_limit: int = _regulation_ticks(level.mode)
 
 	var started: int = Time.get_ticks_msec()
-	var world: SimWorld = SimWorld.new(20260802)
+	var world: SimWorld = SimWorld.new(_seed)
 	if not world.configure(
 		level.mode, level.tuning, level.zones, level.teams, level.collision, level.surface
 	):
@@ -175,13 +206,30 @@ func _play(stop_at: int = -1) -> Dictionary:
 	var away: Dictionary[StringName, int] = {}
 	var live_ticks: int = 0
 
+	## One line per round played, drawn rounds included: a match without a winner
+	## is either rounds that run out of time level, or too few rounds fitting in
+	## the limit, and the totals alone cannot tell those apart.
+	var round_log: Array[String] = []
+	var round_began: int = 0
+
 	world.step([MatchCommand.start()])
 	var ticks: int = 0
-	while world.match_phase != SimWorld.MatchPhase.MATCH_END and ticks < TICK_LIMIT:
+	while world.match_phase != SimWorld.MatchPhase.MATCH_END and ticks < tick_limit:
 		if stop_at >= 0 and ticks >= stop_at:
 			break
 		for event: SimEvent in world.step(crew.drain(world, world.tick)):
 			tally[event.kind] = tally.get(event.kind, 0) + 1
+			if event.kind == MatchEvent.KIND_ROUND_STARTED:
+				round_began = event.tick
+			elif event.kind == MatchEvent.KIND_ROUND_ENDED:
+				var ended: MatchEvent = event as MatchEvent
+				round_log.append("round %d  %3d s  %-7s %-14s cash %s" % [
+					ended.round_number,
+					int(float(ended.tick - round_began) / float(SimWorld.TICKS_PER_SECOND)),
+					"draw" if ended.winner == &"" else String(ended.winner),
+					ended.reason,
+					_per_team(world, false),
+				])
 		hashes.append(world.state_hash())
 		ticks += 1
 
@@ -258,6 +306,13 @@ func _play(stop_at: int = -1) -> Dictionary:
 				anchor[actor_id] = body.position
 
 	return {
+		"round_log": round_log,
+		"team_size": world.mode.team_size,
+		"mode": "round %d s, jail %d s +%d s per repeat, target %d of %d, first to %d rounds, limit %d s" % [
+			int(world.mode.round_seconds), int(world.mode.capture_seconds),
+			int(world.mode.capture_escalation_seconds), world.mode.score_to_win(),
+			world.mode.cash_per_team * 2, world.mode.rounds_to_win,
+			int(float(tick_limit) / float(SimWorld.TICKS_PER_SECOND))],
 		"encounters": encounters,
 		"seizable": seizable,
 		"sightings": sightings,
@@ -281,6 +336,16 @@ func _play(stop_at: int = -1) -> Dictionary:
 		"rescues": tally.get(CaptureEvent.KIND_RELEASED, 0),
 		"winner": world.match_winner,
 	}
+
+## How long a match may run before "no winner" is the verdict: the most rounds a
+## best-of can need, each at full length. A drawn round is replayed, so draws eat
+## into this rather than extending it - a size that keeps drawing fails here,
+## which is the point. Derived from the mode so a longer round is not cut off by
+## a limit written for a shorter one.
+func _regulation_ticks(mode: GameModeDef) -> int:
+	var rounds: int = 2 * mode.rounds_to_win - 1
+	var per_round: float = mode.pre_round_seconds + mode.round_seconds + mode.round_end_seconds
+	return SimWorld.seconds_to_ticks(float(rounds) * per_round) + 1
 
 func _per_team(world: SimWorld, rounds: bool) -> String:
 	var parts: PackedStringArray = PackedStringArray()

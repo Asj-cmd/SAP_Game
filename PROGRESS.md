@@ -2,6 +2,20 @@
 
 Newest first. One entry per task: date, task id, what changed, what the frames showed, numbers, what is left.
 
+## 2026-11-12 — P0-2c Tuning per team size
+- **The problem wasn't too many rescues. Rounds were ending level on the clock.** Measured first with the old numbers (120 s rounds, 18 s jail, +6 s escalation), 4 seeds × 2v2/3v3/4v4: **0 of 32 rounds ended on the target** (7 of the 8 bundles). Every round ran its full 120 s and went to whoever led, usually 3–2 or 5–2. 2v2 drew 5 of 11 rounds (3–3, 4–4) and 2 of 4 matches were undecided. 3v3 and 4v4 were decided in 4 of 4, but 3v3 at the main seed only because the old fixed 6-minute tool limit was replaced (it had cut off round 3).
+- **Instrument (tools/bot_match.gd):** one line per round (length, winner or draw, how it ended, cash), `--seed=N`, `--once` (one run, for sweeps; the gate always plays twice), `--mode.<field>=<value>` overrides, and a match limit taken from the mode: `2·rounds_to_win−1` full rounds, with draws counting against it. "No winner" now means "not decided in regulation".
+- **Data, not code:** `content/modes/house_1v1.tres … house_4v4.tres`. `GreyBoxLevel.new(variant, level, team_size)` loads the file for that size (a missing file is a `push_error`). `cash_per_team` is still stamped from the level's markers. perf_probe and bot_match pass `--team-size` through to it. The game itself still seats 1v1 (`DEFAULT_TEAM_SIZE`).
+- **Sweep** (results per config over 4 seeds; decided = winner in regulation):
+  - 2v2: 120/18 → 2/4 decided, 5/11 draws · 120/24 → 3/4 · 120/30+8 → 3/4 · 150/18 → 4/4, 0 draws · 150/24 → 4/4, 3 on target, but 7/8 once seeds 4–7 were added · **180/24 → 8/8**, 2 draws in 18 rounds, 5 on target.
+  - 3v3: 120/18 → 4/4, 0 on target · 150/24 → 2/4 · **180/30 → 8/8** over 8 seeds, 1 draw in 17 rounds, 10 on target.
+  - 4v4: 120/18 → 4/4, 0 on target · 150/24 → 4/4, 4 on target · **180/30 → 8/8** over 8 seeds, 0 draws, 9 of 19 rounds on target.
+- **Chosen (DECISIONS REVIEW):** 1v1 120 s / 18 s (unchanged, the bot match gives the same numbers: 12 pick-ups, 8 deposits, 6 seizures, 5 rescues, 42 s stalls, team_a 2–0); 2v2 180 s / 24 s; 3v3 and 4v4 180 s / 30 s. All with +6 s escalation. Matches run 266–555 s (4½–9 min) at 2v2–4v4.
+- **Gate:** `verify.mjs` runs bot_match at 3v3 first (main gate), then 1v1. Each has its own stall budget in `metrics_budget.json` (`bot_match.{size}.max_stall_seconds`): 1v1 42, 3v3 400. 3v3 at the gate seed: DETERMINISTIC, winner team_a, 485 s (round 1 drawn 3–3 and replayed, then 5–2 on time, then 7–0 on target after 110 s), 53 pick-ups, 32 deposits, 35 seizures, 31 rescues, 327 s stalls. The winner check now requires a `team_*` name; the "none - not decided in regulation" line it rejects showed up in the 120 s 2v2 runs. Full verify healthy: 16 suites at pinned counts; tick budget 1v1 p99 8.3 ms, 3v3 26.4 ms, 4v4 26.5 ms, 0 of 600 over at each (perf_probe now loads each size's mode file).
+- **Found, not fixed: a strong team_a bias.** At the chosen numbers team_a won 20 of 24 sweep matches (2v2 7–1, 3v3 6–2, 4v4 7–1), and it led most of the baseline runs too. The houses are a turned copy, so the cause is somewhere in seating, spawn order or the bots, not the layout. It matters as soon as people play bot-filled matches. Worth measuring next (e.g. swap which team each seed's bots join, compare raiding %).
+- Also seen: 4v4 has 4 bodies per team and only 3 spawn markers, so `spawn_point_for_slot` clamps slot 3 onto slot 2's spawn (two bodies start on one point). 4v4 stall totals are noisy (seed 2: 640–827 s, most of it at one place). Neither was in scope.
+- Left: human playtest of the numbers. Cash per team is not scaled; more cash means more markers in `build_house.gd` and a re-bake.
+
 ## 2026-11-12 — P0-2b Tick budget in 3v3 and 4v4
 - **Result: under 5 of 600 ticks over 33 ms at 3v3 and, most of the time, at 4v4.** Before → after (perf_probe `--team-size=N`):
   - 1v1: p99 ~25 → 8.6–9.7 ms, 0 over.

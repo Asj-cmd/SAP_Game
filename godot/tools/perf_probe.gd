@@ -19,19 +19,22 @@ const TICKS: int = 600
 const BUDGET_MS: float = 1000.0 / 30.0
 
 func _initialize() -> void:
-	var level: GreyBoxLevel = GreyBoxLevel.new()
+	# `-- --team-size=3` measures the crowded case, with that size's mode file. The
+	# grey box seats 1v1, and a tick budget met with two bots says nothing about
+	# six of them deciding at once.
+	var split_only: bool = false
+	var team_size: int = GreyBoxLevel.DEFAULT_TEAM_SIZE
+	for arg: String in OS.get_cmdline_user_args():
+		if arg.begins_with("--team-size="):
+			team_size = int(arg.get_slice("=", 1))
+			split_only = true
+
+	var level: GreyBoxLevel = GreyBoxLevel.new(GreyBoxLevel.SafeVariant.B,
+		GreyBoxLevel.LEVEL_PATH, team_size)
 	if not level.is_loaded():
 		print("no baked level")
 		quit(1)
 		return
-
-	# `-- --team-size=3` measures the crowded case. The grey box ships 1v1, and a
-	# tick budget met with two bots says nothing about six of them deciding at once.
-	var split_only: bool = false
-	for arg: String in OS.get_cmdline_user_args():
-		if arg.begins_with("--team-size="):
-			level.mode.team_size = int(arg.get_slice("=", 1))
-			split_only = true
 
 	print("tick budget  %.2f ms at 30 Hz" % BUDGET_MS)
 	print("blockers     %d" % level.collision.blockers.size())

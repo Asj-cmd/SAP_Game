@@ -405,7 +405,11 @@ A long route (12-19 ms) is now the biggest single cost on a bad tick.
 
 ## 6c. Teams are built but not switched on
 
-Superseded in part by DECISIONS.md D8 (target 2v2 to 4v4). The 1v1 bot match stays the regression check until P0-2c is done; do not switch it earlier.
+Superseded in part by DECISIONS.md D8 (target 2v2 to 4v4). **Since P0-2c each team
+size has its own mode file, `content/modes/house_NvN.tres`** (round length, jail time,
+escalation; the cash count still comes from the level's markers), `GreyBoxLevel` loads
+the one for its size, and `verify.mjs` gates the bot match at 3v3 with 1v1 kept as a
+second check. What the sweep found is in PROGRESS.md (2026-11-12, P0-2c).
 
 `team_size` is 1 in the grey box and the whole roster machinery already handles
 more: `SimWorld.populate_roster` spawns a body per slot, `TeamDef` carries a

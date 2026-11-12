@@ -20,6 +20,11 @@ enum SafeVariant {
 }
 
 const LEVEL_PATH: String = "res://content/levels/house.tres"
+## One mode file per team size: round length, jail time and the rest scale with
+## how many bodies a side has, and that is a set of numbers, not code (P0-2c).
+const MODE_PATH: String = "res://content/modes/house_%dv%d.tres"
+## The grey box seats 1v1 for development; the game ships 2v2 to 4v4 (D8).
+const DEFAULT_TEAM_SIZE: int = 1
 ## Difficulty is a file, not a build. Swapping this path - or editing the .tres
 ## it points at - is the whole of "make the bots harder".
 const BOT_PROFILE_PATH: String = "res://content/ai/bot_profile_standard.tres"
@@ -39,7 +44,8 @@ var bot_profile: BotProfileDef = null
 ## without editing anything. Comparing two maps on the same harness is the only
 ## way a layout metric means anything - a number with nothing to compare it to
 ## is a number nobody can act on.
-func _init(safe_variant: SafeVariant = SafeVariant.B, level_path: String = LEVEL_PATH) -> void:
+func _init(safe_variant: SafeVariant = SafeVariant.B, level_path: String = LEVEL_PATH,
+		team_size: int = DEFAULT_TEAM_SIZE) -> void:
 	variant = safe_variant
 	tuning = build_tuning()
 	bot_profile = load(BOT_PROFILE_PATH) as BotProfileDef
@@ -49,7 +55,7 @@ func _init(safe_variant: SafeVariant = SafeVariant.B, level_path: String = LEVEL
 	var baked: LevelDef = load(level_path) as LevelDef
 	if baked == null:
 		push_error("grey box: no baked level at %s - run tools/bake_blockout.gd" % level_path)
-		mode = build_mode(0)
+		mode = build_mode(0, team_size)
 		return
 
 	# Worked on a copy. The variant switch must not edit the shared asset every
@@ -61,7 +67,7 @@ func _init(safe_variant: SafeVariant = SafeVariant.B, level_path: String = LEVEL
 	teams = level.teams
 	collision = level.collision
 	surface = level.surface
-	mode = build_mode(_cash_per_team())
+	mode = build_mode(_cash_per_team(), team_size)
 
 ## Numbers a designer dials, kept apart from the geometry a designer drags.
 ##
@@ -85,20 +91,23 @@ static func build_tuning() -> TuningDef:
 	values.rescue_range = 80.0
 	return values
 
-static func build_mode(cash_per_team: int) -> GameModeDef:
-	var rules: GameModeDef = GameModeDef.new()
-	rules.id = &"greybox"
-	rules.display_name = "Grey box"
-	rules.team_size = 1
+## The rules for `team_size` a side, from its mode file.
+##
+## A copy, because the cash count is stamped onto it from the level and the
+## shared asset must not be edited at runtime. The cash count is the one number
+## not in the file: it comes from the markers, so moving cash in the blockout
+## cannot leave the win target describing a different game. The 1v1 file's
+## jail time (18 s) is a playtest number: eight seconds was nothing, sixty was
+## most of a round.
+static func build_mode(cash_per_team: int, team_size: int = DEFAULT_TEAM_SIZE) -> GameModeDef:
+	var path: String = MODE_PATH % [team_size, team_size]
+	var authored: GameModeDef = load(path) as GameModeDef if ResourceLoader.exists(path) else null
+	if authored == null:
+		push_error("grey box: no mode for %dv%d at %s" % [team_size, team_size, path])
+		authored = GameModeDef.new()
+		authored.team_size = team_size
+	var rules: GameModeDef = authored.duplicate() as GameModeDef
 	rules.cash_per_team = cash_per_team
-	rules.rounds_to_win = 2
-	rules.round_seconds = 120.0
-	rules.pre_round_seconds = 2.0
-	rules.round_end_seconds = 3.0
-	# Long enough to matter, short enough that a round is not over. Playtest said
-	# eight seconds was nothing; sixty (first suggestion) is most of a round.
-	rules.capture_seconds = 18.0
-	rules.capture_escalation_seconds = 6.0
 	return rules
 
 ## The A/B question, expressed entirely as content values. Nothing outside this

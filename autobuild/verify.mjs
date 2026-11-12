@@ -93,27 +93,36 @@ for (const name of Object.keys(baseline)) {
 }
 
 // ---- 2. Bot match (the cheapest gameplay signal) ------------------------
-let metrics = null;
+// 3v3 is the main gate: the game ships 2v2 to 4v4 (D8) and each size plays with
+// its own mode file (P0-2c). 1v1 stays as a second check because its numbers
+// have been pinned since before the autobuild. Each size has its own stall
+// budget in metrics_budget.json: stalls add up over every body, so a 3v3 total
+// cannot be held to a 1v1 number.
+const metrics = {};
 if (!args.has("--quick")) {
   console.log("\n== Bot match ==");
-  const r = godot(["--headless", "--path", GODOT_PROJECT, "--script", "res://tools/bot_match.gd"], { timeoutSec: 600 });
-  if (r.timedOut) fail("bot_match: timed out");
-  else {
+  const budget = readJson(BUDGET_PATH, {});
+  for (const [size, sizeBudget] of Object.entries(budget.bot_match ?? {}).sort(([a], [b]) => Number(b) - Number(a))) {
+    const label = `bot_match ${size}v${size}`;
+    const r = godot(["--headless", "--path", GODOT_PROJECT, "--script", "res://tools/bot_match.gd", "--", `--team-size=${size}`], { timeoutSec: 900 });
+    if (r.timedOut) { fail(`${label}: timed out`); continue; }
     const num = (re) => { const x = r.out.match(re); return x ? Number(x[1]) : null; };
-    metrics = {
+    const m = {
       stall_seconds: num(/stalls\s+(\d+) seconds/),
       idle_seconds: num(/idle\s+(\d+) seconds/),
       deterministic: /DETERMINISTIC/.test(r.out) && !/DIVERGED/.test(r.out),
       winner: (r.out.match(/winner\s+(.+)/) ?? [, "unknown"])[1].trim(),
+      match_seconds: Math.round((num(/ticks\s+(\d+)/) ?? 0) / 30),
+      rounds: [...r.out.matchAll(/round \d+\s+\d+ s\s+\S+/g)].length,
       captures: num(/captures\s+(\d+) seizures/),
-      encounters_legal: (r.out.match(/(\d+) of them where a seizure was legal/) ?? [])[1] ? Number(r.out.match(/(\d+) of them where a seizure was legal/)[1]) : null,
+      encounters_legal: num(/(\d+) of them where a seizure was legal/),
     };
-    console.log(`  ${JSON.stringify(metrics)}`);
-    const budget = readJson(BUDGET_PATH, {});
-    if (!metrics.deterministic) fail("bot_match: DIVERGED (two runs of the same seed differ)");
-    if (budget.max_stall_seconds != null && metrics.stall_seconds != null && metrics.stall_seconds > budget.max_stall_seconds)
-      fail(`bot_match: ${metrics.stall_seconds}s of stalls exceeds budget ${budget.max_stall_seconds}s`);
-    if (budget.require_winner && /none/i.test(metrics.winner)) fail(`bot_match: no winner (${metrics.winner})`);
+    metrics[size] = m;
+    console.log(`  ${size}v${size}  ${JSON.stringify(m)}`);
+    if (!m.deterministic) fail(`${label}: DIVERGED (two runs of the same seed differ)`);
+    if (sizeBudget.max_stall_seconds != null && m.stall_seconds != null && m.stall_seconds > sizeBudget.max_stall_seconds)
+      fail(`${label}: ${m.stall_seconds}s of stalls exceeds budget ${sizeBudget.max_stall_seconds}s`);
+    if (budget.require_winner && !/^team_/.test(m.winner)) fail(`${label}: no winner (${m.winner})`);
   }
 }
 
@@ -163,11 +172,13 @@ if (args.has("--update-baseline")) {
   if (failures.length) { console.log("\nNot updating baseline: there are failures."); }
   else {
     writeFileSync(BASELINE_PATH, JSON.stringify(counts, null, 2) + "\n");
-    if (metrics) {
-      const budget = readJson(BUDGET_PATH, {});
-      if (metrics.stall_seconds != null) budget.max_stall_seconds = Math.min(budget.max_stall_seconds ?? Infinity, metrics.stall_seconds);
-      writeFileSync(BUDGET_PATH, JSON.stringify(budget, null, 2) + "\n");
+    const budget = readJson(BUDGET_PATH, {});
+    for (const [size, m] of Object.entries(metrics)) {
+      const sizeBudget = budget.bot_match?.[size];
+      if (sizeBudget && m.stall_seconds != null)
+        sizeBudget.max_stall_seconds = Math.min(sizeBudget.max_stall_seconds ?? Infinity, m.stall_seconds);
     }
+    writeFileSync(BUDGET_PATH, JSON.stringify(budget, null, 2) + "\n");
     console.log("\nBaseline and budget updated (ratchet: they only tighten).");
   }
 }
