@@ -49,9 +49,10 @@ last green commit (`git revert`, not reset), say so in PROGRESS.md.
 |---|---|---|
 | D1 | Engine stays **Godot 4.7, Compatibility renderer, typed GDScript**. The Three.js client/server is legacy. | The sim, netcode and tooling are healthy and tested; the dev GPU cannot run Forward+. |
 | D2 | Look: **stylised toon cartoon** with outlines, saturated palette, one shared `ArtTheme`. Assets from CC0/purchased/AI-generated sources, unified by the theme. | Mixed sources look coherent only under one shader and palette. Undo = edit the theme. |
-| D3 | Characters: **four family designs, identical on both teams** (the chaos), teams told apart by **outfit accent colour + outline tint + HUD marker**. `REVIEW` | If chaos hurts readability, colour more of the outfit. One data change. |
+| D3 | Characters: **four family designs, identical on both teams** (the chaos), teams told apart by **outfit accent colour + outline tint + HUD marker**. `REVIEW`. NB: the repo already has two blocky Blender characters (`character_a/b`); P2-1 decides keep / restyle / replace. | If chaos hurts readability, colour more of the outfit. One data change. |
 | D4 | Steam is the distribution target; itch.io and friend-testing via Tailscale/LAN remain supported. | See the earlier planning chats. |
 | D5 | The build is **host-authoritative** over the existing session/transport interface; Steam is a new transport backend, not a rewrite. | `ARCHITECTURE.md` §3. |
+| D7 | Settled in the repo, not reopened: vault verb removed (jump does it); escape windows are one-way drops on faces away from the enemy house; carriers move at 0.85 of walking speed; art is 1 unit = 1 cm and optional via fallback. | `godot/PROJECT_MEMORY.md`, `godot/art/README.md`. |
 | D6 | Dev machine is a GT 730M laptop: all art must fit the Compatibility renderer and the budgets in `STYLE.md`. | Do not add Forward+-only features. |
 
 ## Log

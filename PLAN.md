@@ -17,23 +17,37 @@ roughly 60% of your turn budget.
 
 ## Where the project actually stands (measured at the start of the autobuild)
 
-- Rules/simulation/netcode: **healthy.** 16 suites, 444 checks, all green; bot match is deterministic.
-- Playability: **not healthy.** In a bot-vs-bot match, bots spend **474 s stuck**, 99% of it at
-  five doorway/stair spots near world (2040,840) and (3240,2760–2880); the match ends "ran out of
-  ticks" at 1–1 rounds with no winner; there is a black void around the level; the only visuals
-  are boxes and capsules; a debug HUD is on screen by default.
-- Nothing has ever been played over a real network by two people.
+Measured on branch `claude/godot-port` at merge commit `5ac27d6` (the user's 29 local commits from
+Aug 16–Oct 10 are in; an earlier version of this plan was written against the stale Aug-15 state).
+
+- Rules/simulation/netcode: **healthy.** 16 suites, 16 pinned in `test_baseline.json`, all green; bot
+  match deterministic, ends with a winner, **42 s** of stalls (was 474 s on the stale branch).
+- Verbs built in the sim: **crouch, jump, throw** (vault was built and removed on purpose — jump
+  does the job). Controls: move WASD, jump SPACE, crouch SHIFT, seize/free E, grab-drop LMB/X, throw RMB,
+  F10 leave to menu. Only crouch is *drawn*; jump and throw have no presentation. **Slide and
+  drop-from-height are not built.**
+- Multiplayer sits behind a **main menu** (`game/greybox/main_menu.gd`) — never played by two people over a real network.
+- Art: a Blender pipeline exists (`godot/art/`): `cash.glb`, `character_a.glb`, `character_b.glb`,
+  procedurally built, blocky/voxel look. The house is still the grey blockout. Black void around the
+  level, debug HUD baked into every frame, no lighting/sky to speak of.
+- Known engine issue (documented in `PROJECT_MEMORY.md` §6): bot decisions + routing exceed the 33 ms
+  tick (p99 ≈ 57–73 ms, 43–47 of 600 ticks over budget) → hitching. Fix is scheduling, not a faster search.
+- Art rules already in force (`godot/art/README.md`): **1 unit = 1 cm** (models authored at that scale,
+  Y-up, export scale 1 — a metre-scale asset imports 100× too small); art is optional via
+  `ResourceLoader.exists` + primitive fallback; art never feeds collision or the sim.
 
 ## Phase 0 — Make the engine playable (before any art)
 
 - [ ] **P0-1 Baseline.** `node autobuild/verify.mjs` is green on this machine (set `GODOT_BIN`).
   Record Godot path and machine notes in PROGRESS.md. *Verify:* output ends `VERIFY: healthy`.
-- [ ] **P0-2 Bot stalls.** Measure first (their method: instrument, then change). Bots must stop
-  piling up at the five stall spots. Target: stall seconds < 60 in `bot_match`. Tighten
-  `autobuild/metrics_budget.json` with `--update-baseline`. *Verify:* bot_match numbers before/after in PROGRESS.md.
-- [ ] **P0-3 A match finishes.** Decide whether the tool's tick cap is too small or the game does
-  not conclude. A bot match must end with a winner or a timer-resolved result, best-of-3 included.
-  Set `"require_winner": true` in the budget once it holds. *Verify:* bot_match winner line.
+- [ ] **P0-2 Tick budget (hitching).** Bot decision + routing exceed the 33 ms tick (see "Known engine
+  issue" above and `PROJECT_MEMORY.md` §6 3c). Spread a bot decision across several ticks in
+  `BotDirector` (scheduling change, not an algorithm change; do not retry route variety). Use the
+  existing timing instrument (find it in `godot/tools/`; build the measuring step first if it does not
+  report p99 and over-budget tick counts). Target: p99 < 33 ms, over-budget ticks < 5 in 600, bot_match
+  still deterministic with a winner. *Verify:* before/after numbers in PROGRESS.md; budget ratcheted.
+- [x] **P0-3 Bot stalls and a finishing match.** Already true at the start of the autobuild (stalls 42 s,
+  winner `team_a`). `metrics_budget.json` pins it: stalls ≤ 42, a winner is required. Do not regress.
 - [ ] **P0-4 Clean frames.** Add a capture option that hides the debug HUD (e.g. `--capture-clean`),
   and make the debug HUD hidden by default behind an F-key. Update `verify.mjs --frames` to use it.
   *Verify:* a frame with no text.
@@ -48,7 +62,8 @@ roughly 60% of your turn budget.
   fix them, re-capture. *Verify:* before/after frame names in PROGRESS.md; validator still green.
 - [ ] **P0-8 Playable local session.** One human + bots: start from the main scene, move, grab,
   drop, seize, free, score, win a round and a match, return to start. Fix whatever breaks.
-  Use the capture tool's injected-input options and `bot_match --lone` to exercise it.
+  Use the capture tool's injected-input options and `bot_match --lone` to exercise it. Include the
+  main menu → host/join → lobby → match → F10 back-to-menu path, and test jump, crouch and throw by eye.
   *Verify:* written walkthrough in PROGRESS.md with frames at each step.
 - [ ] **P0-9 Network smoke.** `tools/net_loopback.gd` and `tools/net_lobby.gd` pass; two local
   Godot processes (host + join on localhost) complete a lobby and a short match. Add the
@@ -80,12 +95,17 @@ roughly 60% of your turn budget.
   `STYLE-PICK`. **Do not wait for the user** — adopt your pick and continue; the user may override
   and the theme makes that cheap.
 - [ ] **P1-6 Asset import pipeline.** A documented, repeatable path from a downloaded `.glb`/`.fbx`
-  to `godot/art/…`: scale to world units, pivot, theme material, LOD/poly check against the budget.
+  to `godot/art/…`: **scale to world units (1 unit = 1 cm, so most downloaded assets, authored in
+  metres, need ×100)**, Y-up, pivot, theme material, LOD/poly check against the budget. Keep the
+  `ResourceLoader.exists` + primitive fallback convention from `godot/art/README.md`.
   Art meshes never carry collision; the blockout/collision data stays the source of truth.
 
 ## Phase 2 — Characters and animation
 
-- [ ] **P2-1 Source four family characters** (dad, mom, son, daughter). Preferred: AI generation
+- [ ] **P2-1 Source four family characters** (dad, mom, son, daughter). First audit what exists:
+  `godot/art/blender/build_character.py` produced `character_a.glb` / `character_b.glb` (blocky
+  voxel people) — decide whether they are team skins or family members, and whether to keep, restyle
+  or replace them; log it as D3-REVIEW. Preferred route for new ones: AI generation
   (Meshy tools, if signed in) with prompts from `STYLE.md`, several candidates each, pick the best.
   **Fallback, no waiting:** CC0 humanoids (Quaternius, KayKit) recoloured with silly additions
   (hats, glasses, moustache, pyjamas). If sign-in/credits are missing, write BLOCKED.md and take the fallback.
@@ -116,14 +136,16 @@ roughly 60% of your turn budget.
 
 ## Phase 4 — Verbs and chaos (see `DESIGN_DIRECTION.md` §5)
 
-Each verb: a sim command + system (general, never location-gated) + tuning in `.tres` + a table-driven
-test for its *decisions* only + presentation + frames + bot_match still deterministic.
+Each new verb: a sim command + system (general, never location-gated) + tuning in `.tres` + a
+table-driven test for its *decisions* only + presentation + frames + bot_match still deterministic.
+Crouch, jump and throw already exist in the sim; vault was removed on purpose (do not rebuild it).
 
-- [ ] **P4-1 Crouch.** Slower, quieter, fits low gaps, harder to spot.
-- [ ] **P4-2 Vault/climb.** Any ledge under the threshold.
-- [ ] **P4-3 Throw.** Throw carried cash (and later loot) over fences/through windows.
+- [ ] **P4-1 Crouch, jump, throw — presentation.** Crouch is drawn; jump and throw "look like nothing
+  in particular". Add animation/pose, dust/landing, throw arc preview and cash spin; sounds come in P5-3.
+- [ ] **P4-2 Verb readability audit.** Play all three by eye (frames), fix anything that reads wrong
+  (the camera, floating/sinking, throw feel), per the "low precision, high consequence" rule.
 - [ ] **P4-4 Slide.** Fast, loud, low; interacts with crouch gaps and knockback.
-- [ ] **P4-5 Drop from height.** One-way, instant.
+- [ ] **P4-5 Drop from height.** One-way, instant (the escape windows already exist as one-way drops).
 - [ ] **P4-6 Cosmetic ragdoll and knockback.** Client-side only. The sim stays authoritative; physics
   never becomes the source of truth (`DESIGN_DIRECTION.md` §7.4).
 - [ ] **P4-7 Dropped cash tumbles** to its canonical position, then snaps to the sim's value.
@@ -131,7 +153,8 @@ test for its *decisions* only + presentation + frames + bot_match still determin
 
 ## Phase 5 — Game feel, UI, audio
 
-- [ ] **P5-1 Menus.** Main menu, host/join (code field, later Steam invite), lobby screen with
+- [ ] **P5-1 Menus.** A basic main menu already exists (`main_menu.gd`): audit it, then build it out —
+  host/join (code field, later Steam invite), lobby screen with
   seats/teams/mode/bundles/bots, pause, settings (sensitivity, volume, keybinds), results screen.
 - [ ] **P5-2 HUD.** Replace the debug text with a real HUD (cash per team, round timer, carry state,
   jail timer, rescue prompt). Debug HUD stays behind F-key.

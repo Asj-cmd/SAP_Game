@@ -1,4 +1,4 @@
 {
-  "max_stall_seconds": 474,
-  "require_winner": false
+  "max_stall_seconds": 42,
+  "require_winner": true
 }
