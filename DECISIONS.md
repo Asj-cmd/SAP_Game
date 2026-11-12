@@ -54,6 +54,7 @@ last green commit (`git revert`, not reset), say so in PROGRESS.md.
 | D5 | The build is **host-authoritative** over the existing session/transport interface; Steam is a new transport backend, not a rewrite. | `ARCHITECTURE.md` §3. |
 | D7 | Settled in the repo, not reopened: vault verb removed (jump does it); escape windows are one-way drops on faces away from the enemy house; carriers move at 0.85 of walking speed; art is 1 unit = 1 cm and optional via fallback. | `godot/PROJECT_MEMORY.md`, `godot/art/README.md`. |
 | D6 | Dev machine is a GT 730M laptop: all art must fit the Compatibility renderer and the budgets in `STYLE.md`. | Do not add Forward+-only features. |
+| D8 | Target team sizes are 2v2, 3v3 and 4v4 (family vs family). 1v1 is only a development/test setup. Performance, bot behaviour, camera, house layout and UI must be judged at 3v3 and 4v4, not 1v1. | Set by the user on 2026-11-12. Supersedes any note saying the game ships 1v1. |
 
 ## Log
 

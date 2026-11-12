@@ -22,6 +22,8 @@ method, the mistakes and what they cost, and where things actually stand.
 
 ## 2. Where things stand
 
+Target team sizes are 2v2 to 4v4 (DECISIONS.md D8); the grey-box level's team_size 1 is a test setup only.
+
 **Complete and working.** The simulation layer — core, capture, movement,
 scoring, match flow, carry — all deterministic, all content-driven. Collision
 with swept segment tests and a broadphase. A walkable surface, nav graph and
