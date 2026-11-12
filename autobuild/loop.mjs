@@ -77,14 +77,25 @@ for (let i = 1; i <= MAX_ITERS; i++) {
   const args = ["-p", "--max-turns", String(MAX_TURNS), "--output-format", "text"];
   if (flag("--skip-permissions")) args.push("--dangerously-skip-permissions");
   log(`session ${i}: starting (HEAD ${before.slice(0, 8)})`);
+  const started = Date.now();
   const r = sh("claude", args, { input: prompt, timeout: ITER_TIMEOUT_MIN * 60_000, maxBuffer: 256 * 1024 * 1024 });
-  const out = `${r.stdout ?? ""}\n${r.stderr ?? ""}`;
-  writeFileSync(join(LOGS, `session-${String(i).padStart(3, "0")}.log`), out);
+  const seconds = (Date.now() - started) / 1000;
+  const out = `${r.stdout ?? ""}\n${r.stderr ?? ""}${r.error && r.error.code !== "ETIMEDOUT" ? `\n[could not start claude: ${r.error.message}]` : ""}`;
+  const logName = `session-${String(i).padStart(3, "0")}.log`;
+  writeFileSync(join(LOGS, logName), out);
 
   const after = git("rev-parse", "HEAD");
   const progressed = after !== before;
   const timedOut = r.error?.code === "ETIMEDOUT";
-  log(`session ${i}: exit ${r.status}${timedOut ? " (timed out)" : ""}, ${progressed ? "new commits" : "no new commits"}`);
+  const failed = r.status !== 0 || Boolean(r.error);
+  log(`session ${i}: exit ${r.status}${timedOut ? " (timed out)" : ""} after ${seconds.toFixed(1)} s, ${progressed ? "new commits" : "no new commits"}`);
+
+  // A failed session with nothing to show: print why, right here in the terminal.
+  if (failed && !progressed) {
+    const lines = out.split(/\r?\n/).filter((l) => l.trim() !== "");
+    log(`session ${i} failed. Last ${Math.min(15, lines.length)} lines of its output (full text: autobuild/logs/${logName}):`);
+    for (const l of (lines.length ? lines.slice(-15) : ["(no output at all)"])) log(`  | ${l}`);
+  }
 
   if (!progressed && LIMIT_RE.test(out)) {
     backoffs++;
@@ -94,6 +105,17 @@ for (let i = 1; i <= MAX_ITERS; i++) {
     continue;
   }
   backoffs = 0;
+
+  // Failing in seconds means claude never really started (not installed, broken install, not
+  // signed in, bad flag). Retrying cannot fix that, so stop and say so.
+  if (failed && !progressed && seconds < 10) {
+    const msg = `Session ${i} failed after only ${seconds.toFixed(1)} s, so Claude probably did not start at all ` +
+      `(check that "claude --version" works in this terminal and that you are signed in). ` +
+      `Stopping instead of retrying. Reason above, full text in autobuild/logs/${logName}.`;
+    log(msg);
+    writeReport(startSha, `Ended: ${msg}`);
+    break;
+  }
 
   if (progressed) { stalls = 0; const p = sh("git", ["push", "-u", "origin", "HEAD"]); log(p.status === 0 ? "pushed" : `push failed: ${(p.stderr ?? "").trim().slice(0, 200)}`); }
   else if (++stalls >= STALL_LIMIT) { log(`${STALL_LIMIT} sessions in a row with no commits, ending.`); writeReport(startSha, "Ended: no progress for several sessions. Read autobuild/logs/."); break; }
