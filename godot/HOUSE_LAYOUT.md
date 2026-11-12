@@ -252,6 +252,16 @@ at a glance which one they can leave through.
 ground-floor pair can be climbed into, and slowly. Nothing in this house is an
 invisible trapdoor.
 
+**No upper-floor escape may open onto the face nearest the other house.** A
+one-way drop is instant, so an escape on the near side lets a raider take the
+cash and be home before anyone reaches the stairs — which defeats the whole
+sneak-in-sneak-out shape of the building. On House A that rules out the **east**
+face, which looks straight across the 500 corridor at House B; the same
+constraint applies to House B's west face under the 180° rotation.
+
+This is a standing rule, not a note about one window. Any escape opening added
+later is subject to it.
+
 ## 7. Opening schedule — Phase 1
 
 Openings are centred on their room's face unless noted. Doorway heads at +240;
