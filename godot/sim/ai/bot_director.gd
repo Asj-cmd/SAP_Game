@@ -51,6 +51,9 @@ var _planned_target: int = SimEntity.NO_ENTITY
 var _hops: PackedInt32Array = PackedInt32Array()
 var _hops_measured_at: Vector3 = Vector3.ZERO
 var _has_hops: bool = false
+## A refresh of _hops under way, spread over ticks; null when there is none.
+## See BotProfileDef.flood_stances_per_tick.
+var _pending_hops: HopFlood = null
 ## Where the bot was when its route was last examined, to tell a route being
 ## walked from a route being failed at.
 var _checked_at: Vector3 = Vector3.ZERO
@@ -133,6 +136,7 @@ func drain(world: SimWorld, tick: int, claims: Dictionary[String, int]) -> Array
 		_route = PackedVector3Array()
 		return _stop_if_moving(tick)
 
+	_refresh_distances(me)
 	if tick >= _next_decide_tick:
 		_decide(world, me, tick, claims)
 	elif tick >= _next_repath_tick and not _task.is_none():
@@ -147,20 +151,35 @@ func drain(world: SimWorld, tick: int, claims: Dictionary[String, int]) -> Array
 
 # ---- deciding ----
 
+## Keeps the walking-distance table roughly centred on the bot.
+##
+## Checked every tick rather than only when deciding, so a refresh that takes a
+## few ticks to walk starts as soon as it is due instead of a decision later.
+## The very first table is walked whole: a bot with no distances cannot decide.
+func _refresh_distances(me: SimEntity) -> void:
+	if _pending_hops == null:
+		var refresh: float = profile.distance_refresh
+		if _has_hops and me.position.distance_squared_to(_hops_measured_at) <= refresh * refresh:
+			return
+		_pending_hops = nav.start_hops(nav.node_at(me.position), me.position)
+		if _pending_hops == null:
+			return
+	var budget: int = profile.flood_stances_per_tick if _has_hops else 0
+	if not _pending_hops.advance(budget):
+		return
+	_hops = _pending_hops.hops()
+	_hops_measured_at = _pending_hops.origin_point
+	_has_hops = true
+	_pending_hops = null
+
 func _decide(world: SimWorld, me: SimEntity, tick: int, claims: Dictionary[String, int]) -> void:
 	_next_decide_tick = tick + profile.decide_ticks() + _jitter_ticks()
-
-	var refresh: float = profile.distance_refresh
-	if not _has_hops 		or me.position.distance_squared_to(_hops_measured_at) > refresh * refresh:
-		_hops = nav.hops_from(nav.node_at(me.position))
-		_hops_measured_at = me.position
-		_has_hops = true
 	var hops: PackedInt32Array = _hops
 
 	var best: BotTask = BotTask.none()
 	var best_score: float = -INF
 	for task: BotTask in _candidates(world, me):
-		var node: int = nav.surface.nearest(task.destination)
+		var node: int = nav.stance_near(task.destination)
 		var distance: float = nav.distance_by_hops(hops, node)
 		var claimed: bool = claims.has(task.key()) and claims[task.key()] != actor_id
 		var score: float = UtilityScorer.score(
@@ -395,12 +414,8 @@ func _steer(world: SimWorld, me: SimEntity, tick: int) -> Array[SimCommand]:
 	# branch below on nearly every tick - the bot force-repaths, gets the same
 	# good route back, stops, and on the ticks between repaths walks at _leg,
 	# which by then is behind it. That is the bot stuck on the stairs.
-	var target: int = -1
 	var horizon: int = mini(_route.size() - 1, _leg + maxi(1, profile.path_lookahead))
-	for i: int in range(horizon, _leg - 1, -1):
-		if nav.surface.is_reachable_between(me.position, _route[i]):
-			target = i
-			break
+	var target: int = nav.surface.furthest_reachable(me.position, _route, _leg, horizon)
 
 	if target < 0:
 		# NOTHING on the route is in sight, including the waypoint it was

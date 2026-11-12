@@ -390,6 +390,19 @@ bounding-box reject in `blocks_segment` is in (bit-identical match, -14%); the
 rest is the broadphase gathering every cell in a long segment's bounding box.
 `perf_probe.gd -- --team-size=3` reproduces it.
 
+**Fixed (autobuild P0-2b): 3v3 at 0-1 of 600 over, gated in verify.mjs; 4v4
+at 0 in most runs (up to 5) with worst ticks at 31-34 ms, printed but not gated. Four changes, in the order the measurements found them. (1) The
+broadphase returned each blocker once PER CELL: 36.7 candidates a test, 6.1
+distinct, so it now keeps a deduplicated list per query box. Exact. (2) The
+decision flood was the spike, so `HopFlood` walks it 2000 stances a tick and the
+bot decides on its previous table until the new one is done. That is the
+"different answer to deferral" asked for above: only the DISTANCE TABLE waits,
+never the decision or the route, and 1v1 bot_match gives the same numbers as
+before. (3) The look-ahead tests the step-up lift once per tick, not once per
+waypoint. Exact. (4) `nearest()` cost 147 us for decision destinations (room
+centres are mid-air), so `NavGraph.stance_near` remembers them. Exact.
+A long route (12-19 ms) is now the biggest single cost on a bad tick.
+
 ## 6c. Teams are built but not switched on
 
 Superseded in part by DECISIONS.md D8 (target 2v2 to 4v4). The 1v1 bot match stays the regression check until P0-2c is done; do not switch it earlier.

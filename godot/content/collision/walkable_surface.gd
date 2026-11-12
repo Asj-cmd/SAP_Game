@@ -413,9 +413,17 @@ func _walkable_between(from: Vector3, to: Vector3) -> bool:
 		return true
 	if step_up_height <= 0.0:
 		return false
-	var raised: Vector3 = from + Vector3(0.0, step_up_height, 0.0)
+	var raised: Vector3 = _lifted(from)
 	if _crosses(from, raised):
 		return false
+	return _steps_down_to(raised, to)
+
+## Where the step-up lifts a body standing at `from` to.
+func _lifted(from: Vector3) -> Vector3:
+	return from + Vector3(0.0, step_up_height, 0.0)
+
+## The rest of the step-up once lifted: across at the raised height, then down.
+func _steps_down_to(raised: Vector3, to: Vector3) -> bool:
 	var across: Vector3 = Vector3(to.x, raised.y, to.z)
 	if _crosses(raised, across):
 		return false
@@ -609,6 +617,33 @@ func is_reachable_between(from: Vector3, to: Vector3) -> bool:
 	if _collision == null:
 		return false
 	return _walkable_between(from, to)
+
+## The highest index in `points[first..last]` that is_reachable_between(from, it)
+## accepts, or -1 when none is - asked furthest first, as a steering look-ahead does.
+##
+## Exactly that loop, with the one leg every candidate shares paid once: the lift
+## off the spot the body is standing on does not depend on where it is going. A
+## bot asks this for eight waypoints every tick and most of them fail the flat
+## test and fall through to the step-up, so it was paying for the same vertical
+## sweep over and over.
+func furthest_reachable(from: Vector3, points: PackedVector3Array, first: int, last: int) -> int:
+	if _collision == null:
+		return -1
+	var raised: Vector3 = _lifted(from)
+	var lift_tested: bool = false
+	var can_lift: bool = false
+	for i: int in range(last, first - 1, -1):
+		var to: Vector3 = points[i]
+		if not _crosses(from, to):
+			return i
+		if step_up_height <= 0.0:
+			continue
+		if not lift_tested:
+			can_lift = not _crosses(from, raised)
+			lift_tested = true
+		if can_lift and _steps_down_to(raised, to):
+			return i
+	return -1
 
 ## The stance an actor placed at `point` would come to rest on, or -1.
 ##

@@ -37,6 +37,10 @@ var surface: WalkableSurface = null
 ## search happened to work, which differs the moment the graph does.
 var last_expanded: int = 0
 
+## stance_near's answers, per exact point. See stance_near.
+var _near_memo: Dictionary[Vector3, int] = {}
+const _NEAR_MEMO_LIMIT: int = 4096
+
 static func of(walkable: WalkableSurface) -> NavGraph:
 	var graph: NavGraph = NavGraph.new()
 	graph.surface = walkable
@@ -51,6 +55,29 @@ func node_at(point: Vector3) -> int:
 		return -1
 	return surface.nearest(point)
 
+## node_at, remembered per exact point - for the places bots ask about again
+## and again.
+##
+## A decision weighs every errand, and most errand destinations are the same
+## few points every time: zone centres for patrols and deposits, cash lying
+## still. Those are the points FURTHEST from any stance - a room centre is
+## mid-air above the floor - so nearest()'s ring search walks a long way for
+## them: measured at 147 us a call in a 4v4 probe, 2.3 ms of every tick, most
+## of what a decision cost once the flood was spread out.
+##
+## Exact, not approximate: the surface never changes after load, so the same
+## point always has the same answer. Shared by every bot using this graph.
+func stance_near(point: Vector3) -> int:
+	if _near_memo.has(point):
+		return _near_memo[point]
+	var node: int = node_at(point)
+	# A cap rather than an eviction policy: dropping the lot is always correct.
+	# Moving targets (bodies) add points that are never asked about again.
+	if _near_memo.size() >= _NEAR_MEMO_LIMIT:
+		_near_memo.clear()
+	_near_memo[point] = node
+	return node
+
 ## Hop counts from `origin` to every node; -1 where there is no walk at all.
 ##
 ## One flood answers "how far to each of these" for every candidate a bot is
@@ -64,41 +91,18 @@ func node_at(point: Vector3) -> int:
 ## stances anyway, and the per-node bookkeeping is pure loss on top. The flood
 ## is cheap per node and there is no useful subset of it.
 func hops_from(origin: int) -> PackedInt32Array:
-	var hops: PackedInt32Array = PackedInt32Array()
 	if not is_ready():
-		return hops
-	hops.resize(surface.size())
-	hops.fill(-1)
-	if origin < 0 or origin >= surface.size():
-		return hops
+		return PackedInt32Array()
+	var flood: HopFlood = start_hops(origin, Vector3.ZERO)
+	flood.advance(0)
+	return flood.hops()
 
-	hops[origin] = 0
-	# Walked with a cursor rather than popped from the front. Array.pop_front is
-	# O(n) - it shifts every remaining element - so a breadth-first walk that
-	# dequeues that way is quadratic in the size of the graph. Fine on the grey
-	# box at two thousand stances; the house has fourteen thousand.
-	var out_at: PackedInt32Array = surface.out_at
-	var out_to: PackedInt32Array = surface.out_to
-	var queue: PackedInt32Array = PackedInt32Array()
-	queue.append(origin)
-	var head: int = 0
-	while head < queue.size():
-		var current: int = queue[head]
-		head += 1
-		var reach: int = hops[current] + 1
-		# Flat adjacency, for the reason _trace gives: this floods the WHOLE
-		# graph once per bot decision, so it pays the neighbours() lookup more
-		# often than anything else in the project.
-		var slot: int = out_at[current]
-		var stop: int = out_at[current + 1]
-		while slot < stop:
-			var next: int = out_to[slot]
-			slot += 1
-			if hops[next] >= 0:
-				continue
-			hops[next] = reach
-			queue.append(next)
-	return hops
+## The same flood as hops_from, returned unstarted so the caller can spread it
+## over several ticks. See HopFlood. Null when there is no graph.
+func start_hops(origin: int, at: Vector3) -> HopFlood:
+	if not is_ready():
+		return null
+	return HopFlood.start(surface, origin, at)
 
 ## Approximate walking distance in world units, or -1 when unreachable.
 ##

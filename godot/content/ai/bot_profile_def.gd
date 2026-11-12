@@ -92,6 +92,17 @@ extends Resource
 ## candidate and the choice between them is what the numbers are for. Larger is
 ## cheaper and staler.
 @export var distance_refresh: float = 400.0
+## How many stances of that refresh flood are walked per tick. Zero walks the
+## whole graph on the tick the refresh is due.
+##
+## A whole flood is 12-20 ms, and with six or eight bots two of them landing on
+## one tick is a tick that misses its 33 ms budget. Spread out, the bot decides
+## on its previous distances for the few ticks the new ones take to arrive -
+## the same kind of staleness distance_refresh already accepts, a few ticks
+## more of it. Decisions and routes are never deferred, only this table: a bot
+## told to wait for its ROUTE keeps walking a stale one and sticks (see
+## PROJECT_MEMORY §6b-ii). Smaller is smoother per tick and staler.
+@export var flood_stances_per_tick: int = 2000
 ## How many waypoints ahead to look for a clear line when steering.
 ##
 ## The route is a sequence of standing places and the nearest one is often just

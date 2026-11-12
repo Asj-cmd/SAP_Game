@@ -2,6 +2,20 @@
 
 Newest first. One entry per task: date, task id, what changed, what the frames showed, numbers, what is left.
 
+## 2026-11-12 — P0-2b Tick budget in 3v3 and 4v4
+- **Result: under 5 of 600 ticks over 33 ms at 3v3 and, most of the time, at 4v4.** Before → after (perf_probe `--team-size=N`):
+  - 1v1: p99 ~25 → 8.6–9.7 ms, 0 over.
+  - 3v3: p99 45.7 → 24–29 ms, 35 → 0 over (0 in five runs, 1 in the run inside verify); median tick 12.2 → 8.6–9.4 ms.
+  - 4v4: p99 58.3 → 26–33 ms, 73 → **0 over in 8 of 10 runs, 2 and 5 in the other two** (the 5 was inside a full verify, straight after the test suites). Median tick 15.6 → 7.6–8.7 ms. The worst single tick is 30–34 ms, so the margin is thin and 4v4 is **printed but not gated** in verify.mjs, so a later session doesn't chase noise.
+- Measured first, with temporary counters and per-phase timers (all removed):
+  1. **The broadphase handed each swept test 36.7 candidates, of which 6.1 were distinct.** Floor slabs and long walls are indexed into many cells, so a query covering several cells got them once per cell. Fix: `WorldCollisionDef` keeps a deduplicated candidate list per query box (cached, capped, clamped to the occupied grid). **Exact**: the same 183,801 tests and the same 1,117,582 distinct candidates before and after. 3v3 went 43 → 17 over from this alone.
+  2. **What was left over budget was the decision flood** (in 4v4, 33 of 35 over-budget ticks had one in them). New `sim/ai/hop_flood.gd`: the same BFS, resumable, advanced `flood_stances_per_tick` = 2000 stances a tick (a `BotProfileDef` field; 0 = the whole flood at once). A bot decides on its previous distance table until the new one is finished (~8 ticks). Decisions and routes are never held back, which is what broke the rationing tried earlier (PROJECT_MEMORY §6b-ii). `hops_from` now uses the same class, so there is still only one BFS.
+  3. **Steering look-ahead**: new `WalkableSurface.furthest_reachable` runs exactly the old furthest-first loop but tests the step-up's vertical lift once instead of once per waypoint. Exact. 4v4 steering 5.3 → 3.2 ms/tick.
+  4. **`nearest()` cost 147 µs a call inside decisions** (1,166 ms over 7,919 calls at 4v4): zone centres are mid-air, far from any stance. New `NavGraph.stance_near` memoizes per exact point (the surface never changes, so the answer is the same). Decide time 2.9 → ~1 ms/tick, and this is what took 4v4 from 6–8 over to 0.
+- **Behaviour.** 1v1 bot_match gives the same numbers as before: DETERMINISTIC, 12 pick-ups, 8 deposits, 6 seizures, 5 rescues, 42 s stalls, winner team_a. At bigger sizes (new `bot_match --team-size=N`) both runs are deterministic, but the matches play out differently because of the flood timing: 3v3 stalls 180 → 226 s, deposits 24 → 28, still no winner (tuning is P0-2c); 4v4 stalls 349 → 150 s, pick-ups 32 → 43, winner changed from team_a to team_b. Stall totals at 3v3/4v4 add up over 6/8 bodies, so they can't be compared with the 1v1 42 s budget.
+- Gate: `verify.mjs` now runs perf_probe at 1v1, 3v3 and 4v4. 1v1 and 3v3 fail above `max_over_budget_ticks` (5); 4v4 is printed with "(not gated)". Full verify healthy.
+- Left: firm up 4v4 before gating it. Routes are now the biggest single cost on a bad tick (one long route 12–19 ms). Next things to try: spread route searches over a bounded few ticks (carefully, given §6b-ii) or a cheaper long-route search. Then gate 4v4.
+
 ## 2026-11-11 — P0-2 Tick budget
 - **The shipped config (1v1, `greybox_level.gd` team_size 1) already met the target before any change**, because of the `nearest()` fix in PROJECT_MEMORY §6b-ii; PLAN.md quoted older numbers. Before, 3 runs of `perf_probe`: p99 27.9 / 25.4 / 26.4 ms, 1 / 0 / 1 of 600 ticks over, bot thinking 3.2–3.3 ms/tick. After: p99 24.9 ms, 0 of 600 (inside verify).
 - Instrument: `perf_probe.gd -- --team-size=N` measures the crowded case. **3v3 before: p99 44–51 ms, 45–46 of 600 over, bot thinking 13–14 ms/tick, median tick 12–13 ms.**

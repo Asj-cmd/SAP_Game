@@ -120,19 +120,22 @@ if (!args.has("--quick")) {
 // ---- 2b. Tick budget (hitching) -----------------------------------------
 // Wall-clock, so machine-dependent: gated only on the over-budget tick count, with
 // the PLAN.md P0-2 target as the limit, and p99 printed for the record.
-let tick = null;
+// 1v1 is the development setup; 3v3 and 4v4 are sizes the game ships (D8, P0-2b).
+// 4v4 is printed, not gated: its worst ticks sit at 31-34 ms on the dev laptop and
+// it measured 0-5 over across ten runs, so gating it would fail on noise.
 if (!args.has("--quick")) {
   console.log("\n== Tick budget ==");
-  const r = godot(["--headless", "--path", GODOT_PROJECT, "--script", "res://tools/perf_probe.gd", "--", "--team-size=1"], { timeoutSec: 300 });
-  const m = r.out.match(/p99 ([\d.]+)\s+worst ([\d.]+) ms\s+(\d+) of (\d+) ticks over budget/);
-  if (r.timedOut) fail("perf_probe: timed out");
-  else if (!m) fail(`perf_probe: no spread line\n${tail(r.out, 8)}`);
-  else {
-    tick = { p99_ms: Number(m[1]), worst_ms: Number(m[2]), over_budget: Number(m[3]), of: Number(m[4]) };
-    console.log(`  ${JSON.stringify(tick)}`);
-    const budget = readJson(BUDGET_PATH, {});
-    if (budget.max_over_budget_ticks != null && tick.over_budget > budget.max_over_budget_ticks)
-      fail(`perf_probe: ${tick.over_budget} of ${tick.of} ticks over the 33 ms budget, limit ${budget.max_over_budget_ticks}`);
+  const budget = readJson(BUDGET_PATH, {});
+  for (const [size, gated] of [[1, true], [3, true], [4, false]]) {
+    const label = `perf_probe ${size}v${size}`;
+    const r = godot(["--headless", "--path", GODOT_PROJECT, "--script", "res://tools/perf_probe.gd", "--", `--team-size=${size}`], { timeoutSec: 300 });
+    const m = r.out.match(/p99 ([\d.]+)\s+worst ([\d.]+) ms\s+(\d+) of (\d+) ticks over budget/);
+    if (r.timedOut) { fail(`${label}: timed out`); continue; }
+    if (!m) { fail(`${label}: no spread line\n${tail(r.out, 8)}`); continue; }
+    const tick = { p99_ms: Number(m[1]), worst_ms: Number(m[2]), over_budget: Number(m[3]), of: Number(m[4]) };
+    console.log(`  ${size}v${size}  ${JSON.stringify(tick)}${gated ? "" : "  (not gated)"}`);
+    if (gated && budget.max_over_budget_ticks != null && tick.over_budget > budget.max_over_budget_ticks)
+      fail(`${label}: ${tick.over_budget} of ${tick.of} ticks over the 33 ms budget, limit ${budget.max_over_budget_ticks}`);
   }
 }
 

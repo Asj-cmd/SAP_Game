@@ -38,6 +38,8 @@ const ENCOUNTER_BUCKET: float = 400.0
 
 var _lone: bool = false
 var _level_path: String = GreyBoxLevel.LEVEL_PATH
+## `--team-size=N` seats N a side instead of the level's own count; 0 keeps it.
+var _team_size: int = 0
 
 ## `--lone` seats one idle human and one bot, which is the shape the playtest
 ## actually reported: a single bot in a doorway with one person about. Bot
@@ -49,6 +51,8 @@ func _initialize() -> void:
 	for arg: String in OS.get_cmdline_user_args():
 		if arg.begins_with("--level="):
 			_level_path = arg.trim_prefix("--level=")
+		if arg.begins_with("--team-size="):
+			_team_size = int(arg.trim_prefix("--team-size="))
 	var first: Dictionary = _play()
 	var second: Dictionary = _play()
 
@@ -111,6 +115,9 @@ func _play(stop_at: int = -1) -> Dictionary:
 		print("no baked level - run tools/bake_blockout.gd")
 		quit(1)
 		return {}
+	# The grey box seats 1v1 for development; the game ships 2v2 to 4v4 (D8).
+	if _team_size > 0:
+		level.mode.team_size = _team_size
 
 	var started: int = Time.get_ticks_msec()
 	var world: SimWorld = SimWorld.new(20260802)
