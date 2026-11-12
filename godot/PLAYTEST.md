@@ -91,6 +91,7 @@ is still in the box to try again.
 | Leave to the menu | `F10` |
 | Release the mouse | `Esc` |
 | Save a screenshot | `F12` |
+| Show / hide the debug HUD (score, timer, bot state) | `F1` - hidden by default until the real HUD lands |
 
 Steal cash from the other family's vault and get it back to yours. On your own
 ground you can seize an intruder, which sends them to your basement until a

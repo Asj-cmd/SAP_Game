@@ -39,6 +39,10 @@ var crouch: bool = false
 ## Turn the bot path overlay on before capturing. Same reason as `grab`: the
 ## state worth photographing is behind a key nobody can press unattended.
 var paths: bool = false
+## Hide every on-screen text layer (debug HUD, hint, banner) for the shot, so
+## the frame shows only the world. Art review cannot judge a picture with a
+## wall of debug text over a third of it.
+var clean: bool = false
 
 ## Places to stand the camera, and what to point it at.
 ##
@@ -66,6 +70,7 @@ func path_for(index: int) -> String:
 ##   --capture                 grab a frame, save it, and exit
 ##   --capture-path=<file>     where to write it
 ##   --capture-delay=<seconds> how long to wait first
+##   --capture-clean           hide all on-screen text, so the shot is the world only
 ##   --capture-crouch          hold crouch, so the shot shows a ducked body
 ##   --capture-at=x,y,z        stand the camera here instead of behind a body
 ##   --capture-look=x,y,z      point the preceding --capture-at at this
@@ -94,6 +99,10 @@ static func from_command_line(args: PackedStringArray) -> FrameCapture:
 			request.requested = true
 			request.quit_after = true
 			request.grab = true
+		elif arg == "--capture-clean":
+			request.requested = true
+			request.quit_after = true
+			request.clean = true
 		elif arg == "--capture-crouch":
 			request.requested = true
 			request.quit_after = true

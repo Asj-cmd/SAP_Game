@@ -59,7 +59,11 @@ from.
 ```bash
 godot --path godot -- --capture --capture-delay=2.5 --capture-path=user://shot.png
 godot --path godot -- --split --capture     # the debug split-screen
+godot --path godot -- --capture --capture-clean   # no on-screen text, world only
 ```
+
+The debug HUD is hidden by default (`[F1]` toggles it, `--debug-hud` starts
+with it on); `--capture-clean` also hides the hint line and banner.
 
 Writes a PNG, prints its absolute path plus where the camera was, and exits.
 `[F12]` does the same from inside a running game. `--capture-delay` exists

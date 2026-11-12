@@ -101,7 +101,15 @@ var _geometry: Node3D = null
 var _seats: CanvasLayer = null
 var _cameras: Array[ChaseCamera] = []
 var _split_screen: bool = false
+## Holds every on-screen text label, so a clean capture can hide them in one go.
+var _text_layer: CanvasLayer = null
 var _hud: Label = null
+## One line shown while the debug HUD is hidden: how to get it back, plus the
+## network status a host or guest cannot do without (the join code, connecting).
+var _hud_hint: Label = null
+## The debug HUD is a developer's view, not a player's: off by default, [F1]
+## toggles it, `--debug-hud` starts with it on.
+var _debug_hud_visible: bool = false
 var _banner: Label = null
 ## Marks that the local player has ASKED for something the host has not answered.
 ## The animation-on-input half of the split: the reach starts now, the outcome
@@ -242,6 +250,11 @@ func _arm_capture() -> void:
 	if not request.requested:
 		return
 	await get_tree().create_timer(request.delay).timeout
+	if request.clean:
+		# The menu is its own layer and stays: a clean shot of the menu is still
+		# a shot of the menu. Only the in-game text goes.
+		_text_layer.visible = false
+		await get_tree().process_frame
 	if request.paths:
 		_show_paths = true
 		_draw_paths()
@@ -1136,20 +1149,33 @@ func _floor_of(zone: ZoneDef) -> float:
 	return lowest - level.tuning.actor_radius
 
 func _build_hud() -> void:
-	var layer: CanvasLayer = CanvasLayer.new()
-	add_child(layer)
+	_text_layer = CanvasLayer.new()
+	add_child(_text_layer)
+	_debug_hud_visible = OS.get_cmdline_user_args().has("--debug-hud")
 	_hud = Label.new()
 	_hud.position = Vector2(16, 12)
-	layer.add_child(_hud)
+	_text_layer.add_child(_hud)
+	_hud_hint = Label.new()
+	_hud_hint.position = Vector2(16, 12)
+	_hud_hint.modulate = Color(1.0, 1.0, 1.0, 0.6)
+	_text_layer.add_child(_hud_hint)
 	_banner = Label.new()
 	_banner.position = Vector2(16, 300)
-	layer.add_child(_banner)
+	_text_layer.add_child(_banner)
 
 # ---- HUD ----
 
 ## Every tuned number here is READ from content (WORLD_AUTHORING.md §9).
 ## Nothing states how long shelter lasts, or that a grab ends it.
 func _update_hud() -> void:
+	_hud.visible = _debug_hud_visible
+	_hud_hint.visible = not _debug_hud_visible
+	if not _debug_hud_visible:
+		var hint: String = "[F1] debug HUD"
+		if link.role != MatchLink.Role.LOCAL:
+			hint = "%s     %s" % [_network_line(), hint]
+		_hud_hint.text = hint
+		return
 	var zone: ZoneDef = level.sheltered_zone()
 	var lines: PackedStringArray = PackedStringArray()
 
@@ -1210,7 +1236,7 @@ func _update_hud() -> void:
 	lines.append("move WASD / left stick    look mouse / right stick")
 	lines.append("jump SPACE or A    crouch SHIFT or LS (hold)")
 	lines.append("seize / free ally E or B    grab-drop LMB / X    throw RMB / RB")
-	lines.append("[F4] bot paths %s" % ("on" if _show_paths else "off"))
+	lines.append("[F1] hide this    [F4] bot paths %s" % ("on" if _show_paths else "off"))
 	lines.append("[F10] leave to menu    [F2] split-screen debug    [F3] bots %s    [F12] save a frame    [Esc] release mouse"
 		% ("on" if _bots_enabled else "off"))
 	if _split_screen and Input.get_connected_joypads().size() < 2:
@@ -1278,6 +1304,8 @@ func _unhandled_input(event: InputEvent) -> void:
 	match key.keycode:
 		KEY_F10:
 			_return_to_menu("")
+		KEY_F1:
+			_debug_hud_visible = not _debug_hud_visible
 		KEY_1:
 			# Switching variant rebuilds the session. Only a local match can do
 			# that - a host would be re-opening a port it already holds, and a

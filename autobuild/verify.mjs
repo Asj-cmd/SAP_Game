@@ -155,7 +155,7 @@ if (args.has("--frames")) {
   mkdirSync(FRAMES_DIR, { recursive: true });
   for (const v of views) {
     const path = join(FRAMES_DIR, `${v.name}.png`);
-    const a = ["--rendering-driver", "opengl3", "--path", GODOT_PROJECT, "--", "--capture", `--capture-delay=${v.delay ?? 3}`,
+    const a = ["--rendering-driver", "opengl3", "--path", GODOT_PROJECT, "--", "--capture", "--capture-clean", `--capture-delay=${v.delay ?? 3}`,
       `--capture-path=${path}`, `--capture-at=${v.at.join(",")}`];
     if (v.look) a.push(`--capture-look=${v.look.join(",")}`);
     const r = godot(a, { timeoutSec: 120, wrap: true });

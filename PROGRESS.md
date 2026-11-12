@@ -2,6 +2,13 @@
 
 Newest first. One entry per task: date, task id, what changed, what the frames showed, numbers, what is left.
 
+## 2026-11-12 — P0-4 Clean frames
+- **`--capture-clean`** (`game/debug/frame_capture.gd`): hides the whole in-game text layer (debug HUD, hint line, network banner) one frame before the shot. The menu is its own layer and is not affected. `verify.mjs --frames` now passes it for every view.
+- **Debug HUD hidden by default** (`game/greybox/greybox_main.gd`): `[F1]` toggles it, `--debug-hud` starts with it on. While hidden, one faint line in the top-left says `[F1] debug HUD`; for a host or guest that line also carries the network status (join code, CONNECTING...), because that is the one thing they can't play without. The HUD text is not rebuilt while hidden. PLAYTEST.md and godot/CLAUDE.md list the key and flag.
+- **What the frames showed** (`verify.mjs --frames`, all three views): no text at all. `spawn_default`: the voxel character (red shirt, blue-grey trousers) on a dark-red floor strip beside a grey wall, black void filling the left half and top. `stall_spot_a`: close-up of red floors and grey wall slabs, with dark wedges at top-left. `stall_spot_b`: grey stair treads between a black void (left) and a navy-blue wall (right). Two check frames from the same eye: default play shows only the faint `[F1] debug HUD` line top-left; with `--debug-hud` the full HUD text (LOCAL, SAFE ROOM 5.0s, PLAYING round 1 119.0s, team cash, bot task, cam1, controls) is drawn over the left half, exactly as before.
+- verify: healthy (16 suites at the pinned counts; 3v3 bot match deterministic, team_a, 327 s stalls; 1v1 42 s; tick budget 0 of 600 over at 1v1/3v3/4v4).
+- Left: the black void (P0-5). Until P5-2, a player has to press F1 to see score and timer.
+
 ## 2026-11-12 — P0-2c Tuning per team size
 - **The problem wasn't too many rescues. Rounds were ending level on the clock.** Measured first with the old numbers (120 s rounds, 18 s jail, +6 s escalation), 4 seeds × 2v2/3v3/4v4: **0 of 32 rounds ended on the target** (7 of the 8 bundles). Every round ran its full 120 s and went to whoever led, usually 3–2 or 5–2. 2v2 drew 5 of 11 rounds (3–3, 4–4) and 2 of 4 matches were undecided. 3v3 and 4v4 were decided in 4 of 4, but 3v3 at the main seed only because the old fixed 6-minute tool limit was replaced (it had cut off round 3).
 - **Instrument (tools/bot_match.gd):** one line per round (length, winner or draw, how it ended, cash), `--seed=N`, `--once` (one run, for sweeps; the gate always plays twice), `--mode.<field>=<value>` overrides, and a match limit taken from the mode: `2·rounds_to_win−1` full rounds, with draws counting against it. "No winner" now means "not decided in regulation".

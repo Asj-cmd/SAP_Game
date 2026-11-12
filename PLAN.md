@@ -50,7 +50,7 @@ Aug 16–Oct 10 are in; an earlier version of this plan was written against the 
 - [x] **P0-2c Tuning per team size.** *(Done: `content/modes/house_NvN.tres`; 24 of 24 sweep matches at 2v2–4v4 decided; verify gates 3v3 + 1v1. Strong team_a side bias found — see PROGRESS.md.)* Make round length, jail time, cash per team and any other per-match numbers scale with team size (data in content/, not code), so a bot match at 2v2, 3v3 and 4v4 each ends with a winner inside the round timer. Measure first: run bot_match at each size, record rounds, captures, rescues, deposits and time to win. Keep the 1v1 numbers unchanged. When all sizes produce a winner, change verify.mjs to run the bot match at 3v3 as the main gate (deterministic, a winner, stalls budget re-measured for 3v3) and keep 1v1 as a second quick check. Log the chosen numbers in DECISIONS.md as REVIEW: they are tuned against bots, and a human playtest may change them.
 - [x] **P0-3 Bot stalls and a finishing match.** Already true at the start of the autobuild (stalls 42 s,
   winner `team_a`). `metrics_budget.json` pins it: stalls ≤ 42, a winner is required. Do not regress.
-- [ ] **P0-4 Clean frames.** Add a capture option that hides the debug HUD (e.g. `--capture-clean`),
+- [x] **P0-4 Clean frames.** Add a capture option that hides the debug HUD (e.g. `--capture-clean`),
   and make the debug HUD hidden by default behind an F-key. Update `verify.mjs --frames` to use it.
   *Verify:* a frame with no text.
 - [ ] **P0-5 Visible world.** Replace the black void: sky/background, ground plane beyond the lots,
