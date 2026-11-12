@@ -392,6 +392,8 @@ rest is the broadphase gathering every cell in a long segment's bounding box.
 
 ## 6c. Teams are built but not switched on
 
+Superseded in part by DECISIONS.md D8 (target 2v2 to 4v4). The 1v1 bot match stays the regression check until P0-2c is done; do not switch it earlier.
+
 `team_size` is 1 in the grey box and the whole roster machinery already handles
 more: `SimWorld.populate_roster` spawns a body per slot, `TeamDef` carries a
 spawn point for each, and the house bakes THREE spawns per team. 3v3 is one
