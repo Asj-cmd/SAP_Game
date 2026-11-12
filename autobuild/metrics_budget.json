@@ -1,4 +1,5 @@
 {
   "max_stall_seconds": 42,
-  "require_winner": true
+  "require_winner": true,
+  "max_over_budget_ticks": 5
 }

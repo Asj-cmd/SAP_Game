@@ -25,9 +25,20 @@ func _initialize() -> void:
 		quit(1)
 		return
 
+	# `-- --team-size=3` measures the crowded case. The grey box ships 1v1, and a
+	# tick budget met with two bots says nothing about six of them deciding at once.
+	var split_only: bool = false
+	for arg: String in OS.get_cmdline_user_args():
+		if arg.begins_with("--team-size="):
+			level.mode.team_size = int(arg.get_slice("=", 1))
+			split_only = true
+
 	print("tick budget  %.2f ms at 30 Hz" % BUDGET_MS)
 	print("blockers     %d" % level.collision.blockers.size())
 	_split(level)
+	if split_only:
+		quit(0)
+		return
 	_route_cost(level)
 	_blocker_slope(level)
 	_raw_cost(level)

@@ -378,6 +378,16 @@ the flat adjacency and a packed queue, so there is no cheap exact win left. The
 real options are fewer floods (a coarser per-room distance table) or moving the
 flood to native code. This matters when team_size goes above 1, not before.
 
+**Re-measured (autobuild P0-2): the flood is NOT the main 3v3 cost.** Timed per
+phase over ~690 ticks with six bots: steering 5.9 s, of which the look-ahead's
+`is_reachable_between` was 4.1 s (23,265 checks, ~178 us each, ~6 per bot per
+tick); decisions 3.0 s; routes 0.5 s. The median 3v3 tick is ~13 ms of steady
+steering before any decision lands. Splitting a decision over two ticks did
+nothing for 3v3 and took bot_match stalls 42 -> 178 s (reverted). An exact
+bounding-box reject in `blocks_segment` is in (bit-identical match, -14%); the
+rest is the broadphase gathering every cell in a long segment's bounding box.
+`perf_probe.gd -- --team-size=3` reproduces it.
+
 ## 6c. Teams are built but not switched on
 
 `team_size` is 1 in the grey box and the whole roster machinery already handles

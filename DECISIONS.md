@@ -59,4 +59,7 @@ last green commit (`git revert`, not reset), say so in PROGRESS.md.
 
 | Date | Task | Decision | Why | Undo |
 |---|---|---|---|---|
-| | | | | |
+| 2026-11-11 | P0-2 | Ticked P0-2 on the shipped 1v1 config (p99 ~25 ms, 0–1 of 600 over); 3v3 (45 of 600 over) is left as a recorded follow-up | team_size is 1 in the game and 3v3 is held for human tuning (PROJECT_MEMORY §6c); the measured 3v3 cost is steering reachability checks, which the prescribed scheduling change cannot fix | Re-open P0-2 when team_size > 1 ships |
+| 2026-11-11 | P0-2 | Rejected the two-tick decision split | 3v3 unchanged; bot_match stalls 42 → 178 s | Diff described in PROGRESS.md |
+| 2026-11-11 | P0-2 | Kept an exact 1 cm bounding-box reject in `blocks_segment` | Bit-identical bot_match, −14% reachability cost | Delete the `_REJECT_MARGIN` block |
+| 2026-11-11 | P0-2 | verify.mjs gates over-budget ticks (≤5 of 600, 1v1) but not p99 | Wall-clock on a laptop: p99 sits at 25–28 ms, too close to 33 to gate without flakes | Edit `max_over_budget_ticks` in metrics_budget.json |

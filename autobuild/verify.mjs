@@ -117,6 +117,25 @@ if (!args.has("--quick")) {
   }
 }
 
+// ---- 2b. Tick budget (hitching) -----------------------------------------
+// Wall-clock, so machine-dependent: gated only on the over-budget tick count, with
+// the PLAN.md P0-2 target as the limit, and p99 printed for the record.
+let tick = null;
+if (!args.has("--quick")) {
+  console.log("\n== Tick budget ==");
+  const r = godot(["--headless", "--path", GODOT_PROJECT, "--script", "res://tools/perf_probe.gd", "--", "--team-size=1"], { timeoutSec: 300 });
+  const m = r.out.match(/p99 ([\d.]+)\s+worst ([\d.]+) ms\s+(\d+) of (\d+) ticks over budget/);
+  if (r.timedOut) fail("perf_probe: timed out");
+  else if (!m) fail(`perf_probe: no spread line\n${tail(r.out, 8)}`);
+  else {
+    tick = { p99_ms: Number(m[1]), worst_ms: Number(m[2]), over_budget: Number(m[3]), of: Number(m[4]) };
+    console.log(`  ${JSON.stringify(tick)}`);
+    const budget = readJson(BUDGET_PATH, {});
+    if (budget.max_over_budget_ticks != null && tick.over_budget > budget.max_over_budget_ticks)
+      fail(`perf_probe: ${tick.over_budget} of ${tick.of} ticks over the 33 ms budget, limit ${budget.max_over_budget_ticks}`);
+  }
+}
+
 // ---- 3. Frames ----------------------------------------------------------
 if (args.has("--frames")) {
   console.log("\n== Frames ==");

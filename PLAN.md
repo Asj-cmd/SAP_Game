@@ -40,7 +40,7 @@ Aug 16–Oct 10 are in; an earlier version of this plan was written against the 
 
 - [x] **P0-1 Baseline.** `node autobuild/verify.mjs` is green on this machine (set `GODOT_BIN`).
   Record Godot path and machine notes in PROGRESS.md. *Verify:* output ends `VERIFY: healthy`.
-- [ ] **P0-2 Tick budget (hitching).** Bot decision + routing exceed the 33 ms tick (see "Known engine
+- [x] **P0-2 Tick budget (hitching).** *(Done for the shipped 1v1; 3v3 still 38–46 of 600 over — see PROGRESS.md.)* Bot decision + routing exceed the 33 ms tick (see "Known engine
   issue" above and `PROJECT_MEMORY.md` §6 3c). Spread a bot decision across several ticks in
   `BotDirector` (scheduling change, not an algorithm change; do not retry route variety). Use the
   existing timing instrument (find it in `godot/tools/`; build the measuring step first if it does not

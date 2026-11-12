@@ -44,6 +44,21 @@ func contains(point: Vector3, radius: float = 0.0) -> bool:
 		return true # unbounded: no shell authored
 	return bounds.grow(-radius).has_point(point)
 
+## How far apart, in world units (cm), a segment and a solid must be before
+## blocks_segment skips the exact tests for that pair.
+##
+## The broadphase hands over every blocker in every grid cell the segment's box
+## touches, and a bot's steering look-ahead is long enough to touch many - so
+## most candidates are nowhere near the line, and each one paid for two looped
+## exact tests to say so. Measured in a 3v3 bot match, 178 us a reachability check.
+##
+## NOT zero, deliberately. At exactly touching, the slab test's float arithmetic
+## (float32 vectors, a reciprocal) can land a hair either side of t = 1, and a
+## reject that disagreed with it there would change what blocks. One centimetre
+## is many orders of magnitude above that error and still rejects nearly
+## everything, so the answer is identical and only the cost moves.
+const _REJECT_MARGIN: float = 1.0
+
 ## Does travelling from `from` to `to` cross anything solid?
 ##
 ## Tests the SEGMENT, never just the destination (§4). At 30 ticks per second
@@ -52,6 +67,8 @@ func contains(point: Vector3, radius: float = 0.0) -> bool:
 ## end inside. Segment-versus-AABB is cheap and exact, so tunnelling stops
 ## being a tuning problem and stops being a class of bug.
 func blocks_segment(from: Vector3, to: Vector3, radius: float = 0.0) -> bool:
+	var reach_lo: Vector3 = from.min(to) - Vector3.ONE * _REJECT_MARGIN
+	var reach_hi: Vector3 = from.max(to) + Vector3.ONE * _REJECT_MARGIN
 	for index: int in _candidates(from, to, radius):
 		var blocker: AABB = blockers[index]
 		# Growing the blocker by the body radius is the standard Minkowski
@@ -60,6 +77,14 @@ func blocks_segment(from: Vector3, to: Vector3, radius: float = 0.0) -> bool:
 		# forgiving direction - an actor stops a hair early rather than
 		# clipping a wall it should not have reached through.
 		var solid: AABB = blocker.grow(radius)
+
+		# Clearly apart: the box around the whole segment misses the solid by
+		# more than the margin on some axis. Then neither end is inside it and
+		# the slab test's interval lies wholly outside [0, 1], so both tests
+		# below would say no - this only skips paying for them. See _REJECT_MARGIN.
+		var solid_end: Vector3 = solid.end
+		if reach_hi.x < solid.position.x or reach_lo.x > solid_end.x 			or reach_hi.y < solid.position.y or reach_lo.y > solid_end.y 			or reach_hi.z < solid.position.z or reach_lo.z > solid_end.z:
+			continue
 
 		# ALREADY OVERLAPPING. Blocking every direction here would weld an
 		# actor inside geometry with no way out, because the escape direction
