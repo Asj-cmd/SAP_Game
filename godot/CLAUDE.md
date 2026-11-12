@@ -75,3 +75,13 @@ Report what the frame showed, not what it should have shown.
 - The headless runner must work at all times. It is the cheapest correctness
   signal available and it must never be allowed to rot.
 - Prefer finishing one system to green over starting the next.
+
+## Autonomous mode (autobuild)
+
+When running under `autobuild/loop.mjs` this file is amended as follows. `DECISIONS.md` and `PLAN.md` at the repo root govern.
+
+- **Failure loop cap:** two fix attempts, then log in `BLOCKED.md` and move to the next task; do not stop the session.
+- **Tests:** unchanged policy (sim decisions only). Plus `node autobuild/verify.mjs`, which pins per-suite check counts so a suite cannot quietly shrink.
+- **No MCP servers** in unattended runs. Use the Godot command line, headless runner and `--capture`.
+- **Looking at the screen is mandatory for visual tasks** and the description goes in `PROGRESS.md`.
+- **Art never changes collision/zones/tuning** unless the task says so.

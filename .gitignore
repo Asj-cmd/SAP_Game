@@ -33,3 +33,9 @@ godot/.godot/
 
 # Exported builds. Large, machine-specific, and rebuilt from the preset.
 build/
+
+# autobuild: generated per run
+autobuild/logs/
+autobuild/REPORT.md
+autobuild/frames/
+STOP
