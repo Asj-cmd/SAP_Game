@@ -5,6 +5,7 @@ Nobody will answer questions. Decide, log, and keep moving.
    `godot/CLAUDE.md`, `godot/PROJECT_MEMORY.md`. Read other docs only when the task needs them.
 2. Run `git status`. If the working tree is dirty, a previous session was cut off: look at the diff,
    finish that work if it is clearly one task, otherwise `git stash` it with a message and continue.
+   Ignore changes that are only to .import files under godot/art - Godot rewrites them on every run; restore them with git checkout -- <file>.
 3. Run `node autobuild/verify.mjs --quick`. If it is red, fixing it is your task this session.
 4. Otherwise take the **first unchecked task** in `PLAN.md` that is not `[B]` and whose earlier
    dependencies are done. Do that one task properly.
