@@ -46,6 +46,7 @@ Aug 16–Oct 10 are in; an earlier version of this plan was written against the 
   existing timing instrument (find it in `godot/tools/`; build the measuring step first if it does not
   report p99 and over-budget tick counts). Target: p99 < 33 ms, over-budget ticks < 5 in 600, bot_match
   still deterministic with a winner. *Verify:* before/after numbers in PROGRESS.md; budget ratcheted.
+- [ ] **P0-2b Tick budget in 3v3 and 4v4.** The game ships 2v2 to 4v4. Make perf_probe --team-size=3 and --team-size=4 stay under 5 of 600 ticks over 33 ms, using the ideas listed under 'Left' in the P0-2 PROGRESS entry (walk only the cells a segment crosses, nearest-first look-ahead, fewer checks per tick). bot_match must stay deterministic, with stalls no higher than 42 s. Add the 3v3 check to verify.mjs once it holds.
 - [x] **P0-3 Bot stalls and a finishing match.** Already true at the start of the autobuild (stalls 42 s,
   winner `team_a`). `metrics_budget.json` pins it: stalls ≤ 42, a winner is required. Do not regress.
 - [ ] **P0-4 Clean frames.** Add a capture option that hides the debug HUD (e.g. `--capture-clean`),
