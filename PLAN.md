@@ -53,7 +53,7 @@ Aug 16–Oct 10 are in; an earlier version of this plan was written against the 
 - [x] **P0-4 Clean frames.** Add a capture option that hides the debug HUD (e.g. `--capture-clean`),
   and make the debug HUD hidden by default behind an F-key. Update `verify.mjs --frames` to use it.
   *Verify:* a frame with no text.
-- [ ] **P0-5 Visible world.** Replace the black void: sky/background, ground plane beyond the lots,
+- [x] **P0-5 Visible world.** Replace the black void: sky/background, ground plane beyond the lots,
   basic environment lighting and exposure. *Verify:* frames from `views.json` show horizon, no black voids.
 - [ ] **P0-6 Camera everywhere.** Third-person camera must give a usable view in every space:
   basement/jail, upstairs, stairwells, vault, garden, doorways. Walls between camera and player

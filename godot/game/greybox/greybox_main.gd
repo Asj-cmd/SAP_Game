@@ -64,6 +64,8 @@ const FACE_RATE: float = 12.0
 ## How proud of the floor a team's floor tint sits. Enough to win the depth
 ## test against the floor it is laid on, little enough not to be a step.
 const PATCH_THICKNESS: float = 0.6
+## The blockout's walls, floors and stairs until art replaces them.
+const BLOCKOUT_GREY: Color = Color(0.56, 0.56, 0.6)
 
 const SNAP_DISTANCE: float = 400.0
 ## Confirmed states kept for interpolating remote bodies. A second or so: enough
@@ -995,20 +997,8 @@ func _flat(colour: Color) -> StandardMaterial3D:
 	return material
 
 func _build_lighting() -> void:
-	var sun: DirectionalLight3D = DirectionalLight3D.new()
-	sun.rotation_degrees = Vector3(-55, -40, 0)
-	sun.light_energy = 1.1
-	add_child(sun)
-
-	var environment: WorldEnvironment = WorldEnvironment.new()
-	var settings: Environment = Environment.new()
-	settings.background_mode = Environment.BG_COLOR
-	settings.background_color = Color(0.07, 0.07, 0.09)
-	settings.ambient_light_source = Environment.AMBIENT_SOURCE_COLOR
-	settings.ambient_light_color = Color(0.45, 0.45, 0.5)
-	settings.ambient_light_energy = 0.7
-	environment.environment = settings
-	add_child(environment)
+	for node: Node in WorldBackdrop.environment(ChaseCamera.FAR_PLANE):
+		add_child(node)
 
 ## The level's blockers as plain boxes, plus a static body per box for the
 ## camera arm to slide along.
@@ -1021,6 +1011,9 @@ func _build_geometry() -> void:
 		_geometry.queue_free()
 	_geometry = Node3D.new()
 	add_child(_geometry)
+	var outside: MeshInstance3D = WorldBackdrop.ground(level.collision.blockers, ChaseCamera.FAR_PLANE)
+	if outside != null:
+		_geometry.add_child(outside)
 
 	for blocker: AABB in level.collision.blockers:
 		var solid: MeshInstance3D = MeshInstance3D.new()
@@ -1028,7 +1021,9 @@ func _build_geometry() -> void:
 		box.size = blocker.size
 		solid.mesh = box
 		solid.position = blocker.get_center()
-		solid.material_override = _flat(Color(0.26, 0.26, 0.29))
+		# Light grey: under daylight a dark blockout reads as a hole in the
+		# picture on every face turned away from the sun.
+		solid.material_override = _flat(BLOCKOUT_GREY)
 		_geometry.add_child(solid)
 
 		var body: StaticBody3D = StaticBody3D.new()

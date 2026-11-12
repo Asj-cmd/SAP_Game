@@ -1,8 +1,12 @@
 {
-  "_note": "Named camera positions for `node autobuild/verify.mjs --frames`. World units: x/z are the floor plane, y is up. Add a view for every room, stair, door and garden corner you touch (see PLAN.md P0-5, P0-8). at = eye, look = target.",
+  "_note": "Named camera positions for `node autobuild/verify.mjs --frames`. World units: x/z are the floor plane, y is up. Add a view for every room, stair, door and garden corner you touch (see PLAN.md P0-5, P0-8). at = eye, look = target. Lot is 5400 x 3720, ground top at y 300; house A 350-2440 x 350-2440, house B 2960-5050 x 1280-3370.",
   "views": [
     { "name": "spawn_default", "at": [200, 493, 1192], "look": [200, 493, 0] },
     { "name": "stall_spot_a",  "at": [2040, 900, 1500], "look": [2040, 0, 840] },
-    { "name": "stall_spot_b",  "at": [3240, 900, 3300], "look": [3240, 0, 2800] }
+    { "name": "stall_spot_b",  "at": [3240, 900, 3300], "look": [3240, 0, 2800] },
+    { "name": "lot_overview",  "at": [-1800, 2600, -1800], "look": [2700, 300, 1860] },
+    { "name": "corridor_horizon", "at": [2700, 480, 1100], "look": [2700, 480, -4000] },
+    { "name": "yard_b_horizon", "at": [5200, 480, 2400], "look": [9000, 480, 2400] },
+    { "name": "approach_from_south", "at": [2700, 700, -2500], "look": [2700, 400, 1860] }
   ]
 }
