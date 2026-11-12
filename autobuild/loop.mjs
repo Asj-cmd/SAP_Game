@@ -29,6 +29,7 @@ const MAX_TURNS = Number(process.env.MAX_TURNS ?? 200);
 const ITER_TIMEOUT_MIN = Number(process.env.ITER_TIMEOUT_MIN ?? 90);
 const BACKOFF_MIN = Number(process.env.BACKOFF_MIN ?? 30);
 const STALL_LIMIT = Number(process.env.STALL_LIMIT ?? 3);
+const TRUST_RE = /Ignoring\b.*\bpermissions?\b|has not been trusted/i;
 const LIMIT_RE = /usage limit|rate limit|limit reached|limit will reset|overloaded|too many requests|\b429\b|\b529\b|quota/i;
 
 const sh = (cmd, args, opts = {}) =>
@@ -95,6 +96,21 @@ for (let i = 1; i <= MAX_ITERS; i++) {
     const lines = out.split(/\r?\n/).filter((l) => l.trim() !== "");
     log(`session ${i} failed. Last ${Math.min(15, lines.length)} lines of its output (full text: autobuild/logs/${logName}):`);
     for (const l of (lines.length ? lines.slice(-15) : ["(no output at all)"])) log(`  | ${l}`);
+  }
+
+  // Claude ignored the project's permission list (folder not trusted): every real action needs an
+  // approval nobody is there to give, so further sessions would waste time. Stop now, whatever the exit code.
+  const trustLines = out.split(/\r?\n/).filter((l) => TRUST_RE.test(l));
+  if (trustLines.length) {
+    for (const l of trustLines.slice(0, 5)) log(`  | ${l.trim()}`);
+    const msg = `Session ${i}: Claude ignored the permission list in .claude/settings.json (this folder is not trusted), ` +
+      `so it could not run commands or edit files. Stopping the loop. Fix: open PowerShell, cd to this folder, run "claude", ` +
+      `choose "Yes, proceed" on the trust question, type /exit, then start the loop again.` +
+      (progressed ? " Note: this session did make commits; they were NOT pushed." : "") +
+      ` Full text in autobuild/logs/${logName}.`;
+    log(msg);
+    writeReport(startSha, `Ended: ${msg}`);
+    break;
   }
 
   if (!progressed && LIMIT_RE.test(out)) {
