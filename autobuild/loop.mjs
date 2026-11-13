@@ -6,7 +6,13 @@
 //   node autobuild/loop.mjs --max-iters 3           # trial run: do 3 sessions then stop
 //   node autobuild/loop.mjs --skip-permissions      # add --dangerously-skip-permissions (throwaway clone only)
 //
-// Stop it any time: create a file named STOP in the repo root (it finishes the current session first).
+// Stop it any time: create a file named STOP in the repo root (it finishes the current session first,
+// and it also ends a usage-limit wait within 5 minutes).
+//
+// Usage limits: the loop reads the reset time from the message ("resets 1:50pm (America/New_York)",
+// "resets Thu 9pm") and sleeps until 5 minutes after it; without a readable time it waits
+// 30 min, 1 h, 2 h, then 3 h at a time. Limit waits are not sessions and are not "no commit" stalls.
+// It gives up only after 8 days of waiting in a row (enough for the weekly limit).
 //
 // Env: MAX_TURNS (default 200)  ITER_TIMEOUT_MIN (default 90)  BACKOFF_MIN (default 30)
 //      STALL_LIMIT (default 3)  GODOT_BIN (required, passed through to Claude's shell)
@@ -15,6 +21,7 @@ import { spawnSync } from "node:child_process";
 import { appendFileSync, existsSync, mkdirSync, readFileSync, writeFileSync } from "node:fs";
 import { dirname, join, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
+import { isLimitMessage, planLimitWait } from "./limits.mjs";
 
 const HERE = dirname(fileURLToPath(import.meta.url));
 const ROOT = resolve(HERE, "..");
@@ -30,13 +37,23 @@ const ITER_TIMEOUT_MIN = Number(process.env.ITER_TIMEOUT_MIN ?? 90);
 const BACKOFF_MIN = Number(process.env.BACKOFF_MIN ?? 30);
 const STALL_LIMIT = Number(process.env.STALL_LIMIT ?? 3);
 const TRUST_RE = /Ignoring\b.*\bpermissions?\b|has not been trusted/i;
-const LIMIT_RE = /usage limit|rate limit|limit reached|limit will reset|overloaded|too many requests|\b429\b|\b529\b|quota/i;
+const MAX_LIMIT_WAIT_MS = 8 * 24 * 60 * 60_000; // weekly limit plus a day of slack
 
 const sh = (cmd, args, opts = {}) =>
   spawnSync(cmd, args, { cwd: ROOT, encoding: "utf8", shell: process.platform === "win32", ...opts });
 const git = (...a) => sh("git", a).stdout?.trim() ?? "";
 const log = (m) => { const l = `[${new Date().toISOString()}] ${m}`; console.log(l); appendFileSync(join(LOGS, "loop.log"), l + "\n"); };
-const sleep = (min) => { log(`sleeping ${min} min`); Atomics.wait(new Int32Array(new SharedArrayBuffer(4)), 0, 0, min * 60_000); };
+const when = (ms) => new Date(ms).toLocaleString("en-US", { weekday: "short", month: "short", day: "numeric", hour: "numeric", minute: "2-digit" });
+// Sleeps in 5-minute steps against the real clock, so a PC that slept still wakes on time and a
+// STOP file ends the wait. Returns true when stopped by STOP.
+function sleepUntil(untilMs) {
+  const cell = new Int32Array(new SharedArrayBuffer(4));
+  for (let left = untilMs - Date.now(); left > 0; left = untilMs - Date.now()) {
+    if (existsSync(join(ROOT, "STOP"))) return true;
+    Atomics.wait(cell, 0, 0, Math.min(left, 5 * 60_000));
+  }
+  return existsSync(join(ROOT, "STOP"));
+}
 const openTasks = () => (readFileSync(join(ROOT, "PLAN.md"), "utf8").match(/^- \[[ ~]\] /gm) ?? []).length;
 
 function writeReport(startSha, note) {
@@ -66,7 +83,8 @@ ${frames}
 }
 
 const startSha = git("rev-parse", "HEAD");
-let stalls = 0, backoffs = 0;
+let stalls = 0, attempt = 0;
+let limitWaitedMs = 0, fallbackStep = 0, lastTarget = null; // reset whenever a session runs without hitting a limit
 log(`loop start on ${git("branch", "--show-current")} @ ${startSha.slice(0, 8)}; max ${MAX_ITERS} sessions, ${MAX_TURNS} turns each`);
 
 for (let i = 1; i <= MAX_ITERS; i++) {
@@ -82,7 +100,8 @@ for (let i = 1; i <= MAX_ITERS; i++) {
   const r = sh("claude", args, { input: prompt, timeout: ITER_TIMEOUT_MIN * 60_000, maxBuffer: 256 * 1024 * 1024 });
   const seconds = (Date.now() - started) / 1000;
   const out = `${r.stdout ?? ""}\n${r.stderr ?? ""}${r.error && r.error.code !== "ETIMEDOUT" ? `\n[could not start claude: ${r.error.message}]` : ""}`;
-  const logName = `session-${String(i).padStart(3, "0")}.log`;
+  // Numbered per launch, not per session, so a limit-blocked launch keeps its own log.
+  const logName = `session-${String(++attempt).padStart(3, "0")}.log`;
   writeFileSync(join(LOGS, logName), out);
 
   const after = git("rev-parse", "HEAD");
@@ -113,14 +132,31 @@ for (let i = 1; i <= MAX_ITERS; i++) {
     break;
   }
 
-  if (!progressed && LIMIT_RE.test(out)) {
-    backoffs++;
-    if (backoffs > 8) { log("Too many consecutive usage-limit backoffs, ending."); writeReport(startSha, "Ended: repeated usage limits."); break; }
-    sleep(Math.min(BACKOFF_MIN * 2 ** (backoffs - 1), 180));
-    i--; // a limit-blocked session does not count
+  // Usage limit: checked BEFORE the fast-failure rule, so a limit is never treated as a broken install.
+  // Wait for the reset; the wait is not a session and not a "no commits" stall.
+  if (!progressed && isLimitMessage(out)) {
+    const now = Date.now();
+    const plan = planLimitWait({ text: out, now, lastTarget, step: fallbackStep + 1, backoffMin: BACKOFF_MIN });
+    if (plan.target === null) fallbackStep++; else lastTarget = plan.target;
+    const waitMs = plan.until - now;
+    if (limitWaitedMs + waitMs > MAX_LIMIT_WAIT_MS) {
+      const msg = `Usage limit: already waited ${(limitWaitedMs / 3_600_000).toFixed(1)} h in a row and the next wait ` +
+        `(until ${when(plan.until)}) would pass 8 days. Stopping. Check your plan's limits, then start the loop again.`;
+      log(msg);
+      writeReport(startSha, `Ended: ${msg}`);
+      break;
+    }
+    log(`session ${i}: usage limit (${plan.source}). Not counted as a session.`);
+    log(`waiting until ${when(plan.until)} (this PC's time; ${(waitMs / 3_600_000).toFixed(1)} h). Create a STOP file to end the wait.`);
+    writeReport(startSha, `Waiting for the usage limit to reset: until ${when(plan.until)}. Last session ${i - 1}.`);
+    const stopped = sleepUntil(plan.until);
+    limitWaitedMs += Date.now() - now;
+    if (stopped) { log("STOP file found during the usage-limit wait, ending."); writeReport(startSha, "Stopped by STOP file (during a usage-limit wait)."); break; }
+    log("usage-limit wait over, trying again");
+    i--; // the same session number runs again
     continue;
   }
-  backoffs = 0;
+  limitWaitedMs = 0; fallbackStep = 0; lastTarget = null;
 
   // Failing in seconds means claude never really started (not installed, broken install, not
   // signed in, bad flag). Retrying cannot fix that, so stop and say so.

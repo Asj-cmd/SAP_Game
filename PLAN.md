@@ -55,6 +55,9 @@ Aug 16–Oct 10 are in; an earlier version of this plan was written against the 
   *Verify:* a frame with no text.
 - [x] **P0-5 Visible world.** Replace the black void: sky/background, ground plane beyond the lots,
   basic environment lighting and exposure. *Verify:* frames from `views.json` show horizon, no black voids.
+- [ ] **P0-5b Team A bias.** In bot matches at 2v2-4v4 team_a won 20 of 24 (see PROGRESS P0-2c). Measure first: swap which team is seated first and which house each team gets, compare raiding % and wins over 8 seeds per size, find the cause (seating, spawn order, bot director, layout) and fix it. Target: no side wins more than 15 of 24. Log the cause in PROJECT_MEMORY.md.
+- [ ] **P0-5c Four spawn points per team.** 4v4 seats 4 per team but the level has 3 spawn markers, so two bodies start on one point. Add a fourth marker per house in build_house.gd and re-bake. Validator, tests and bot match must stay green.
+- [ ] **P0-5d Default to a team game.** The game still seats 1v1 by default (DEFAULT_TEAM_SIZE). Make the local and hosted default 3v3 with bots filling empty seats, with team size selectable in the lobby/menu. 1v1 remains available for testing.
 - [ ] **P0-6 Camera everywhere.** Third-person camera must give a usable view in every space:
   basement/jail, upstairs, stairwells, vault, garden, doorways. Walls between camera and player
   must not blind the player (fade or cut away). Add one `views.json` entry per space.
