@@ -17,8 +17,8 @@ Stopping to ask is the most expensive thing a session can do.
 
 ## Never, without the user
 
-- Spend money or start a paid trial. Free tiers and credits already on the account are fine if the
-  terms allow commercial use; record the terms in `ASSETS.md`.
+- Spend money or start a paid trial. No paid AI tools or credits, even credits already on an
+  account: free CC0 assets only (D10); record every asset in `ASSETS.md`.
 - Publish anything, upload to Steam/itch/any store, post anywhere, email anyone.
 - Put secrets in the repo. Force-push, rewrite history, or delete branches.
 - Use assets with unclear, non-commercial, or no-derivatives licences, or ripped from other games.
@@ -36,7 +36,7 @@ last green commit (`git revert`, not reset), say so in PROGRESS.md.
 
 - **Measure before changing; build the instrument first.** (`godot/PROJECT_MEMORY.md` §3.)
 - Keep `verify.mjs` green at every commit. Ratchet the baseline when you add tests or tighten a metric.
-- One task, one or a few commits: `P1-4: toon shader with outline pass`. Push is done by the loop.
+- One task, one or a few commits: `P1-4: shared character material and warm interior lighting`. Push is done by the loop.
 - Visual work is done only when you have opened a frame with the Read tool and described what you saw.
 - Presentation never writes to the simulation; art never changes collision, zones or numbers
   in `content/` unless the task says so.

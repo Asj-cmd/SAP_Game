@@ -30,8 +30,9 @@
    ```
 6. *Optional, helps a lot:* put 3–5 screenshots of games whose look you like in
    `autobuild\references\` (Meccha Chameleon, etc.). The style tasks read them.
-7. *Optional:* sign in to Meshy once if you want AI-generated characters; otherwise the loop
-   uses free character packs.
+7. **Characters and animations** come from the two free Quaternius zips (Universal Base Characters
+   and Universal Animation Library, both CC0) in `autobuild\incoming\`. The loop unzips them from
+   there; they stay out of git (DECISIONS.md D10). No sign-in or paid tool is needed.
 
 ## Check that it works (10 minutes, stay and watch)
 
