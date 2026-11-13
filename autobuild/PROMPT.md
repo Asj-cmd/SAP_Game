@@ -13,6 +13,18 @@ Nobody will answer questions. Decide, log, and keep moving.
    tool directly), open the PNGs with the Read tool, and say in PROGRESS.md what each frame actually
    showed — not what it should have shown. Fix what you see. Two attempts per problem, then log it
    and move on (see `DECISIONS.md`).
+
+**Testing budget.** While working, run only the single test suite related to what you changed
+(one `tests/*_test.gd` file with Godot). Run the full `node autobuild/verify.mjs` at most twice per
+task: once at the start and once before committing. Run `--frames` only for visual tasks, after the
+change is done. Do not write new test files except a table-driven test for a new simulation
+decision (`godot/CLAUDE.md` policy). Measurement runs that ARE the task (tuning sweeps, profiling)
+are fine, but plan them up front, note what each run is for, and stop when you have the answer.
+
+**Commit often.** Commit working progress at least every 45 minutes, whenever
+`node autobuild/verify.mjs --quick` is green, with a message like `P1-4 (part): ...`. A session can
+be cut off at 2 hours; uncommitted work is at risk.
+
 6. Before finishing: `node autobuild/verify.mjs` must be healthy; tick the task in `PLAN.md`;
    prepend an entry to `PROGRESS.md` (date, task id, what changed, what you saw, numbers, what
    is left); log decisions in `DECISIONS.md`; update `ASSETS.md` for any asset; commit with

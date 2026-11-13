@@ -14,14 +14,18 @@
 // 30 min, 1 h, 2 h, then 3 h at a time. Limit waits are not sessions and are not "no commit" stalls.
 // It gives up only after 8 days of waiting in a row (enough for the weekly limit).
 //
-// Env: MAX_TURNS (default 200)  ITER_TIMEOUT_MIN (default 90)  BACKOFF_MIN (default 30)
+// Sign-in / network errors ("Failed to authenticate", 403, Cloudflare, ECONNRESET, API Error 5xx...):
+// waits 15 min, 30 min, then 60 min at a time and retries; these are not sessions or stalls either.
+// After 6 such waits in a row (about 4.75 h) it stops and tells you to run claude.cmd and /login.
+//
+// Env: MAX_TURNS (default 200)  ITER_TIMEOUT_MIN (default 120)  BACKOFF_MIN (default 30)
 //      STALL_LIMIT (default 3)  GODOT_BIN (required, passed through to Claude's shell)
 
 import { spawnSync } from "node:child_process";
 import { appendFileSync, existsSync, mkdirSync, readFileSync, writeFileSync } from "node:fs";
 import { dirname, join, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
-import { isLimitMessage, planLimitWait } from "./limits.mjs";
+import { isLimitMessage, planLimitWait, isConnectionProblem, connectionWaitMin, MAX_CONNECTION_WAITS } from "./limits.mjs";
 
 const HERE = dirname(fileURLToPath(import.meta.url));
 const ROOT = resolve(HERE, "..");
@@ -33,7 +37,7 @@ const flag = (n) => argv.includes(n);
 const opt = (n, d) => { const i = argv.indexOf(n); return i >= 0 ? Number(argv[i + 1]) : d; };
 const MAX_ITERS = opt("--max-iters", 200);
 const MAX_TURNS = Number(process.env.MAX_TURNS ?? 200);
-const ITER_TIMEOUT_MIN = Number(process.env.ITER_TIMEOUT_MIN ?? 90);
+const ITER_TIMEOUT_MIN = Number(process.env.ITER_TIMEOUT_MIN ?? 120);
 const BACKOFF_MIN = Number(process.env.BACKOFF_MIN ?? 30);
 const STALL_LIMIT = Number(process.env.STALL_LIMIT ?? 3);
 const TRUST_RE = /Ignoring\b.*\bpermissions?\b|has not been trusted/i;
@@ -85,6 +89,7 @@ ${frames}
 const startSha = git("rev-parse", "HEAD");
 let stalls = 0, attempt = 0;
 let limitWaitedMs = 0, fallbackStep = 0, lastTarget = null; // reset whenever a session runs without hitting a limit
+let connectionWaits = 0; // sign-in/network waits in a row; reset whenever Claude gets through
 log(`loop start on ${git("branch", "--show-current")} @ ${startSha.slice(0, 8)}; max ${MAX_ITERS} sessions, ${MAX_TURNS} turns each`);
 
 for (let i = 1; i <= MAX_ITERS; i++) {
@@ -135,6 +140,7 @@ for (let i = 1; i <= MAX_ITERS; i++) {
   // Usage limit: checked BEFORE the fast-failure rule, so a limit is never treated as a broken install.
   // Wait for the reset; the wait is not a session and not a "no commits" stall.
   if (!progressed && isLimitMessage(out)) {
+    connectionWaits = 0; // a limit message means Claude did connect and sign in
     const now = Date.now();
     const plan = planLimitWait({ text: out, now, lastTarget, step: fallbackStep + 1, backoffMin: BACKOFF_MIN });
     if (plan.target === null) fallbackStep++; else lastTarget = plan.target;
@@ -156,7 +162,29 @@ for (let i = 1; i <= MAX_ITERS; i++) {
     i--; // the same session number runs again
     continue;
   }
-  limitWaitedMs = 0; fallbackStep = 0; lastTarget = null;
+
+  // Sign-in or network problem: also checked BEFORE the fast-failure rule. Wait and retry; the wait
+  // is not a session and not a "no commits" stall.
+  if (failed && !progressed && isConnectionProblem(out)) {
+    if (connectionWaits >= MAX_CONNECTION_WAITS) {
+      const msg = `Session ${i}: Claude still cannot connect or sign in after ${MAX_CONNECTION_WAITS} waits in a row ` +
+        `(about 4.75 hours). Stopping. Fix: open PowerShell in this folder, run claude.cmd, type /login and sign in, ` +
+        `type /exit, then start the loop again. Full text in autobuild/logs/${logName}.`;
+      log(msg);
+      writeReport(startSha, `Ended: ${msg}`);
+      break;
+    }
+    const mins = connectionWaitMin(connectionWaits++);
+    const until = Date.now() + mins * 60_000;
+    log(`session ${i}: connection/sign-in problem (wait ${connectionWaits} of ${MAX_CONNECTION_WAITS}). Not counted as a session.`);
+    log(`connection/sign-in problem, waiting until ${when(until)} (this PC's time; ${mins} min). Create a STOP file to end the wait.`);
+    writeReport(startSha, `Connection/sign-in problem: waiting until ${when(until)}, then retrying. Last session ${i - 1}.`);
+    if (sleepUntil(until)) { log("STOP file found during the connection wait, ending."); writeReport(startSha, "Stopped by STOP file (during a connection wait)."); break; }
+    log("connection wait over, trying again");
+    i--; // the same session number runs again
+    continue;
+  }
+  limitWaitedMs = 0; fallbackStep = 0; lastTarget = null; connectionWaits = 0;
 
   // Failing in seconds means claude never really started (not installed, broken install, not
   // signed in, bad flag). Retrying cannot fix that, so stop and say so.

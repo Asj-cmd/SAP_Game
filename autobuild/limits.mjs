@@ -5,6 +5,7 @@
 //   parseReset(text, now)    the reset instant named in the text ("resets 1:50pm (America/New_York)",
 //                            "resets Thu 9pm", "resets Nov 14, 9am", "resets in 2h"), or null
 //   planLimitWait({...})     when to wake up: 5 min after the stated reset, or a fallback wait
+//   isConnectionProblem(out) true when a failed session ended on a sign-in or network error
 
 const MIN = 60_000;
 const HOUR = 60 * MIN;
@@ -41,6 +42,26 @@ export const LIMIT_RE = new RegExp(
 export function isLimitMessage(output, tailLines = 10) {
   const lines = String(output).split(/\r?\n/).filter((l) => l.trim() !== "");
   return LIMIT_RE.test(lines.slice(-tailLines).join("\n"));
+}
+
+// Sign-in and network failures (e.g. "Failed to authenticate. API Error: 403 Attention Required! |
+// Cloudflare"). These clear up on their own or after /login, so the loop waits and retries instead of
+// counting them as "no progress". Checked only on a failed session's last lines, like limits, so a
+// session that worked on the game's network code is not mistaken for one.
+export const CONNECTION_RE =
+  /Failed to authenticate|\b403\b|Cloudflare|ECONNRESET|ECONNREFUSED|ENOTFOUND|EAI_AGAIN|ETIMEDOUT|socket hang up|\bnetwork\b|API Error:?\s*5\d\d/i;
+
+export function isConnectionProblem(output, tailLines = 10) {
+  const lines = String(output).split(/\r?\n/).filter((l) => l.trim() !== "");
+  return CONNECTION_RE.test(lines.slice(-tailLines).join("\n"));
+}
+
+// Waits for the 1st, 2nd, 3rd... connection problem in a row: 15, 30, 60, then 60 min each time.
+export const CONNECTION_WAITS_MIN = [15, 30, 60, 60];
+export const MAX_CONNECTION_WAITS = 6; // 15+30+60+60+60+60 min, about 4.75 h
+
+export function connectionWaitMin(waitsSoFar) {
+  return CONNECTION_WAITS_MIN[Math.min(waitsSoFar, CONNECTION_WAITS_MIN.length - 1)];
 }
 
 function validZone(tz) {
