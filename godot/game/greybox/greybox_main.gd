@@ -1,3 +1,4 @@
+class_name GreyBoxMain
 extends Node3D
 ## The grey-box playable slice: plain shapes, standard third-person controls.
 ##
@@ -33,6 +34,9 @@ const CASH_SIZE: float = 50.0
 ## Where the modelled bundle lives. Absent until Blender has been run, which is
 ## a supported state - see _cash_model.
 const CASH_MODEL: String = "res://art/models/cash.glb"
+## A held bundle is drawn this far above the top of its carrier's head (see
+## _hold_carried).
+const CARRY_GAP: float = 12.0
 ## Per-team character models, absent until Blender has been run.
 const ACTOR_MODEL: String = "res://art/models/character_%s.glb"
 ## How tall a crouched actor is drawn, as a fraction of standing.
@@ -113,6 +117,12 @@ var _hud_hint: Label = null
 ## toggles it, `--debug-hud` starts with it on.
 var _debug_hud_visible: bool = false
 var _banner: Label = null
+## Round, clock and score, always on (MatchStatus), and the big centred message
+## between rounds and at the end of the match.
+var _status: Label = null
+var _headline: Label = null
+## Enter was pressed on the result screen; sent with the next tick.
+var _rematch_asked: bool = false
 ## Marks that the local player has ASKED for something the host has not answered.
 ## The animation-on-input half of the split: the reach starts now, the outcome
 ## arrives when the host says so.
@@ -167,6 +177,9 @@ func _ready() -> void:
 	_menu.solo_chosen.connect(_on_solo)
 	_menu.host_chosen.connect(_on_host)
 	_menu.join_chosen.connect(_on_join)
+	# Plays this window through a whole session by injected input (debug).
+	if PlaytestPilot.requested(OS.get_cmdline_user_args()):
+		add_child(PlaytestPilot.new(self))
 	if _wants_menu():
 		_menu.open()
 		_capture_mouse(false)
@@ -262,8 +275,25 @@ func _tear_down() -> void:
 	if _reach_marker != null:
 		_reach_marker.visible = false
 	_banner.text = ""
+	# Nothing updates these without a match, so they would sit over the menu.
+	_status.visible = false
+	_headline.visible = false
+	_rematch_asked = false
 
 # ---- looking at the screen ----
+
+## For PlaytestPilot, which drives this window from outside.
+func menu_screen() -> MainMenu:
+	return _menu
+
+func save_frame(to_path: String) -> void:
+	await _capture_frame(to_path)
+
+func headline_text() -> String:
+	return _headline.text
+
+func banner_text() -> String:
+	return _banner.text
 
 ## Honours `--capture` on the command line: wait, save a PNG, exit.
 ##
@@ -295,8 +325,9 @@ func _arm_capture() -> void:
 	if request.grab:
 		# Through Input, not around it: the same key LocalPlayerInput polls, so
 		# the frame shows the real path rather than a state posed for a photo.
-		var press: InputEventKey = InputEventKey.new()
-		press.keycode = KEY_Q
+		# Grab is the left mouse button (it was Q once; this pressed Q long after).
+		var press: InputEventMouseButton = InputEventMouseButton.new()
+		press.button_index = MOUSE_BUTTON_LEFT
 		press.pressed = true
 		Input.parse_input_event(press)
 		await get_tree().process_frame
@@ -665,6 +696,9 @@ func _advance_one_tick() -> void:
 	var commands: Array[SimCommand] = []
 	for player: LocalPlayerInput in players:
 		commands.append_array(player.drain(drawn, drawn.tick))
+	if _rematch_asked:
+		_rematch_asked = false
+		commands.append(MatchCommand.rematch(drawn.tick))
 	# Handed over whole. Bots, remote players and this one all end up in one
 	# list with no marker and no precedence - which is exactly the guarantee
 	# that none of them can be given a privilege by accident.
@@ -863,9 +897,33 @@ func _render(alpha: float, delta: float) -> void:
 		_face(entity_id, entity, view, delta)
 		# Held, carrying and captured are read from the CONFIRMED world on every
 		# role. A guest never guesses at an outcome.
-		view.visible = not (entity.is_carriable() and entity.is_held())
+		view.visible = true
 
+	_hold_carried(truth)
 	_show_reach(mine)
+
+## A held bundle is drawn over its carrier's head.
+##
+## It used to be hidden while held (the simulation puts it at the carrier's
+## centre, inside the mesh), so from the chair nobody could see who had the cash
+## - including the player carrying it (P0-8 walkthrough). In front of the chest
+## was tried first: the chase camera sits behind, so the body hid it. Overhead
+## reads from every side. Placed after every body has been, so it follows the
+## carrier drawn THIS frame. A carry pose replaces this with animation (P2-3).
+func _hold_carried(truth: SimWorld) -> void:
+	for entity_id: int in truth.sorted_entity_ids():
+		var entity: SimEntity = truth.entities[entity_id]
+		if not entity.is_carriable() or not entity.is_held():
+			continue
+		var view: MeshInstance3D = _actor_views.get(entity_id, null)
+		var carrier: MeshInstance3D = _actor_views.get(entity.carried_by, null)
+		if view == null or carrier == null:
+			continue
+		# The carrier's view sits at the middle of the height drawn for it, so
+		# half that height up is the top of its head, crouched or not.
+		var drawn: float = _view_heights.get(entity.carried_by, ACTOR_HEIGHT)
+		view.position = carrier.position + Vector3(0.0, drawn * 0.5 + CARRY_GAP, 0.0)
+		view.rotation = Vector3(0.0, _facings.get(entity.carried_by, 0.0), 0.0)
 
 ## The animation-on-input half of the split.
 ##
@@ -1210,12 +1268,35 @@ func _build_hud() -> void:
 	_banner = Label.new()
 	_banner.position = Vector2(16, 300)
 	_text_layer.add_child(_banner)
+	_status = Label.new()
+	_status.set_anchors_and_offsets_preset(Control.PRESET_TOP_WIDE)
+	_status.offset_top = 36.0
+	_status.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+	_status.add_theme_font_size_override("font_size", 18)
+	_status.add_theme_constant_override("outline_size", 6)
+	_status.add_theme_color_override("font_outline_color", Color.BLACK)
+	_text_layer.add_child(_status)
+	_headline = Label.new()
+	_headline.set_anchors_and_offsets_preset(Control.PRESET_TOP_WIDE)
+	_headline.offset_top = 180.0
+	_headline.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+	_headline.add_theme_font_size_override("font_size", 44)
+	_headline.add_theme_constant_override("outline_size", 10)
+	_headline.add_theme_color_override("font_outline_color", Color.BLACK)
+	_text_layer.add_child(_headline)
 
 # ---- HUD ----
 
 ## Every tuned number here is READ from content (WORLD_AUTHORING.md §9).
 ## Nothing states how long shelter lasts, or that a grab ends it.
 func _update_hud() -> void:
+	var truth: SimWorld = link.outcome_world()
+	# The debug HUD carries the same numbers, on the same rows of screen.
+	_status.visible = link.is_ready() and not _debug_hud_visible
+	_headline.visible = link.is_ready()
+	if link.is_ready():
+		_status.text = MatchStatus.line(truth, level, truth.get_entity(_local_actor()))
+		_headline.text = MatchStatus.headline(truth, level, link.role != MatchLink.Role.GUEST)
 	_hud.visible = _debug_hud_visible
 	_hud_hint.visible = not _debug_hud_visible
 	if not _debug_hud_visible:
@@ -1352,6 +1433,11 @@ func _unhandled_input(event: InputEvent) -> void:
 	match key.keycode:
 		KEY_F10:
 			_return_to_menu("")
+		KEY_ENTER, KEY_KP_ENTER:
+			# Only the authority restarts a match; a guest is told it happened.
+			if link.role != MatchLink.Role.GUEST \
+					and link.outcome_world().match_phase == SimWorld.MatchPhase.MATCH_END:
+				_rematch_asked = true
 		KEY_F1:
 			_debug_hud_visible = not _debug_hud_visible
 		KEY_1:

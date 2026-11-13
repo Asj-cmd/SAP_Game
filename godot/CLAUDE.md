@@ -70,6 +70,16 @@ godot --path godot -- --capture-chase=880,300,1250 --capture-facing=880,300,400 
 node autobuild/verify.mjs --frames-only --views=cam_   # the cam_* views in views.json
 ```
 
+To check that a whole session PLAYS through the real input path (menu click,
+WASD + mouse turn, jump, crouch, grab, throw, deposit, seize, free, round and
+match results, Enter rematch, F10), run the pilot. It injects keys and mouse
+events and writes frames plus a report to `user://pilot*/`:
+
+```bash
+godot --path godot -- --pilot --pilot-speed=2             # solo, ~8 min
+godot --path godot -- --pilot=host   &   godot --path godot -- --pilot=guest
+```
+
 The debug HUD is hidden by default (`[F1]` toggles it, `--debug-hud` starts
 with it on); `--capture-clean` also hides the hint line and banner.
 

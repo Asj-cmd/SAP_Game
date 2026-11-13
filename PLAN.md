@@ -65,7 +65,7 @@ Aug 16–Oct 10 are in; an earlier version of this plan was written against the 
 - [x] **P0-7 "Patchy graphics" sweep.** *(Done: 16 `room_*` + 6 exterior views; fill light for unlit faces, floor tint resolved by zone priority with straight edges. See PROGRESS.md.)* Capture every room, both houses, both floors. Log every
   defect (z-fighting, floor tint over stairwell, gaps, flipped normals, wrong colour, clipping),
   fix them, re-capture. *Verify:* before/after frame names in PROGRESS.md; validator still green.
-- [ ] **P0-8 Playable local session.** One human + bots: start from the main scene, move, grab,
+- [x] **P0-8 Playable local session.** *(Done: `--pilot` plays a whole 3v3 solo session and the host/join path through injected input; always-on status line + round/match headline, Enter rematch, carried cash drawn overhead. See PROGRESS.md.)* One human + bots: start from the main scene, move, grab,
   drop, seize, free, score, win a round and a match, return to start. Fix whatever breaks.
   Use the capture tool's injected-input options and `bot_match --lone` to exercise it. Include the
   main menu → host/join → lobby → match → F10 back-to-menu path, and test jump, crouch and throw by eye.

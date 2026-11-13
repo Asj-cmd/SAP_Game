@@ -39,3 +39,6 @@ autobuild/logs/
 autobuild/REPORT.md
 autobuild/frames/
 STOP
+# raw downloads the user drops for the loop (zips over GitHub's 100 MB limit);
+# what is used gets extracted into godot/art and recorded in ASSETS.md
+autobuild/Incoming/

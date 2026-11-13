@@ -93,10 +93,17 @@ applies to Play solo and to Host; bots fill every seat nobody is sitting in.
 | Grab / drop cash | left mouse button |
 | Throw cash | right mouse button - a toss; it lands and anyone can pick it up |
 | Seize an intruder, or free a team-mate | `E` |
+| Play again when the match is over | `Enter` (solo or host; a guest waits for the host) |
 | Leave to the menu | `F10` |
 | Release the mouse | `Esc` |
 | Save a screenshot | `F12` |
-| Show / hide the debug HUD (score, timer, bot state) | `F1` - hidden by default until the real HUD lands |
+| Show / hide the debug HUD (bot state, camera, network) | `F1` - hidden by default |
+
+The line across the top always shows the round, the clock, each team's cash and
+rounds won (`>` marks your team), the cash needed to win, and CARRYING CASH or
+JAILED for you. A big message in the middle counts down each round and says who
+won it, and who won the match. A bundle someone is carrying is drawn over their
+head.
 
 Steal cash from the other family's vault and get it back to yours. On your own
 ground you can seize an intruder, which sends them to your basement until a
