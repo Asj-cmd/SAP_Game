@@ -90,6 +90,18 @@ var figure_clips: PackedStringArray = PackedStringArray()
 var props: Array[Vector4] = []
 var prop_models: PackedStringArray = PackedStringArray()
 
+## Follow shots (P2-3): watch one live body (`team:slot`, e.g. "team_b:0") from
+## beside it, `follow_count` frames `follow_every` seconds apart, composed into
+## one contact sheet. Each frame's animation state is printed in order, so the
+## sheet can be read against what the driver was playing. Empty = off.
+var follow: String = ""
+var follow_count: int = 12
+var follow_every: float = 0.5
+## Camera distance from the body and which side: "side" (its left), "front",
+## "back" (behind, a little high, like the chase camera without the rig).
+var follow_view: String = "side"
+var follow_distance: float = 420.0
+
 ## How many shots this request will write.
 func shot_count() -> int:
 	return eyes.size() + chase_feet.size()
@@ -125,6 +137,10 @@ func path_for(index: int) -> String:
 ##   --capture-prop=res://model,x,y,z,yaw
 ##                             stand a drawn-only imported prop (its base at x,y,z),
 ##                             dressed by the ArtTheme, in every shot; repeatable
+##   --capture-follow=team:slot[,count[,every[,side|front|back[,distance]]]]
+##                             watch one live body: `count` frames `every` s apart
+##                             from beside it, written as one contact sheet
+##                             (<path stem>_sheet.png), each frame's clip printed
 ##
 ## Chase shots are numbered after any --capture-at shots.
 ## `--capture-at` may be repeated; each one is a separate shot, numbered
@@ -213,6 +229,20 @@ static func from_command_line(args: PackedStringArray) -> FrameCapture:
 				continue
 			request.prop_models.append(bits[0])
 			request.props.append(Vector4(float(bits[1]), float(bits[2]), float(bits[3]), float(bits[4])))
+		elif arg.begins_with("--capture-follow="):
+			# team:slot[,count[,every[,view[,distance]]]]
+			var bits: PackedStringArray = arg.trim_prefix("--capture-follow=").split(",")
+			request.requested = true
+			request.quit_after = true
+			request.follow = bits[0]
+			if bits.size() > 1:
+				request.follow_count = maxi(1, int(bits[1]))
+			if bits.size() > 2:
+				request.follow_every = maxf(0.03, float(bits[2]))
+			if bits.size() > 3:
+				request.follow_view = bits[3]
+			if bits.size() > 4:
+				request.follow_distance = maxf(50.0, float(bits[4]))
 	return request
 
 ## The rig yaw that points the chase camera from `feet` toward `facing`.

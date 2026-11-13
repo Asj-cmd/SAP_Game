@@ -98,6 +98,19 @@ var _previous: Dictionary[int, SimEntity] = {}
 var _accumulator: float = 0.0
 
 var _actor_views: Dictionary[int, MeshInstance3D] = {}
+## Per drawn figure: its animation driver (P2-3), absent when the figure has no
+## animation set (fallback models, capsules), and the confirmed state it was
+## last driven from, to spot one-shots (_animate).
+var _animators: Dictionary[int, FigureAnimator] = {}
+var _anim_carrying: Dictionary[int, int] = {}
+var _anim_captured: Dictionary[int, bool] = {}
+var _anim_sentence: Dictionary[int, int] = {}
+var _anim_last_seen: Dictionary[int, Vector3] = {}
+## How far from a seized or freed body the actor who did it may be, to be
+## animated reaching for it. Generous: the victim's last confirmed spot lags.
+const INTERACT_REACH: float = 400.0
+## Lift from the hands' midpoint (the wrist bones) to the carried bundle's base.
+const CARRY_HAND_LIFT: float = 6.0
 ## Capsule height currently being drawn per actor, eased toward the stance's
 ## target. Presentation state, never read by a rule.
 var _view_heights: Dictionary[int, float] = {}
@@ -273,6 +286,7 @@ func _tear_down() -> void:
 	for view: MeshInstance3D in _actor_views.values():
 		view.queue_free()
 	_actor_views.clear()
+	_clear_animators()
 	_view_heights.clear()
 	_facings.clear()
 	_body_opacity.clear()
@@ -378,7 +392,9 @@ func _arm_capture() -> void:
 		Input.parse_input_event(press)
 		await get_tree().process_frame
 		await get_tree().process_frame
-	if request.shot_count() == 0:
+	if request.follow != "":
+		await _capture_follow(request)
+	elif request.shot_count() == 0:
 		await _capture_frame(request.path)
 	else:
 		if not request.eyes.is_empty():
@@ -461,6 +477,80 @@ func _capture_chase(request: FrameCapture) -> void:
 			chase.body_opacity()])
 	_posing_chase = false
 	stand_in.queue_free()
+
+## Watches one live body (FrameCapture.follow, P2-3): a free camera beside it,
+## re-placed every shot, `follow_count` shots `follow_every` seconds apart,
+## shrunk into one contact sheet, four across. Prints what each cell shows (the
+## clip its FigureAnimator was playing, and the state it was drawn from), so the
+## sheet can be checked against the driver. The match plays on untouched.
+func _capture_follow(request: FrameCapture) -> void:
+	var parts: PackedStringArray = request.follow.split(":")
+	var team: StringName = StringName(parts[0])
+	var slot: int = int(parts[1]) if parts.size() > 1 else 0
+	var target: int = SimEntity.NO_ENTITY
+	for entity_id: int in world.sorted_entity_ids():
+		var entity: SimEntity = world.entities[entity_id]
+		if entity.is_actor() and entity.team == team and entity.slot == slot:
+			target = entity_id
+	var host: Viewport = _active_camera().get_viewport() if _active_camera() != null else null
+	if target == SimEntity.NO_ENTITY or host == null:
+		push_error("frame capture: nobody at %s to follow" % request.follow)
+		return
+	var eye: Camera3D = Camera3D.new()
+	eye.near = ChaseCamera.NEAR_PLANE
+	eye.far = ChaseCamera.FAR_PLANE
+	eye.fov = 50.0
+	host.add_child(eye)
+	_capture_camera = eye
+	eye.current = true
+	var cells: Array[Image] = []
+	const CELL: Vector2i = Vector2i(480, 270)
+	for shot: int in request.follow_count:
+		if shot > 0:
+			await get_tree().create_timer(request.follow_every).timeout
+		var view: MeshInstance3D = _actor_views.get(target, null)
+		if view == null:
+			break
+		var facing: float = _facings.get(target, 0.0)
+		var ahead: Vector3 = Vector3(sin(facing), 0.0, cos(facing))
+		var left: Vector3 = Vector3(ahead.z, 0.0, -ahead.x)
+		var away: Vector3 = left
+		var rise: float = 40.0
+		match request.follow_view:
+			"front":
+				away = ahead
+			"back":
+				away = -ahead
+				rise = 160.0
+		var middle: Vector3 = view.position
+		eye.global_position = middle + away * request.follow_distance + Vector3(0.0, rise, 0.0)
+		eye.look_at(middle, Vector3.UP)
+		await get_tree().process_frame
+		await RenderingServer.frame_post_draw
+		var image: Image = get_viewport().get_texture().get_image()
+		image.resize(CELL.x, CELL.y, Image.INTERPOLATE_BILINEAR)
+		cells.append(image)
+		var truth: SimEntity = link.outcome_world().get_entity(target)
+		var animator: FigureAnimator = _animators.get(target, null)
+		print("  cell %d  t=%.1f  clip=%s  motion=%d grounded=%s stance=%d speed=%.0f vy=%.0f carrying=%s captured=%s" % [
+			shot + 1, world.tick * SimWorld.SECONDS_PER_TICK,
+			animator.clip if animator != null else &"(none)",
+			truth.motion_state, truth.is_grounded, truth.stance,
+			Vector2(truth.velocity.x, truth.velocity.z).length(), truth.velocity.y,
+			truth.is_carrying(), truth.is_captured])
+	_capture_camera = null
+	eye.queue_free()
+	if cells.is_empty():
+		return
+	var across: int = 4
+	var down: int = ceili(float(cells.size()) / across)
+	var sheet: Image = Image.create(CELL.x * across, CELL.y * down, false, cells[0].get_format())
+	for i: int in cells.size():
+		sheet.blit_rect(cells[i], Rect2i(Vector2i.ZERO, CELL),
+			Vector2i((i % across) * CELL.x, (i / across) * CELL.y))
+	var to_path: String = "%s_sheet.png" % request.path.get_basename()
+	if sheet.save_png(to_path) == OK:
+		print("frame capture: %s" % ProjectSettings.globalize_path(to_path))
 
 ## A team_a body for chase shots: the model when it has been built, else the
 ## capsule the game falls back to. Origin at the feet either way.
@@ -958,8 +1048,78 @@ func _render(alpha: float, delta: float) -> void:
 		# role. A guest never guesses at an outcome.
 		view.visible = true
 
+	_animate(drawn, truth, mine, remote, delta)
 	_hold_carried(truth)
 	_show_reach(mine)
+
+## Drives every figure's animation (FigureAnimator, P2-3) after the bodies have
+## been placed. Motion (stance, airborne, speed) comes from the world the body is
+## DRAWN from: the predicted one for your own body, the confirmed one for every
+## other (a guest's remote bodies have no prediction). Carrying and captured are
+## outcomes and always come from the confirmed world.
+##
+## One-shots are spotted from changes in that confirmed state between frames,
+## never from drawn positions: a bundle let go while in flight is a throw; an
+## actor that becomes captured was seized by the nearest enemy, one released
+## before its sentence ran out was freed by the nearest teammate.
+func _animate(drawn: SimWorld, truth: SimWorld, mine: int, remote: bool, delta: float) -> void:
+	if _animators.is_empty():
+		return
+	var move_speed: float = level.tuning.move_speed
+	var seized: Array[int] = []
+	var freed: Array[int] = []
+	for entity_id: int in _animators:
+		var entity: SimEntity = truth.get_entity(entity_id)
+		if entity == null:
+			continue
+		var motion: SimEntity = entity
+		if not remote or entity_id == mine:
+			var local: SimEntity = drawn.get_entity(entity_id)
+			if local != null:
+				motion = local
+		var animator: FigureAnimator = _animators[entity_id]
+		var was_carrying: int = _anim_carrying.get(entity_id, SimEntity.NO_ENTITY)
+		if was_carrying != SimEntity.NO_ENTITY and entity.carrying_id != was_carrying:
+			var bundle: SimEntity = truth.get_entity(was_carrying)
+			if bundle != null and bundle.in_flight:
+				animator.act(&"throw")
+		_anim_carrying[entity_id] = entity.carrying_id
+		var was_captured: bool = _anim_captured.get(entity_id, entity.is_captured)
+		if entity.is_captured and not was_captured:
+			seized.append(entity_id)
+		elif was_captured and not entity.is_captured and _anim_sentence.get(entity_id, 0) > 1:
+			freed.append(entity_id)
+		_anim_captured[entity_id] = entity.is_captured
+		_anim_sentence[entity_id] = entity.capture_ticks_remaining
+		animator.update(motion, entity.is_carrying(), entity.is_captured, move_speed, delta)
+	for victim: int in seized:
+		_act_nearest(truth, victim, false)
+	for victim: int in freed:
+		_act_nearest(truth, victim, true)
+	for entity_id: int in _animators:
+		var seen: SimEntity = truth.get_entity(entity_id)
+		if seen != null:
+			_anim_last_seen[entity_id] = seen.position
+
+## Plays `interact` on the actor nearest `victim` (where it was last drawn) on
+## its own team (`ally`, a free) or the other (a seize), within reach.
+func _act_nearest(truth: SimWorld, victim: int, ally: bool) -> void:
+	var who: SimEntity = truth.get_entity(victim)
+	var at: Vector3 = _anim_last_seen.get(victim, who.position if who != null else Vector3.ZERO)
+	var best: int = SimEntity.NO_ENTITY
+	var best_distance: float = INTERACT_REACH
+	for entity_id: int in _animators:
+		var other: SimEntity = truth.get_entity(entity_id)
+		if other == null or entity_id == victim or other.is_captured or who == null:
+			continue
+		if (other.team == who.team) != ally:
+			continue
+		var gap: float = other.position.distance_to(at)
+		if gap < best_distance:
+			best_distance = gap
+			best = entity_id
+	if best != SimEntity.NO_ENTITY:
+		_animators[best].act(&"interact")
 
 ## A held bundle is drawn over its carrier's head.
 ##
@@ -968,7 +1128,8 @@ func _render(alpha: float, delta: float) -> void:
 ## - including the player carrying it (P0-8 walkthrough). In front of the chest
 ## was tried first: the chase camera sits behind, so the body hid it. Overhead
 ## reads from every side. Placed after every body has been, so it follows the
-## carrier drawn THIS frame. A carry pose replaces this with animation (P2-3).
+## carrier drawn THIS frame. An animated figure (P2-3) holds it on its hands in
+## the carry pose; the fixed gap over the head is for the fallback bodies.
 func _hold_carried(truth: SimWorld) -> void:
 	for entity_id: int in truth.sorted_entity_ids():
 		var entity: SimEntity = truth.entities[entity_id]
@@ -978,11 +1139,19 @@ func _hold_carried(truth: SimWorld) -> void:
 		var carrier: MeshInstance3D = _actor_views.get(entity.carried_by, null)
 		if view == null or carrier == null:
 			continue
+		view.rotation = Vector3(0.0, _facings.get(entity.carried_by, 0.0), 0.0)
+		# An animated figure holds it up in its hands (the carry_* clips, P2-2):
+		# the bundle sits on the hands as posed this frame.
+		var animator: FigureAnimator = _animators.get(entity.carried_by, null)
+		if animator != null:
+			var hands: Vector3 = animator.hands_point()
+			if hands != Vector3.INF:
+				view.position = hands + Vector3(0.0, CARRY_HAND_LIFT, 0.0)
+				continue
 		# The carrier's view sits at the middle of the height drawn for it, so
 		# half that height up is the top of its head, crouched or not.
 		var drawn: float = _view_heights.get(entity.carried_by, ACTOR_HEIGHT)
 		view.position = carrier.position + Vector3(0.0, drawn * 0.5 + CARRY_GAP, 0.0)
-		view.rotation = Vector3(0.0, _facings.get(entity.carried_by, 0.0), 0.0)
 
 ## The animation-on-input half of the split.
 ##
@@ -1097,6 +1266,16 @@ func _drawn_height(entity_id: int, entity: SimEntity, view: MeshInstance3D,
 	# Vertical only. A crouching body gets shorter, not narrower; scaling all
 	# three axes would pinch it inward and make it read as shrinking.
 	var squash: float = eased / ACTOR_HEIGHT
+	if _animators.has(entity_id):
+		# An animated figure crouches by its own pose (crouch_* clips), so it is
+		# not squashed; it stands with its feet on the sim's feet, which are half
+		# the drawn height below the view (_view_offset), crouched or not.
+		for child: Node in view.get_children():
+			var held: Node3D = child as Node3D
+			if held != null:
+				held.scale = Vector3.ONE
+				held.position = Vector3(0.0, -eased * 0.5, 0.0)
+		return eased
 	for child: Node in view.get_children():
 		var figure: Node3D = child as Node3D
 		if figure != null:
@@ -1172,10 +1351,18 @@ func _cash_model() -> PackedScene:
 			_cash_scene = load(CASH_MODEL) as PackedScene
 	return _cash_scene
 
+func _clear_animators() -> void:
+	_animators.clear()
+	_anim_carrying.clear()
+	_anim_captured.clear()
+	_anim_sentence.clear()
+	_anim_last_seen.clear()
+
 func _rebuild_views() -> void:
 	for view: MeshInstance3D in _actor_views.values():
 		view.queue_free()
 	_actor_views.clear()
+	_clear_animators()
 	_view_heights.clear()
 	_facings.clear()
 	_body_opacity.clear()
@@ -1214,6 +1401,10 @@ func _rebuild_views() -> void:
 				# middle, so the figure drops half a body to stand in it.
 				art.position = Vector3(0.0, -ACTOR_HEIGHT * 0.5, 0.0)
 				view.add_child(art)
+				# The holder's one child is the shaped model (_figure_instance).
+				var animator: FigureAnimator = FigureAnimator.attach(art.get_child(0) as Node3D)
+				if animator != null:
+					_animators[entity_id] = animator
 				# The capsule becomes the crouch scaffold rather than the thing
 				# seen - see the material choice below.
 				dressed = true
@@ -1608,6 +1799,7 @@ func _reset(variant: GreyBoxLevel.SafeVariant) -> void:
 	for view: MeshInstance3D in _actor_views.values():
 		view.queue_free()
 	_actor_views.clear()
+	_clear_animators()
 	_view_heights.clear()
 	_facings.clear()
 	_body_opacity.clear()

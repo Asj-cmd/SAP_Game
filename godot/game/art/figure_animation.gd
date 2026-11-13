@@ -13,6 +13,8 @@ extends RefCounted
 ## crouch_walk, jump_start, jump_air, jump_land, grab, interact, throw, and
 ## the arm-only layers arms_carry / arms_panic. Locomotion loops carry a
 ## `stride_speed` meta (model units per second at playback speed 1).
+## In play the set is driven by FigureAnimator (P2-3); this class serves the
+## still poses of the capture tool.
 
 const LIBRARY_PATH: String = "res://art/characters/figure_anims.res"
 

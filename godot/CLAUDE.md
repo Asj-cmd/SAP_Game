@@ -103,6 +103,15 @@ godot --path godot -- --capture-figure=2700,300,1000,-90,,walk@0.4      # held i
 node autobuild/anim_sheet.mjs [--clips=walk,throw] [--member=younger_boy]   # contact sheets per clip
 ```
 
+To see the animation DRIVER (FigureAnimator, P2-3) in live play, follow one body
+with a free camera beside it; it writes one contact sheet and prints the clip each
+cell shows. Godot is launched through node here (`autobuild/run_game.mjs`):
+
+```bash
+node autobuild/run_game.mjs --timeout=300 -- --capture-follow=team_a:1,16,2.5,side,380 \
+    --capture-delay=25 --capture-clean --capture-path=C:/abs/path/a1.png   # -> a1_sheet.png
+```
+
 The debug HUD is hidden by default (`[F1]` toggles it, `--debug-hud` starts
 with it on); `--capture-clean` also hides the hint line and banner.
 
