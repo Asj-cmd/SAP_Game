@@ -96,7 +96,7 @@ Aug 16–Oct 10 are in; an earlier version of this plan was written against the 
   If the user left images in `autobuild/references/`, derive from them and cite which. Define the
   figures' proportions and material, the house's materials and palette, the lighting, the budgets
   from P1-1, and what "polished" means.
-- [ ] **P1-4 ArtTheme: one shared material and lighting setup.** One `ArtTheme` Resource holding the
+- [x] **P1-4 ArtTheme: one shared material and lighting setup.** *(Done: `ArtTheme` + `art/theme/default_theme.tres`; figures, cash and blockout re-materialed from it; sun shadow on, lamps built but off on cost, warm sky fill + ambient, linear tonemap. See PROGRESS.md.)* One `ArtTheme` Resource holding the
   character material, realistic-leaning house materials and warm interior lighting, working in the
   Compatibility renderer. No outline shader. Every imported mesh gets its material replaced from
   the theme so mixed sources look like one game. Changing the look later = editing the theme.

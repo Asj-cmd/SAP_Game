@@ -1,0 +1,217 @@
+class_name ArtTheme
+extends Resource
+## The whole look in one resource: the figures' material, the house's materials,
+## the sky and the lights (STYLE.md; PLAN P1-4).
+##
+## Every imported mesh has its materials REPLACED from here, so models from
+## different sources come out as one game, and changing the look later is an
+## edit to `default_theme.tres`, not to code. Presentation only: nothing here is
+## read by a rule, has collision, or changes what a body walks through.
+##
+## Everything is chosen for the Compatibility renderer (D1, D6): StandardMaterial3D,
+## vertex colour, omni/spot/directional lights. No outline shader (D2).
+
+const DEFAULT_PATH: String = "res://art/theme/default_theme.tres"
+
+@export_group("Figures")
+## Every family member in both families (STYLE §2.3): one smooth satin putty
+## grey. Each figure gets its own copy, because the camera fades the local body
+## through its material (ChaseCamera fade, P0-6).
+@export var figure: StandardMaterial3D = null
+## Family colours by team id (STYLE §2.4): wristband (D3 c), HUD, front door.
+@export var family_colours: Dictionary[StringName, Color] = {}
+## STOPGAP until the D3 team tell exists (P2-4): how far a figure's colour leans
+## toward its family colour. 0 is the target (identical families, D3); above 0
+## only so a playtest before P2-4 can tell the sides apart.
+@export_range(0.0, 1.0) var figure_family_tint: float = 0.0
+
+@export_group("Imported materials")
+## Materials replaced BY NAME when a model is dressed (`dress`): the name the
+## source file gave a material -> the theme's material. A model surface whose
+## material is not listed gets the dressing role's default instead.
+@export var by_source_name: Dictionary[String, StandardMaterial3D] = {}
+## Default for a carriable's surfaces not named in `by_source_name`.
+@export var cash: StandardMaterial3D = null
+
+@export_group("House")
+## Blockout boxes are drawn in ONE material with a colour per face direction
+## (vertex colour), so every box is still one draw call but a room reads as
+## walls, floor and ceiling. The material's own albedo is ignored.
+@export var blockout: StandardMaterial3D = null
+@export var wall_colour: Color = Color(0.86, 0.83, 0.77)
+@export var floor_colour: Color = Color(0.55, 0.4, 0.27)
+@export var ceiling_colour: Color = Color(0.92, 0.91, 0.88)
+## The lot's ground box (the widest blocker): its top is lawn, not floor.
+@export var lawn_colour: Color = Color(0.36, 0.5, 0.3)
+## The top of the highest boxes (the roofs): STYLE §3.3 roof tile.
+@export var roof_colour: Color = Color(0.3, 0.3, 0.32)
+## Floor finish per room KIND (zone id without its team suffix: "kitchen",
+## "jail", "landing_a" ...). Laid on the walkable floor of each zone, clipped to
+## it (FloorTint). A zone kind not listed shows the slab's own floor colour.
+@export var floors: Dictionary[StringName, StandardMaterial3D] = {}
+
+@export_group("Daylight")
+@export var sky_top: Color = Color(0.33, 0.56, 0.86)
+@export var sky_horizon: Color = Color(0.78, 0.85, 0.92)
+@export var grass: Color = Color(0.36, 0.5, 0.3)
+@export var sun_colour: Color = Color(1.0, 0.95, 0.86)
+@export var sun_energy: float = 1.15
+## One shadowed light at most (STYLE §4, budgets). Without it the sun lights
+## every upward face inside the house exactly as it lights the lawn, so an
+## interior cannot read as an interior.
+@export var sun_shadows: bool = true
+## How far from the camera the sun's shadow reaches, in units.
+@export var sun_shadow_distance: float = 4000.0
+## 1 = one orthogonal shadow map (cheapest: the shadow pass draws each caster
+## once), 2 or 4 = that many cascades (sharper near the camera, a pass each).
+@export_range(1, 4) var sun_shadow_splits: int = 1
+@export var fill_colour: Color = Color(0.85, 0.9, 1.0)
+@export var fill_energy: float = 0.45
+## Light from straight above, no shadow: the sky and the bounce off floors,
+## faked as a third directional light (base pass on Compatibility, so nearly
+## free). Inside the sun's shadow it is what keeps floors brighter than walls and
+## ceilings darkest (STYLE §4) where flat ambient would light all six alike.
+@export var sky_fill_colour: Color = Color(1.0, 0.9, 0.78)
+@export var sky_fill_energy: float = 0.35
+## Where it comes FROM. Tilted off vertical so the two wall directions the
+## cool fill misses (-x, +z) get a little of it too, and every wall stays
+## brighter than the ceiling, which gets none.
+@export var sky_fill_from: Vector3 = Vector3(-1.0, 3.0, 1.0)
+@export var ambient_colour: Color = Color(0.62, 0.66, 0.74)
+@export var ambient_energy: float = 0.65
+@export var tonemap: Environment.ToneMapper = Environment.TONE_MAPPER_LINEAR
+@export var exposure: float = 1.0
+## The tonemapper's white point. Godot's default of 1.0 makes Filmic lift every
+## mid-tone toward white (P1-4 frame: the sunlit lawn went lime); 4-6 is usual.
+@export var tonemap_white: float = 1.0
+
+@export_group("Interior light")
+## One warm ceiling light per indoor room, pointing down (STYLE §4: 2700-3000 K,
+## no shadows, at most two touching any object). A spot rather than an omni so
+## the cone stops at the room's own walls instead of lighting the house's
+## outside faces through them.
+##
+## OFF by default (P1-4, measured on the GT 730M): Compatibility draws every
+## object again for each lamp touching it, and the blockout's walls are long
+## boxes every nearby lamp touches - 16 lamps cost ~3.7 ms of GPU in the kitchen
+## view, and with the sun's shadow that is 10.2 ms against a 9 ms budget. Indoors
+## is warm through the ambient instead. P3-5 turns lamps on room by room once
+## fittings and merged meshes exist (STYLE §4).
+@export var interior_lamps: bool = false
+@export var interior_colour: Color = Color(1.0, 0.84, 0.66)
+@export var interior_energy: float = 1.2
+@export var interior_range: float = 650.0
+@export var interior_angle_deg: float = 62.0
+## Per room kind; a kind not listed gets `interior_energy`.
+@export var interior_energy_by_kind: Dictionary[StringName, float] = {}
+@export var interior_colour_by_kind: Dictionary[StringName, Color] = {}
+
+static var _loaded: ArtTheme = null
+
+## The game's theme: `default_theme.tres` when it exists, else built-in
+## defaults, so a checkout without the file still draws (art stays optional).
+static func current() -> ArtTheme:
+	if _loaded == null:
+		if ResourceLoader.exists(DEFAULT_PATH):
+			_loaded = load(DEFAULT_PATH) as ArtTheme
+		if _loaded == null:
+			_loaded = ArtTheme.new()
+		_loaded._fill_missing()
+	return _loaded
+
+func _fill_missing() -> void:
+	if figure == null:
+		figure = _material(Color(0.72, 0.69, 0.64), 0.55)
+	if cash == null:
+		cash = _material(Color(0.45, 0.62, 0.42), 0.7)
+	if blockout == null:
+		blockout = _material(Color.WHITE, 0.9)
+	blockout.vertex_color_use_as_albedo = true
+	# The face colours are palette (sRGB) values, like every albedo in STYLE.md.
+	blockout.vertex_color_is_srgb = true
+	if family_colours.is_empty():
+		family_colours = {&"team_a": Color(0.48, 0.58, 0.45), &"team_b": Color(0.7, 0.4, 0.3)}
+
+static func _material(colour: Color, roughness: float) -> StandardMaterial3D:
+	var made: StandardMaterial3D = StandardMaterial3D.new()
+	made.albedo_color = colour
+	made.roughness = roughness
+	return made
+
+## A room kind from a zone id: "kitchen_a" -> "kitchen", "landing_b_a" -> "landing_b".
+static func room_kind(zone_id: StringName) -> StringName:
+	var text: String = String(zone_id)
+	var cut: int = text.rfind("_")
+	return StringName(text.substr(0, cut)) if cut > 0 else zone_id
+
+func family_colour(team: StringName) -> Color:
+	return family_colours.get(team, wall_colour)
+
+## A fresh copy of the figure material for one body of `team`.
+func figure_material(team: StringName) -> StandardMaterial3D:
+	var copy: StandardMaterial3D = figure.duplicate() as StandardMaterial3D
+	if figure_family_tint > 0.0 and family_colours.has(team):
+		copy.albedo_color = figure.albedo_color.lerp(family_colours[team], figure_family_tint)
+	return copy
+
+## Replaces every material under `root` from the theme. Surfaces whose source
+## material is named in `by_source_name` get that; the rest get `fallback`.
+## Uses surface overrides, so the imported mesh itself is never modified.
+func dress(root: Node, fallback: StandardMaterial3D) -> void:
+	var mesh_view: MeshInstance3D = root as MeshInstance3D
+	if mesh_view != null and mesh_view.mesh != null:
+		for surface: int in mesh_view.mesh.get_surface_count():
+			var own: Material = mesh_view.mesh.surface_get_material(surface)
+			var named: StandardMaterial3D = null
+			if own != null:
+				named = by_source_name.get(own.resource_name, null)
+			mesh_view.set_surface_override_material(surface, named if named != null else fallback)
+	for child: Node in root.get_children():
+		dress(child, fallback)
+
+## Every mesh under `root` drawn in one material (a figure: STYLE §2.3 is a
+## single material for the whole body). Through material_override, which the
+## body fade (GreyBoxMain._set_opacity) fades in place - hence one copy per body.
+static func dress_whole(root: Node, material: StandardMaterial3D) -> void:
+	var mesh_view: MeshInstance3D = root as MeshInstance3D
+	if mesh_view != null:
+		mesh_view.material_override = material
+	for child: Node in root.get_children():
+		dress_whole(child, material)
+
+## A box of `size`, centred on the origin, with each face coloured by which way
+## it faces: up = floor (or lawn), down = ceiling, sides = wall. One surface, so
+## one draw call, like the BoxMesh it replaces.
+func blockout_box(size: Vector3, top_colour: Color) -> ArrayMesh:
+	var half: Vector3 = size * 0.5
+	var tool: SurfaceTool = SurfaceTool.new()
+	tool.begin(Mesh.PRIMITIVE_TRIANGLES)
+	# normal, then the two in-face axes chosen so (u x v) == normal (CCW from outside).
+	var faces: Array[Array] = [
+		[Vector3.UP, Vector3(0, 0, 1), Vector3(1, 0, 0), top_colour],
+		[Vector3.DOWN, Vector3(1, 0, 0), Vector3(0, 0, 1), ceiling_colour],
+		[Vector3.RIGHT, Vector3(0, 1, 0), Vector3(0, 0, 1), wall_colour],
+		[Vector3.LEFT, Vector3(0, 0, 1), Vector3(0, 1, 0), wall_colour],
+		[Vector3.BACK, Vector3(1, 0, 0), Vector3(0, 1, 0), wall_colour],
+		[Vector3.FORWARD, Vector3(0, 1, 0), Vector3(1, 0, 0), wall_colour],
+	]
+	for face: Array in faces:
+		var n: Vector3 = face[0]
+		var u: Vector3 = face[1]
+		var v: Vector3 = face[2]
+		var colour: Color = face[3]
+		var centre: Vector3 = n * half
+		var du: Vector3 = u * half
+		var dv: Vector3 = v * half
+		var corners: Array[Vector3] = [
+			centre - du - dv, centre + du - dv, centre + du + dv, centre - du + dv,
+		]
+		tool.set_normal(n)
+		tool.set_color(colour)
+		# Godot's front faces are clockwise seen from outside.
+		for index: int in [0, 2, 1, 0, 3, 2]:
+			tool.set_normal(n)
+			tool.set_color(colour)
+			tool.add_vertex(corners[index])
+	tool.set_material(blockout)
+	return tool.commit()

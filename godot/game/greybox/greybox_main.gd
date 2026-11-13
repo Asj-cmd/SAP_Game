@@ -68,8 +68,9 @@ const FACE_RATE: float = 12.0
 ## How proud of the floor a team's floor tint sits. Enough to win the depth
 ## test against the floor it is laid on, little enough not to be a step.
 const PATCH_THICKNESS: float = 0.6
-## The blockout's walls, floors and stairs until art replaces them.
-const BLOCKOUT_GREY: Color = Color(0.56, 0.56, 0.6)
+## How far below the top of a room's zone its ceiling lamp hangs: the slab
+## above (40) plus a fitting's drop.
+const CEILING_LAMP_DROP: float = 60.0
 
 const SNAP_DISTANCE: float = 400.0
 ## Confirmed states kept for interpolating remote bodies. A second or so: enough
@@ -426,8 +427,11 @@ func _capture_chase(request: FrameCapture) -> void:
 func _stand_in() -> Node3D:
 	var root: Node3D = Node3D.new()
 	var figure: PackedScene = _actor_model(&"team_a")
+	var look: StandardMaterial3D = ArtTheme.current().figure_material(&"team_a")
 	if figure != null:
-		root.add_child(figure.instantiate())
+		var art: Node = figure.instantiate()
+		ArtTheme.dress_whole(art, look)
+		root.add_child(art)
 		return root
 	var body: MeshInstance3D = MeshInstance3D.new()
 	var capsule: CapsuleMesh = CapsuleMesh.new()
@@ -435,7 +439,7 @@ func _stand_in() -> Node3D:
 	capsule.height = ACTOR_HEIGHT
 	body.mesh = capsule
 	body.position = Vector3(0.0, ACTOR_HEIGHT * 0.5, 0.0)
-	body.material_override = _flat(_team_colour(&"team_a", false))
+	body.material_override = look
 	root.add_child(body)
 	return root
 
@@ -1117,6 +1121,7 @@ func _rebuild_views() -> void:
 		_reach_marker.visible = false
 		add_child(_reach_marker)
 
+	var theme: ArtTheme = ArtTheme.current()
 	for entity_id: int in world.sorted_entity_ids():
 		var entity: SimEntity = world.entities[entity_id]
 		var view: MeshInstance3D = MeshInstance3D.new()
@@ -1138,6 +1143,9 @@ func _rebuild_views() -> void:
 				# The model's origin is its FEET and the capsule's is its
 				# middle, so the figure drops half a body to stand in it.
 				art.position = Vector3(0.0, -ACTOR_HEIGHT * 0.5, 0.0)
+				# Whatever the model came with, it is drawn in the theme's one
+				# figure material (STYLE.md §2.3), a copy per body for the fade.
+				ArtTheme.dress_whole(art, theme.figure_material(entity.team))
 				view.add_child(art)
 				# The capsule becomes the crouch scaffold rather than the thing
 				# seen - see the material choice below.
@@ -1149,7 +1157,9 @@ func _rebuild_views() -> void:
 			# and a missing .glb is a cosmetic gap rather than a broken build.
 			var art: PackedScene = _cash_model()
 			if art != null:
-				view.add_child(art.instantiate())
+				var bundle: Node = art.instantiate()
+				theme.dress(bundle, theme.cash)
+				view.add_child(bundle)
 				dressed = true
 			else:
 				var box: BoxMesh = BoxMesh.new()
@@ -1160,7 +1170,12 @@ func _rebuild_views() -> void:
 		# the game has always drawn. Hidden by a transparent material rather
 		# than by `visible`, because _drawn_height still resizes the capsule to
 		# carry the crouch and a hidden node would stop being measured.
-		view.material_override = _invisible() if dressed 			else _flat(_team_colour(entity.team, entity.is_carriable()))
+		if dressed:
+			view.material_override = _invisible()
+		elif entity.is_actor():
+			view.material_override = theme.figure_material(entity.team)
+		else:
+			view.material_override = theme.cash
 		add_child(view)
 		_actor_views[entity_id] = view
 
@@ -1203,10 +1218,6 @@ func _path_pip(index: int) -> MeshInstance3D:
 		_path_markers.append(pip)
 	return _path_markers[index]
 
-func _team_colour(team: StringName, is_cash: bool) -> Color:
-	var base: Color = Color(0.85, 0.25, 0.25) if team == &"team_a" else Color(0.25, 0.45, 0.9)
-	return base.lightened(0.4) if is_cash else base
-
 func _flat(colour: Color) -> StandardMaterial3D:
 	var material: StandardMaterial3D = StandardMaterial3D.new()
 	material.albedo_color = colour
@@ -1214,7 +1225,7 @@ func _flat(colour: Color) -> StandardMaterial3D:
 	return material
 
 func _build_lighting() -> void:
-	for node: Node in WorldBackdrop.environment(ChaseCamera.FAR_PLANE):
+	for node: Node in WorldBackdrop.environment(ChaseCamera.FAR_PLANE, ArtTheme.current()):
 		add_child(node)
 
 ## The level's blockers as plain boxes, plus a static body per box for the
@@ -1228,19 +1239,33 @@ func _build_geometry() -> void:
 		_geometry.queue_free()
 	_geometry = Node3D.new()
 	add_child(_geometry)
-	var outside: MeshInstance3D = WorldBackdrop.ground(level.collision.blockers, ChaseCamera.FAR_PLANE)
+	var theme: ArtTheme = ArtTheme.current()
+	var blockers: Array[AABB] = level.collision.blockers
+	var outside: MeshInstance3D = WorldBackdrop.ground(blockers, ChaseCamera.FAR_PLANE, theme)
 	if outside != null:
+		outside.layers = WorldBackdrop.OUTDOOR_LAYER
 		_geometry.add_child(outside)
+	var lot_ground: AABB = WorldBackdrop.widest_blocker(blockers) if not blockers.is_empty() else AABB()
+	var roof_top: float = -INF
+	for blocker: AABB in blockers:
+		roof_top = maxf(roof_top, blocker.end.y)
 
-	for blocker: AABB in level.collision.blockers:
+	for blocker: AABB in blockers:
 		var solid: MeshInstance3D = MeshInstance3D.new()
-		var box: BoxMesh = BoxMesh.new()
-		box.size = blocker.size
-		solid.mesh = box
+		# Walls, floor and ceiling colours by face direction, in one material
+		# and one draw call per box (ArtTheme.blockout_box); the lot's ground
+		# box has a lawn on top, the highest boxes (the roofs) roof tile.
+		var top: Color = theme.floor_colour
+		if blocker == lot_ground:
+			top = theme.lawn_colour
+		elif is_equal_approx(blocker.end.y, roof_top):
+			top = theme.roof_colour
+		solid.mesh = theme.blockout_box(blocker.size, top)
 		solid.position = blocker.get_center()
-		# Light grey: under daylight a dark blockout reads as a hole in the
-		# picture on every face turned away from the sun.
-		solid.material_override = _flat(BLOCKOUT_GREY)
+		if blocker == lot_ground:
+			# Out of the room lamps' reach: it fills the screen outdoors, and on
+			# Compatibility every lamp touching it draws it all again.
+			solid.layers = WorldBackdrop.OUTDOOR_LAYER
 		_geometry.add_child(solid)
 
 		var body: StaticBody3D = StaticBody3D.new()
@@ -1254,11 +1279,15 @@ func _build_geometry() -> void:
 		body.add_child(collider)
 		_geometry.add_child(body)
 
-	# A floor tint per owned zone, so which house you are in is readable
-	# without labels or art. Laid on the floor the SIMULATION found (the
+	# A floor finish per room (oak, tile, carpet, concrete, lawn: the theme's
+	# `floors`, by room kind). Laid on the floor the SIMULATION found (the
 	# walkable surface), never the zone box's bottom - that once floated every
-	# patch 41 units up. Where else it goes, and why, is FloorTint.
+	# patch 41 units up. Where else it goes, and why, is FloorTint. Who owns a
+	# room is not painted on the floor any more (STYLE.md §3.4).
 	for patch: FloorTint.Patch in FloorTint.patches(level):
+		var finish: StandardMaterial3D = theme.floors.get(ArtTheme.room_kind(patch.zone.id), null)
+		if finish == null:
+			continue
 		var tint: MeshInstance3D = MeshInstance3D.new()
 		var slab: BoxMesh = BoxMesh.new()
 		# Thin, and only just clear of the floor. A tint, not a rug: at two
@@ -1267,9 +1296,13 @@ func _build_geometry() -> void:
 		tint.mesh = slab
 		var middle: Vector2 = patch.footprint.get_center()
 		tint.position = Vector3(middle.x, patch.floor_y + PATCH_THICKNESS * 0.5, middle.y)
-		tint.material_override = _flat(_team_colour(patch.zone.owner_team, false).darkened(
-			0.25 if patch.zone.role == ZoneDef.Role.CASH_ROOM else 0.6))
+		tint.material_override = finish
+		if patch.zone.outdoor:
+			tint.layers = WorldBackdrop.OUTDOOR_LAYER
 		_geometry.add_child(tint)
+
+	for lamp: Node in WorldBackdrop.interior_lights(level.zones, theme, CEILING_LAMP_DROP):
+		_geometry.add_child(lamp)
 
 func _build_hud() -> void:
 	_text_layer = CanvasLayer.new()

@@ -5,7 +5,8 @@
 //   node autobuild/verify.mjs --frames     also capture the views in views.json
 //   node autobuild/verify.mjs --quick      tests only
 //   node autobuild/verify.mjs --frames-only [--views=cam_]   only the frames (optionally the
-//                                          views whose name starts with the prefix); not a gate
+//                                          views whose name starts with the prefix, or any of
+//                                          several comma-separated prefixes); not a gate
 //   node autobuild/verify.mjs --update-baseline   raise the pinned test counts / metrics budget
 //
 // Needs the Godot 4.7 binary: set GODOT_BIN (e.g. C:\Godot\Godot_v4.7-stable_win64_console.exe).
@@ -190,7 +191,8 @@ if (!args.has("--quick") && !framesOnly) {
 // ---- 3. Frames ----------------------------------------------------------
 if (args.has("--frames") || framesOnly) {
   console.log("\n== Frames ==");
-  const views = readJson(VIEWS_PATH, { views: [] }).views.filter((v) => v.name.startsWith(viewPrefix));
+  const prefixes = viewPrefix.split(",");
+  const views = readJson(VIEWS_PATH, { views: [] }).views.filter((v) => prefixes.some((p) => v.name.startsWith(p)));
   mkdirSync(FRAMES_DIR, { recursive: true });
   for (const v of views) {
     const path = join(FRAMES_DIR, `${v.name}.png`);

@@ -2,6 +2,37 @@
 
 Newest first. One entry per task: date, task id, what changed, what the frames showed, numbers, what is left.
 
+## 2026-11-13 — P1-4 ArtTheme
+- **Picked up from a cut-off session.** The tree held an uncommitted, unverified P1-4: `game/art/art_theme.gd`, `art/theme/default_theme.tres`, and edits to `greybox_main.gd` / `world_backdrop.gd`. `verify --quick` was green with it, so this session finished it rather than stashing it.
+- **What it is.** `ArtTheme` (Resource; `ArtTheme.current()` loads the .tres, or built-in defaults if it is missing) holds the figure material (STYLE §2.3 putty satin with rim), family colours, cash materials by source name, the blockout's wall/floor/ceiling/lawn/roof colours, a floor finish per room kind, the sky, sun, fills, ambient, tonemap, and the room lamps.
+  - Every figure (stand-in, `.glb` model or capsule fallback) is drawn in a per-body copy of the one figure material, so the P0-6 fade still works.
+  - The cash `.glb` is re-materialed by source material name (NotePale / NoteDeep / Band / Seal).
+  - Each blockout box is one vertex-coloured mesh: walls, floor and ceiling by face direction, the lawn on the lot's ground box, roof tile on the highest boxes. Still one draw per box.
+  - Team floor tints are gone. Each room gets its finish by room kind instead (oak halls, cream tile kitchen, concrete jail, grey/green/beige carpets, lawn yards, path lot).
+  - Figures carry no team colour (`figure_family_tint` 0, STYLE §2.4). Until P2-4 a player has no team tell at all.
+- **Measured (render_stats, GT 730M, 60 timed frames). GPU ms for kitchen / approach_from_south:**
+  - As found (2-split sun shadow + 16 ceiling spots): 11.5 / 9.0. Over the 9 ms budget.
+  - Shadow off: 8.1 / 7.1.
+  - Shadow off and lamps off: 4.3 / 3.1.
+  - Lamps on, but the outdoor ground, backdrop plane and yard finishes moved to render layer 2, which the lamps skip: 8.0 / 3.4. Compatibility redraws each object for every spot touching it, and the screen-filling ground was being redrawn for each ground-floor lamp.
+  - One orthogonal shadow + lamps: 10.2 / 5.9.
+  - **Final (one orthogonal shadow, lamps off): 7.7 / 6.0, draws 652 / 1045.** `cam_garden_wall_backed` (faded body) 7.8 ms. The 1045 is over the 1000 draw budget because the shadow pass draws every unmerged blockout box again (526 → 1045). P3-6 merges them.
+- **Frames, what they showed, in order:**
+  1. As found: interiors cold blue-grey (the sun's shadow left only a cool ambient), lamps a barely visible pool, the house's shadow a near-black green slab, roofs orange (box tops were all "floor"). The palette also came out washed: vertex colours were read as linear (fixed with `vertex_color_is_srgb`).
+  2. Warm ambient + Filmic: warm, but the lawn went lime and interiors were one flat beige, the ceiling lighter than the walls.
+  3. Added a shadowless warm "sky fill" directional from above (base pass, nearly free) and set the tonemap white to 4: floors brightest, ceiling darker. But the overview showed sunlit walls and figures pure white and the lawn lime.
+  4. Back to Linear with energies recomputed from what the frames showed (a directional light lit about 2.4× harder per unit than the Lambert estimate): natural green lawn, grey roofs, a sun shadow under every figure. Interiors were too flat at ambient 1.0.
+  5. **Final** (ambient 0.75 warm-neutral, sky fill 0.5 from (−1, 3, 1), cool fill 0.2, sun 0.38):
+     - `room_a_gf_kitchen`: cream floor brightest, walls taupe, ceiling darkest by a small margin over one wall.
+     - `room_b_gf_kitchen`: the same, plus a sun patch through the garden door onto the floor.
+     - `cam_garden_open`: three putty figures with sun shadows on a mid-green lawn; the sun-facing wall behind them is near-white cream.
+     - `cam_study_vault_a`: banded green cash clearly readable on the green-grey carpet; the faded own body is translucent putty with its inner boxes showing (the known placeholder artefact).
+     - `cam_jail`: warm, but the figure is close in value to the walls.
+     - `lot_overview`: two cream houses with grey roofs, a shadow on the lawn, blue sky fading to a pale horizon.
+- **Not done, on cost:** room lamps are built but off (`interior_lamps`). Filmic was dropped after two attempts. Both are logged in DECISIONS (REVIEW) and STYLE §4 "As built".
+- verify (full): healthy. 16 suites at pinned counts; symmetry 200/200; bot_match 3v3 DETERMINISTIC team_b, 90 s stalls; 1v1 team_b, 7 s (unchanged: presentation only); tick budget 0 of 600 over at 1v1/3v3/4v4 (p99 6.4 / 22.9 / 22.9 ms); network ok (1707 ticks agree).
+- Left for P1-5/P3-5: figure-vs-wall value separation in the jail, and figures leaning cream under the warm ambient (P1-5's figure treatments). Ceilings only just darkest; sun-facing outside walls near white (P3-5's lighting pass). Lamps per room once fittings exist and the blockout is merged (P3-5/P3-6). The rim term is faint.
+
 ## 2026-11-13 — P1-3 STYLE.md
 - **STYLE.md now has the art direction (§1–6) above P1-1's budgets.** §1 says it in one paragraph: plain people in a real house. The house plays it straight and the figures are the joke. §2 covers the figures: blank (no eyes, brows, mouth, hair or ears), identical across both families, and "slightly off" by one 5–10 % nudge each. Explicitly not crash-test dummies and not shop mannequins. Heights are dad 180, mom 176, elder child 160, younger 145. None is ever taller than the 180 sim body, and every one standing is taller than the 130 crouch gap. One material: satin warm putty grey, deliberately not a skin tone, with a faint rim term and vertex AO only. §2.4 covers team identity: figures carry no team colour. The family colours (sage / terracotta, REVIEW) are used only for the D3 (c) wristband, HUD/minimap and each house's front door and window frames. §3 covers the house. It is built to the threshold set (counters and tables exactly 120, crawl-unders ≥ 130 clear, blockers ≥ 210), so furniture is about 1.3× real and the figures are not scaled up. §3 also has a room-by-room table (the jail is a utility room with a cage-like pen, the cash rooms are a study and a bedroom with a steel safe), the palette with roughness, a saturation rule (the house stays below ~35 % except cash and family colours), about 2 texels per unit, and the readability rules. §4 covers lighting: warm sun, shadowless cool fill, warm 2700–3000 K interior lights at ≤ 2 per object with no omni/spot shadows, the sun as the only possible shadow caster, a contact shadow under every figure and bundle, and baked vertex AO. §5 summarises motion, effects and sound. §6 is a 9-point "polished" checklist to judge clean frames by.
 - **References:** `autobuild/references/` holds only `.gitkeep`, so nothing in STYLE.md is derived from an image. It comes from D2/D3/D9/D10, `WORLD_AUTHORING` §10/§12 and the measured house (`build_house.gd`: rooms 1000², doors 240×240, 320 clear, walls 30, slabs 40).

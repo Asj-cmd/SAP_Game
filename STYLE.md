@@ -214,6 +214,29 @@ cheap parts, each measured (P1-1's rule: run `render_stats.mjs --views=room_` be
 - Room by room: the jail is the coldest and dimmest (a single bare bulb), the kitchen the
   brightest, the study and bedroom warm and lamp-lit. Same at every team size.
 
+**As built in P1-4** (`godot/art/theme/default_theme.tres`; measured on the GT 730M):
+
+- Sun **with** shadow (one orthogonal map, 4000 reach). It is the cue that makes an interior an
+  interior: without it the sun lights every indoor floor exactly as it lights the lawn. Cost: the
+  shadow pass draws every caster again (approach view 526 → 1045 draws, over the 1000 budget
+  until P3-6 merges the blockout) and ~2.5–3.4 ms of GPU.
+- Room lamps are built (`interior_lamps`) but **off**: Compatibility redraws each object once per
+  omni/spot touching it, and 16 ceiling spots cost ~3.7 ms of GPU in the kitchen view (10.2 ms
+  with the shadow, over the 9 ms budget). The outdoor ground is on render layer 2, which lamps
+  skip (that alone saved ~3.7 ms outdoors). P3-5 turns lamps on per room, with fittings.
+- Indoors is lit by a warm-neutral ambient, the cool fill (+x/−z walls) and a shadowless warm
+  **sky fill** from above, tilted from (−1, 3, 1) so the −x/+z walls get some and ceilings none.
+  Directional lights are in the base pass, so the fills are nearly free.
+- **Tonemap: Linear.** Filmic is honoured by Compatibility, but with any white/exposure tried it
+  either washed interiors flat (white 1) or blew sunlit walls and lawn to white (white 4,
+  exposure 1.2). On this renderer a directional light lit a floor ~2.4× harder per unit of energy
+  than the Lambert estimate. Energies are therefore low (sun 0.38) and the ambient colour is read
+  as sRGB.
+- Seen in frames, open: the ceiling is only just darker than the darker walls; a sun-facing
+  outside wall is near white; the warm ambient pushes the putty figures toward cream, and in the
+  jail a figure sits close in value to the walls (P1-5 tries figure treatments); the rim term
+  shows only as a thin highlight on sunlit edges.
+
 ## 5. Motion, effects, sound (summary; the tasks own the detail)
 
 - Animation is stiff and committed, never cartoon (D9): no squash-and-stretch, no anticipation
