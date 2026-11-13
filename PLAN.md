@@ -62,7 +62,7 @@ Aug 16–Oct 10 are in; an earlier version of this plan was written against the 
   basement/jail, upstairs, stairwells, vault, garden, doorways. Walls between camera and player
   must not blind the player (fade or cut away). Add one `views.json` entry per space.
   *Verify:* ≥12 frames, each judged readable; camera_controls_test still green.
-- [ ] **P0-7 "Patchy graphics" sweep.** Capture every room, both houses, both floors. Log every
+- [x] **P0-7 "Patchy graphics" sweep.** *(Done: 16 `room_*` + 6 exterior views; fill light for unlit faces, floor tint resolved by zone priority with straight edges. See PROGRESS.md.)* Capture every room, both houses, both floors. Log every
   defect (z-fighting, floor tint over stairwell, gaps, flipped normals, wrong colour, clipping),
   fix them, re-capture. *Verify:* before/after frame names in PROGRESS.md; validator still green.
 - [ ] **P0-8 Playable local session.** One human + bots: start from the main scene, move, grab,

@@ -1179,111 +1179,22 @@ func _build_geometry() -> void:
 		body.add_child(collider)
 		_geometry.add_child(body)
 
-	# A floor patch per owned room, so which house you are in is readable
-	# without labels or art.
-	#
-	# Laid on the floor the SIMULATION found, not on the bottom of the zone box.
-	# A zone is a volume that means something and may be generous (§2); where
-	# the floor is, is a fact about the geometry, and the walkable surface is
-	# the thing that already knows it. This used to be `bounds.position.y + 41`
-	# - the 41 being the grey box's floor slab plus one - and the house puts its
-	# room zones flush with each storey instead, so every patch floated 41 units
-	# in the air and every body looked sunk to the shins in it. One offset, both
-	# complaints.
-	# AND ONLY WHERE THERE IS FLOOR. One box across the whole room paints over
-	# the stairwell too, so climbing the stairs is climbing through a solid
-	# coloured floor at chest height - reported from the chair as "the openings
-	# in the floors are all blocked". The tint follows the walkable footprint
-	# instead: it is a tint ON the floor, so it can only be where the floor is.
-	for zone: ZoneDef in level.zones:
-		if zone.owner_team == &"":
-			continue
-		var floor_y: float = _floor_of(zone)
-		if floor_y == INF:
-			continue # nowhere to stand in it; nothing to tint
-		var tint: Color = _team_colour(zone.owner_team, false).darkened(
-			0.25 if zone.role == ZoneDef.Role.CASH_ROOM else 0.6)
-		for run: AABB in _floor_runs(zone, floor_y):
-			var patch: MeshInstance3D = MeshInstance3D.new()
-			var slab: BoxMesh = BoxMesh.new()
-			# Thin, and only just clear of the floor. A tint, not a rug: at two
-			# units thick and a unit up it read as a raised platform with a lip.
-			slab.size = Vector3(run.size.x, PATCH_THICKNESS, run.size.z)
-			patch.mesh = slab
-			patch.position = Vector3(run.get_center().x,
-				floor_y + PATCH_THICKNESS * 0.5, run.get_center().z)
-			patch.material_override = _flat(tint)
-			_geometry.add_child(patch)
-
-## The zone's floor, as rectangles, taken from where a body can actually stand.
-##
-## Stances are snapped back to the grid they were sampled on and merged into
-## runs along x, so a room comes out as a few boxes rather than a few hundred.
-## Holes in the floor - a stairwell - simply have no stances, so they are simply
-## not tinted, which is the whole point.
-func _floor_runs(zone: ZoneDef, floor_y: float) -> Array[AABB]:
-	var runs: Array[AABB] = []
-	if level.surface == null:
-		return runs
-	var cell: float = level.surface.cell_size
-	if cell <= 0.0:
-		return runs
-	var standing: float = floor_y + level.tuning.actor_radius
-
-	var rows: Dictionary[int, Dictionary] = {}
-	for stance: Vector3 in level.surface.nodes:
-		if absf(stance.y - standing) > cell * 0.5:
-			continue
-		if not zone.contains_point(stance):
-			continue
-		var row: int = int(floor(stance.z / cell))
-		var column: int = int(floor(stance.x / cell))
-		if not rows.has(row):
-			rows[row] = {}
-		rows[row][column] = true
-
-	var ordered_rows: Array = rows.keys()
-	ordered_rows.sort()
-	for row: int in ordered_rows:
-		var columns: Array = rows[row].keys()
-		columns.sort()
-		var start: int = columns[0]
-		var previous: int = columns[0]
-		for i: int in range(1, columns.size()):
-			if columns[i] == previous + 1:
-				previous = columns[i]
-				continue
-			runs.append(_run_box(start, previous, row, cell))
-			start = columns[i]
-			previous = columns[i]
-		runs.append(_run_box(start, previous, row, cell))
-	return runs
-
-func _run_box(from_column: int, to_column: int, row: int, cell: float) -> AABB:
-	return AABB(
-		Vector3(float(from_column) * cell, 0.0, float(row) * cell),
-		Vector3(float(to_column - from_column + 1) * cell, 0.0, cell))
-
-## The height an actor's FEET rest at inside this zone, or INF if none do.
-##
-## Taken from the lowest stance the walkable surface found there, minus the body
-## radius, because a stance is where a body's CENTRE sits rather than where the
-## floor is. Lowest rather than nearest, so a room with a step in it tints from
-## its main floor.
-##
-## Read off the LEVEL rather than the world, because geometry is built before a
-## world exists. Taking it from `world.surface` skipped every patch instead of
-## misplacing it - a quieter bug than the one being fixed and no better.
-func _floor_of(zone: ZoneDef) -> float:
-	if level.surface == null or level.surface.nodes.is_empty():
-		return INF
-	var lowest: float = INF
-	for stance: Vector3 in level.surface.nodes:
-		if zone.contains_point(stance):
-			lowest = minf(lowest, stance.y)
-	if lowest == INF:
-		return INF
-	return lowest - level.tuning.actor_radius
+	# A floor tint per owned zone, so which house you are in is readable
+	# without labels or art. Laid on the floor the SIMULATION found (the
+	# walkable surface), never the zone box's bottom - that once floated every
+	# patch 41 units up. Where else it goes, and why, is FloorTint.
+	for patch: FloorTint.Patch in FloorTint.patches(level):
+		var tint: MeshInstance3D = MeshInstance3D.new()
+		var slab: BoxMesh = BoxMesh.new()
+		# Thin, and only just clear of the floor. A tint, not a rug: at two
+		# units thick and a unit up it read as a raised platform with a lip.
+		slab.size = Vector3(patch.footprint.size.x, PATCH_THICKNESS, patch.footprint.size.y)
+		tint.mesh = slab
+		var middle: Vector2 = patch.footprint.get_center()
+		tint.position = Vector3(middle.x, patch.floor_y + PATCH_THICKNESS * 0.5, middle.y)
+		tint.material_override = _flat(_team_colour(patch.zone.owner_team, false).darkened(
+			0.25 if patch.zone.role == ZoneDef.Role.CASH_ROOM else 0.6))
+		_geometry.add_child(tint)
 
 func _build_hud() -> void:
 	_text_layer = CanvasLayer.new()

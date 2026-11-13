@@ -24,6 +24,29 @@
     { "name": "cam_landing_a", "chase": [1700, 660, 600], "facing": [2270, 660, 1000] },
     { "name": "cam_study_vault_a", "chase": [1250, 660, 1200], "facing": [630, 660, 880] },
     { "name": "cam_bedroom_vault_a", "chase": [1600, 660, 1600], "facing": [2200, 660, 2260] },
-    { "name": "cam_study_vault_b", "chase": [4150, 660, 2520], "facing": [4770, 660, 2840] }
+    { "name": "cam_study_vault_b", "chase": [4150, 660, 2520], "facing": [4770, 660, 2840] },
+
+    { "name": "room_a_gf_jail", "at": [1320, 560, 1320], "look": [480, 300, 480] },
+    { "name": "room_a_gf_fronthall", "at": [1470, 560, 1320], "look": [2310, 300, 480] },
+    { "name": "room_a_gf_kitchen", "at": [1470, 560, 1470], "look": [2310, 300, 2310] },
+    { "name": "room_a_gf_backhall", "at": [1320, 560, 1470], "look": [480, 300, 2310] },
+    { "name": "room_a_up_study", "at": [1320, 920, 1320], "look": [480, 660, 480] },
+    { "name": "room_a_up_landing_se", "at": [1470, 920, 1320], "look": [2310, 660, 480] },
+    { "name": "room_a_up_bedroom", "at": [1470, 920, 1470], "look": [2310, 660, 2310] },
+    { "name": "room_a_up_landing_nw", "at": [1320, 920, 1470], "look": [480, 660, 2310] },
+    { "name": "room_b_gf_jail", "at": [4080, 560, 2400], "look": [4920, 300, 3240] },
+    { "name": "room_b_gf_fronthall", "at": [3930, 560, 2400], "look": [3090, 300, 3240] },
+    { "name": "room_b_gf_kitchen", "at": [3930, 560, 2250], "look": [3090, 300, 1410] },
+    { "name": "room_b_gf_backhall", "at": [4080, 560, 2250], "look": [4920, 300, 1410] },
+    { "name": "room_b_up_study", "at": [4080, 920, 2400], "look": [4920, 660, 3240] },
+    { "name": "room_b_up_landing_se", "at": [3930, 920, 2400], "look": [3090, 660, 3240] },
+    { "name": "room_b_up_bedroom", "at": [3930, 920, 2250], "look": [3090, 660, 1410] },
+    { "name": "room_b_up_landing_nw", "at": [4080, 920, 2250], "look": [4920, 660, 1410] },
+    { "name": "ext_a_south", "at": [1395, 700, -900], "look": [1395, 500, 1395] },
+    { "name": "ext_a_west", "at": [-900, 700, 1395], "look": [1395, 500, 1395] },
+    { "name": "ext_a_east", "at": [2750, 700, 600], "look": [1395, 500, 1395] },
+    { "name": "ext_a_north", "at": [1395, 700, 3300], "look": [1395, 500, 1395] },
+    { "name": "yard_midline_top", "at": [2700, 2200, 600], "look": [2700, 300, 1300] },
+    { "name": "ext_b_north", "at": [4005, 700, 4620], "look": [4005, 500, 2325] }
   ]
 }
