@@ -1,4 +1,4 @@
-[gd_resource type="Resource" script_class="ArtTheme" load_steps=15 format=3]
+[gd_resource type="Resource" script_class="ArtTheme" load_steps=20 format=3]
 
 [ext_resource type="Script" path="res://game/art/art_theme.gd" id="1_theme"]
 
@@ -74,6 +74,32 @@ resource_name = "path"
 albedo_color = Color(0.62, 0.6, 0.56, 1)
 roughness = 0.9
 
+[sub_resource type="StandardMaterial3D" id="prop_wood"]
+resource_name = "wood"
+albedo_color = Color(0.46, 0.33, 0.22, 1)
+roughness = 0.6
+
+[sub_resource type="StandardMaterial3D" id="prop_fabric"]
+resource_name = "fabric"
+albedo_color = Color(0.5, 0.49, 0.46, 1)
+roughness = 1.0
+
+[sub_resource type="StandardMaterial3D" id="prop_steel"]
+resource_name = "steel"
+albedo_color = Color(0.3, 0.31, 0.33, 1)
+roughness = 0.45
+metallic = 0.8
+
+[sub_resource type="StandardMaterial3D" id="prop_painted"]
+resource_name = "painted"
+albedo_color = Color(0.9, 0.88, 0.83, 1)
+roughness = 0.5
+
+[sub_resource type="StandardMaterial3D" id="prop_default"]
+resource_name = "prop"
+albedo_color = Color(0.6, 0.57, 0.52, 1)
+roughness = 0.8
+
 [resource]
 script = ExtResource("1_theme")
 figure = SubResource("figure")
@@ -86,9 +112,14 @@ by_source_name = Dictionary[String, StandardMaterial3D]({
 "NotePale": SubResource("cash_note"),
 "NoteDeep": SubResource("cash_note_deep"),
 "Band": SubResource("cash_band"),
-"Seal": SubResource("cash_band")
+"Seal": SubResource("cash_band"),
+"wood": SubResource("prop_wood"),
+"fabric": SubResource("prop_fabric"),
+"steel": SubResource("prop_steel"),
+"painted": SubResource("prop_painted")
 })
 cash = SubResource("cash_note")
+prop = SubResource("prop_default")
 blockout = SubResource("blockout")
 wall_colour = Color(0.86, 0.83, 0.77, 1)
 floor_colour = Color(0.55, 0.4, 0.27, 1)

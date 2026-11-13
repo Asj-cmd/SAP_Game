@@ -107,7 +107,7 @@ Aug 16–Oct 10 are in; an earlier version of this plan was written against the 
   `autobuild/slice/`. Pick the recommended variant, write the reasoning in DECISIONS.md under
   `STYLE-PICK` (REVIEW). **Do not wait for the user** — adopt your pick and continue; the user may
   override and the theme makes that cheap.
-- [ ] **P1-6 Asset import pipeline.** A documented, repeatable path from a downloaded `.glb`/`.fbx`
+- [x] **P1-6 Asset import pipeline.** *(Done: `fetch_polyhaven.mjs` → `import_asset.mjs` / `tools/import_asset.gd` (scale, pivot, no collision, one mesh, theme material names, budget, decimation) → `ArtTheme.prop_instance` with null fallback; `--capture-prop` to see one; documented in `godot/art/README.md`; two Poly Haven samples in `godot/art/props/`. See PROGRESS.md.)* A documented, repeatable path from a downloaded `.glb`/`.fbx`
   to `godot/art/…`: **scale to world units (1 unit = 1 cm, so most downloaded assets, authored in
   metres, need ×100)**, Y-up, pivot, theme material, LOD/poly check against the budget. Keep the
   `ResourceLoader.exists` + primitive fallback convention from `godot/art/README.md`.

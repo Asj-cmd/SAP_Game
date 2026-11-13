@@ -1,0 +1,10 @@
+{
+  "src": "autobuild/Incoming/polyhaven/wooden_table_02/gltf/wooden_table_02_1k.gltf",
+  "url": "https://polyhaven.com/a/wooden_table_02",
+  "licence": "CC0",
+  "flags": [
+    "--out=res://art/props/wooden_table_02.glb",
+    "--height=120",
+    "--material=wood"
+  ]
+}

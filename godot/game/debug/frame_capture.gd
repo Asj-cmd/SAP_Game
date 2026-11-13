@@ -82,6 +82,10 @@ const DEFAULT_CHASE_PITCH_DEG: float = -12.0
 ## the theme's figure). Presentation only; the simulation never sees them.
 var figures: Array[Vector4] = []
 var figure_models: PackedStringArray = PackedStringArray()
+## Drawn-only imported props (P1-6) stood in the world for every shot: a model
+## path, and its base position and yaw in degrees, as for figures.
+var props: Array[Vector4] = []
+var prop_models: PackedStringArray = PackedStringArray()
 
 ## How many shots this request will write.
 func shot_count() -> int:
@@ -113,6 +117,9 @@ func path_for(index: int) -> String:
 ##   --capture-figure=x,y,z,yaw[,res://model]
 ##                             stand a drawn-only figure (feet, yaw in degrees,
 ##                             0 faces +z like every body) in every shot; repeatable
+##   --capture-prop=res://model,x,y,z,yaw
+##                             stand a drawn-only imported prop (its base at x,y,z),
+##                             dressed by the ArtTheme, in every shot; repeatable
 ##
 ## Chase shots are numbered after any --capture-at shots.
 ## `--capture-at` may be repeated; each one is a separate shot, numbered
@@ -193,6 +200,13 @@ static func from_command_line(args: PackedStringArray) -> FrameCapture:
 			request.figures.append(Vector4(float(parts[0]), float(parts[1]),
 				float(parts[2]), float(parts[3])))
 			request.figure_models.append(parts[4] if parts.size() > 4 else "")
+		elif arg.begins_with("--capture-prop="):
+			var bits: PackedStringArray = arg.trim_prefix("--capture-prop=").split(",")
+			if bits.size() < 5:
+				push_error("frame capture: --capture-prop wants res://model,x,y,z,yaw")
+				continue
+			request.prop_models.append(bits[0])
+			request.props.append(Vector4(float(bits[1]), float(bits[2]), float(bits[3]), float(bits[4])))
 	return request
 
 ## The rig yaw that points the chase camera from `feet` toward `facing`.

@@ -331,7 +331,16 @@ func _arm_capture() -> void:
 		posed.position = Vector3(spot.x, spot.y, spot.z)
 		posed.rotation = Vector3(0.0, deg_to_rad(spot.w), 0.0)
 		add_child(posed)
-	if not request.figures.is_empty():
+	for i: int in request.props.size():
+		var spot: Vector4 = request.props[i]
+		var prop: Node3D = ArtTheme.current().prop_instance(request.prop_models[i])
+		if prop == null:
+			push_error("frame capture: no prop model at %s" % request.prop_models[i])
+			continue
+		prop.position = Vector3(spot.x, spot.y, spot.z)
+		prop.rotation = Vector3(0.0, deg_to_rad(spot.w), 0.0)
+		add_child(prop)
+	if not request.figures.is_empty() or not request.props.is_empty():
 		await get_tree().process_frame
 	if request.crouch:
 		# Through Input, like the grab below: the same key LocalPlayerInput

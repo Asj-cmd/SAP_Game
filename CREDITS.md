@@ -8,6 +8,7 @@ author, the title, the licence and a link, exactly as their licence asks.
 
 - **Characters:** based on *Universal Base Characters* by **Quaternius** (quaternius.com), CC0 1.0.
 - **Animation:** *Universal Animation Library* by **Quaternius** (quaternius.com), CC0 1.0.
+- **Furniture:** models from **Poly Haven** (polyhaven.com), CC0 1.0.
 
 ## Engine
 

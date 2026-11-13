@@ -2,6 +2,31 @@
 
 Newest first. One entry per task: date, task id, what changed, what the frames showed, numbers, what is left.
 
+## 2026-11-13 — P1-6 Asset import pipeline
+- **Picked up from a cut-off session.** Three untracked files were waiting: `autobuild/fetch_polyhaven.mjs`, `autobuild/import_asset.mjs` and `godot/tools/import_asset.gd`, with `wooden_table_02` already downloaded. It was one task, so this session finished it.
+- **The path** (documented in `godot/art/README.md`, "Importing a downloaded model"):
+  1. `fetch_polyhaven.mjs <slug>` downloads into the gitignored `autobuild/Incoming/` and checks every file's md5.
+  2. `import_asset.mjs <source> --out=res://art/props/<name>.glb [flags]` runs `tools/import_asset.gd` headless. It reads glb, gltf or fbx at runtime, drops collision, cameras, lights and animation, and refuses skinned meshes. It bakes transforms and scales to 1 unit = 1 cm (`--units=auto|m|cm|<factor>`, `--height`, `--fit`, `--yaw`). Pivot goes at the base. Output is one mesh with one surface per material name. Textures are dropped, UVs kept, and surfaces are renamed to theme names (`--material=`). Budget is checked per `--role`, with decimation via `--max-tris`. It prints a draft ASSETS.md row. After that, Godot imports the .glb, and the importer writes `<name>.source.json` so `--again`/`--all` can rebuild it.
+  3. In game: `ArtTheme.current().prop_instance(path)` dresses the prop from the theme, or returns `null` when the file is missing so the caller keeps its primitive. The theme gained a `prop` default and four generic materials (`wood`, `fabric`, `steel`, `painted`) in `by_source_name`.
+  4. To see a prop: `--capture-prop=res://model,x,y,z,yaw` stands a drawn-only one in every shot.
+- **Fixed in what the previous session left:**
+  - The texture-error filter leaked PNG errors whose keyword was on the `at:` line. It now judges each engine error block as a whole.
+  - Decimation did nothing on a small mesh and only halved a big one. It now repeats the engine simplifier on its own output and compacts unused vertices. It also says plainly when it cannot reach the target. Measured on Poly Haven `ArmChair_01` (5626 triangles): one level at exactly half, then nothing, at normal-merge angles 25, 90 and 180. The simplifier will not cross UV/normal seams. That was two attempts, so it was logged rather than replaced with a seam-tearing simplifier (DECISIONS).
+  - The flag lines printed as "units"; they now print as "step". The ASSETS.md row uses `--url`/`--licence`.
+- **Samples** (CC0, ASSETS.md + CREDITS.md):
+  - `wooden_table_02`: `--height=120 --material=wood`, 196 triangles, 170 × 120 × 106.
+  - `armchair_01`: `--units=130 --max-tris=2000 --material=fabric`, decimated 5626 → 2366, so "heavy" (under the 6k max), 110 × 139 × 100.
+  - `--all` re-run: both .glb byte-identical (same SHA-1).
+- **Frames** (`autobuild/frames/p1_6/`, House A study, with a dad figure for scale):
+  - `props_1`, `props_2`: the table stands on the green carpet, legs and top intact, in the theme's red-brown oak. Its top is at about two thirds of the figure's height, as STYLE §3.1's 120 threshold intends. The armchair was hidden behind the figure in both.
+  - `chair_1`, `chair_2`: after decimation the armchair is intact: carved legs, curved back, arms and seat cushion, no holes or torn seams. It is in the grey-taupe theme fabric and stands on the floor. Seat height is about mid-thigh on the figure (1.3× real).
+  - Render stats for `chair_1`: 65 draws, 50k triangles (the figure is 12.6k of it).
+- verify (full): healthy. 16 suites at their pinned counts; symmetry 200/200. Bot match 3v3: DETERMINISTIC, winner team_b, 90 s stalls. Bot match 1v1: team_b, 7 s (the same as P1-5; nothing in the sim changed). Tick budget 0 of 600 over at 1v1/3v3/4v4 (p99 6.5 / 24.1 / 24.1 ms). Network ok, 1712 ticks agree.
+- **Left:**
+  - P3-1 picks the real kit. The two samples are placed nowhere in the level.
+  - Theme materials have no textures yet. The UVs are kept for when they do.
+  - Models that need cutting below about half go through Blender first, and nothing in the loop does that yet.
+
 ## 2026-11-13 — P1-5 Style slice
 - **Figures first.** The slice needed the Quaternius bodies, and none had been extracted yet. The free bodies (D10, P1-2) come T-posed, metre scale, 12.6k triangles, with separate eye and eyebrow meshes. New `autobuild/figure_bake.mjs` (Node, reads the zips extracted into the gitignored `autobuild/Incoming/x/`) writes `godot/art/characters/figure_{male,female}.gltf/.bin`:
   - eyes, brows and textures dropped;

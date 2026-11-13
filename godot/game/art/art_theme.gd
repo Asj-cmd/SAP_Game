@@ -43,6 +43,11 @@ const DEFAULT_PATH: String = "res://art/theme/default_theme.tres"
 @export var by_source_name: Dictionary[String, StandardMaterial3D] = {}
 ## Default for a carriable's surfaces not named in `by_source_name`.
 @export var cash: StandardMaterial3D = null
+## Default for an imported prop's surfaces not named in `by_source_name`
+## (`prop_instance`). The import pipeline (godot/art/README.md, P1-6) renames a
+## pack's materials to the theme's generic names - wood, fabric, steel, painted
+## - so this only shows on a surface nobody mapped.
+@export var prop: StandardMaterial3D = null
 
 @export_group("House")
 ## Blockout boxes are drawn in ONE material with a colour per face direction
@@ -145,6 +150,8 @@ func _fill_missing() -> void:
 		figure = _material(Color(0.72, 0.69, 0.64), 0.55)
 	if cash == null:
 		cash = _material(Color(0.45, 0.62, 0.42), 0.7)
+	if prop == null:
+		prop = _material(Color(0.6, 0.57, 0.52), 0.8)
 	if blockout == null:
 		blockout = _material(Color.WHITE, 0.9)
 	blockout.vertex_color_use_as_albedo = true
@@ -236,6 +243,22 @@ func dress(root: Node, fallback: StandardMaterial3D) -> void:
 			mesh_view.set_surface_override_material(surface, named if named != null else fallback)
 	for child: Node in root.get_children():
 		dress(child, fallback)
+
+## An imported prop (a `res://art/props/*.glb` written by tools/import_asset.gd),
+## instanced and dressed from the theme; null when the file is not there, so the
+## caller keeps its primitive (art stays optional, godot/art/README.md). Drawn
+## only: an art mesh never has collision and the simulation never reads it.
+func prop_instance(path: String) -> Node3D:
+	if path == "" or not ResourceLoader.exists(path):
+		return null
+	var scene: PackedScene = load(path) as PackedScene
+	if scene == null:
+		return null
+	var made: Node3D = scene.instantiate() as Node3D
+	if made == null:
+		return null
+	dress(made, prop)
+	return made
 
 ## Every mesh under `root` drawn in one material (a figure: STYLE §2.3 is a
 ## single material for the whole body). Through material_override, which the

@@ -1,0 +1,11 @@
+{
+  "src": "autobuild/Incoming/polyhaven/ArmChair_01/gltf/ArmChair_01_1k.gltf",
+  "url": "https://polyhaven.com/a/ArmChair_01",
+  "licence": "CC0",
+  "flags": [
+    "--out=res://art/props/armchair_01.glb",
+    "--units=130",
+    "--max-tris=2000",
+    "--material=fabric"
+  ]
+}
