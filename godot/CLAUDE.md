@@ -91,6 +91,14 @@ node autobuild/render_stats.mjs [--views=room_]               # every view, one 
 
 Counters are zero under `--headless`; measure windowed.
 
+To compare looks, swap the whole ArtTheme and stand drawn-only figures in the shot:
+
+```bash
+godot --path godot -- --art-theme=res://art/theme/slice_b.tres --capture-figure=780,660,720,40
+node autobuild/style_slice.mjs [--variants=a,b,c,pick] [--import]   # P1-5 slice
+node autobuild/figure_bake.mjs --body=male|female    # re-bake a figure from the zips
+```
+
 The debug HUD is hidden by default (`[F1]` toggles it, `--debug-hud` starts
 with it on); `--capture-clean` also hides the hint line and banner.
 

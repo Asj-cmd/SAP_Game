@@ -101,7 +101,7 @@ Aug 16–Oct 10 are in; an earlier version of this plan was written against the 
   Compatibility renderer. No outline shader. Every imported mesh gets its material replaced from
   the theme so mixed sources look like one game. Changing the look later = editing the theme.
   *Verify:* frames.
-- [ ] **P1-5 Style slice.** Build **three** variants (A/B/C) of the same room (use the vault room),
+- [x] **P1-5 Style slice.** *(Done: `autobuild/style_slice.mjs` shoots A putty / B painted clothes / C vinyl big-head (+ the pick) in the study from 4 views into `autobuild/slice/`; figures baked blank by `autobuild/figure_bake.mjs`; STYLE-PICK = painted clothes + halved nudge + P1-4 lighting, adopted in `default_theme.tres`. See PROGRESS.md.)* Build **three** variants (A/B/C) of the same room (use the vault room),
   all following D2. They differ in how the Quaternius figures (D10) are made deadpan — three
   different blank, silly treatments — and in the house lighting. Capture each from 4 views into
   `autobuild/slice/`. Pick the recommended variant, write the reasoning in DECISIONS.md under

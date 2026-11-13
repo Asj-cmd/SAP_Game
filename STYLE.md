@@ -80,10 +80,14 @@ modelling clay or a matt vinyl toy, not skin and not glossy plastic.
 | Rim | A faint rim term (StandardMaterial3D `rim`, about 0.2, tint 0.5) so a figure separates from a dark wall without an outline. P1-4 checks by frame that Compatibility draws it; if not, drop it and rely on value contrast (3.4) |
 | Vertex colour | Allowed for **baked ambient occlusion** only (armpits, under the chin), to keep the form readable without shadows |
 
-Clothes: **none modelled, none painted** in the default. A body in one flat material is the
-D2 look. P1-5 is where alternatives are tried (one of its three variants may give every figure
-the same plain painted shirt-and-trousers in muted tones through vertex colour, one material
-still). Whatever wins goes into the theme, so it is one edit to change.
+Clothes: **painted, not modelled** (P1-5 STYLE-PICK, REVIEW; this replaces "none" above).
+Every figure wears the same plain clothes through baked vertex colour in the one material: a
+muted blue-grey long-sleeved shirt, grey-brown trousers, dark shoes, with bare putty head and
+hands. The slice showed a bare body reading as an anatomical clay model, and the clothed one
+as "a person without the details". Material as built: putty `(0.74, 0.71, 0.66)`, roughness
+0.7, rim 0.2, `vertex_color_use_as_albedo`. Off-proportion as built (theme
+`figure_bone_scales`): head ×1.08, neck ×1.08 long, torso ×1.04 long, hands ×1.06. Slice
+frames: `autobuild/slice/`; the clothes colours are `PAINT` in `autobuild/figure_bake.mjs`.
 
 ### 2.4 Team identity (D3 is an experiment)
 

@@ -2,6 +2,40 @@
 
 Newest first. One entry per task: date, task id, what changed, what the frames showed, numbers, what is left.
 
+## 2026-11-13 — P1-5 Style slice
+- **Figures first.** The slice needed the Quaternius bodies, and none had been extracted yet. The free bodies (D10, P1-2) come T-posed, metre scale, 12.6k triangles, with separate eye and eyebrow meshes. New `autobuild/figure_bake.mjs` (Node, reads the zips extracted into the gitignored `autobuild/Incoming/x/`) writes `godot/art/characters/figure_{male,female}.gltf/.bin`:
+  - eyes, brows and textures dropped;
+  - the head projected onto a fitted ellipsoid (an egg: no eyes, nose, mouth or ears);
+  - `Idle_Loop` frame 0 from the Animation Library (same bone names) baked into the rest pose;
+  - ×100 to centimetres;
+  - a painted-clothes vertex colour added. A theme material uses it or ignores it.
+
+  The male is 181 tall, the female 177. Godot draws them at ≤ 180 (`figure_height`).
+  - First tried Taubin smoothing for the face (60 passes). It moved the head 0.4 cm on average and the frame still showed sockets and a mouth. There were no holes to fill (the hole-fill found 0). So the head is projected instead.
+- **Theme hooks** (`ArtTheme`):
+  - `figure_model`, `figure_height` (cap, never stretch), `figure_bone_scales` (the "slightly off", as bone pose scale);
+  - `--art-theme=res://...tres` swaps the whole theme, no code change.
+
+  `--capture-figure=x,y,z,yaw[,model]` stands drawn-only figures in every shot. The game now draws every body as the theme's figure. `_figure_instance` wraps it in a holder so the crouch squash does not undo the theme scale. Fallbacks are unchanged.
+- **The slice:** `autobuild/style_slice.mjs`. It shoots House A's study (a cash/vault room) with a dad (male body) and a mom (female body) stood by the cash. Four views each: `chase` (the real rig and the seat's own faded body), `room`, `figures` (close), `backlit`. Variants are whole theme files, `godot/art/theme/slice_{a,b,c}.tres`, generated from the default by `autobuild/slice_themes.mjs`. `pick` = `default_theme.tres`. 16 frames in `autobuild/slice/`.
+- **What each frame showed** (final captures):
+  - **A "putty"** (bare satin putty, torso +6 %, P1-4 lighting): smooth egg heads, no features. But bare superhero bodies, with sculpted abs, pecs, a female chest and buttocks. That reads as an anatomy model or mannequin, not as a person. Figure value is close to the warm beige walls (`a_figures`, `a_room`). Chase: the faded own body shows through itself.
+  - **B "painted"** (vertex-painted clothes, matt; warm lamps on, low sun):
+    - First try: clothes read as a dark wetsuit and the room was murky brown (ambient 0.55).
+    - Second try: ambient 0.7, lighter paint. The room was warm and readable.
+    - Then found that paints 2 and 3 had never reached Godot (below).
+    - Final B: blue-grey shirt, grey-brown trousers, dark shoes; pale blank head and hands pop. Lamp pools faint on the green carpet.
+  - **C "vinyl"** (glossy pale, head ×1.14, neck ×1.18, small hands; overcast, no sun shadow): cool grey-white room, even and flat. The figures read as shop-window mannequins (STYLE §2.1 says not). The big head is plainly visible in `c_chase`, so the bone scales work. It is cheapest (no shadow pass: 24–379 draws against A's 59–684).
+  - **Pick** (`pick_*`): B's clothes, C's nudge halved (head ×1.08, neck ×1.08, torso ×1.04, hands ×1.06), A's lighting. `pick_figures`: a blue-grey shirt a step under the pale egg head, grey-brown trousers, dark shoes. The figures separate from the warm walls by hue as well as value. `pick_room`: the two figures and both cash bundles are readable at room distance.
+- **STYLE-PICK** (DECISIONS, REVIEW): the pick above, adopted into `default_theme.tres`; STYLE §2.3 updated.
+- **Bug found and fixed:** Godot re-imports a `.gltf` only when the .gltf changes, not its `.bin`. Two paint changes produced identical frames. The bake now writes the bin's SHA-1 into `asset.extras`.
+- **In game** (`verify --frames-only --views=cam_garden_open,cam_jail`):
+  - `cam_garden_open`: bots drawn as the new figure, idle-posed and sliding (no animation until P2-3), with sun shadows on the lawn. Sunlit heads are near white; muscle relief shows through the painted shirt.
+  - `cam_jail`: the figure's blue-grey shirt separates from the warm concrete. That was P1-4's open "figure close in value to the walls" item.
+  - Garden view 680 draws, 82k triangles (was 27k; 8 figures × 12.6k + shadow pass); budget 300k.
+- verify (full): healthy. 16 suites at pinned counts; symmetry 200/200; bot_match 3v3 DETERMINISTIC team_b, 90 s stalls; 1v1 team_b, 7 s (unchanged: presentation only); tick budget 0 of 600 over at 1v1/3v3/4v4 (p99 6.4 / 23.5 / 22.3 ms); network ok (1711 ticks agree).
+- **Left:** decimate the figures to the 6k budget and build the four family members (P2-1); smooth the muscle relief (P2-1). Bodies are static idle until P2-3, and crouch still squashes the figure. Sunlit heads lean white outdoors (P3-5).
+
 ## 2026-11-13 — P1-4 ArtTheme
 - **Picked up from a cut-off session.** The tree held an uncommitted, unverified P1-4: `game/art/art_theme.gd`, `art/theme/default_theme.tres`, and edits to `greybox_main.gd` / `world_backdrop.gd`. `verify --quick` was green with it, so this session finished it rather than stashing it.
 - **What it is.** `ArtTheme` (Resource; `ArtTheme.current()` loads the .tres, or built-in defaults if it is missing) holds the figure material (STYLE §2.3 putty satin with rim), family colours, cash materials by source name, the blockout's wall/floor/ceiling/lawn/roof colours, a floor finish per room kind, the sky, sun, fills, ambient, tonemap, and the room lamps.

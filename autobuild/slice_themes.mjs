@@ -1,9 +1,9 @@
 #!/usr/bin/env node
 // Writes the P1-5 style-slice themes godot/art/theme/slice_{a,b,c}.tres from
 // default_theme.tres: each is the default with its figure treatment and its
-// lighting swapped in. Every field a variant cares about is set explicitly,
-// so a later change to the default (the STYLE-PICK) does not leak into A/B/C. Re-run after editing the default so the slice stays a
-// comparison of the treatments only.  node autobuild/slice_themes.mjs
+// lighting swapped in. Every field a variant cares about is set explicitly, so
+// a later change to the default (the STYLE-PICK) does not leak into A/B/C.
+// Re-run after editing the default.   node autobuild/slice_themes.mjs
 import { readFileSync, writeFileSync } from "node:fs";
 import { dirname, join, resolve } from "node:path";
 import { fileURLToPath } from "node:url";

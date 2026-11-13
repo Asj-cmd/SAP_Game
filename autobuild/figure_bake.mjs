@@ -47,11 +47,13 @@ const PAINT = {
   bare: [255, 255, 255],
   // Multiplied by the figure albedo (putty), so these are lighter than they read.
   // First try (128/112/62) read as a dark wetsuit at chase distance (P1-5).
-  // Second try (178/158/84) still read darker than the bare putty; the pick
-  // (STYLE-PICK) wants the clothes a step under the head and hands, not two.
-  shirt: [206, 214, 222], // muted blue-grey
-  trousers: [182, 166, 146], // taupe
-  shoes: [96, 90, 84], // dark brown-grey
+  // Tuned by frame (P1-5). Paints 2 and 3 never reached Godot at first (the
+  // re-import bug, see bin_sha1 below); seen properly, 206/182 made the shirt as
+  // light as the head and the trousers orange against the warm putty. The aim is
+  // a shirt a step under the bare head and hands, trousers a step under that.
+  shirt: [160, 174, 190], // muted blue-grey
+  trousers: [128, 122, 116], // warm grey (x putty = grey-brown)
+  shoes: [80, 76, 72], // dark brown-grey
 };
 
 const COMPONENTS = { SCALAR: 1, VEC2: 2, VEC3: 3, VEC4: 4, MAT4: 16 };
