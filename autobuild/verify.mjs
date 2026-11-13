@@ -92,6 +92,19 @@ for (const name of Object.keys(baseline)) {
   if (!(name in counts) && !failures.some((f) => f.startsWith(name))) fail(`${name}: suite in baseline but not found`);
 }
 
+// ---- 1b. Level symmetry -------------------------------------------------
+// House B is House A turned half a circle. If the content or the router stops
+// treating the two alike, one side wins the bot matches by default (P0-5b: house
+// A won 15 of 16 at 2v2 from a route tie-break alone). A few seconds; runs in --quick.
+console.log("\n== Level symmetry ==");
+{
+  const r = godot(["--headless", "--path", GODOT_PROJECT, "--script", "res://tools/symmetry_probe.gd"], { timeoutSec: 180 });
+  const routes = (r.out.match(/routes\s+(\d+ of \d+) trips/) ?? [, "?"])[1];
+  if (r.timedOut) fail("symmetry_probe: timed out");
+  else if (!/SYMMETRY: exact/.test(r.out) || r.status !== 0) fail(`symmetry_probe: the houses differ\n${tail(r.out, 14)}`);
+  else console.log(`  ok    exact (routes ${routes} match their turned twin)`);
+}
+
 // ---- 2. Bot match (the cheapest gameplay signal) ------------------------
 // 3v3 is the main gate: the game ships 2v2 to 4v4 (D8) and each size plays with
 // its own mode file (P0-2c). 1v1 stays as a second check because its numbers

@@ -426,6 +426,70 @@ So it is a TUNING job, not a plumbing one: round length, capture sentence and
 cash-per-team all assume a single raider. Left at 1 until somebody has played
 it, since those numbers are a feel judgement and the bots cannot make it.
 
+## 6c-ii. The side bias was the router's tie-break, not the house (P0-5b)
+
+**Whoever lived in House A won.** Team_a won 20 of 24 sweep matches at 2v2-4v4
+(P0-2c). `bot_match --swap-houses` gives each team the other's house while the
+seating order stays by name: at 2v2 the team in House A then won 8 of 8 as
+`team_b`, after 7 of 8 as `team_a` (3v3 swapped: 3 of 3). So it was not seating,
+spawn order or entity ids. The House B side spent about twice as long on enemy
+ground and lost anyway: picked cash up in House A and got seized carrying it
+(2v2 seed 1: 16 pick-ups, 6 deposits, seized 10 times), with 15 of 33
+encounters at one spot by House A's front stair against 7 at its twin.
+
+**The content was exact** - `tools/symmetry_probe.gd`: all 189 blockers, 19
+rooms and 15,921 stances with identical neighbours turn onto twins. (It did
+find every House B marker one unit off its twin - placed as a one-unit box's
+corner - fixed in `build_house.gd`, re-baked. Too small to matter, but real.)
+
+**The routes were not.** BFS breaks ties between equal shortest paths by
+neighbour visiting order, and every stance stored its edges in one world-axis
+order, +x -x +z -z. In the turned house that is the mirror-image order, so the
+same trip went round the other side of every stairwell and doorway: 161 of 200
+random trips took a different line from their twin. Reversing the order moved
+the result (2v2: team_a 7-1 became 2-5). Fixed - `NavGraph` keeps the edges in
+two orders and `_trace` picks by direction of travel; 200 of 200 now match.
+
+**It was not the only one, and fixing it alone changed nothing** (team_a still
+8 of 8 at 2v2, House A still 4 of 4 swapped). The lesson: one confirmed cause
+is not THE cause. What found the rest was `tools/twin_probe.gd`: play a match
+and its house-swapped twin side by side - same ids, same random streams - and
+stop at the first tick a body stops being the turned copy of its twin. Every
+stop was the same bug in a different place: **a tie broken by index or by
+neighbour order, both of which are world scan order**, so House B got the
+mirror-image answer:
+
+1. `WalkableSurface.stance_under` - among stances at one height, "the stance I
+   am standing on" was the first by index, i.e. the one furthest toward -x/-z,
+   not the one under the body. A bot's escape step leaned one way in House A,
+   the other in House B. Now nearest wins.
+2. `WorldCollisionDef.segment_hits_box` - a sight line ENDING exactly on a wall
+   face (a waypoint flush against a doorway jamb) entered at t = 1 +/- a float32
+   hair, so a doorway was see-through in one house only. Now the step is a
+   double difference and the entry a quotient: exactly 1, exactly contact.
+3. `CaptureSystem._holding_spot` - the pen's middle falls between four stances;
+   index chose a different corner per house. Now nearer the world's middle wins.
+4. `BotDirector._stance_step_toward` - two neighbours equally close to the goal
+   went by neighbour order. Now the shorter step wins.
+
+With those, a 2v2 match stays the exact turned copy of its twin for 28 s (it
+was 3.5 s), until float drift (positions at x and 5400-x round differently)
+changes a re-route - noise, not direction. Results: PROGRESS.md P0-5b.
+
+**Rule for new code:** a tie in `sim/` must break on something that turns with
+the house (distance to the body, to the goal, to the world's middle), and only
+then on index. `twin_probe --no-noise` finds the ones that don't.
+
+**Known residuals:** bots' choice noise is drawn per candidate in room-name
+order, so after a swap the draws land on the other house's rooms (unbiased,
+but it ends the twin - hence `--no-noise`); points exactly on the yard_a/yard_b
+midline resolve to yard_a; a route with start and goal in one column uses the
+"ahead" order in both houses; `nearest()` breaks exact distance ties by index.
+Entity ids still order movement, the head-on sidestep side and the capture
+loop, which follows the SEAT, not the house. Not measured on its own after the
+fixes; at 13-9 over 24 it is at most small. A swapped sweep
+(`bot_match --swap-houses`) is how to measure it.
+
 ## 6d. Multiplayer is reachable from a menu
 
 It was complete and unusable: hosting meant `CashGrab.exe -- --host

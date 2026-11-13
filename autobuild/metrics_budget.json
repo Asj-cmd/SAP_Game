@@ -1,10 +1,10 @@
 {
   "bot_match": {
     "1": {
-      "max_stall_seconds": 42
+      "max_stall_seconds": 7
     },
     "3": {
-      "max_stall_seconds": 400
+      "max_stall_seconds": 150
     }
   },
   "require_winner": true,

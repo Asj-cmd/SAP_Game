@@ -478,8 +478,13 @@ func _steer(world: SimWorld, me: SimEntity, tick: int) -> Array[SimCommand]:
 ## certified the edge, and is_reachable_between re-checks it from where the body
 ## has really ended up, which is not the stance centre the edge was built from.
 ##
-## Ties break on the lower node index rather than on neighbour order, because
-## two machines must pick the same way out of the same corner.
+## Two neighbours equally close to the goal - one each side of a straight line
+## to it, which a grid makes common - break toward the SHORTER STEP from where
+## the body actually is, then neighbour order. That used to be neighbour order
+## alone, which is world-axis order: the same corner was left by the right in
+## House A and by the left in its half-turned twin (P0-5b, tools/twin_probe.gd).
+## Deterministic either way; the short step is also the one that turns with the
+## house.
 func _stance_step_toward(me: SimEntity, goal: Vector3) -> int:
 	var surface: WalkableSurface = nav.surface
 	var standing: int = surface.stance_under(me.position, surface.cell_size)
@@ -487,14 +492,19 @@ func _stance_step_toward(me: SimEntity, goal: Vector3) -> int:
 		return -1
 	var best: int = -1
 	var best_gap: float = _flat_distance(me.position, goal)
+	var best_step: float = INF
 	for other: int in surface.neighbours(standing):
 		var gap: float = _flat_distance(surface.nodes[other], goal)
-		if gap >= best_gap:
+		var step: float = _flat_distance(me.position, surface.nodes[other])
+		if gap > best_gap or (gap == best_gap and step >= best_step):
 			continue
+		if best < 0 and gap >= best_gap:
+			continue # no better than standing still
 		if not surface.is_reachable_between(me.position, surface.nodes[other]):
 			continue
 		best = other
 		best_gap = gap
+		best_step = step
 	return best
 
 func _send_intent(intent: Vector3, tick: int) -> Array[SimCommand]:

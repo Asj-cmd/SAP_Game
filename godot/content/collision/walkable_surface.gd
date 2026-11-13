@@ -569,6 +569,26 @@ func _nearest_scan(point: Vector3, limit: float = INF) -> int:
 			best = index
 	return best
 
+## Every stance whose horizontal cell lies in the square of `reach` around
+## `point` - a superset of those within `reach`. All of them when there is no
+## index, or the reach is unbounded.
+func _stances_near(point: Vector3, reach: float) -> PackedInt32Array:
+	if _near_buckets.is_empty() or cell_size <= 0.0 or reach == INF:
+		var all: PackedInt32Array = PackedInt32Array()
+		all.resize(nodes.size())
+		for index: int in nodes.size():
+			all[index] = index
+		return all
+	var found: PackedInt32Array = PackedInt32Array()
+	var x_lo: int = maxi(int(floor((point.x - reach) / cell_size)), _near_min.x)
+	var x_hi: int = mini(int(floor((point.x + reach) / cell_size)), _near_max.x)
+	var z_lo: int = maxi(int(floor((point.z - reach) / cell_size)), _near_min.y)
+	var z_hi: int = mini(int(floor((point.z + reach) / cell_size)), _near_max.y)
+	for x: int in range(x_lo, x_hi + 1):
+		for z: int in range(z_lo, z_hi + 1):
+			found.append_array(_near_buckets.get(Vector2i(x, z), _NO_NODES))
+	return found
+
 ## Buckets the stances by horizontal cell for nearest(). Built once, alongside
 ## the flat adjacency, on every path that produces a surface.
 func _index_nodes() -> void:
@@ -657,21 +677,38 @@ func furthest_reachable(from: Vector3, points: PackedVector3Array, first: int, l
 ## `reach` is horizontal only. Height is deliberately unbounded downward,
 ## because how far something falls before it lands is a property of the level
 ## and not something a caller should have to predict.
+##
+## Among stances at the SAME height, the horizontally nearest wins. It used to
+## be the first by index, and indices run in world scan order - so on open floor,
+## where four or five stances sit within reach at one height, "the stance I am
+## standing on" was whichever lay furthest toward -x/-z. In the half-turned
+## house that is the opposite side of the body, so a bot's escape step leaned
+## one way in House A and the other way in House B (P0-5b, tools/twin_probe.gd).
+##
+## Looks only in the horizontal buckets the reach square covers (the same index
+## nearest() uses), not at every stance: a bot boxed in off its route asks this
+## every tick, and a scan of the whole surface was a few milliseconds a time. The
+## last tie-break is the lower index, explicitly, so the order the buckets are
+## visited in cannot change the answer.
 func stance_under(point: Vector3, reach: float) -> int:
 	var below: int = -1
 	var above: int = -1
+	var below_flat: float = INF
+	var above_flat: float = INF
 	var limit: float = reach * reach
-	for index: int in nodes.size():
+	for index: int in _stances_near(point, reach):
 		var node: Vector3 = nodes[index]
 		var flat: float = Vector2(node.x - point.x, node.z - point.z).length_squared()
 		if flat > limit:
 			continue
 		if node.y <= point.y + radius:
 			# Falls onto it. The highest such stance is the one it lands on.
-			if below < 0 or node.y > nodes[below].y:
+			if below < 0 or node.y > nodes[below].y or (node.y == nodes[below].y 					and (flat < below_flat or (flat == below_flat and index < below))):
 				below = index
-		elif above < 0 or node.y < nodes[above].y:
+				below_flat = flat
+		elif above < 0 or node.y < nodes[above].y or (node.y == nodes[above].y 				and (flat < above_flat or (flat == above_flat and index < above))):
 			above = index
+			above_flat = flat
 	# Nothing underneath means the point is below the floor or buried in
 	# geometry; the lowest stance above it is the honest answer.
 	return below if below >= 0 else above

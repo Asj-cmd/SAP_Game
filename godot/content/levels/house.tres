@@ -34,8 +34,8 @@ cash_points = Array[Vector3]([Vector3(1660, 680, 1910), Vector3(2060, 680, 1910)
 script = ExtResource("4_pjeyl")
 id = &"team_b"
 display_name = "Team B"
-spawn_points = Array[Vector3]([Vector3(5199, 320, 2869), Vector3(5199, 320, 1969), Vector3(4549, 320, 3519)])
-cash_points = Array[Vector3]([Vector3(3739, 680, 1809), Vector3(3339, 680, 1809), Vector3(4769, 680, 2839), Vector3(4369, 680, 2839)])
+spawn_points = Array[Vector3]([Vector3(5200, 320, 2870), Vector3(5200, 320, 1970), Vector3(4550, 320, 3520)])
+cash_points = Array[Vector3]([Vector3(3740, 680, 1810), Vector3(3340, 680, 1810), Vector3(4770, 680, 2840), Vector3(4370, 680, 2840)])
 
 [sub_resource type="Resource" id="Resource_36h1d"]
 script = ExtResource("5_sef2m")

@@ -506,21 +506,18 @@ func _stamp(turned: bool, team: StringName, side: String) -> void:
 
 	# §9: spawns in the team's own yard, along the back and side faces.
 	for i: int in 3:
-		_marker("spawn_%s_%d" % [team, i], _place(AABB(Vector3(
-			SPAWN_LOCAL[i].x, GROUND + BODY, SPAWN_LOCAL[i].y),
-			Vector3.ONE), turned).position)
+		_marker("spawn_%s_%d" % [team, i], _place_point(Vector3(
+			SPAWN_LOCAL[i].x, GROUND + BODY, SPAWN_LOCAL[i].y), turned))
 
 	# §5/§9: cash split randomly each round between Master Bedroom and Study.
 	# Both rooms carry markers; which ones are live is a spawn rule, not
 	# geometry. Two markers per room, spaced across its floor.
 	for i: int in 2:
-		_marker("cash_%s_%d" % [team, i], _place(AABB(Vector3(
-			MID_HIGH + 250.0 + 400.0 * float(i), UPPER + BODY, FAR_MID),
-			Vector3.ONE), turned).position)
+		_marker("cash_%s_%d" % [team, i], _place_point(Vector3(
+			MID_HIGH + 250.0 + 400.0 * float(i), UPPER + BODY, FAR_MID), turned))
 	for i: int in 2:
-		_marker("cash_%s_%d" % [team, i + 2], _place(AABB(Vector3(
-			LOW + 250.0 + 400.0 * float(i), UPPER + BODY, NEAR_MID),
-			Vector3.ONE), turned).position)
+		_marker("cash_%s_%d" % [team, i + 2], _place_point(Vector3(
+			LOW + 250.0 + 400.0 * float(i), UPPER + BODY, NEAR_MID), turned))
 
 ## House-local to lot coordinates.
 ##
@@ -535,6 +532,12 @@ func _place(box: AABB, turned: bool) -> AABB:
 		x = LOT_W - x - box.size.x
 		z = LOT_D - z - box.size.z
 	return AABB(Vector3(x, box.position.y, z), box.size)
+
+## A house-local POINT in lot coordinates. Not a one-unit box's corner: that
+## turns onto the opposite corner, which put every House B marker one unit off
+## its twin (found by tools/symmetry_probe.gd).
+func _place_point(local: Vector3, turned: bool) -> Vector3:
+	return _place(AABB(local, Vector3.ZERO), turned).position
 
 ## §9 territory. Ground within 400 of a house's outer wall belongs to it and
 ## capture is legal there; everything else is neutral.

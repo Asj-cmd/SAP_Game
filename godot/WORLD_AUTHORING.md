@@ -366,6 +366,17 @@ So: pick the world size as a multiple of the cell FIRST and let the margins
 fall out of it. `tools/build_house.gd` refuses to write a scene that breaks
 this, because a silently asymmetric level is a balance bug nobody can see.
 
+**A twin surface is still not a twin game.** `tools/symmetry_probe.gd` (run by
+`verify.mjs`, even `--quick`) turns everything the rules and the bots read -
+blockers, rooms, spawns, cash, every stance and its neighbours - and also ROUTES
+200 random trips both ways round. The routes were the part that failed: with the
+geometry exact, 161 of 200 trips took a different equal-length line from their
+twin, because the router broke ties in one fixed world-axis order, and the team
+in House A won 15 of 16 bot matches at 2v2. Tie-breaks now follow the direction
+of travel (`NavGraph._trace`). Markers are placed as points, not as the corner
+of a one-unit box, which turned onto the opposite corner and put every House B
+marker a unit off.
+
 **The surface is baked, not built.** It is a pure function of static geometry
 and a body size, so the baker computes it and stores it in the level `.tres`
 (`WalkableSurfaceDef`); loading reads two flat arrays. For the grey-box house

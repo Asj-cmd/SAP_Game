@@ -305,21 +305,29 @@ func _holding_spot(world: SimWorld, jail: ZoneDef) -> Vector3:
 	# asking for "somewhere to stand near the centre" put the prisoner half way
 	# up it. Being held is a floor, not a place.
 	#
-	# Ties break on the lower node index so two machines agree, the same reason
-	# every other search in the simulation does.
+	# A pen whose middle falls between stances has several equally near - four,
+	# on this house. They break toward the MIDDLE OF THE WORLD, then by lower node
+	# index. Index alone is world scan order, which put House B's prisoners on the
+	# opposite corner of the middle from House A's (P0-5b, tools/twin_probe.gd);
+	# nearness to the world's middle turns with the house, so twins agree.
+	var middle: Vector3 = world.collision.bounds.get_center() if world.collision != null 		else Vector3.ZERO
 	var best: int = -1
 	var best_height: float = INF
 	var best_reach: float = INF
+	var best_middle: float = INF
 	for node: int in world.surface.size():
 		var stance: Vector3 = world.surface.nodes[node]
 		if not jail.contains_point(stance):
 			continue
 		var reach: float = Vector2(stance.x - centre.x, stance.z - centre.z).length_squared()
+		var to_middle: float = Vector2(stance.x - middle.x, stance.z - middle.z).length_squared()
 		if stance.y > best_height + 0.01:
 			continue
-		if absf(stance.y - best_height) <= 0.01 and reach >= best_reach:
-			continue
+		if absf(stance.y - best_height) <= 0.01:
+			if reach > best_reach or (reach == best_reach and to_middle >= best_middle):
+				continue
 		best = node
 		best_height = stance.y
 		best_reach = reach
+		best_middle = to_middle
 	return world.surface.nodes[best] if best >= 0 else centre

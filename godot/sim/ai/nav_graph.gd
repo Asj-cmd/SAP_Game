@@ -41,9 +41,27 @@ var last_expanded: int = 0
 var _near_memo: Dictionary[Vector3, int] = {}
 const _NEAR_MEMO_LIMIT: int = 4096
 
+## The surface's edges, each stance's set re-sorted into one fixed order of
+## directions and into the same order turned half a circle. See _trace.
+var _out_ahead: PackedInt32Array = PackedInt32Array()
+var _out_turned: PackedInt32Array = PackedInt32Array()
+var _in_ahead: PackedInt32Array = PackedInt32Array()
+var _in_turned: PackedInt32Array = PackedInt32Array()
+
+## Edge directions, as a rank to visit them in: +x, -x, +z, -z. Indexed by
+## _direction_of. TURNED is the same sequence after a half turn, which swaps
+## +x with -x and +z with -z.
+const _RANK_AHEAD: PackedInt32Array = [0, 1, 2, 3]
+const _RANK_TURNED: PackedInt32Array = [1, 0, 3, 2]
+
 static func of(walkable: WalkableSurface) -> NavGraph:
 	var graph: NavGraph = NavGraph.new()
 	graph.surface = walkable
+	if walkable != null and not walkable.is_empty():
+		graph._out_ahead = graph._ordered(walkable.out_at, walkable.out_to, _RANK_AHEAD)
+		graph._out_turned = graph._ordered(walkable.out_at, walkable.out_to, _RANK_TURNED)
+		graph._in_ahead = graph._ordered(walkable.in_at, walkable.in_to, _RANK_AHEAD)
+		graph._in_turned = graph._ordered(walkable.in_at, walkable.in_to, _RANK_TURNED)
 	return graph
 
 func is_ready() -> bool:
@@ -203,10 +221,20 @@ func _trace(start: int, goal: int) -> PackedInt32Array:
 
 	# Bound to locals once. A property read through `surface.` inside the loop
 	# is a dispatch per neighbour, and this loop runs ten thousand times.
+	#
+	# WHICH WAY ROUND the neighbours are visited is the tie-break between equal
+	# shortest paths, so it is taken from the direction of travel rather than
+	# from the world's axes. Visiting in one fixed world order gave the turned
+	# house the mirror-image tie-break on every trip - same lengths, other side
+	# of every stairwell and doorway - and the team living in House A won 15 of
+	# 16 bot matches at 2v2 (P0-5b). Now a trip and its half-turned twin visit
+	# twin neighbours in twin order, so they find twin routes, exactly.
+	var travel: Vector3 = surface.nodes[goal] - surface.nodes[start]
+	var turned: bool = travel.x < 0.0 or (travel.x == 0.0 and travel.z < 0.0)
 	var out_at: PackedInt32Array = surface.out_at
-	var out_to: PackedInt32Array = surface.out_to
+	var out_to: PackedInt32Array = _out_turned if turned else _out_ahead
 	var in_at: PackedInt32Array = surface.in_at
-	var in_to: PackedInt32Array = surface.in_to
+	var in_to: PackedInt32Array = _in_turned if turned else _in_ahead
 
 	# A SINGLE FLAT QUEUE PER SIDE, kept sorted by construction rather than by a
 	# sort. Every node enters with an estimate no smaller than the one being
@@ -278,6 +306,37 @@ func _trace(start: int, goal: int) -> PackedInt32Array:
 
 	last_expanded = settled
 	return PackedInt32Array()
+
+## `targets` (compressed sparse row, offsets `at`) with each stance's edges
+## stably re-sorted by the rank of their direction. The offsets do not change.
+##
+## Every edge joins adjacent columns, so all the edges in one direction go to
+## ONE neighbouring column, and the stable sort keeps them in the order the
+## surface built them: ascending height, which a half turn does not change.
+## One native sort over packed keys, because a sort per stance in GDScript
+## would cost more than the routes it serves.
+func _ordered(at: PackedInt32Array, targets: PackedInt32Array, rank: PackedInt32Array) -> PackedInt32Array:
+	var nodes: Array[Vector3] = surface.nodes
+	var keys: PackedInt64Array = PackedInt64Array()
+	keys.resize(targets.size())
+	for node: int in at.size() - 1:
+		var here: Vector3 = nodes[node]
+		for slot: int in range(at[node], at[node + 1]):
+			var direction: int = _direction_of(nodes[targets[slot]] - here)
+			keys[slot] = (node << 24) | (rank[direction] << 20) | (slot - at[node])
+	keys.sort()
+	var ordered: PackedInt32Array = PackedInt32Array()
+	ordered.resize(targets.size())
+	for slot: int in keys.size():
+		var key: int = keys[slot]
+		ordered[slot] = targets[at[key >> 24] + (key & 0xFFFFF)]
+	return ordered
+
+## Which of the four horizontal directions an edge runs in: +x, -x, +z, -z.
+static func _direction_of(step: Vector3) -> int:
+	if absf(step.x) >= absf(step.z):
+		return 0 if step.x > 0.0 else 1
+	return 2 if step.z > 0.0 else 3
 
 ## Fewest edges any path between these two points could possibly use.
 ##

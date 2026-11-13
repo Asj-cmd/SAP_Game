@@ -132,8 +132,16 @@ static func penetration_depth(point: Vector3, box: AABB) -> float:
 ## entry/exit intervals. An axis with no motion is handled separately because
 ## it has no finite t range - the segment either lies within that axis's slab
 ## for its whole length or misses the box entirely.
+##
+## The per-axis step is taken in double precision from the two endpoints, not
+## from a float32 `to - from`, and the entry is a quotient, not a product with
+## a reciprocal. A segment that ENDS exactly on a face - a route waypoint on a
+## stance flush against a doorway jamb, which is common - then enters at
+## exactly t = 1 and counts as the contact it is. Before, it entered a hair
+## before or after 1 depending on where in the world it was, so the same
+## doorway was see-through in one house and not in its half-turned twin
+## (P0-5b, tools/twin_probe.gd).
 static func segment_hits_box(from: Vector3, to: Vector3, box: AABB) -> bool:
-	var delta: Vector3 = to - from
 	var t_min: float = 0.0
 	var t_max: float = 1.0
 
@@ -141,7 +149,7 @@ static func segment_hits_box(from: Vector3, to: Vector3, box: AABB) -> bool:
 		var lo: float = box.position[axis]
 		var hi: float = box.position[axis] + box.size[axis]
 		var origin: float = from[axis]
-		var step: float = delta[axis]
+		var step: float = to[axis] - origin
 
 		if is_zero_approx(step):
 			# Stationary on this axis: no crossing to solve for, so this axis
@@ -155,9 +163,10 @@ static func segment_hits_box(from: Vector3, to: Vector3, box: AABB) -> bool:
 				return false
 			continue
 
-		var inverse: float = 1.0 / step
-		var enter: float = (lo - origin) * inverse
-		var exit: float = (hi - origin) * inverse
+		# Divided, not multiplied by a reciprocal: a rounded 1/step times the
+		# same difference is not exactly 1, a quotient of equals is.
+		var enter: float = (lo - origin) / step
+		var exit: float = (hi - origin) / step
 		if enter > exit:
 			var swap: float = enter
 			enter = exit

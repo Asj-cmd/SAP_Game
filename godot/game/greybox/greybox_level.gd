@@ -137,5 +137,24 @@ func sheltered_zone() -> ZoneDef:
 	var sheltered: Array[ZoneDef] = level.sheltered_zones()
 	return sheltered[0] if not sheltered.is_empty() else null
 
+## Trades the two teams' houses by trading their names: each TeamDef keeps its
+## spawns and cash and takes the other's id, and every room follows its owner.
+## For the measuring tools (bot_match --swap-houses, twin_probe): seating stays
+## by name, so a bias that follows the house and one that follows the seat can
+## be told apart. Edits this level's own copy, never the shared asset.
+func swap_houses() -> bool:
+	if teams.size() != 2:
+		return false
+	var first: StringName = teams[0].id
+	var other: StringName = teams[1].id
+	teams[0].id = other
+	teams[1].id = first
+	for zone: ZoneDef in zones:
+		if zone.owner_team == first:
+			zone.owner_team = other
+		elif zone.owner_team == other:
+			zone.owner_team = first
+	return true
+
 func is_loaded() -> bool:
 	return level != null and collision != null

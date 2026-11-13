@@ -49,6 +49,10 @@ var _seed: int = 20260802
 ## `--once` skips the second, determinism-checking run. For sweeps only; the
 ## gate in verify.mjs always plays twice.
 var _once: bool = false
+## `--swap-houses` gives each team the other's house - spawns, cash and every
+## room it owns - while the seating order stays by team name. A side bias that
+## follows the name is seating; one that follows the house is the layout.
+var _swap_houses: bool = false
 
 ## `--lone` seats one idle human and one bot, which is the shape the playtest
 ## actually reported: a single bot in a doorway with one person about. Bot
@@ -68,6 +72,7 @@ func _initialize() -> void:
 		if arg.begins_with("--seed="):
 			_seed = int(arg.trim_prefix("--seed="))
 	_once = OS.get_cmdline_user_args().has("--once")
+	_swap_houses = OS.get_cmdline_user_args().has("--swap-houses")
 	var first: Dictionary = _play()
 	var second: Dictionary = first if _once else _play()
 
@@ -93,6 +98,10 @@ func _initialize() -> void:
 	print("encounters  %d within reach, %d of them where a seizure was legal, %d within sight" % [
 		first["encounters"], first["seizable"], first["sightings"]])
 	print("raiding     %s" % _raiding(first))
+	for team_id: StringName in first["by_team"]:
+		var counts: Dictionary = first["by_team"][team_id]
+		print("  %-9s %d pick-ups, %d drops, seized %d times, %d s stalled" % [
+			team_id, counts["pickups"], counts["drops"], counts["seized"], counts["stalls"]])
 	_report_places("encounters", first["encounter_map"], first["encounters"], ENCOUNTER_BUCKET)
 	print("stalls      %d seconds trying to move and getting nowhere" % first["stalls"])
 	print("idle        %d seconds standing still by choice" % first["idles"])
@@ -141,6 +150,10 @@ func _play(stop_at: int = -1) -> Dictionary:
 		print("no baked level - run tools/bake_blockout.gd")
 		quit(1)
 		return {}
+	if _swap_houses and not level.swap_houses():
+		print("--swap-houses needs exactly two teams")
+		quit(1)
+		return {}
 	for field: String in _mode_overrides:
 		var current: Variant = level.mode.get(field)
 		if current == null:
@@ -178,6 +191,11 @@ func _play(stop_at: int = -1) -> Dictionary:
 	crew.fill_lobby(world, seated, world.actor_ids().size())
 
 	var tally: Dictionary[StringName, int] = {}
+	## The same counts split by the acting body's team, plus seizures SUFFERED
+	## and stalls. A side bias is invisible in match totals; this is where it shows.
+	var by_team: Dictionary[StringName, Dictionary] = {}
+	for team_id: StringName in world.sorted_team_ids():
+		by_team[team_id] = {"pickups": 0, "drops": 0, "seized": 0, "stalls": 0}
 	var hashes: PackedInt64Array = PackedInt64Array()
 
 	# Stall detection. A bot that holds a task and does not move is stuck, and
@@ -219,6 +237,10 @@ func _play(stop_at: int = -1) -> Dictionary:
 			break
 		for event: SimEvent in world.step(crew.drain(world, world.tick)):
 			tally[event.kind] = tally.get(event.kind, 0) + 1
+			var counted: String = _team_counter(event.kind)
+			var doer: SimEntity = world.get_entity(event.actor_id) if counted != "" else null
+			if doer != null and by_team.has(doer.team):
+				by_team[doer.team][counted] += 1
 			if event.kind == MatchEvent.KIND_ROUND_STARTED:
 				round_began = event.tick
 			elif event.kind == MatchEvent.KIND_ROUND_ENDED:
@@ -284,6 +306,8 @@ func _play(stop_at: int = -1) -> Dictionary:
 						anchor[actor_id] = body.position
 						continue
 					stalls += 1
+					if by_team.has(body.team):
+						by_team[body.team]["stalls"] += 1
 					var bucket: Vector3i = Vector3i(
 						int(body.position.x / STALL_BUCKET),
 						0,
@@ -318,6 +342,7 @@ func _play(stop_at: int = -1) -> Dictionary:
 		"sightings": sightings,
 		"encounter_map": encounter_map,
 		"away": away,
+		"by_team": by_team,
 		"live_ticks": maxi(live_ticks, 1),
 		"idles": idles,
 		"stall_map": stall_map,
@@ -336,6 +361,18 @@ func _play(stop_at: int = -1) -> Dictionary:
 		"rescues": tally.get(CaptureEvent.KIND_RELEASED, 0),
 		"winner": world.match_winner,
 	}
+
+## Which per-team counter an event feeds, or "" for none. The actor on a
+## pick-up or drop is the carrier; on a capture it is the one seized.
+func _team_counter(kind: StringName) -> String:
+	match kind:
+		CarryEvent.KIND_PICKED_UP:
+			return "pickups"
+		CarryEvent.KIND_DROPPED:
+			return "drops"
+		CaptureEvent.KIND_CAPTURED:
+			return "seized"
+	return ""
 
 ## How long a match may run before "no winner" is the verdict: the most rounds a
 ## best-of can need, each at full length. A drawn round is replayed, so draws eat
