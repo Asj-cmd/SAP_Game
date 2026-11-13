@@ -1,0 +1,3 @@
+# Godot rewrites .import files with LF line endings on every run. Keep them LF in the working copy
+# too, so git on Windows (core.autocrlf=true) stops reporting them as changed after each Godot run.
+*.import text eol=lf
