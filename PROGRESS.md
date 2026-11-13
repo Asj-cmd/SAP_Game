@@ -2,6 +2,15 @@
 
 Newest first. One entry per task: date, task id, what changed, what the frames showed, numbers, what is left.
 
+## 2026-11-13 — P1-2 Asset ledger
+- **`ASSETS.md`** (name · source · licence · date · modified? · where) and **`CREDITS.md`** (what the credits screen will show) are new. Rows: the two Quaternius packs, the project's own procedural models (cash, placeholder figures A/B), Godot itself, and the Godot MCP editor plugin.
+- **Checked inside the zips** by reading their central directories with Node (no extraction, nothing new on disk). Both carry a CC0 1.0 licence file: `License_Standard.txt` in the characters zip, and `License.txt` plus `README.txt` in the animation zip.
+- **Finding: the free character pack has no Regular or Teen bodies.** Its 128 entries are `Superhero_Male_FullBody` and `Superhero_Female_FullBody` (glTF for Godot at ~0.8 MB each, plus FBX), 2K-ish skin/eye/hair textures, and 8 hair/eyebrow/beard meshes. The Regular/Teen bodies D10 names are in the paid Source version. Decision (REVIEW): build the family of four from the two free bodies on their shared rig. Note in BLOCKED.md in case the user wants to buy or find the real ones; nothing waits on it. The animation zip holds `UAL1_Standard.glb` and `UAL1_Standard_RM.glb` (root motion).
+- **Flagged:** `godot/addons/godot_mcp` ("by mkdevkit", v0.1.0) has no licence or URL in the repo, and its three runtime bridges are autoloads, so an export would ship them. It is recorded as something to strip from release builds (or license) before P7-1.
+- `project.godot` points `config/icon` at `res://icon.svg`, which does not exist. Not an asset problem now; the game icon is a P7 job.
+- verify --quick: healthy (docs only; the full verify for P1-1 ran healthy on the same code minutes earlier).
+- Left: nothing for P1-2. P2-1 extracts what it uses from the zips into `godot/art/` and fills in the "Modified?" column.
+
 ## 2026-11-13 — P1-1 Render stats tool
 - **Instrument:** `game/debug/render_stats.gd` (`RenderStats`). It reads the renderer's own counters for the frame a capture just saved: draw calls, triangles, objects, video/texture/buffer memory, and the seat viewport's shadow-pass draws and triangles. With `--capture-timing=N` it also turns vsync off and times N frames while the match plays: median/p95/worst frame interval, plus the seat viewport's measured GPU and CPU render time. Flags on the existing capture path: `--capture-stats` and `--capture-timing=N`. One `RENDER_STATS <view> {json}` line per shot. `autobuild/render_stats.mjs [--views=prefix] [--timing=N]` runs every view in views.json windowed, prints a table and a summary, checks `autobuild/render_budget.json`, and writes `autobuild/frames/render_stats.json` plus each frame to `autobuild/frames/stats/`. `verify.mjs --frames` now prints the counters under each shot.
 - It is not `godot/tools/render_stats.gd` as PLAN named it. Tools run `--headless`, and there every counter is zero (logged in DECISIONS).

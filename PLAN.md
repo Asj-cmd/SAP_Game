@@ -83,7 +83,7 @@ Aug 16–Oct 10 are in; an earlier version of this plan was written against the 
   objects in view for a given view. Propose budgets for the Compatibility renderer on a GT 730M-class
   GPU, record them in `STYLE.md`. Frame time is measured only when running windowed on the
   dev machine; software-rendered frame time is meaningless.
-- [ ] **P1-2 Asset ledger.** Create `ASSETS.md` (name · source URL · license · date · modified?) and
+- [x] **P1-2 Asset ledger.** *(Done: ASSETS.md + CREDITS.md; both Quaternius zips checked CC0. The free character pack has only Superhero male/female bodies, no Regular/Teen: substitute logged REVIEW, note in BLOCKED.md.)* Create `ASSETS.md` (name · source URL · license · date · modified?) and
   `CREDITS.md`. Free sources only (DECISIONS.md D10): CC0 first, CC-BY if credited. No paid AI
   tools or credits, nothing bought. Never: NC/ND licences, ripped game assets, anything unclear.
   Add the two Quaternius packs the user downloaded (Universal Base Characters, Universal Animation
