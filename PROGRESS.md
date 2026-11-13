@@ -2,6 +2,18 @@
 
 Newest first. One entry per task: date, task id, what changed, what the frames showed, numbers, what is left.
 
+## 2026-11-12 — P0-5b follow-up: seat order measured
+- A second session, running at the same time on the same working tree, had picked up P0-5b from the cut-off session's diff. It ran the house-swapped sweep the entry below calls "cut for time". This entry is that sweep. It also explains that entry's tick-budget noise and the five seeds that read "none": they were this session's jobs.
+- **`autobuild/side_sweep.mjs`** (a tool, not a gate): `bot_match --once` over seeds × sizes, each seed played as-is and with `--swap-houses`, tallying wins by team name and by house. `--sizes=2,3,4 --seeds=8 --first-seed=1 --jobs=3`. It prints the output tail of any run it can't parse. Use `--jobs=2` for 4v4 on this laptop.
+- **Result, 48 matches (8 seeds × 2v2/3v3/4v4 × as-is/swapped), on the committed P0-5b code:**
+  - as-is: team_a 13, team_b 9, 2 undecided (same as the entry below; 2v2 5–3, 3v3 4–3 +1, 4v4 4–3 +1).
+  - swapped: team_a 11, team_b 11, 2 undecided (2v2 4–3 +1, 3v3 4–3 +1, 4v4 3–5).
+  - **by house: A 24, B 20** (2v2 8–7, 3v3 7–7, 4v4 9–6). Before the fix, House A won 8 of 8 swapped at 2v2.
+  - **by seat name: team_a 24, team_b 20.** One standard deviation over 44 decided matches is ~3.3, so neither house nor seat leans beyond noise. The seat-ordered loops (movement order, sidestep side, capture loop) were left as they are. PROJECT_MEMORY §6c-ii updated.
+- The five 4v4 runs that came back blank in the first pass (the other session killed them) were re-run, two at a time, and all finished normally. The totals above include those re-runs.
+- verify (full, quiet machine): healthy. 16 suites at pinned counts; symmetry exact (200 of 200); bot_match 3v3 DETERMINISTIC, team_b, 90 s stalls; 1v1 DETERMINISTIC, team_b, 7 s; tick budget 1v1 0, 3v3 1, 4v4 0 of 600 over.
+- Left: 4 of 48 matches undecided in regulation. The P0-2c round numbers may want a re-check now that the bots are fair (already noted below).
+
 ## 2026-11-12 — P0-5b Team A bias
 - **Result: team_a 13, team_b 9, 2 undecided over 24 bot matches** (8 seeds × 2v2/3v3/4v4), from 20–4. 2v2 5–3, 3v3 4–3 +1, 4v4 4–3 +1. Raiding time is now close to even (2v2: team_b 96–133%, team_a 89–121% of the match on enemy ground; before: team_b 123–173%, team_a 51–107%).
 - **Measured first.** New `bot_match --swap-houses` gives each team the other's house with seating unchanged, and per-team lines (pick-ups, drops, times seized, stalls). Before any fix, 2v2: team_a 7 of 8 normally, and **the team in House A won 8 of 8 when the houses were swapped** (3v3 swapped: 3 of 3). So the house decided it, not the seat. The House B side spent ~2× as long on enemy ground and got seized carrying cash (seed 1: team_b 16 pick-ups, 6 drops, seized 10 times), 15 of 33 encounters at one spot by House A's front stair against 7 at its twin.

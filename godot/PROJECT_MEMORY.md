@@ -486,9 +486,13 @@ but it ends the twin - hence `--no-noise`); points exactly on the yard_a/yard_b
 midline resolve to yard_a; a route with start and goal in one column uses the
 "ahead" order in both houses; `nearest()` breaks exact distance ties by index.
 Entity ids still order movement, the head-on sidestep side and the capture
-loop, which follows the SEAT, not the house. Not measured on its own after the
-fixes; at 13-9 over 24 it is at most small. A swapped sweep
-(`bot_match --swap-houses`) is how to measure it.
+loop, which follows the SEAT, not the house. Measured after the fixes with
+`node autobuild/side_sweep.mjs` (bot_match `--once`, seeds 1-8 at 2v2/3v3/4v4,
+each seed also `--swap-houses`; 48 matches): by seat name team_a 24, team_b 20;
+by house A 24, B 20; 4 undecided. Swapped alone: team_a 11, team_b 11 of 24.
+Within noise (one standard deviation over 44 decided is about 3), so the
+seat-ordered loops were left alone. If a later sweep leans by NAME but not by
+house, they are where to look.
 
 ## 6d. Multiplayer is reachable from a menu
 
