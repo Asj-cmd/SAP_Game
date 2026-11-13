@@ -2,6 +2,13 @@
 
 Newest first. One entry per task: date, task id, what changed, what the frames showed, numbers, what is left.
 
+## 2026-11-13 — P0-10 Housekeeping
+- Root `CLAUDE.md` rewritten. It said the Three.js branch `claude/game-mvp-dev-pl5suo` was the code source of truth with "Phase 4 next". It now names `godot/` (Godot 4.7, Compatibility, typed GDScript; D1/D5) as the source of truth, points to `godot/CLAUDE.md` and `godot/PROJECT_MEMORY.md`, lists the autobuild files (DECISIONS / PLAN / PROGRESS / BLOCKED / autobuild README) and the three verify commands, and says Godot runs through `GODOT_BIN`.
+- `client/` and `server/` are marked **legacy** (kept, not developed, nothing deleted). The no-test-code rule and "don't change server/zones.ts/floorplan.ts" are scoped to them only. The note that `godot/` has its own testing policy is kept.
+- The graphify graph in `graphify-out/` was checked: GRAPH_REPORT.md never mentions godot, so CLAUDE.md now says it covers the legacy code only.
+- verify --quick: healthy (docs only; the full verify for P0-9, run minutes earlier on the same code, was healthy).
+- Left: root `README.md` still describes the Three.js MVP; P7-3 rewrites it.
+
 ## 2026-11-13 — P0-9 Network smoke
 - **Picked up from a cut-off session.** Commit `42d6cc4` ("P0-9 (part)") had added the two-process smoke and the snapshot fix but no verify gate and no log entry. This session measured it, gated it and wrote it up.
 - **Instrument: `autobuild/net_smoke.mjs` + `game/debug/net_smoke.gd`.** Two headless copies of the REAL game scene on this PC: `--host` starts and prints `NETSMOKE host listening`, then `--join` (no code = this machine) joins over ENet. Lobby, bots in empty seats and the 3v3 default are all as a player gets them. The guest walks by injected WASD (a new key every 2 s), so its input has to cross the wire. Each end hashes the world it treats as true (host: authoritative; guest: confirmed) on every tick it sees. Pass = guest seated, the guest's body moved in the HOST's world, both ended cleanly, every tick both hashed agrees, and at least half the seated ticks were compared. This session added the host/guest last tick, match winner, round wins and the guest's team to the report.

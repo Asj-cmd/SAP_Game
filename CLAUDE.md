@@ -2,59 +2,46 @@
 
 Third-person **3D chaotic multiplayer party game** for Steam. Two families raid
 each other's houses to steal cash, jail intruders, rescue teammates. 2v2/3v3/4v4,
-best-of-3. This branch (`claude/game-mvp-dev-pl5suo`) is the **code source of
-truth**.
+best-of-3.
 
-## Fast context — use the knowledge graph before re-reading the whole repo
+## The game is the Godot project in `godot/`
 
-A **graphify** knowledge graph of this codebase is committed at `graphify-out/`:
-- `graphify-out/GRAPH_REPORT.md` — start here: architecture summary + suggested queries.
-- `graphify-out/graph.json` — queryable graph (1500+ nodes). The `graphify` skill
-  reads it on demand; or query from the shell:
-  - `graphify explain "GameController"` · `graphify path "GameController" "GameRoom"`
-- Keep it fresh after code changes: **`graphify update .`** (pure tree-sitter, no
-  API cost). If the `graphify` binary is missing in this session, install it once:
-  `uv tool install graphifyy` (or `pip install graphifyy`).
-- Built from commit `7ee4c0db`; compare with `git rev-parse HEAD` to spot staleness.
+**Source of truth: `godot/`** — Godot 4.7, Compatibility renderer, typed
+GDScript, host-authoritative over a session/transport interface (DECISIONS.md D1,
+D5). Start with `godot/CLAUDE.md` (testing policy, look-at-the-frame rule,
+conventions) and `godot/PROJECT_MEMORY.md` (where things stand, working method).
 
-## Status: Phases 1–3 done · Phase 4 (Characters & Chaos) next
+The autonomous build is run from the repo root:
 
-- **Server** (`server/`, Colyseus, authoritative): full game logic + REST
-  (`/create-room`, `/rooms/:code`, `/health`) and serves the built client on one
-  port. 2D zone model (`server/src/zones.ts`, `getZoneAt(x,y)`) — **flat plane, no
-  height axis**.
-- **Client** (`client/`, Three.js vanilla): `three/GameController.ts` orchestrates
-  local movement (20 Hz `move`), remote sync, cash view, HUD, and the 5-way SPACE
-  action. FPS mouse-look chase cam. `three/world/` dresses the flat plane as houses
-  (roofs w/ reveal, see-through windows, instanced props, ACES + soft shadows).
-- **Assets**: headless Blender bpy scripts (`assets/blender/build_*.py`) →
-  committed `.glb`. Phase 4 adds **Blender MCP** for interactive character/world
-  authoring; export to committed `.glb` so the runtime needs no Blender to play.
-
-## Standing rules (do not break)
-
-1. **No test code / test files / test functions / automated test or QA harnesses**
-   — in `client/` and `server/` (the Three.js build). Verify by building + a
-   manual checklist. Overrides any skill's default QA. **Does not apply to
-   `godot/`**, which has its own narrower testing policy in `godot/CLAUDE.md`.
-2. **Keep code properly structured** — single-purpose files, named exports, no dead
-   code; new world code under `client/src/three/world/`.
-3. **Server is authoritative** — client sends intent, never mutates game state.
-4. **One coordinate mapping** — server `(x,y)` == Three `(x,z)`, Three `y` = up.
-5. Don't change `server/`, `zones.ts`, or `geometry/floorplan.ts` numbers unless
-   the current phase explicitly calls for it.
-
-## Planning docs (on branch `claude/cash-grab-game-skills-qxd4ne`)
-
-`prds/PROJECT_STATUS_AND_HANDOFF.md`, `prds/MASTER_PLAN.md`, and the per-phase
-PRDs live on the planning branch. The next build task is the **Phase 4** PRD
-(original funny/offbeat characters via Blender MCP + Rapier physics chaos).
-
-## Build & run
+| File | What |
+|---|---|
+| `DECISIONS.md` | How to decide without asking; settled decisions D1–D10; decision log |
+| `PLAN.md` | The task list (take the first unchecked, unblocked task) |
+| `PROGRESS.md` | Newest-first log of what each session did and saw |
+| `BLOCKED.md` | Things only the user can do |
+| `autobuild/README.md` | The loop, `GODOT_BIN`, the tools |
 
 ```bash
-npm run install:all      # once
-npm run dev:server       # terminal 1 (Colyseus :2567)
-npm run dev:client       # terminal 2 (Vite :5173)
-# or one-URL:  npm run play   (builds client, server serves it on :2567)
+node autobuild/verify.mjs            # the gate: tests, symmetry, bot match, tick budget, network
+node autobuild/verify.mjs --quick    # tests + symmetry only
+node autobuild/verify.mjs --frames   # also capture the views in autobuild/views.json
+```
+
+Godot is run through `GODOT_BIN` on the command line, never an editor or MCP.
+
+## Legacy: `client/` and `server/` (Three.js + Colyseus)
+
+The earlier Three.js client and Colyseus server are **legacy**: kept for
+reference, not developed, not deleted. Rules that apply to them only:
+
+1. **No test code / test files / automated test harnesses** in `client/` and
+   `server/`. This does **not** apply to `godot/`, which has its own narrower
+   testing policy in `godot/CLAUDE.md`.
+2. Don't change `server/`, `zones.ts` or `geometry/floorplan.ts`.
+
+The **graphify** knowledge graph in `graphify-out/` was built from the legacy
+code (commit `7ee4c0db`) and does not cover `godot/`.
+
+```bash
+npm run install:all && npm run play   # legacy build, serves on :2567
 ```
