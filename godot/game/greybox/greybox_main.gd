@@ -258,6 +258,7 @@ func _tear_down() -> void:
 	_actor_views.clear()
 	_view_heights.clear()
 	_facings.clear()
+	_body_opacity.clear()
 	if _reach_marker != null:
 		_reach_marker.visible = false
 	_banner.text = ""
@@ -300,10 +301,13 @@ func _arm_capture() -> void:
 		Input.parse_input_event(press)
 		await get_tree().process_frame
 		await get_tree().process_frame
-	if request.eyes.is_empty():
+	if request.shot_count() == 0:
 		await _capture_frame(request.path)
 	else:
-		await _capture_from(request)
+		if not request.eyes.is_empty():
+			await _capture_from(request)
+		if not request.chase_feet.is_empty():
+			await _capture_chase(request)
 	if request.quit_after:
 		get_tree().quit()
 
@@ -343,6 +347,64 @@ func _capture_from(request: FrameCapture) -> void:
 
 	_capture_camera = null
 	eye.queue_free()
+
+## One shot per chase pose: a stand-in body at the feet position, the seat's own
+## chase rig behind it, photographed through the ordinary seat camera.
+##
+## The stand-in is drawn, never simulated - the match goes on around it - and
+## the rig stops following the seat's real body while the poses are taken.
+func _capture_chase(request: FrameCapture) -> void:
+	if _cameras.is_empty():
+		push_error("frame capture: no chase camera to pose")
+		return
+	var chase: ChaseCamera = _cameras[0]
+	var stand_in: Node3D = _stand_in()
+	add_child(stand_in)
+	_posing_chase = true
+	for i: int in request.chase_feet.size():
+		var feet: Vector3 = request.chase_feet[i]
+		var yaw: float = FrameCapture.yaw_toward(feet, request.chase_facing[i])
+		stand_in.position = feet
+		# The body faces where the camera looks, as it does in play.
+		stand_in.rotation = Vector3(0.0, yaw + PI, 0.0)
+		chase.reset()
+		chase.follow(feet, 0.0)
+		chase.pose(yaw, request.chase_pitch[i])
+		# The spring arm settles in the physics step, and anything that reacts
+		# to where the camera ended up reacts in the frame after that.
+		for settle: int in 3:
+			await get_tree().physics_frame
+		# The same fade play applies to the seat's own body.
+		_set_opacity(stand_in, chase.body_opacity())
+		await get_tree().process_frame
+		await get_tree().process_frame
+		await _capture_frame(request.path_for(request.eyes.size() + i))
+		print("  chase arm %.0f, body opacity %.2f" % [
+			chase.world_position().distance_to(feet + Vector3(0.0, ChaseCamera.PIVOT_HEIGHT, 0.0)),
+			chase.body_opacity()])
+	_posing_chase = false
+	stand_in.queue_free()
+
+## A team_a body for chase shots: the model when it has been built, else the
+## capsule the game falls back to. Origin at the feet either way.
+func _stand_in() -> Node3D:
+	var root: Node3D = Node3D.new()
+	var figure: PackedScene = _actor_model(&"team_a")
+	if figure != null:
+		root.add_child(figure.instantiate())
+		return root
+	var body: MeshInstance3D = MeshInstance3D.new()
+	var capsule: CapsuleMesh = CapsuleMesh.new()
+	capsule.radius = level.tuning.actor_radius
+	capsule.height = ACTOR_HEIGHT
+	body.mesh = capsule
+	body.position = Vector3(0.0, ACTOR_HEIGHT * 0.5, 0.0)
+	body.material_override = _flat(_team_colour(&"team_a", false))
+	root.add_child(body)
+	return root
+
+## True while chase shots are being posed: the rig is parked on the stand-in.
+var _posing_chase: bool = false
 
 func _capture_frame(to_path: String) -> void:
 	# The texture only holds a finished frame after the draw, not after the
@@ -624,11 +686,66 @@ func _snapshot() -> Dictionary[int, SimEntity]:
 ## would step 30 times a second while the world they are watching moves
 ## smoothly, and the judder would be blamed on the movement code.
 func _track_cameras(delta: float) -> void:
+	if _posing_chase:
+		return
 	for seat: int in mini(_cameras.size(), players.size()):
 		var view: MeshInstance3D = _actor_views.get(players[seat].actor_id, null)
 		if view == null:
 			continue
 		_cameras[seat].follow(view.position - Vector3(0.0, ACTOR_HEIGHT * 0.5, 0.0), delta)
+		_fade_body(players[seat].actor_id, view, _cameras[seat].body_opacity())
+
+## Last opacity drawn per actor, so a body is only re-walked when it changes.
+var _body_opacity: Dictionary[int, float] = {}
+
+## Draws a seat's own body see-through when the camera is pressed up against
+## it (ChaseCamera.FADE_FROM). Presentation only.
+func _fade_body(actor_id: int, view: Node3D, opacity: float) -> void:
+	if absf(_body_opacity.get(actor_id, 1.0) - opacity) < 0.01:
+		return
+	_body_opacity[actor_id] = opacity
+	_set_opacity(view, opacity)
+
+## Through MATERIALS, not GeometryInstance3D.transparency: the Compatibility
+## renderer ignores that property (P0-6: a body set to 0.25 drew fully solid).
+## Each surface gets an alpha copy of its own material while faded and its
+## original back at full opacity, so colours and the model's look are kept.
+## Blended with a depth pre-pass. ALPHA_HASH (a dither) was tried and drew the
+## body solid on the Compatibility renderer. The pre-pass works per mesh, so the
+## current box-built placeholder shows its inner box faces when faded; a
+## character that is one closed mesh will not.
+static func _set_opacity(node: Node, opacity: float) -> void:
+	var mesh_view: MeshInstance3D = node as MeshInstance3D
+	if mesh_view != null and mesh_view.mesh != null:
+		var flat: StandardMaterial3D = mesh_view.material_override as StandardMaterial3D
+		if flat != null:
+			# A primitive's own flat colour. A dressed body's scaffold capsule is
+			# already fully see-through and stays that way.
+			if flat.albedo_color.a > 0.0:
+				_fade_material(flat, opacity)
+		else:
+			_fade_surfaces(mesh_view, opacity)
+	for child: Node in node.get_children():
+		_set_opacity(child, opacity)
+
+static func _fade_surfaces(mesh_view: MeshInstance3D, opacity: float) -> void:
+	var copies: Array = mesh_view.get_meta(&"fade_copies", [])
+	if copies.is_empty():
+		for surface: int in mesh_view.mesh.get_surface_count():
+			var own: StandardMaterial3D = mesh_view.mesh.surface_get_material(surface) as StandardMaterial3D
+			copies.append(own.duplicate() if own != null else null)
+		mesh_view.set_meta(&"fade_copies", copies)
+	for surface: int in copies.size():
+		var copy: StandardMaterial3D = copies[surface] as StandardMaterial3D
+		if copy == null:
+			continue
+		_fade_material(copy, opacity)
+		mesh_view.set_surface_override_material(surface, copy if opacity < 1.0 else null)
+
+static func _fade_material(material: StandardMaterial3D, opacity: float) -> void:
+	material.transparency = BaseMaterial3D.TRANSPARENCY_ALPHA_DEPTH_PRE_PASS \
+		if opacity < 1.0 else BaseMaterial3D.TRANSPARENCY_DISABLED
+	material.albedo_color.a = opacity
 
 # ---- what the network changes about drawing ----
 
@@ -913,6 +1030,7 @@ func _rebuild_views() -> void:
 	_actor_views.clear()
 	_view_heights.clear()
 	_facings.clear()
+	_body_opacity.clear()
 
 	if _reach_marker == null:
 		_reach_marker = MeshInstance3D.new()
@@ -1378,5 +1496,6 @@ func _reset(variant: GreyBoxLevel.SafeVariant) -> void:
 	_actor_views.clear()
 	_view_heights.clear()
 	_facings.clear()
+	_body_opacity.clear()
 	_banner.text = ""
 	_start(variant)

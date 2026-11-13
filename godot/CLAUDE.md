@@ -62,6 +62,14 @@ godot --path godot -- --split --capture     # the debug split-screen
 godot --path godot -- --capture --capture-clean   # no on-screen text, world only
 ```
 
+To judge what the PLAYER sees somewhere, stand a stand-in body there and shoot
+through the real chase rig (spring arm, pitch, body fade) rather than a free camera:
+
+```bash
+godot --path godot -- --capture-chase=880,300,1250 --capture-facing=880,300,400 --capture-pitch=-12
+node autobuild/verify.mjs --frames-only --views=cam_   # the cam_* views in views.json
+```
+
 The debug HUD is hidden by default (`[F1]` toggles it, `--debug-hud` starts
 with it on); `--capture-clean` also hides the hint line and banner.
 

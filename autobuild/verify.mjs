@@ -4,6 +4,8 @@
 //   node autobuild/verify.mjs              tests + bot match (the default gate)
 //   node autobuild/verify.mjs --frames     also capture the views in views.json
 //   node autobuild/verify.mjs --quick      tests only
+//   node autobuild/verify.mjs --frames-only [--views=cam_]   only the frames (optionally the
+//                                          views whose name starts with the prefix); not a gate
 //   node autobuild/verify.mjs --update-baseline   raise the pinned test counts / metrics budget
 //
 // Needs the Godot 4.7 binary: set GODOT_BIN (e.g. C:\Godot\Godot_v4.7-stable_win64_console.exe).
@@ -28,6 +30,8 @@ const FRAMES_DIR = join(HERE, "frames");
 const ANSI = /\x1b\[[0-9;]*m/g;
 
 const args = new Set(process.argv.slice(2));
+const framesOnly = args.has("--frames-only");
+const viewPrefix = (process.argv.find((a) => a.startsWith("--views=")) ?? "--views=").slice("--views=".length);
 const failures = [];
 
 function godot(godotArgs, { timeoutSec = 300, wrap = false } = {}) {
@@ -72,7 +76,7 @@ godot(["--headless", "--path", GODOT_PROJECT, "--import"], { timeoutSec: 600 });
 // ---- 1. Test suites -----------------------------------------------------
 console.log("\n== Test suites ==");
 const baseline = readJson(BASELINE_PATH, {});
-const suites = readdirSync(join(GODOT_PROJECT, "tests")).filter((f) => f.endsWith("_test.gd")).sort();
+const suites = framesOnly ? [] : readdirSync(join(GODOT_PROJECT, "tests")).filter((f) => f.endsWith("_test.gd")).sort();
 const counts = {};
 for (const file of suites) {
   const r = godot(["--headless", "--path", GODOT_PROJECT, "--script", `res://tests/${file}`], { timeoutSec: 180 });
@@ -88,7 +92,7 @@ for (const file of suites) {
   else if (baseline[name] !== undefined && passed < baseline[name]) fail(`${name}: ${passed} checks, baseline pins ${baseline[name]} (suite shrank)`);
   else console.log(`  ok    ${name}  ${passed}`);
 }
-for (const name of Object.keys(baseline)) {
+for (const name of framesOnly ? [] : Object.keys(baseline)) {
   if (!(name in counts) && !failures.some((f) => f.startsWith(name))) fail(`${name}: suite in baseline but not found`);
 }
 
@@ -96,8 +100,8 @@ for (const name of Object.keys(baseline)) {
 // House B is House A turned half a circle. If the content or the router stops
 // treating the two alike, one side wins the bot matches by default (P0-5b: house
 // A won 15 of 16 at 2v2 from a route tie-break alone). A few seconds; runs in --quick.
-console.log("\n== Level symmetry ==");
-{
+if (!framesOnly) {
+  console.log("\n== Level symmetry ==");
   const r = godot(["--headless", "--path", GODOT_PROJECT, "--script", "res://tools/symmetry_probe.gd"], { timeoutSec: 180 });
   const routes = (r.out.match(/routes\s+(\d+ of \d+) trips/) ?? [, "?"])[1];
   if (r.timedOut) fail("symmetry_probe: timed out");
@@ -112,7 +116,7 @@ console.log("\n== Level symmetry ==");
 // budget in metrics_budget.json: stalls add up over every body, so a 3v3 total
 // cannot be held to a 1v1 number.
 const metrics = {};
-if (!args.has("--quick")) {
+if (!args.has("--quick") && !framesOnly) {
   console.log("\n== Bot match ==");
   const budget = readJson(BUDGET_PATH, {});
   for (const [size, sizeBudget] of Object.entries(budget.bot_match ?? {}).sort(([a], [b]) => Number(b) - Number(a))) {
@@ -145,7 +149,7 @@ if (!args.has("--quick")) {
 // 1v1 is the development setup; 3v3 and 4v4 are sizes the game ships (D8, P0-2b).
 // 4v4 is printed, not gated: its worst ticks sit at 31-34 ms on the dev laptop and
 // it measured 0-5 over across ten runs, so gating it would fail on noise.
-if (!args.has("--quick")) {
+if (!args.has("--quick") && !framesOnly) {
   console.log("\n== Tick budget ==");
   const budget = readJson(BUDGET_PATH, {});
   for (const [size, gated] of [[1, true], [3, true], [4, false]]) {
@@ -162,26 +166,37 @@ if (!args.has("--quick")) {
 }
 
 // ---- 3. Frames ----------------------------------------------------------
-if (args.has("--frames")) {
+if (args.has("--frames") || framesOnly) {
   console.log("\n== Frames ==");
-  const views = readJson(VIEWS_PATH, { views: [] }).views;
+  const views = readJson(VIEWS_PATH, { views: [] }).views.filter((v) => v.name.startsWith(viewPrefix));
   mkdirSync(FRAMES_DIR, { recursive: true });
   for (const v of views) {
     const path = join(FRAMES_DIR, `${v.name}.png`);
     const a = ["--rendering-driver", "opengl3", "--path", GODOT_PROJECT, "--", "--capture", "--capture-clean", `--capture-delay=${v.delay ?? 3}`,
-      `--capture-path=${path}`, `--capture-at=${v.at.join(",")}`];
-    if (v.look) a.push(`--capture-look=${v.look.join(",")}`);
+      `--capture-path=${path}`];
+    // A free camera ("at"/"look"), or a body at "chase" (feet) seen through the
+    // real chase rig, facing "facing", pitched "pitch" degrees.
+    if (v.chase) {
+      a.push(`--capture-chase=${v.chase.join(",")}`);
+      if (v.facing) a.push(`--capture-facing=${v.facing.join(",")}`);
+      if (v.pitch != null) a.push(`--capture-pitch=${v.pitch}`);
+    } else {
+      a.push(`--capture-at=${v.at.join(",")}`);
+      if (v.look) a.push(`--capture-look=${v.look.join(",")}`);
+    }
     const r = godot(a, { timeoutSec: 120, wrap: true });
-    // The tool numbers shots when --capture-at is given: <name>_1.png.
+    // A single shot is written at <name>.png; older runs numbered it <name>_1.png.
     const numbered = path.replace(/\.png$/, "_1.png");
     console.log(existsSync(path) || existsSync(numbered) ? `  shot  ${existsSync(path) ? path : numbered}` : `  FAIL  ${v.name}: no frame written\n${tail(r.out, 6)}`);
     if (!existsSync(path) && !existsSync(numbered)) failures.push(`frame ${v.name}`);
+    const arm = r.out.match(/chase arm .*/);
+    if (arm) console.log(`        ${arm[0]}`);
   }
   console.log("  -> open each PNG with the Read tool and judge it against STYLE.md / the checklist in PLAN.md.");
 }
 
 // ---- 4. Baseline update -------------------------------------------------
-if (args.has("--update-baseline")) {
+if (args.has("--update-baseline") && !framesOnly) {
   if (failures.length) { console.log("\nNot updating baseline: there are failures."); }
   else {
     writeFileSync(BASELINE_PATH, JSON.stringify(counts, null, 2) + "\n");

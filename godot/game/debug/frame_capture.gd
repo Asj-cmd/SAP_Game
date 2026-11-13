@@ -57,9 +57,27 @@ var clean: bool = false
 var eyes: PackedVector3Array = PackedVector3Array()
 var looks: PackedVector3Array = PackedVector3Array()
 
+## Chase shots: a stand-in body at a FEET position, seen through the real chase
+## camera - spring arm, pitch, near plane and all - rather than a free camera.
+##
+## A free camera answers "what is here"; the question a camera task asks is
+## "what does the player see standing here", and only the rig answers that. The
+## stand-in is presentation: the simulation's bodies stay where they are.
+var chase_feet: PackedVector3Array = PackedVector3Array()
+## The point each chase shot faces (height ignored: it sets the yaw).
+var chase_facing: PackedVector3Array = PackedVector3Array()
+## Pitch per chase shot, radians. Negative looks down, as in ChaseCamera.
+var chase_pitch: PackedFloat32Array = PackedFloat32Array()
+## Rig pitch a chase shot gets unless told otherwise: the rig's own starting one.
+const DEFAULT_CHASE_PITCH_DEG: float = -12.0
+
+## How many shots this request will write.
+func shot_count() -> int:
+	return eyes.size() + chase_feet.size()
+
 ## Where shot `index` should be written when several were asked for.
 func path_for(index: int) -> String:
-	if eyes.size() <= 1:
+	if shot_count() <= 1:
 		return path
 	var extension: String = path.get_extension()
 	var stem: String = path.get_basename()
@@ -74,7 +92,12 @@ func path_for(index: int) -> String:
 ##   --capture-crouch          hold crouch, so the shot shows a ducked body
 ##   --capture-at=x,y,z        stand the camera here instead of behind a body
 ##   --capture-look=x,y,z      point the preceding --capture-at at this
+##   --capture-chase=x,y,z     stand a body with its FEET here and shoot through
+##                             the chase camera behind it
+##   --capture-facing=x,y,z    the preceding --capture-chase faces this point
+##   --capture-pitch=degrees   and pitches the rig this much (negative = down)
 ##
+## Chase shots are numbered after any --capture-at shots.
 ## `--capture-at` may be repeated; each one is a separate shot, numbered
 ## `<name>_1.png`, `<name>_2.png`. A `--capture-look` applies to the
 ## `--capture-at` before it, so the pairs read in order on the command line.
@@ -120,7 +143,35 @@ static func from_command_line(args: PackedStringArray) -> FrameCapture:
 				continue
 			request.looks[request.looks.size() - 1] = _point(
 				arg.trim_prefix("--capture-look="))
+		elif arg.begins_with("--capture-chase="):
+			var feet: Vector3 = _point(arg.trim_prefix("--capture-chase="))
+			request.requested = true
+			request.quit_after = true
+			request.chase_feet.append(feet)
+			# Facing -z until told otherwise, the rig's own zero yaw.
+			request.chase_facing.append(feet + Vector3(0.0, 0.0, -1000.0))
+			request.chase_pitch.append(deg_to_rad(DEFAULT_CHASE_PITCH_DEG))
+		elif arg.begins_with("--capture-facing="):
+			if request.chase_feet.is_empty():
+				push_error("frame capture: --capture-facing with no --capture-chase before it")
+				continue
+			request.chase_facing[request.chase_facing.size() - 1] = _point(
+				arg.trim_prefix("--capture-facing="))
+		elif arg.begins_with("--capture-pitch="):
+			if request.chase_feet.is_empty():
+				push_error("frame capture: --capture-pitch with no --capture-chase before it")
+				continue
+			request.chase_pitch[request.chase_pitch.size() - 1] = deg_to_rad(
+				float(arg.trim_prefix("--capture-pitch=")))
 	return request
+
+## The rig yaw that points the chase camera from `feet` toward `facing`.
+## ChaseCamera's forward at yaw y is (-sin y, 0, -cos y).
+static func yaw_toward(feet: Vector3, facing: Vector3) -> float:
+	var flat: Vector3 = Vector3(facing.x - feet.x, 0.0, facing.z - feet.z)
+	if flat.length_squared() < 1.0:
+		return 0.0
+	return atan2(-flat.x, -flat.z)
 
 static func _point(text: String) -> Vector3:
 	var parts: PackedStringArray = text.split(",")

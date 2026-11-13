@@ -51,6 +51,16 @@ const PIVOT_HEIGHT: float = 120.0
 ## Keeps the camera off the actor's shoulder when the arm is fully compressed.
 const PROBE_RADIUS: float = 18.0
 
+## When a wall or a corner pushes the arm in, the player's own body is what
+## blinds the view: at ~120 from the camera it fills the middle third of the
+## screen (P0-6 frames: the study, the jail corner, backed against the house).
+## So the body fades as the arm shortens - fully drawn from FADE_FROM down,
+## at its faintest by FADE_TO, never below FADE_FLOOR so you still see where
+## you are. Distances are camera to pivot, in world units.
+const FADE_FROM: float = 200.0
+const FADE_TO: float = 90.0
+const FADE_FLOOR: float = 0.25
+
 const PITCH_MIN: float = deg_to_rad(-60.0)
 const PITCH_MAX: float = deg_to_rad(25.0)
 const MOUSE_SENSITIVITY: float = 0.0022
@@ -124,6 +134,14 @@ func aim(delta_yaw: float, delta_pitch: float) -> void:
 	rig.rotation = Vector3(0.0, _yaw, 0.0)
 	_pitch_pivot.rotation = Vector3(_pitch, 0.0, 0.0)
 
+## Sets yaw and pitch outright rather than by a delta. For the frame capture,
+## which stands the rig at a named spot facing a named way; play only ever aims.
+func pose(yaw: float, pitch: float) -> void:
+	_yaw = wrapf(yaw, -PI, PI)
+	_pitch = clampf(pitch, PITCH_MIN, PITCH_MAX)
+	rig.rotation = Vector3(0.0, _yaw, 0.0)
+	_pitch_pivot.rotation = Vector3(_pitch, 0.0, 0.0)
+
 ## The current yaw. Exposed for a probe, and for nothing in the game - the rig's
 ## own rotation is the thing that matters.
 func yaw_for_test() -> float:
@@ -160,6 +178,14 @@ func world_position() -> Vector3:
 	if camera == null or not camera.is_inside_tree():
 		return rig.position
 	return camera.global_position
+
+## How opaque the followed body should be drawn, from how far the spring arm
+## actually reached this physics step (see FADE_FROM). 1.0 off-tree.
+func body_opacity() -> float:
+	if _arm == null or not _arm.is_inside_tree():
+		return 1.0
+	var reach: float = _arm.get_hit_length()
+	return lerpf(FADE_FLOOR, 1.0, clampf((reach - FADE_TO) / (FADE_FROM - FADE_TO), 0.0, 1.0))
 
 ## Ground-plane basis the player's movement is expressed in.
 ##

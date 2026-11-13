@@ -1,5 +1,5 @@
 {
-  "_note": "Named camera positions for `node autobuild/verify.mjs --frames`. World units: x/z are the floor plane, y is up. Add a view for every room, stair, door and garden corner you touch (see PLAN.md P0-5, P0-8). at = eye, look = target. Lot is 5400 x 3720, ground top at y 300; house A 350-2440 x 350-2440, house B 2960-5050 x 1280-3370.",
+  "_note": "Named camera positions for `node autobuild/verify.mjs --frames`. World units: x/z are the floor plane, y is up. Add a view for every room, stair, door and garden corner you touch (see PLAN.md P0-5, P0-8). Free camera: at = eye, look = target. Chase view: chase = a body's FEET, facing = the point it faces, pitch = rig pitch in degrees (default -12; -60..25), shot through the real chase camera. Lot is 5400 x 3720, ground top at y 300, upper floor at y 660, ceilings 320 clear. House A 350-2440 x 350-2440: jail SW x380-1380 z380-1380, front hall SE x1410-2410 z380-1380, kitchen NE, back hall NW; upstairs study SW and bedroom NE are the cash rooms, landings SE/NW. Stair A x2130-2410 climbs north z530-1106; stair B x380-660 climbs south z2260-1684. House B is A turned 180 degrees about (2700, 1860).",
   "views": [
     { "name": "spawn_default", "at": [200, 493, 1192], "look": [200, 493, 0] },
     { "name": "stall_spot_a",  "at": [2040, 900, 1500], "look": [2040, 0, 840] },
@@ -7,6 +7,23 @@
     { "name": "lot_overview",  "at": [-1800, 2600, -1800], "look": [2700, 300, 1860] },
     { "name": "corridor_horizon", "at": [2700, 480, 1100], "look": [2700, 480, -4000] },
     { "name": "yard_b_horizon", "at": [5200, 480, 2400], "look": [9000, 480, 2400] },
-    { "name": "approach_from_south", "at": [2700, 700, -2500], "look": [2700, 400, 1860] }
+    { "name": "approach_from_south", "at": [2700, 700, -2500], "look": [2700, 400, 1860] },
+
+    { "name": "cam_garden_open", "chase": [150, 300, 1192], "facing": [1000, 300, 1192] },
+    { "name": "cam_garden_wall_backed", "chase": [250, 300, 850], "facing": [-1000, 300, 850] },
+    { "name": "cam_front_door_outside", "chase": [1910, 300, 150], "facing": [1910, 300, 900] },
+    { "name": "cam_front_door_threshold", "chase": [1910, 300, 420], "facing": [1910, 300, 1200] },
+    { "name": "cam_doorway_turn", "chase": [1910, 300, 1480], "facing": [2400, 300, 1480] },
+    { "name": "cam_jail", "chase": [880, 300, 1250], "facing": [880, 300, 400] },
+    { "name": "cam_jail_corner", "chase": [480, 300, 480], "facing": [1300, 300, 1300] },
+    { "name": "cam_kitchen_look_down", "chase": [1910, 300, 1910], "facing": [2400, 300, 1910], "pitch": -60 },
+    { "name": "cam_kitchen_look_up", "chase": [1910, 300, 1910], "facing": [2400, 300, 1910], "pitch": 25 },
+    { "name": "cam_stair_a_climb", "chase": [2270, 510, 830], "facing": [2270, 510, 1500] },
+    { "name": "cam_stair_a_top_down", "chase": [2270, 660, 1090], "facing": [2270, 300, 400], "pitch": -30 },
+    { "name": "cam_stair_b_climb", "chase": [520, 510, 1950], "facing": [520, 510, 1000] },
+    { "name": "cam_landing_a", "chase": [1700, 660, 600], "facing": [2270, 660, 1000] },
+    { "name": "cam_study_vault_a", "chase": [1250, 660, 1200], "facing": [630, 660, 880] },
+    { "name": "cam_bedroom_vault_a", "chase": [1600, 660, 1600], "facing": [2200, 660, 2260] },
+    { "name": "cam_study_vault_b", "chase": [4150, 660, 2520], "facing": [4770, 660, 2840] }
   ]
 }
