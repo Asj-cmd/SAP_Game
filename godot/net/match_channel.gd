@@ -26,11 +26,15 @@ const TAG_INPUT: int = 3
 ## has a new one). See PlayerIdentity.
 const TAG_HELLO: int = 5
 
-## Host to guest: which actor you are driving.
+## Host to guest: which actor you are driving, and how many bodies a side.
 ##
 ## Sent once, after the first snapshot. A guest cannot work this out for itself
 ## - the roster is identical on both sides and nothing in it says "you" - and
 ## guessing by team or by slot would hand two guests the same body.
+##
+## The team size rides along because the guest built its world before it knew
+## it, and the rules for a size live in that size's mode file: a guest at the
+## wrong size has to rejoin at the right one. 0 = not said (an older host).
 const TAG_SEAT: int = 4
 
 static func frame(tag: int, payload: PackedByteArray) -> PackedByteArray:
@@ -47,11 +51,22 @@ static func body_of(bytes: PackedByteArray) -> PackedByteArray:
 
 ## A seat assignment is one integer, but it still gets a length check on the way
 ## back in - everything off the wire is untrusted, including our own protocol.
-static func frame_seat(actor_id: int) -> PackedByteArray:
+static func frame_seat(actor_id: int, team_size: int = 0) -> PackedByteArray:
 	var buffer: StreamPeerBuffer = StreamPeerBuffer.new()
 	buffer.big_endian = false
 	buffer.put_32(actor_id)
+	buffer.put_32(team_size)
 	return frame(TAG_SEAT, buffer.data_array)
+
+## The host's bodies a side, or 0 when the frame does not say.
+static func team_size_of(body: PackedByteArray) -> int:
+	if body.size() < 8:
+		return 0
+	var buffer: StreamPeerBuffer = StreamPeerBuffer.new()
+	buffer.big_endian = false
+	buffer.data_array = body
+	buffer.get_32()
+	return buffer.get_32()
 
 static func seat_of(body: PackedByteArray) -> int:
 	if body.size() < 4:

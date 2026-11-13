@@ -82,4 +82,5 @@ permission checks; only use it in this throwaway copy, with no secrets in it.
 | `BLOCKED.md` | What needs you |
 | `autobuild/verify.mjs` | Tests + bot match + screenshots, with pinned counts that can only tighten |
 | `autobuild/loop.mjs` | The loop |
+| `autobuild/run_tool.mjs` | Runs one `godot/tools/*.gd` script headless, e.g. `node autobuild/run_tool.mjs bot_match --team-size=4` |
 | `autobuild/PROMPT.md` | What every session is told |

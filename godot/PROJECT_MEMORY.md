@@ -22,7 +22,7 @@ method, the mistakes and what they cost, and where things actually stand.
 
 ## 2. Where things stand
 
-Target team sizes are 2v2 to 4v4 (DECISIONS.md D8); the grey-box level's team_size 1 is a test setup only.
+Target team sizes are 2v2 to 4v4 (DECISIONS.md D8). Since P0-5d the game starts 3v3 with bots in empty seats; the menu picks 1v1-4v4 for solo and hosting (`--team-size=N` on the command line), and a guest plays at the host's size. 1v1 is a test setup only.
 
 **Complete and working.** The simulation layer — core, capture, movement,
 scoring, match flow, carry — all deterministic, all content-driven. Collision
@@ -411,7 +411,7 @@ escalation; the cash count still comes from the level's markers), `GreyBoxLevel`
 the one for its size, and `verify.mjs` gates the bot match at 3v3 with 1v1 kept as a
 second check. What the sweep found is in PROGRESS.md (2026-11-12, P0-2c).
 
-`team_size` is 1 in the grey box and the whole roster machinery already handles
+`team_size` was 1 in the grey box until P0-5d (now 3) and the whole roster machinery already handles
 more: `SimWorld.populate_roster` spawns a body per slot, `TeamDef` carries a
 spawn point for each, and the house bakes FOUR spawns per team (three until
 P0-5c; a missing marker clamps onto the last one). 3v3 is one
@@ -526,9 +526,11 @@ host's identity is now seated as somebody new.
 Verified with two real processes over ENet, the exported .exe, and the lobby,
 loopback, reconcile and prediction harnesses.
 
-STILL OPEN, and both are decisions rather than bugs: one human per team
-(team_size 1, so two people per match), and internet play needs Tailscale on
-both machines until the Steam backend exists.
+STILL OPEN: internet play needs Tailscale on both machines until the Steam
+backend exists. (One human per team ended with P0-5d: the host picks 1v1-4v4,
+bots fill empty seats, and the seat message tells a guest the host's size; a
+guest that built its world at another size rejoins at the host's, under the
+same identity, so it gets the same seat back.)
 
 ## 7. Two things still owed to the user
 

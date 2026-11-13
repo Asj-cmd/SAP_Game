@@ -48,6 +48,9 @@ const UNREACHABLE: String = "could not reach the host - check the code, and that
 var actor_id: int = SimEntity.NO_ENTITY
 ## This machine's player token, stable across connections (PlayerIdentity).
 var identity: String = ""
+## Set on a guest whose world was built at a different team size from the
+## host's: the size to join again at. 0 = nothing to do. See TAG_SEAT.
+var rejoin_team_size: int = 0
 
 var _level: GreyBoxLevel = null
 var _authoritative: SimWorld = null
@@ -330,7 +333,7 @@ func _admit(peer: int, token: String) -> void:
 	transport.send(peer, MatchChannel.frame(
 		MatchChannel.TAG_SNAPSHOT, WorldSnapshot.capture(_authoritative)
 	))
-	transport.send(peer, MatchChannel.frame_seat(seated.seat.actor_id))
+	transport.send(peer, MatchChannel.frame_seat(seated.seat.actor_id, _level.mode.team_size))
 
 	# Bots re-fill around whoever is now seated: still opt-in, still symmetric,
 	# still declining rather than tilting the sides.
@@ -364,6 +367,14 @@ func _receive(peer: int, payload: PackedByteArray) -> void:
 				_seeded = true
 		MatchChannel.TAG_SEAT:
 			if role == Role.GUEST:
+				var host_size: int = MatchChannel.team_size_of(body)
+				if host_size > 0 and host_size != _level.mode.team_size:
+					if GreyBoxLevel.TEAM_SIZES.has(host_size):
+						rejoin_team_size = host_size
+					else:
+						failure = "the host is playing %dv%d, which this build does not have" \
+							% [host_size, host_size]
+					return
 				actor_id = MatchChannel.seat_of(body)
 		MatchChannel.TAG_INPUT:
 			if role == Role.HOST:

@@ -70,12 +70,17 @@ is still in the box to try again.
 
 ### On your own
 
-**Play solo** starts a match against a bot on the other team.
+**Team size** (above Play solo) picks 2v2, 3v3 or 4v4 - 3v3 to start with. It
+applies to Play solo and to Host; bots fill every seat nobody is sitting in.
+(1v1 is there for testing.) Joining needs no choice: you play at the host's size.
+
+**Play solo** starts a match with you and bots.
 
 **F10** leaves any match and goes back to the menu.
 
 > The command-line flags still work (`CashGrab.exe -- --host`,
-> `-- --join=CODE`, `-- --advertise=100.x.y.z`) for anyone scripting a test.
+> `-- --join=CODE`, `-- --advertise=100.x.y.z`, `-- --team-size=4`) for anyone
+> scripting a test.
 
 ## 4. Playing
 
@@ -106,8 +111,8 @@ enter it** - that is the safe room, and it is deliberate. Nor in the garden
 between the houses, which belongs to nobody, nor in your own basement. Anywhere
 else on your own ground is fair game.
 
-**It is one player per team for now** - two people per match. Bots fill the
-other seat if nobody joins; a joining player takes it over from the bot.
+**Bots fill every empty seat**, and a joining player takes one over from a bot
+(the emptier team gets them first). At 3v3 that is up to six people per match.
 
 ## 5. What we want to know
 

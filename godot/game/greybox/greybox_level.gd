@@ -23,8 +23,11 @@ const LEVEL_PATH: String = "res://content/levels/house.tres"
 ## One mode file per team size: round length, jail time and the rest scale with
 ## how many bodies a side has, and that is a set of numbers, not code (P0-2c).
 const MODE_PATH: String = "res://content/modes/house_%dv%d.tres"
-## The grey box seats 1v1 for development; the game ships 2v2 to 4v4 (D8).
-const DEFAULT_TEAM_SIZE: int = 1
+## The game ships 2v2 to 4v4 (D8) and starts at 3v3, bots filling empty seats
+## (P0-5d). 1v1 is a test setup: `--team-size=1`, or pass it here.
+const DEFAULT_TEAM_SIZE: int = 3
+## What the menu offers, smallest first. 1 is kept for testing.
+const TEAM_SIZES: Array[int] = [1, 2, 3, 4]
 ## Difficulty is a file, not a build. Swapping this path - or editing the .tres
 ## it points at - is the whole of "make the bots harder".
 const BOT_PROFILE_PATH: String = "res://content/ai/bot_profile_standard.tres"

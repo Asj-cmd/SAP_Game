@@ -146,6 +146,9 @@ var _join_code: String = ""
 var _advertise: String = ""
 var _identity: String = ""
 var _backend: String = "enet"
+## Bodies a side. From `--team-size=N` or the menu; a guest takes the host's
+## (it is told with its seat and rejoins if it guessed wrong, see _rejoin_at).
+var _team_size: int = GreyBoxLevel.DEFAULT_TEAM_SIZE
 var _menu: MainMenu = null
 ## Started from the menu rather than from flags, so a failure goes back there
 ## with its reason instead of leaving a dead screen behind a banner.
@@ -193,11 +196,15 @@ func _read_command_line() -> void:
 	_advertise = _argument("--advertise=", "")
 	_identity = _argument("--identity=", "")
 	_backend = _argument("--backend=", "enet")
+	_team_size = clampi(int(_argument("--team-size=", str(GreyBoxLevel.DEFAULT_TEAM_SIZE))),
+		GreyBoxLevel.TEAM_SIZES.front(), GreyBoxLevel.TEAM_SIZES.back())
 
-func _on_solo() -> void:
+func _on_solo(team_size: int) -> void:
+	_team_size = team_size
 	_launch(MatchLink.Role.LOCAL, "", "")
 
-func _on_host(address: String) -> void:
+func _on_host(address: String, team_size: int) -> void:
+	_team_size = team_size
 	_launch(MatchLink.Role.HOST, "", address)
 
 func _on_join(code: String) -> void:
@@ -225,6 +232,22 @@ func _clear_code_banner() -> void:
 ## Back to the menu, closing the session cleanly - a host's port is released
 ## and a guest's peer goes quiet rather than timing out on the far end.
 func _return_to_menu(problem: String) -> void:
+	_tear_down()
+	_capture_mouse(false)
+	_menu.open(problem)
+
+## A guest that built its world at a different team size from the host's
+## cannot play: the rules (round length, jail time) come from the mode file for
+## that size. It is told the host's size with its seat; this closes the session
+## and joins again at that size, under the same identity, so the host gives it
+## back the seat it was just handed.
+func _rejoin_at(team_size: int) -> void:
+	_tear_down()
+	_team_size = team_size
+	_start(GreyBoxLevel.SafeVariant.B)
+
+## Closes the session and drops everything drawn for it.
+func _tear_down() -> void:
 	if link != null:
 		link.close()
 	link = null
@@ -238,8 +261,6 @@ func _return_to_menu(problem: String) -> void:
 	if _reach_marker != null:
 		_reach_marker.visible = false
 	_banner.text = ""
-	_capture_mouse(false)
-	_menu.open(problem)
 
 # ---- looking at the screen ----
 
@@ -345,7 +366,7 @@ func _active_camera() -> Camera3D:
 # ---- setup ----
 
 func _start(variant: GreyBoxLevel.SafeVariant) -> void:
-	level = GreyBoxLevel.new(variant)
+	level = GreyBoxLevel.new(variant, GreyBoxLevel.LEVEL_PATH, _team_size)
 	if not level.is_loaded():
 		_banner.text = "NO BAKED LEVEL\nrun tools/build_house.gd then tools/bake_blockout.gd"
 		return
@@ -537,6 +558,9 @@ func _process(delta: float) -> void:
 	# Drained every FRAME, not every tick. Packets arrive when they arrive, and
 	# holding one until the next simulation step adds latency nobody asked for.
 	link.poll_network()
+	if link.rejoin_team_size > 0:
+		_rejoin_at(link.rejoin_team_size)
+		return
 	# A session can die mid-match - the host quits, the connection drops for
 	# good - and that used to be silent: the world simply stopped. Say so, and
 	# say how to get out.

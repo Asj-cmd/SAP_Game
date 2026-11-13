@@ -12,13 +12,16 @@ extends CanvasLayer
 ## game needs: it reports what was chosen and the game starts it, exactly as the
 ## command-line flags still do for the tools and the frame capture.
 
-signal solo_chosen
-signal host_chosen(address: String)
+signal solo_chosen(team_size: int)
+signal host_chosen(address: String, team_size: int)
 signal join_chosen(code: String)
 
 const PANEL_WIDTH: float = 460.0
 
 var _address: LineEdit = null
+## Bodies a side for a solo or hosted match. A guest does not choose: it plays
+## at the host's size.
+var _team_size: OptionButton = null
 var _code: LineEdit = null
 var _note: Label = null
 var _error: Label = null
@@ -77,8 +80,22 @@ func _build() -> void:
 
 	column.add_child(HSeparator.new())
 
+	# One choice for both solo and hosting, above both: the size is the match,
+	# not the way you reach it. Empty seats are filled with bots.
+	var size_row: HBoxContainer = HBoxContainer.new()
+	var size_label: Label = Label.new()
+	size_label.text = "Team size"
+	size_label.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	size_row.add_child(size_label)
+	_team_size = OptionButton.new()
+	for size: int in GreyBoxLevel.TEAM_SIZES:
+		_team_size.add_item(_size_name(size), size)
+	_team_size.select(GreyBoxLevel.TEAM_SIZES.find(GreyBoxLevel.DEFAULT_TEAM_SIZE))
+	size_row.add_child(_team_size)
+	column.add_child(size_row)
+
 	var solo: Button = _button("Play solo  (against bots)")
-	solo.pressed.connect(func() -> void: solo_chosen.emit())
+	solo.pressed.connect(func() -> void: solo_chosen.emit(_chosen_size()))
 	column.add_child(solo)
 
 	column.add_child(HSeparator.new())
@@ -101,7 +118,8 @@ func _build() -> void:
 	_note.add_theme_font_size_override("font_size", 13)
 	column.add_child(_note)
 	var host: Button = _button("Host")
-	host.pressed.connect(func() -> void: host_chosen.emit(_address.text.strip_edges()))
+	host.pressed.connect(func() -> void:
+		host_chosen.emit(_address.text.strip_edges(), _chosen_size()))
 	column.add_child(host)
 
 	column.add_child(HSeparator.new())
@@ -127,6 +145,13 @@ func _join() -> void:
 		open("Type the code the host is showing, then press Join.")
 		return
 	join_chosen.emit(code)
+
+func _chosen_size() -> int:
+	return _team_size.get_selected_id()
+
+static func _size_name(size: int) -> String:
+	var label: String = "%dv%d" % [size, size]
+	return label + "  (test)" if size == 1 else label
 
 func _button(text: String) -> Button:
 	var made: Button = Button.new()

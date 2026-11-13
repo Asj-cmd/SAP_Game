@@ -2,6 +2,20 @@
 
 Newest first. One entry per task: date, task id, what changed, what the frames showed, numbers, what is left.
 
+## 2026-11-13 — P0-5d Default to a team game
+- **Default 3v3:** `GreyBoxLevel.DEFAULT_TEAM_SIZE` 1 → 3, plus `TEAM_SIZES` [1, 2, 3, 4]. The game (`greybox_main.gd`) builds its level at `_team_size`, read from `--team-size=N` (clamped to 1–4) or from the menu. Bots fill empty seats as before (lobby fill, on by default).
+- **Menu** (`main_menu.gd`): a "Team size" row with a dropdown (1v1 (test), 2v2, 3v3, 4v4; 3v3 selected) above Play solo. `solo_chosen` / `host_chosen` now carry the size. Join has no picker.
+- **Guest at the host's size:** the guest builds its worlds before it connects, so it can't know the host's size up front. The host's seat message now carries its team size (`MatchChannel.frame_seat(actor, team_size)` / `team_size_of`). A guest whose level differs sets `MatchLink.rejoin_team_size`. `greybox_main` then tears down (`_tear_down`, split out of `_return_to_menu`) and starts again at that size with the same identity, so the lobby's reclaim-by-identity hands back the same seat. A size this build has no mode file for is reported as a failure, not retried.
+- **What I checked, and what the frames showed:**
+  - `--menu --capture` (`p05d_menu.png`): the title, a "Team size … 3v3 ▾" row directly under the strapline, then Play solo, Host (address prefilled), Join, Quit. Nothing overlaps.
+  - `--solo --debug-hud --capture` (`p05d_solo.png`): HUD reads LOCAL, PLAYING round 1 178.0 s (the 3v3 180 s round), P1 free, then five `BOT … LOBBY_FILL STEAL` lines (2 team_a, 3 team_b). The character stands on the red strip by the wall, grass and sky behind. Capture reports 14 bodies (as I read it, 6 people plus 8 cash).
+  - **Two real processes on this PC over ENet:** host `--host --team-size=4`, and 6 s later a guest `--join` at the default (3). Guest frame (`p05d_guest_rejoined.png`, debug HUD): "JOINED confirmed 665 predicting +1", round 1 159.8 s, its body in the blue (House B) interior by a doorway, "HELD 20.6s". It took over a lobby-fill bot's body that was already jailed 22 s into the match, which is normal play. Both processes report **16 bodies** (4v4), so the guest rejoined at 4. Host frame (clean): its character on the red strip, sky and grass, no text.
+  - `net_lobby` (now 3v3 by default): SEAT KEPT, reclaimed the same actor, 5 bots, host and guest agree. `net_loopback`: IN LOCKSTEP, 2701 ticks, scores agree.
+- verify (full): healthy. 16 suites at pinned counts; symmetry 200/200; bot_match 3v3 DETERMINISTIC team_b 90 s stalls, 1v1 team_b 7 s (unchanged); tick budget 0 of 600 over at 1v1/3v3/4v4 (p99 6.7 / 21.8 / 22.8 ms).
+- Docs: PLAYTEST.md (team size, `--team-size`, bots fill every empty seat), PROJECT_MEMORY §2/§6.
+- New `autobuild/run_tool.mjs <tool> [args]`: runs a `godot/tools/*.gd` script headless through node and strips the exit-time leak spam. Added because direct Godot calls got permission prompts in this unattended session.
+- Left: the in-match lobby has no size change (back to the menu with F10 and pick again). Bots are tuned against 3v3/4v4 numbers from P0-2c and nobody has played a human 3v3 yet. The `[1]/[2]` restart key keeps the current size.
+
 ## 2026-11-13 — P0-5c Four spawn points per team
 - Picked up from a cut-off session: its diff (one P0-5c change in `build_house.gd` plus the re-bake) was in the working tree, uncommitted. Checked and finished it rather than stashing.
 - **Change:** `SPAWN_LOCAL` in `tools/build_house.gd` gains a fourth entry, house-local (1000, −150): off the front (south, low-z) face, 500 along from the third marker and 440 short of the front door's jamb (door spans x 1440–1680), so no body starts in the doorway. The stamp loop now runs over `SPAWN_LOCAL.size()` instead of a hard-coded 3. The old comment called the third spawn's face "north"; it is the south face (z low = front), now corrected. Baked world positions: team_a (1350, 320, 200), team_b (4050, 320, 3520), each the turned twin of the other.
