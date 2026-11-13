@@ -71,7 +71,7 @@ Aug 16–Oct 10 are in; an earlier version of this plan was written against the 
   Use the capture tool's injected-input options and `bot_match --lone` to exercise it. Include the
   main menu → host/join → lobby → match → F10 back-to-menu path, and test jump, crouch and throw by eye.
   *Verify:* written walkthrough in PROGRESS.md with frames at each step.
-- [ ] **P0-9 Network smoke.** `tools/net_loopback.gd` and `tools/net_lobby.gd` pass; two local
+- [x] **P0-9 Network smoke.** *(Done: `autobuild/net_smoke.mjs` runs a headless host + guest of the real game over ENet and compares every tick's world hash; 5 of 5 runs clean incl. two whole matches to MATCH_END; gated in full verify with net_loopback/net_lobby. Snapshot format 2 fixed a mid-throw divergence. See PROGRESS.md.)* `tools/net_loopback.gd` and `tools/net_lobby.gd` pass; two local
   Godot processes (host + join on localhost) complete a lobby and a short match. Add the
   headless variant to `verify.mjs` if it is stable. *Verify:* log excerpt in PROGRESS.md.
 - [ ] **P0-10 Housekeeping.** Root `CLAUDE.md` still says the Three.js branch is the source of

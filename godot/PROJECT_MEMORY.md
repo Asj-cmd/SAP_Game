@@ -526,6 +526,16 @@ host's identity is now seated as somebody new.
 Verified with two real processes over ENet, the exported .exe, and the lobby,
 loopback, reconcile and prediction harnesses.
 
+**Gated since P0-9: `autobuild/net_smoke.mjs`.** A headless host and a headless
+guest of the REAL game scene (lobby, bots in empty seats, ENet on localhost);
+the guest walks by injected keys, and each end hashes the world it treats as
+true on every tick. Every tick both saw must agree. It found a real
+bug the one-process tools could not: the snapshot did not carry stance,
+crouch/jump intent or a bundle's `in_flight`, so a guest that adopted a
+keyframe mid-throw diverged until the round reset (snapshot FORMAT 2 now).
+`--ticks=20000 --speed=3` plays a whole match; `--digests --keep` writes full
+per-tick digests to find WHAT differs.
+
 STILL OPEN: internet play needs Tailscale on both machines until the Steam
 backend exists. (One human per team ended with P0-5d: the host picks 1v1-4v4,
 bots fill empty seats, and the seat message tells a guest the host's size; a

@@ -170,11 +170,18 @@ func _finish(ok: bool, problem: String) -> void:
 	if truth != null:
 		summary["phase"] = SimWorld.MatchPhase.keys()[truth.match_phase]
 		summary["round"] = truth.round_number
+		summary["winner"] = String(truth.match_winner)
+		summary["round_wins"] = truth.round_wins
+		summary["guest_team"] = String(_team_of(truth, _game.link.actor_id if _role == "guest" else _guest_actor))
 	print("NETSMOKE end %s" % JSON.stringify(summary))
 	# Closed before quitting, so the far end sees a departure, not a timeout.
 	if _game.link != null:
 		_game.link.close()
 	get_tree().quit(0 if ok else 1)
+
+static func _team_of(world: SimWorld, actor_id: int) -> StringName:
+	var entity: SimEntity = world.get_entity(actor_id)
+	return entity.team if entity != null else &""
 
 func _key(keycode: Key, down: bool) -> void:
 	if keycode == KEY_NONE:

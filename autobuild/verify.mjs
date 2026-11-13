@@ -1,7 +1,7 @@
 #!/usr/bin/env node
 // One command that answers "is the project still healthy?" for the autonomous loop.
 //
-//   node autobuild/verify.mjs              tests + bot match (the default gate)
+//   node autobuild/verify.mjs              tests + bot match + tick budget + network (the default gate)
 //   node autobuild/verify.mjs --frames     also capture the views in views.json
 //   node autobuild/verify.mjs --quick      tests only
 //   node autobuild/verify.mjs --frames-only [--views=cam_]   only the frames (optionally the
@@ -163,6 +163,28 @@ if (!args.has("--quick") && !framesOnly) {
     if (gated && budget.max_over_budget_ticks != null && tick.over_budget > budget.max_over_budget_ticks)
       fail(`${label}: ${tick.over_budget} of ${tick.of} ticks over the 33 ms budget, limit ${budget.max_over_budget_ticks}`);
   }
+}
+
+// ---- 2c. Network --------------------------------------------------------
+// net_loopback and net_lobby run host and guest in ONE process (lockstep scores;
+// a dropped guest's seat kept by a bot and reclaimed). net_smoke runs the real game
+// scene TWICE, as a headless host and a headless guest over ENet on localhost, and
+// checks every tick both hashed agrees (P0-9: 5 of 5 runs clean, ~70 s). Not in
+// --quick because of that minute.
+if (!args.has("--quick") && !framesOnly) {
+  console.log("\n== Network ==");
+  for (const [tool, verdict] of [["net_loopback", "IN LOCKSTEP"], ["net_lobby", "SEAT KEPT"]]) {
+    const r = godot(["--headless", "--path", GODOT_PROJECT, "--script", `res://tools/${tool}.gd`], { timeoutSec: 300 });
+    if (r.timedOut) fail(`${tool}: timed out`);
+    else if (r.status !== 0 || !r.out.includes(`--- ${verdict}`)) fail(`${tool}: no "${verdict}"\n${tail(r.out, 12)}`);
+    else console.log(`  ok    ${tool}  ${verdict}`);
+  }
+  const s = spawnSync(process.execPath, [join(HERE, "net_smoke.mjs"), "--json"], { cwd: ROOT, encoding: "utf8", timeout: 600000 });
+  const line = (s.stdout ?? "").trim().split("\n").filter((l) => l.startsWith("{")).pop();
+  const report = line ? JSON.parse(line) : null;
+  if (!report) fail(`net_smoke: no report\n${tail(`${s.stdout ?? ""}\n${s.stderr ?? ""}`, 12)}`);
+  else if (!report.ok) fail(`net_smoke: ${report.failures.join("; ")}`);
+  else console.log(`  ok    net_smoke  two processes, ${report.compared} ticks agree, guest seated in ${report.guest_seated_ms} ms, moved ${report.guest_moved}`);
 }
 
 // ---- 3. Frames ----------------------------------------------------------

@@ -114,7 +114,10 @@ const report = {
   mismatch_runs: mismatchRuns.slice(0, 10).map(([a, b]) => (a === b ? `${a}` : `${a}-${b}`)).join(", "),
   guest_seated_tick: guest?.end?.joined_tick ?? -1, guest_seated_ms: guest?.end?.seated_ms ?? -1,
   guest_moved: host.end?.guest_moved ?? 0, humans: host.end?.humans ?? 0, bots: host.end?.bots ?? 0,
-  phase: host.end?.phase ?? "", round: host.end?.round ?? 0, failures,
+  phase: host.end?.phase ?? "", round: host.end?.round ?? 0,
+  host_last_tick: host.end?.last_tick ?? -1, guest_last_tick: guest?.end?.last_tick ?? -1,
+  winner: host.end?.winner ?? "", round_wins: host.end?.round_wins ?? {}, guest_team: host.end?.guest_team ?? "",
+  failures,
 };
 if (argv.includes("--json")) {
   console.log(JSON.stringify(report));
