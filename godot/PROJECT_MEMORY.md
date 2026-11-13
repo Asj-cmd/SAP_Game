@@ -413,7 +413,8 @@ second check. What the sweep found is in PROGRESS.md (2026-11-12, P0-2c).
 
 `team_size` is 1 in the grey box and the whole roster machinery already handles
 more: `SimWorld.populate_roster` spawns a body per slot, `TeamDef` carries a
-spawn point for each, and the house bakes THREE spawns per team. 3v3 is one
+spawn point for each, and the house bakes FOUR spawns per team (three until
+P0-5c; a missing marker clamps onto the last one). 3v3 is one
 line, not a feature.
 
 Tried it, to see rather than guess. It is dramatically livelier - 47 pick-ups

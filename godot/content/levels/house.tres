@@ -27,14 +27,14 @@ fingerprint = "1327451272"
 script = ExtResource("4_pjeyl")
 id = &"team_a"
 display_name = "Team A"
-spawn_points = Array[Vector3]([Vector3(200, 320, 850), Vector3(200, 320, 1750), Vector3(850, 320, 200)])
+spawn_points = Array[Vector3]([Vector3(200, 320, 850), Vector3(200, 320, 1750), Vector3(850, 320, 200), Vector3(1350, 320, 200)])
 cash_points = Array[Vector3]([Vector3(1660, 680, 1910), Vector3(2060, 680, 1910), Vector3(630, 680, 880), Vector3(1030, 680, 880)])
 
 [sub_resource type="Resource" id="Resource_inniw"]
 script = ExtResource("4_pjeyl")
 id = &"team_b"
 display_name = "Team B"
-spawn_points = Array[Vector3]([Vector3(5200, 320, 2870), Vector3(5200, 320, 1970), Vector3(4550, 320, 3520)])
+spawn_points = Array[Vector3]([Vector3(5200, 320, 2870), Vector3(5200, 320, 1970), Vector3(4550, 320, 3520), Vector3(4050, 320, 3520)])
 cash_points = Array[Vector3]([Vector3(3740, 680, 1810), Vector3(3340, 680, 1810), Vector3(4770, 680, 2840), Vector3(4370, 680, 2840)])
 
 [sub_resource type="Resource" id="Resource_36h1d"]

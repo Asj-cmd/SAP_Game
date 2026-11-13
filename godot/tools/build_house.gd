@@ -165,12 +165,17 @@ const CELL: float = 40.0
 
 ## §9: team spawns sit in the team's OWN yard, spread along the back and side
 ## faces. House-local, so `_place` mirrors them onto B's own yard. Negative x
-## is the back (west) face; the third sits off the north side face so a squad
-## does not spawn in a single line.
+## is the back (west) face; the third and fourth sit off the front (south, low
+## z) face so a squad does not spawn in a single line. One per seat at the
+## largest team size, 4v4 (D8): slot N spawns on marker N, and a missing marker
+## clamps onto the last one, which put two bodies on one point. The fourth is
+## 500 along from the third and 440 short of the front door's jamb, so it does
+## not start a body in the doorway. Slots 0-2 are unchanged, so only 4v4 moves.
 const SPAWN_LOCAL: Array[Vector2] = [
 	Vector2(-150.0, 500.0),
 	Vector2(-150.0, 1400.0),
 	Vector2(500.0, -150.0),
+	Vector2(1000.0, -150.0),
 ]
 
 var _solids: Array[AABB] = []
@@ -505,7 +510,7 @@ func _stamp(turned: bool, team: StringName, side: String) -> void:
 				Vector3(QUAD, STOREY, QUAD)), turned), false)
 
 	# §9: spawns in the team's own yard, along the back and side faces.
-	for i: int in 3:
+	for i: int in SPAWN_LOCAL.size():
 		_marker("spawn_%s_%d" % [team, i], _place_point(Vector3(
 			SPAWN_LOCAL[i].x, GROUND + BODY, SPAWN_LOCAL[i].y), turned))
 

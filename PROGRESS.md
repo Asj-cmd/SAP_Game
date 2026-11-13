@@ -2,6 +2,16 @@
 
 Newest first. One entry per task: date, task id, what changed, what the frames showed, numbers, what is left.
 
+## 2026-11-13 — P0-5c Four spawn points per team
+- Picked up from a cut-off session: its diff (one P0-5c change in `build_house.gd` plus the re-bake) was in the working tree, uncommitted. Checked and finished it rather than stashing.
+- **Change:** `SPAWN_LOCAL` in `tools/build_house.gd` gains a fourth entry, house-local (1000, −150): off the front (south, low-z) face, 500 along from the third marker and 440 short of the front door's jamb (door spans x 1440–1680), so no body starts in the doorway. The stamp loop now runs over `SPAWN_LOCAL.size()` instead of a hard-coded 3. The old comment called the third spawn's face "north"; it is the south face (z low = front), now corrected. Baked world positions: team_a (1350, 320, 200), team_b (4050, 320, 3520), each the turned twin of the other.
+- **Bake is reproducible:** re-running `build_house.gd` gave a byte-identical `house.tres` and the same `house.tscn` content (only Godot's random `unique_id`s change). HOUSE_LAYOUT.md §9 already specified "Team spawns ×4"; the build had been one short. PROJECT_MEMORY's "bakes THREE spawns" line updated.
+- **verify (full): healthy.** 16 suites at pinned counts (content validator checks every spawn is standable); symmetry exact, 200 of 200; bot_match 3v3 DETERMINISTIC, team_b, 90 s stalls; 1v1 DETERMINISTIC, team_b, 7 s (both identical to before, as expected: slots 0–2 did not move); tick budget 0 of 600 over at 1v1, 3v3 and 4v4 (p99 5.8 / 23.9 / 21.9 ms).
+- **4v4 bot match** (`bot_match --team-size=4`): DETERMINISTIC, winner team_b 2–0 (round 1 180 s on time 5–2, round 2 122 s on target 7–0), 46 pick-ups, 30 deposits, 35 seizures, 28 rescues, 120 s stalls, raiding team_b 190% / team_a 245%. 4v4 isn't gated; no earlier 4v4 number at this seed to compare with.
+- Not visual work, so no frame taken. The game still seats 1v1 (P0-5d), so a 4v4 frame needs that task first.
+- Noticed: `autobuild/Incoming/` holds two zips the user dropped in (`Universal Base Characters[Standard].zip`, 129 MB, and `Universal Animation Library[Standard].zip`, 16 MB, which look like Quaternius packs). Left untracked and not committed. They're for P2-1/P2-2; check their licence file before using them.
+- Left: nothing for P0-5c.
+
 ## 2026-11-12 — P0-5b follow-up: seat order measured
 - A second session, running at the same time on the same working tree, had picked up P0-5b from the cut-off session's diff. It ran the house-swapped sweep the entry below calls "cut for time". This entry is that sweep. It also explains that entry's tick-budget noise and the five seeds that read "none": they were this session's jobs.
 - **`autobuild/side_sweep.mjs`** (a tool, not a gate): `bot_match --once` over seeds × sizes, each seed played as-is and with `--swap-houses`, tallying wins by team name and by house. `--sizes=2,3,4 --seeds=8 --first-seed=1 --jobs=3`. It prints the output tail of any run it can't parse. Use `--jobs=2` for 4v4 on this laptop.
