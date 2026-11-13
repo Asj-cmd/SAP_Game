@@ -99,6 +99,12 @@ func _awkward_world() -> SimWorld:
 	actor.carrying_id = loot.id
 	loot.carried_by = actor.id
 	loot.scored_for_team = &"team_b"
+	# Added with crouch, jump and throw and missed by the snapshot until a
+	# two-process run (autobuild/net_smoke.mjs) diverged on a bundle in the air.
+	loot.in_flight = true
+	actor.stance = SimEntity.Stance.CROUCHED
+	actor.crouch_intent = true
+	actor.jump_intent = true
 
 	other.is_captured = true
 	other.capture_ticks_remaining = 91

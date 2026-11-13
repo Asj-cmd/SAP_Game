@@ -180,6 +180,9 @@ func _ready() -> void:
 	# Plays this window through a whole session by injected input (debug).
 	if PlaytestPilot.requested(OS.get_cmdline_user_args()):
 		add_child(PlaytestPilot.new(self))
+	# Hashes this end of a two-process session for autobuild/net_smoke.mjs (debug).
+	if NetSmoke.requested(OS.get_cmdline_user_args()):
+		add_child(NetSmoke.new(self))
 	if _wants_menu():
 		_menu.open()
 		_capture_mouse(false)

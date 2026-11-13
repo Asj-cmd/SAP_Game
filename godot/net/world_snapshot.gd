@@ -28,7 +28,9 @@ extends RefCounted
 ## Bumped when the layout below changes. A peer reading a snapshot it does not
 ## understand must refuse it rather than decode nonsense into an authoritative
 ## world; there is no partial credit here.
-const FORMAT: int = 1
+## 2: stance, crouch/jump intent and in_flight (added with those verbs; a guest
+## that adopted a keyframe with a bundle mid-throw diverged until the round reset).
+const FORMAT: int = 2
 
 ## Captures everything step() can change. Content is NOT included - zones,
 ## teams, tuning and geometry are loaded locally from the same files, and
@@ -130,10 +132,14 @@ static func _put_entity(buffer: StreamPeerBuffer, entity: SimEntity) -> void:
 	_put_vector(buffer, entity.velocity)
 	buffer.put_u8(entity.motion_state)
 	buffer.put_u8(1 if entity.is_grounded else 0)
+	buffer.put_u8(entity.stance)
+	buffer.put_u8(1 if entity.crouch_intent else 0)
+	buffer.put_u8(1 if entity.jump_intent else 0)
 	_put_vector(buffer, entity.move_intent)
 	buffer.put_utf8_string(String(entity.zone_id))
 	buffer.put_32(entity.carrying_id)
 	buffer.put_32(entity.carried_by)
+	buffer.put_u8(1 if entity.in_flight else 0)
 	buffer.put_utf8_string(String(entity.scored_for_team))
 	_put_vector(buffer, entity.origin_position)
 	buffer.put_u8(1 if entity.is_captured else 0)
@@ -155,10 +161,14 @@ static func _take_entity(buffer: StreamPeerBuffer) -> SimEntity:
 	entity.velocity = _take_vector(buffer)
 	entity.motion_state = buffer.get_u8() as SimEntity.MotionState
 	entity.is_grounded = buffer.get_u8() == 1
+	entity.stance = buffer.get_u8() as SimEntity.Stance
+	entity.crouch_intent = buffer.get_u8() == 1
+	entity.jump_intent = buffer.get_u8() == 1
 	entity.move_intent = _take_vector(buffer)
 	entity.zone_id = StringName(buffer.get_utf8_string())
 	entity.carrying_id = buffer.get_32()
 	entity.carried_by = buffer.get_32()
+	entity.in_flight = buffer.get_u8() == 1
 	entity.scored_for_team = StringName(buffer.get_utf8_string())
 	entity.origin_position = _take_vector(buffer)
 	entity.is_captured = buffer.get_u8() == 1
