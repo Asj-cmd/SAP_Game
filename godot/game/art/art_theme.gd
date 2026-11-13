@@ -35,6 +35,15 @@ const DEFAULT_PATH: String = "res://art/theme/default_theme.tres"
 ## A bone's scale carries to everything below it, so "Head" enlarges the head and
 ## "hand_l"/"hand_r" the hands. Empty = proportions as modelled.
 @export var figure_bone_scales: Dictionary[StringName, Vector3] = {}
+## The family (STYLE §2.2, P2-1): every member both families can draw. Empty =
+## every body is the one `figure_model`, as before P2-1.
+@export var family: Array[FamilyMember] = []
+## Which member each roster slot is drawn as (slot 0 first; a slot past the end
+## wraps). The same for both families unless `family_order_by_team` overrides a
+## team (the D3 d kid swap, P2-4).
+@export var family_order: PackedStringArray = PackedStringArray(
+	["dad", "mom", "elder_girl", "younger_boy"])
+@export var family_order_by_team: Dictionary[StringName, PackedStringArray] = {}
 
 @export_group("Imported materials")
 ## Materials replaced BY NAME when a model is dressed (`dress`): the name the
@@ -193,25 +202,95 @@ func figure_scene() -> PackedScene:
 			_figure_scene = load(figure_model) as PackedScene
 	return _figure_scene
 
-## Caps an instanced figure at `figure_height` and applies the bone nudges.
-## Origin stays at the feet. Call before the figure is added to the tree or after;
-## it only reads local transforms.
-func shape_figure(art: Node3D) -> void:
+## The member drawn for roster `slot` of `team`; null when the theme has no
+## family (every body is then `figure_model`).
+func member_for(team: StringName, slot: int) -> FamilyMember:
+	if family.is_empty():
+		return null
+	var order: PackedStringArray = family_order_by_team.get(team, family_order)
+	if order.is_empty():
+		return family[0]
+	return member(StringName(order[posmod(slot, order.size())]))
+
+## A member by id ("dad", "younger_girl" ...), or null.
+func member(id: StringName) -> FamilyMember:
+	for each: FamilyMember in family:
+		if each != null and each.id == id:
+			return each
+	return null
+
+var _member_scenes: Dictionary[String, PackedScene] = {}
+
+## The model `who` is drawn as: its own baked body when it exists, else the
+## theme's `figure_model`; null when neither is built.
+func member_scene(who: FamilyMember) -> PackedScene:
+	if who == null or who.model == "":
+		return figure_scene()
+	if not _member_scenes.has(who.model):
+		var found: PackedScene = null
+		if ResourceLoader.exists(who.model):
+			found = load(who.model) as PackedScene
+		_member_scenes[who.model] = found
+	var scene: PackedScene = _member_scenes[who.model]
+	return scene if scene != null else figure_scene()
+
+## Sizes an instanced figure and applies the bone nudges (the theme's shared
+## ones times `who`'s own). Origin stays at the feet, also when a nudge shortens
+## the legs. With a member the figure is drawn at exactly the member's height,
+## measured AFTER the nudges (a bigger head makes a taller figure, so the body
+## is scaled down to make up for it); without one it is only capped at
+## `figure_height`, as before P2-1. Only reads local transforms, so it works
+## before the figure is in the tree.
+func shape_figure(art: Node3D, who: FamilyMember = null) -> void:
 	art.scale = Vector3.ONE
+	art.position = Vector3.ZERO
 	var natural: float = 0.0
 	for child: Node in art.get_children():
 		natural = maxf(natural, _model_height(child, Transform3D.IDENTITY))
-	# Only ever DOWN: a shorter body (mom, the kids) keeps its own height.
-	if natural > figure_height:
-		art.scale = Vector3.ONE * (figure_height / natural)
-	if figure_bone_scales.is_empty():
-		return
+	var scales: Dictionary[StringName, Vector3] = figure_bone_scales.duplicate()
+	if who != null:
+		for bone_name: StringName in who.bone_scales:
+			scales[bone_name] = scales.get(bone_name, Vector3.ONE) * who.bone_scales[bone_name]
+	var grown: float = 0.0  # crown raised by the nudges, model units
+	var lifted: float = 0.0  # feet raised by the nudges (shorter legs)
 	for skeleton: Node in art.find_children("*", "Skeleton3D", true, false):
 		var bones: Skeleton3D = skeleton as Skeleton3D
-		for bone_name: StringName in figure_bone_scales:
+		for bone_name: StringName in scales:
 			var bone: int = bones.find_bone(bone_name)
 			if bone >= 0:
-				bones.set_bone_pose_scale(bone, figure_bone_scales[bone_name])
+				bones.set_bone_pose_scale(bone, scales[bone_name])
+		var to_art: Transform3D = _chain(art, bones)
+		var head: int = bones.find_bone(&"Head")
+		if head >= 0:
+			var rest_at: Vector3 = to_art * bones.get_bone_global_rest(head).origin
+			var posed: Transform3D = bones.get_bone_global_pose(head)
+			var stretch: float = posed.basis.get_scale().y / bones.get_bone_global_rest(head).basis.get_scale().y
+			grown = maxf(grown, (to_art * posed.origin).y - rest_at.y + (natural - rest_at.y) * (stretch - 1.0))
+		var foot: int = bones.find_bone(&"foot_l")
+		if foot >= 0:
+			lifted = maxf(lifted, (to_art * bones.get_bone_global_pose(foot).origin).y
+				- (to_art * bones.get_bone_global_rest(foot).origin).y)
+	var drawn: float = natural + grown - lifted
+	if drawn <= 0.0:
+		return
+	var factor: float = 1.0
+	if who != null:
+		factor = minf(who.height, figure_height) / drawn
+	elif drawn > figure_height:
+		# Only ever DOWN without a member: a shorter body keeps its own height.
+		factor = figure_height / drawn
+	art.scale = Vector3.ONE * factor
+	art.position = Vector3(0.0, -lifted * factor, 0.0)
+## The transform from `node`'s space into `top`'s (top's own transform excluded).
+static func _chain(top: Node3D, node: Node3D) -> Transform3D:
+	var at: Transform3D = Transform3D.IDENTITY
+	var walk: Node = node
+	while walk != null and walk != top:
+		var spatial: Node3D = walk as Node3D
+		if spatial != null:
+			at = spatial.transform * at
+		walk = walk.get_parent()
+	return at
 
 ## Height of the tallest mesh at or under `node`, in the units of whatever
 ## `above` maps into (the meshes sit under a scaled armature, so their own AABB

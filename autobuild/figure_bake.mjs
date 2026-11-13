@@ -18,7 +18,11 @@
 //  - scales the armature x100 (1 unit = 1 cm, godot/art/README.md).
 //
 // Reads the zips' contents from autobuild/Incoming/x/ (extract them there; the
-// folder is gitignored, D10). Decimation to the STYLE budget is P2-1's job.
+// folder is gitignored, D10). Then (P2-1) welds the mesh, decimates it to the
+// STYLE budget (--max-tris, default 5000) and takes shading normals from a
+// smoothed copy (--normal-smooth passes, default 24). The family members (dad,
+// mom, the kids) are NOT separate bakes: the ArtTheme draws them from these two
+// bodies by height and bone scale (FamilyMember, default_theme.tres).
 
 import crypto from 'node:crypto';
 import fs from 'node:fs';
@@ -227,36 +231,242 @@ for (let pass = 0; pass < BLEND_PASSES; pass++) {
   });
   next.forEach((p, i) => { point[i] = p; });
 }
-// Normals: the egg's own on the head, area-weighted face normals on the seam.
-const fresh = point.map(() => [0, 0, 0]);
-for (let t = 0; t < triangles.length; t += 3) {
-  const [a, b, c] = [canon[triangles[t]], canon[triangles[t + 1]], canon[triangles[t + 2]]];
-  const u = point[b].map((v, k) => v - point[a][k]);
-  const v = point[c].map((x, k) => x - point[a][k]);
-  const n = [u[1] * v[2] - u[2] * v[1], u[2] * v[0] - u[0] * v[2], u[0] * v[1] - u[1] * v[0]];
-  for (const k of [a, b, c]) for (let d = 0; d < 3; d++) fresh[k][d] += n[d];
-}
-positions.forEach((_, i) => {
-  const k = canon[i];
-  positions[i] = [...point[k]];
-  if (headWeight[k] >= 1) normals[i] = eggNormal(point[k]);
-  else if (headWeight[k] > 0) { const n = fresh[k]; const len = Math.hypot(...n) || 1; normals[i] = n.map((v) => v / len); }
-});
 console.log(`  head: egg centre ${centre.map((v) => (v * 100).toFixed(1)).join(', ')}, radii ${radii.map((v) => (v * 100).toFixed(1)).join(', ')} cm`);
-const uvs = readAccessor(doc, bin, prim.attributes.TEXCOORD_0);
-const skinJoints = readAccessor(doc, bin, prim.attributes.JOINTS_0);
-const skinWeights = readAccessor(doc, bin, prim.attributes.WEIGHTS_0);
-const indexRows = triangles.map((v) => [v]);
-function paint([x, y]) {
+
+// --- paint (by region of the bind T-pose) ------------------------------------
+const PAINT_ORDER = ['bare', 'shirt', 'trousers', 'shoes'];
+function paintClass([x, y]) {
   const h = y / top;
   const ax = Math.abs(x) / reach;
-  if (h < 0.06) return PAINT.shoes;
-  if (h < 0.555) return PAINT.trousers;
+  if (h < 0.06) return 3;
+  if (h < 0.555) return 2;
   // Sleeves to the wrist in the T-pose (hand is the outer ~22 % of the reach).
-  if (h < 0.815 && ax < 0.78) return PAINT.shirt;
-  return PAINT.bare;
+  // Collar at the base of the neck (P2-1: at 0.815 the front read as a low
+  // scoop with bare upper chest once the mesh was decimated).
+  // The shoulder tops rise above the collar in the T-pose: clothed too, out to
+  // the sleeve, anywhere wider than the neck and head (egg x radius ~0.09 reach).
+  if ((h < 0.832 || (h < 0.88 && ax > 0.12)) && ax < 0.78) return 1;
+  return 0;
 }
-const colours = positions.map((p) => [...paint(p), 255]);
+
+// --- weld: one vertex per position ------------------------------------------
+// The figure has no texture, so UV seams (where the source splits vertices) buy
+// nothing and stop a simplifier. Every attribute is taken from the first source
+// vertex at a position; seam twins share skin weights.
+const firstOf = new Array(count).fill(-1);
+canon.forEach((k, i) => { if (firstOf[k] < 0) firstOf[k] = i; });
+const srcUvs = readAccessor(doc, bin, prim.attributes.TEXCOORD_0);
+const srcJoints = readAccessor(doc, bin, prim.attributes.JOINTS_0);
+const srcWeights = readAccessor(doc, bin, prim.attributes.WEIGHTS_0);
+let faces = [];
+for (let t = 0; t < triangles.length; t += 3) {
+  const f = [canon[triangles[t]], canon[triangles[t + 1]], canon[triangles[t + 2]]];
+  if (f[0] !== f[1] && f[1] !== f[2] && f[0] !== f[2]) faces.push(f);
+}
+const paints = point.map(paintClass);
+
+// --- decimate to the STYLE budget (P2-1: family member <= 6k triangles) -------
+// Quadric error, half-edge collapse (a vertex moves onto a neighbour, so every
+// kept vertex keeps its own skin weights exactly). Never across a paint border
+// (the clothes keep their edges), never moves an open boundary inward, never
+// flips a face, keeps the mesh manifold (link condition).
+const MAX_TRIS = Number(arg('max-tris', '5000'));
+const sourceTris = faces.length;
+if (faces.length > MAX_TRIS) faces = decimate(point, faces, paints, MAX_TRIS);
+
+function decimate(P, F, cls, target) {
+  const n = P.length;
+  const alive = new Uint8Array(F.length).fill(1);
+  const vf = Array.from({ length: n }, () => new Set());
+  F.forEach((f, i) => f.forEach((v) => vf[v].add(i)));
+  const Q = Array.from({ length: n }, () => new Float64Array(10));
+  const addPlane = (q, nx, ny, nz, d, w) => {
+    q[0] += w * nx * nx; q[1] += w * nx * ny; q[2] += w * nx * nz; q[3] += w * nx * d;
+    q[4] += w * ny * ny; q[5] += w * ny * nz; q[6] += w * ny * d;
+    q[7] += w * nz * nz; q[8] += w * nz * d; q[9] += w * d * d;
+  };
+  const evalQ = (a, b, [x, y, z]) => {
+    let s = 0;
+    const q = (i) => a[i] + b[i];
+    s += q(0) * x * x + 2 * q(1) * x * y + 2 * q(2) * x * z + 2 * q(3) * x;
+    s += q(4) * y * y + 2 * q(5) * y * z + 2 * q(6) * y;
+    s += q(7) * z * z + 2 * q(8) * z + q(9);
+    return s;
+  };
+  const sub = (a, b) => [a[0] - b[0], a[1] - b[1], a[2] - b[2]];
+  const cross = (a, b) => [a[1] * b[2] - a[2] * b[1], a[2] * b[0] - a[0] * b[2], a[0] * b[1] - a[1] * b[0]];
+  const dot = (a, b) => a[0] * b[0] + a[1] * b[1] + a[2] * b[2];
+  const faceNormal = (f) => cross(sub(P[f[1]], P[f[0]]), sub(P[f[2]], P[f[0]]));
+  const edgeFaces = new Map();
+  const ekey = (a, b) => (a < b ? a * n + b : b * n + a);
+  F.forEach((f, i) => {
+    const raw = faceNormal(f);
+    const len = Math.hypot(...raw) || 1e-12;
+    const nn = raw.map((v) => v / len);
+    const d = -dot(nn, P[f[0]]);
+    for (const v of f) addPlane(Q[v], nn[0], nn[1], nn[2], d, len / 2);
+    for (let k = 0; k < 3; k++) {
+      const key = ekey(f[k], f[(k + 1) % 3]);
+      edgeFaces.set(key, (edgeFaces.get(key) || 0) + 1);
+    }
+  });
+  // Open boundaries: a stiff plane through the edge, perpendicular to its face.
+  const onBoundary = new Uint8Array(n);
+  F.forEach((f) => {
+    for (let k = 0; k < 3; k++) {
+      const a = f[k];
+      const b = f[(k + 1) % 3];
+      if (edgeFaces.get(ekey(a, b)) !== 1) continue;
+      onBoundary[a] = onBoundary[b] = 1;
+      const e = sub(P[b], P[a]);
+      const side = cross(e, faceNormal(f));
+      const len = Math.hypot(...side) || 1e-12;
+      const nn = side.map((v) => v / len);
+      addPlane(Q[a], ...nn, -dot(nn, P[a]), 100 * dot(e, e));
+      addPlane(Q[b], ...nn, -dot(nn, P[a]), 100 * dot(e, e));
+    }
+  });
+  const neighbours = (v) => {
+    const out = new Set();
+    for (const fi of vf[v]) for (const w of F[fi]) if (w !== v) out.add(w);
+    return out;
+  };
+  const version = new Int32Array(n);
+  const dead = new Uint8Array(n);
+  // Binary min-heap of [cost, from, to, version(from), version(to)].
+  const heap = [];
+  const push = (item) => {
+    heap.push(item);
+    let i = heap.length - 1;
+    while (i > 0) {
+      const p = (i - 1) >> 1;
+      if (heap[p][0] <= heap[i][0]) break;
+      [heap[p], heap[i]] = [heap[i], heap[p]];
+      i = p;
+    }
+  };
+  const pop = () => {
+    const top = heap[0];
+    const last = heap.pop();
+    if (heap.length > 0) {
+      heap[0] = last;
+      let i = 0;
+      for (;;) {
+        const l = 2 * i + 1;
+        const r = l + 1;
+        let m = i;
+        if (l < heap.length && heap[l][0] < heap[m][0]) m = l;
+        if (r < heap.length && heap[r][0] < heap[m][0]) m = r;
+        if (m === i) break;
+        [heap[m], heap[i]] = [heap[i], heap[m]];
+        i = m;
+      }
+    }
+    return top;
+  };
+  const offer = (u, v) => {
+    if (cls[u] !== cls[v]) return;
+    push([evalQ(Q[u], Q[v], P[v]), u, v, version[u], version[v]]);
+  };
+  for (let v = 0; v < n; v++) for (const w of neighbours(v)) offer(v, w);
+  let live = F.length;
+  while (live > target && heap.length > 0) {
+    const [, u, v, vu, vv] = pop();
+    if (dead[u] || dead[v] || version[u] !== vu || version[v] !== vv) continue;
+    const nu = neighbours(u);
+    if (!nu.has(v)) continue;
+    // A boundary vertex may only slide along its boundary.
+    if (onBoundary[u] && !(onBoundary[v] && edgeFaces.get(ekey(u, v)) === 1)) continue;
+    // Link condition: the shared neighbours are exactly the shared faces' third corners.
+    const nv = neighbours(v);
+    let common = 0;
+    for (const w of nu) if (nv.has(w)) common++;
+    let shared = 0;
+    for (const fi of vf[u]) if (F[fi].includes(v)) shared++;
+    if (common !== shared) continue;
+    // No face may flip or collapse to a sliver.
+    let ok = true;
+    for (const fi of vf[u]) {
+      const f = F[fi];
+      if (f.includes(v)) continue;
+      const before = faceNormal(f);
+      const after = faceNormal(f.map((w) => (w === u ? v : w)));
+      const lb = Math.hypot(...before);
+      const la = Math.hypot(...after);
+      if (la < 1e-12 || dot(before, after) < 0.3 * lb * la) { ok = false; break; }
+    }
+    if (!ok) continue;
+    for (const fi of [...vf[u]]) {
+      const f = F[fi];
+      if (f.includes(v)) {
+        alive[fi] = 0;
+        live--;
+        for (const w of f) vf[w].delete(fi);
+      } else {
+        F[fi] = f.map((w) => (w === u ? v : w));
+        vf[v].add(fi);
+      }
+    }
+    vf[u].clear();
+    dead[u] = 1;
+    for (let k = 0; k < 10; k++) Q[v][k] += Q[u][k];
+    if (onBoundary[u]) onBoundary[v] = 1;
+    version[v]++;
+    for (const w of neighbours(v)) {
+      version[w]++;
+      for (const x of neighbours(w)) offer(w, x), offer(x, w);
+    }
+  }
+  return F.filter((_, i) => alive[i]);
+}
+
+// --- compact, normals ---------------------------------------------------------
+const used = new Map();
+const order = [];
+for (const f of faces) for (const v of f) if (!used.has(v)) { used.set(v, order.length); order.push(v); }
+// Shading normals come from a SMOOTHED copy of the body (plain Laplacian, the
+// positions themselves stay put): the silhouette is the source's, but the
+// superhero pecs, abs and biceps stop catching the light (STYLE §2.1, P2-1).
+const NORMAL_SMOOTH = Number(arg('normal-smooth', '24'));
+let shade = order.map((k) => [...point[k]]);
+const near = order.map(() => new Set());
+for (const f of faces) {
+  const [a, b, c] = f.map((v) => used.get(v));
+  near[a].add(b).add(c); near[b].add(a).add(c); near[c].add(a).add(b);
+}
+for (let pass = 0; pass < NORMAL_SMOOTH; pass++) {
+  shade = shade.map((p, i) => {
+    const mean = [0, 0, 0];
+    for (const j of near[i]) for (let c = 0; c < 3; c++) mean[c] += shade[j][c] / near[i].size;
+    return p.map((v, c) => v + 0.5 * (mean[c] - v));
+  });
+}
+const fresh = order.map(() => [0, 0, 0]);
+for (const f of faces) {
+  const [a, b, c] = f.map((v) => used.get(v));
+  const u = shade[b].map((x, k) => x - shade[a][k]);
+  const w = shade[c].map((x, k) => x - shade[a][k]);
+  const nn = [u[1] * w[2] - u[2] * w[1], u[2] * w[0] - u[0] * w[2], u[0] * w[1] - u[1] * w[0]];
+  for (const k of [a, b, c]) for (let d = 0; d < 3; d++) fresh[k][d] += nn[d];
+}
+// Normals: the egg's own on the head, area-weighted face normals elsewhere.
+const outPositions = order.map((k) => [...point[k]]);
+const outNormals = order.map((k, i) => {
+  if (headWeight[k] >= 1) return eggNormal(point[k]);
+  const nn = fresh[i];
+  const len = Math.hypot(...nn) || 1;
+  return nn.map((v) => v / len);
+});
+const uvs = order.map((k) => srcUvs[firstOf[k]]);
+const skinJoints = order.map((k) => srcJoints[firstOf[k]]);
+const skinWeights = order.map((k) => srcWeights[firstOf[k]]);
+const indexRows = faces.flatMap((f) => f.map((v) => [used.get(v)]));
+const colours = order.map((k) => [...PAINT[PAINT_ORDER[paints[k]]], 255]);
+positions.length = 0;
+positions.push(...outPositions);
+normals.length = 0;
+normals.push(...outNormals);
+console.log(`  welded ${count} vertices; ${sourceTris} -> ${faces.length} triangles (max ${MAX_TRIS})`);
 
 const attributes = {
   POSITION: addAccessor(positions, 5126, 'VEC3'),

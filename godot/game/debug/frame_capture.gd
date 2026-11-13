@@ -114,7 +114,7 @@ func path_for(index: int) -> String:
 ##                             the chase camera behind it
 ##   --capture-facing=x,y,z    the preceding --capture-chase faces this point
 ##   --capture-pitch=degrees   and pitches the rig this much (negative = down)
-##   --capture-figure=x,y,z,yaw[,res://model]
+##   --capture-figure=x,y,z,yaw[,res://model | ,member]   (member: a theme family id, e.g. younger_boy)
 ##                             stand a drawn-only figure (feet, yaw in degrees,
 ##                             0 faces +z like every body) in every shot; repeatable
 ##   --capture-prop=res://model,x,y,z,yaw

@@ -115,7 +115,7 @@ Aug 16–Oct 10 are in; an earlier version of this plan was written against the 
 
 ## Phase 2 — Characters and animation
 
-- [ ] **P2-1 The family of four** from the Quaternius Universal Base Characters per DECISIONS.md D10:
+- [x] **P2-1 The family of four** *(Done: both bodies decimated to 5,000 triangles in `figure_bake.mjs`; six `FamilyMember`s (dad, mom, elder girl/boy, younger girl/boy) in the theme, drawn per roster slot; `autobuild/family_lineup.mjs` shoots them. See PROGRESS.md.)* from the Quaternius Universal Base Characters per DECISIONS.md D10:
   dad, mom, elder child, younger child (Regular male/female = dad/mom, Teen male/female = the kids).
   They differ in size and shape only, and all have blank faces per D2: remove eyes, hair and facial
   detail, smooth plastic-like material, slightly off proportions; decimate to the `STYLE.md` budget.

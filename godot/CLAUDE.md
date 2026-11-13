@@ -97,6 +97,8 @@ To compare looks, swap the whole ArtTheme and stand drawn-only figures in the sh
 godot --path godot -- --art-theme=res://art/theme/slice_b.tres --capture-figure=780,660,720,40
 node autobuild/style_slice.mjs [--variants=a,b,c,pick] [--import]   # P1-5 slice
 node autobuild/figure_bake.mjs --body=male|female    # re-bake a figure from the zips
+node autobuild/family_lineup.mjs [--import]          # the six family members, front/side/back, 20 m, 40 m
+godot --path godot -- --capture-figure=2700,300,1000,180,younger_girl   # one member by id
 ```
 
 The debug HUD is hidden by default (`[F1]` toggles it, `--debug-hud` starts

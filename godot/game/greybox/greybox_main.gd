@@ -321,10 +321,18 @@ func _arm_capture() -> void:
 		await get_tree().process_frame
 	for i: int in request.figures.size():
 		var spot: Vector4 = request.figures[i]
+		# The fifth field is a model path, or a family member's id (P2-1).
 		var model: PackedScene = null
-		if request.figure_models[i] != "" and ResourceLoader.exists(request.figure_models[i]):
-			model = load(request.figure_models[i]) as PackedScene
-		var posed: Node3D = _figure_instance(&"team_a", model)
+		var named: String = request.figure_models[i]
+		var who: FamilyMember = null
+		if named.begins_with("res://"):
+			if ResourceLoader.exists(named):
+				model = load(named) as PackedScene
+		elif named != "":
+			who = ArtTheme.current().member(StringName(named))
+			if who == null:
+				push_error("frame capture: no family member %s" % named)
+		var posed: Node3D = _figure_instance(&"team_a", model, 0, who)
 		if posed == null:
 			push_error("frame capture: no figure model to stand at %s" % spot)
 			break
@@ -1101,15 +1109,26 @@ static var _actor_looked: Dictionary[StringName, bool] = {}
 ## figure material (a copy per body, for the fade) and sized/nudged by the
 ## theme; null when no model exists (the capsule shows instead). Wrapped in a
 ## holder so the crouch squash (_drawn_height) does not undo the theme's scale.
-func _figure_instance(team: StringName, model: PackedScene = null) -> Node3D:
-	var figure: PackedScene = model if model != null else _actor_model(team)
+## `slot` picks the family member (ArtTheme.member_for, P2-1); `who` names one
+## outright (the capture tool's stand-ins).
+func _figure_instance(team: StringName, model: PackedScene = null, slot: int = 0,
+		who: FamilyMember = null) -> Node3D:
+	var theme: ArtTheme = ArtTheme.current()
+	# A model given outright is drawn as itself unless a member is named too.
+	var member: FamilyMember = who
+	if member == null and model == null:
+		member = theme.member_for(team, slot)
+	var figure: PackedScene = model
+	if figure == null and member != null:
+		figure = theme.member_scene(member)
+	if figure == null:
+		figure = _actor_model(team)
 	if figure == null:
 		return null
-	var theme: ArtTheme = ArtTheme.current()
 	var art: Node3D = figure.instantiate() as Node3D
 	ArtTheme.dress_whole(art, theme.figure_material(team))
-	if model != null or theme.figure_scene() != null:
-		theme.shape_figure(art)
+	if model != null or member != null or theme.figure_scene() != null:
+		theme.shape_figure(art, member)
 	var holder: Node3D = Node3D.new()
 	holder.add_child(art)
 	return holder
@@ -1180,7 +1199,7 @@ func _rebuild_views() -> void:
 			view.mesh = body
 			# Whatever the model came with, it is drawn in the theme's one
 			# figure material (STYLE.md §2.3), a copy per body for the fade.
-			var art: Node3D = _figure_instance(entity.team)
+			var art: Node3D = _figure_instance(entity.team, null, entity.slot)
 			if art != null:
 				# The model's origin is its FEET and the capsule's is its
 				# middle, so the figure drops half a body to stand in it.

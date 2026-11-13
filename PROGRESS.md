@@ -2,6 +2,44 @@
 
 Newest first. One entry per task: date, task id, what changed, what the frames showed, numbers, what is left.
 
+## 2026-11-13 — P2-1 The family of four
+- **Decimation** (`autobuild/figure_bake.mjs`): the bodies are welded by position first. UV seams buy nothing without a texture, and they are what stopped the P1-6 simplifier at half. Then a quadric half-edge collapse runs to `--max-tris` (default 5000). Every kept vertex keeps its own skin weights. It never collapses across a paint border, never moves an open boundary inward, never flips a face, and keeps the mesh manifold.
+  - Male 12,566 → 5,000 triangles (2,502 vertices); female 12,812 → 5,000. Under a second each. 199 KB per .bin (was ~565 KB).
+  - STYLE budget is ≤ 6k per member.
+- **Muscle relief** (P1-5 left it): shading normals now come from a 24-pass Laplacian-smoothed copy of the body. The positions are untouched (`--normal-smooth`). In `cam_garden_open` the abs, pecs and back muscles stopped catching the light. The outline is still the broad superhero one (lats, deltoids).
+- **Collar:** at 0.815 of the height, the decimated shirt read as a low scoop with a bare upper chest. Raised to 0.832, and the shoulder tops (wider than the head) are now clothed up to 0.88. After those two attempts a small pale patch remains at the sternum/neck in sunlit frames. Left as is.
+- **The family is data** (`FamilyMember` resource, `game/art/family_member.gd`; six in `default_theme.tres`). Each has a model, a drawn height and its own bone scales, multiplied onto the theme's shared nudge.
+  - Dad: male body, 180, legs ×0.97.
+  - Mom: female body, 176.
+  - Elder girl / elder boy: female / male body, 160. Pelvis x ×0.87, z ×0.9 narrows the whole build; the head is given its width back and enlarged a further ×1.08.
+  - Younger girl / younger boy: 145. Build ×0.86 / ×0.9, head a further ×1.25, upper arms and thighs ×0.94.
+  - `family_order` maps roster slot to member: dad, mom, elder girl, younger boy, the same in both families. `family_order_by_team` is the hook for P2-4's kid swap.
+  - The game draws each body as `member_for(entity.team, entity.slot)`. `--capture-figure=x,y,z,yaw,<member id>` stands one member.
+- **Height after the nudges:** `shape_figure` now measures the crown raise from the posed Head bone and the feet lift from the posed foot bone. It scales the model to exactly the member's height and moves it down by the lift.
+  - Measured: the shared nudge alone adds ~8 cm of crown (dad would have stood 188 against the 180 cap). Younger kids: +16 cm crown, 4.7 cm feet lift.
+  - Without a member the old cap-only path is unchanged, so the P1-5 slice reproduces.
+- **Frames** (`node autobuild/family_lineup.mjs` → `autobuild/frames/p2_1/lineup_*.png`; six members in a row between the houses):
+  - `lineup_front` (~4.5 m): four clear height steps, blank egg heads, blue-grey shirts, grey-brown trousers, dark shoes.
+    - Dad and mom read as adults (broad dad, narrower mom with a waist).
+    - The elder pair are visibly narrower; shoulder width / height ≈ 0.33 against dad's 0.43.
+    - The younger pair have clearly big heads on narrow bodies and read as children.
+    - The elder boy still reads a little like a short slim man.
+  - `lineup_side`: every figure leans its head forward on a long neck. That is the idle frame's posture plus the neck nudge, and it reads as "slightly off" rather than broken. Feet are flat on the lawn for all six, including the shortened legs.
+  - `lineup_back`: smooth backs, no holes or torn seams from the decimation.
+  - `lineup_front_20m`: the four sizes step down plainly by outline.
+  - `lineup_front_40m`: figures ~20 px tall; the steps are only just visible.
+  - In game: `cam_garden_open` shows two dads (slot 0 of each team), shaded flatter than before. `cam_jail` shows the own body standing in the room. In `cam_study_vault_a` the faded own body draws as one clean see-through mesh. The P0-6 box placeholder's inner faces are gone; only finger interiors faintly show.
+  - Render: lineup close-up 549 draws / 84k triangles with six figures and their shadow pass. `cam_garden_open` 62k triangles (was 82k at P1-5).
+- verify (full): healthy.
+  - 16 suites at their pinned counts; symmetry 200/200.
+  - Bot match 3v3: deterministic, winner team_b, 90 s stalls. 1v1: team_b, 7 s. Identical to P1-6, since nothing in the sim changed.
+  - Tick budget: 0 of 600 over at 1v1/3v3/4v4 (p99 6.6 / 22.7 / 24.4 ms).
+  - Network ok, 1685 ticks agree.
+- **Left:**
+  - The bodies are still superhero-built in outline. A real Regular/Teen body (BLOCKED.md) would fix it; the theme would take it by changing `model` only.
+  - Kids' proportions are bone scales on adult bodies. P2-2/P2-3 must check that the walk cycle on a ×0.87 pelvis and short thighs does not shear visibly.
+  - The idle frame baked into the rest pose stays until P2-3 drives the skeleton. Bots still slide without walking.
+
 ## 2026-11-13 — P1-6 Asset import pipeline
 - **Picked up from a cut-off session.** Three untracked files were waiting: `autobuild/fetch_polyhaven.mjs`, `autobuild/import_asset.mjs` and `godot/tools/import_asset.gd`, with `wooden_table_02` already downloaded. It was one task, so this session finished it.
 - **The path** (documented in `godot/art/README.md`, "Importing a downloaded model"):

@@ -1,6 +1,7 @@
-[gd_resource type="Resource" script_class="ArtTheme" load_steps=20 format=3]
+[gd_resource type="Resource" script_class="ArtTheme" load_steps=27 format=3]
 
 [ext_resource type="Script" path="res://game/art/art_theme.gd" id="1_theme"]
+[ext_resource type="Script" path="res://game/art/family_member.gd" id="2_member"]
 
 [sub_resource type="StandardMaterial3D" id="figure"]
 resource_name = "figure"
@@ -100,6 +101,71 @@ resource_name = "prop"
 albedo_color = Color(0.6, 0.57, 0.52, 1)
 roughness = 0.8
 
+[sub_resource type="Resource" id="member_dad"]
+script = ExtResource("2_member")
+id = &"dad"
+model = "res://art/characters/figure_male.gltf"
+height = 180.0
+bone_scales = Dictionary[StringName, Vector3]({
+&"thigh_l": Vector3(1, 0.97, 1),
+&"thigh_r": Vector3(1, 0.97, 1)
+})
+
+[sub_resource type="Resource" id="member_mom"]
+script = ExtResource("2_member")
+id = &"mom"
+model = "res://art/characters/figure_female.gltf"
+height = 176.0
+bone_scales = Dictionary[StringName, Vector3]({})
+
+[sub_resource type="Resource" id="member_elder_girl"]
+script = ExtResource("2_member")
+id = &"elder_girl"
+model = "res://art/characters/figure_female.gltf"
+height = 160.0
+bone_scales = Dictionary[StringName, Vector3]({
+&"pelvis": Vector3(0.87, 1, 0.9),
+&"Head": Vector3(1.241, 1.08, 1.2)
+})
+
+[sub_resource type="Resource" id="member_elder_boy"]
+script = ExtResource("2_member")
+id = &"elder_boy"
+model = "res://art/characters/figure_male.gltf"
+height = 160.0
+bone_scales = Dictionary[StringName, Vector3]({
+&"pelvis": Vector3(0.87, 1, 0.9),
+&"Head": Vector3(1.241, 1.08, 1.2)
+})
+
+[sub_resource type="Resource" id="member_younger_girl"]
+script = ExtResource("2_member")
+id = &"younger_girl"
+model = "res://art/characters/figure_female.gltf"
+height = 145.0
+bone_scales = Dictionary[StringName, Vector3]({
+&"pelvis": Vector3(0.86, 1, 0.9),
+&"Head": Vector3(1.453, 1.25, 1.389),
+&"upperarm_l": Vector3(1, 0.94, 1),
+&"upperarm_r": Vector3(1, 0.94, 1),
+&"thigh_l": Vector3(1, 0.94, 1),
+&"thigh_r": Vector3(1, 0.94, 1)
+})
+
+[sub_resource type="Resource" id="member_younger_boy"]
+script = ExtResource("2_member")
+id = &"younger_boy"
+model = "res://art/characters/figure_male.gltf"
+height = 145.0
+bone_scales = Dictionary[StringName, Vector3]({
+&"pelvis": Vector3(0.86, 1, 0.9),
+&"Head": Vector3(1.453, 1.25, 1.389),
+&"upperarm_l": Vector3(1, 0.94, 1),
+&"upperarm_r": Vector3(1, 0.94, 1),
+&"thigh_l": Vector3(1, 0.94, 1),
+&"thigh_r": Vector3(1, 0.94, 1)
+})
+
 [resource]
 script = ExtResource("1_theme")
 figure = SubResource("figure")
@@ -177,3 +243,5 @@ figure_bone_scales = Dictionary[StringName, Vector3]({
 &"hand_l": Vector3(1.06, 1.06, 1.06),
 &"hand_r": Vector3(1.06, 1.06, 1.06)
 })
+family = Array[ExtResource("2_member")]([SubResource("member_dad"), SubResource("member_mom"), SubResource("member_elder_girl"), SubResource("member_elder_boy"), SubResource("member_younger_girl"), SubResource("member_younger_boy")])
+family_order = PackedStringArray("dad", "mom", "elder_girl", "younger_boy")

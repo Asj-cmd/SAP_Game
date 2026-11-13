@@ -53,6 +53,16 @@ headroom and jump rule conservative for everybody.
 | Elder child | 160 | 1 : 6 | Head a touch big for the body | Same two bodies, scaled, head enlarged |
 | Younger child | 145 | 1 : 5 | Head clearly big; arms a touch short | Same two bodies, scaled, head enlarged |
 
+**As built (P2-1, REVIEW).** Six `FamilyMember`s in `default_theme.tres` (`family`), on top of
+the shared nudge in 2.3, each drawn at exactly its height measured after the nudges:
+dad = male body, 180, legs ×0.97; mom = female body, 176, nothing extra; elder girl / boy =
+female / male body, 160, build narrowed (pelvis x ×0.87, z ×0.9, which carries to everything
+above and below it) with the head given back its width and enlarged a further ×1.08; younger
+girl / boy = 145, build ×0.86 / ×0.9, head a further ×1.25, upper arms and thighs ×0.94. Slots
+are drawn as `family_order` = dad, mom, elder girl, younger boy (both families; P2-4's kid swap
+overrides one team through `family_order_by_team`). Each body is 5,000 triangles.
+Frames: `autobuild/frames/p2_1/lineup_*.png` (`node autobuild/family_lineup.mjs`).
+
 - "A touch" means **5 to 10 per cent** off normal, chosen so a still frame of one figure looks
   ordinary for a moment and wrong on a second look. If a nudge is noticeable on first glance in
   a chase-camera frame, halve it.
