@@ -24,6 +24,17 @@ const DEFAULT_PATH: String = "res://art/theme/default_theme.tres"
 ## toward its family colour. 0 is the target (identical families, D3); above 0
 ## only so a playtest before P2-4 can tell the sides apart.
 @export_range(0.0, 1.0) var figure_family_tint: float = 0.0
+## The figure every body is drawn as (STYLE §2; `autobuild/figure_bake.mjs`
+## makes them from the Quaternius bodies). Empty, or a path that does not exist,
+## falls back to the old per-team `character_<team>.glb` and then the capsule.
+@export var figure_model: String = ""
+## Tallest a figure is drawn: a taller model is scaled down to it, a shorter one
+## keeps its height (STYLE §2.2: never above the 180 sim body).
+@export var figure_height: float = 180.0
+## "Slightly off" (STYLE §2.2): a scale per bone, set as the bone's pose scale.
+## A bone's scale carries to everything below it, so "Head" enlarges the head and
+## "hand_l"/"hand_r" the hands. Empty = proportions as modelled.
+@export var figure_bone_scales: Dictionary[StringName, Vector3] = {}
 
 @export_group("Imported materials")
 ## Materials replaced BY NAME when a model is dressed (`dress`): the name the
@@ -110,10 +121,20 @@ static var _loaded: ArtTheme = null
 
 ## The game's theme: `default_theme.tres` when it exists, else built-in
 ## defaults, so a checkout without the file still draws (art stays optional).
+## `--art-theme=res://...tres` on the command line swaps in another one (the
+## P1-5 style slice variants), with no code change.
 static func current() -> ArtTheme:
 	if _loaded == null:
-		if ResourceLoader.exists(DEFAULT_PATH):
-			_loaded = load(DEFAULT_PATH) as ArtTheme
+		var wanted: String = DEFAULT_PATH
+		for arg: String in OS.get_cmdline_user_args():
+			if arg.begins_with("--art-theme="):
+				wanted = arg.trim_prefix("--art-theme=")
+		if ResourceLoader.exists(wanted):
+			_loaded = load(wanted) as ArtTheme
+		if _loaded == null and wanted != DEFAULT_PATH:
+			push_error("art theme: cannot load %s, using the default" % wanted)
+			if ResourceLoader.exists(DEFAULT_PATH):
+				_loaded = load(DEFAULT_PATH) as ArtTheme
 		if _loaded == null:
 			_loaded = ArtTheme.new()
 		_loaded._fill_missing()
@@ -153,6 +174,53 @@ func figure_material(team: StringName) -> StandardMaterial3D:
 	if figure_family_tint > 0.0 and family_colours.has(team):
 		copy.albedo_color = figure.albedo_color.lerp(family_colours[team], figure_family_tint)
 	return copy
+
+var _figure_scene: PackedScene = null
+var _figure_looked: bool = false
+
+## The theme's figure model, or null when it has none (or it is not built).
+func figure_scene() -> PackedScene:
+	if not _figure_looked:
+		_figure_looked = true
+		if figure_model != "" and ResourceLoader.exists(figure_model):
+			_figure_scene = load(figure_model) as PackedScene
+	return _figure_scene
+
+## Caps an instanced figure at `figure_height` and applies the bone nudges.
+## Origin stays at the feet. Call before the figure is added to the tree or after;
+## it only reads local transforms.
+func shape_figure(art: Node3D) -> void:
+	art.scale = Vector3.ONE
+	var natural: float = 0.0
+	for child: Node in art.get_children():
+		natural = maxf(natural, _model_height(child, Transform3D.IDENTITY))
+	# Only ever DOWN: a shorter body (mom, the kids) keeps its own height.
+	if natural > figure_height:
+		art.scale = Vector3.ONE * (figure_height / natural)
+	if figure_bone_scales.is_empty():
+		return
+	for skeleton: Node in art.find_children("*", "Skeleton3D", true, false):
+		var bones: Skeleton3D = skeleton as Skeleton3D
+		for bone_name: StringName in figure_bone_scales:
+			var bone: int = bones.find_bone(bone_name)
+			if bone >= 0:
+				bones.set_bone_pose_scale(bone, figure_bone_scales[bone_name])
+
+## Height of the tallest mesh at or under `node`, in the units of whatever
+## `above` maps into (the meshes sit under a scaled armature, so their own AABB
+## is in the source's metres).
+static func _model_height(node: Node, above: Transform3D) -> float:
+	var here: Transform3D = above
+	var spatial: Node3D = node as Node3D
+	if spatial != null:
+		here = above * spatial.transform
+	var tallest: float = 0.0
+	var mesh_view: MeshInstance3D = node as MeshInstance3D
+	if mesh_view != null and mesh_view.mesh != null:
+		tallest = (here * mesh_view.get_aabb()).size.y
+	for child: Node in node.get_children():
+		tallest = maxf(tallest, _model_height(child, here))
+	return tallest
 
 ## Replaces every material under `root` from the theme. Surfaces whose source
 ## material is named in `by_source_name` get that; the rest get `fallback`.

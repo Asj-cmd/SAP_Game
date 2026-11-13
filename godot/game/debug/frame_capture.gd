@@ -77,6 +77,12 @@ var chase_pitch: PackedFloat32Array = PackedFloat32Array()
 ## Rig pitch a chase shot gets unless told otherwise: the rig's own starting one.
 const DEFAULT_CHASE_PITCH_DEG: float = -12.0
 
+## Drawn-only figures stood in the world for every shot (style slice, turnaround
+## sheets): feet position and yaw in degrees, plus an optional model path ("" =
+## the theme's figure). Presentation only; the simulation never sees them.
+var figures: Array[Vector4] = []
+var figure_models: PackedStringArray = PackedStringArray()
+
 ## How many shots this request will write.
 func shot_count() -> int:
 	return eyes.size() + chase_feet.size()
@@ -104,6 +110,9 @@ func path_for(index: int) -> String:
 ##                             the chase camera behind it
 ##   --capture-facing=x,y,z    the preceding --capture-chase faces this point
 ##   --capture-pitch=degrees   and pitches the rig this much (negative = down)
+##   --capture-figure=x,y,z,yaw[,res://model]
+##                             stand a drawn-only figure (feet, yaw in degrees,
+##                             0 faces +z like every body) in every shot; repeatable
 ##
 ## Chase shots are numbered after any --capture-at shots.
 ## `--capture-at` may be repeated; each one is a separate shot, numbered
@@ -176,6 +185,14 @@ static func from_command_line(args: PackedStringArray) -> FrameCapture:
 				continue
 			request.chase_pitch[request.chase_pitch.size() - 1] = deg_to_rad(
 				float(arg.trim_prefix("--capture-pitch=")))
+		elif arg.begins_with("--capture-figure="):
+			var parts: PackedStringArray = arg.trim_prefix("--capture-figure=").split(",")
+			if parts.size() < 4:
+				push_error("frame capture: --capture-figure wants x,y,z,yaw[,model]")
+				continue
+			request.figures.append(Vector4(float(parts[0]), float(parts[1]),
+				float(parts[2]), float(parts[3])))
+			request.figure_models.append(parts[4] if parts.size() > 4 else "")
 	return request
 
 ## The rig yaw that points the chase camera from `feet` toward `facing`.

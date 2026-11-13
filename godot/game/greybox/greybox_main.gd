@@ -319,6 +319,20 @@ func _arm_capture() -> void:
 		_show_paths = true
 		_draw_paths()
 		await get_tree().process_frame
+	for i: int in request.figures.size():
+		var spot: Vector4 = request.figures[i]
+		var model: PackedScene = null
+		if request.figure_models[i] != "" and ResourceLoader.exists(request.figure_models[i]):
+			model = load(request.figure_models[i]) as PackedScene
+		var posed: Node3D = _figure_instance(&"team_a", model)
+		if posed == null:
+			push_error("frame capture: no figure model to stand at %s" % spot)
+			break
+		posed.position = Vector3(spot.x, spot.y, spot.z)
+		posed.rotation = Vector3(0.0, deg_to_rad(spot.w), 0.0)
+		add_child(posed)
+	if not request.figures.is_empty():
+		await get_tree().process_frame
 	if request.crouch:
 		# Through Input, like the grab below: the same key LocalPlayerInput
 		# polls, so the frame shows a real crouch rather than a posed mesh.
@@ -426,13 +440,11 @@ func _capture_chase(request: FrameCapture) -> void:
 ## capsule the game falls back to. Origin at the feet either way.
 func _stand_in() -> Node3D:
 	var root: Node3D = Node3D.new()
-	var figure: PackedScene = _actor_model(&"team_a")
-	var look: StandardMaterial3D = ArtTheme.current().figure_material(&"team_a")
-	if figure != null:
-		var art: Node = figure.instantiate()
-		ArtTheme.dress_whole(art, look)
+	var art: Node3D = _figure_instance(&"team_a")
+	if art != null:
 		root.add_child(art)
 		return root
+	var look: StandardMaterial3D = ArtTheme.current().figure_material(&"team_a")
 	var body: MeshInstance3D = MeshInstance3D.new()
 	var capsule: CapsuleMesh = CapsuleMesh.new()
 	capsule.radius = level.tuning.actor_radius
@@ -1076,9 +1088,29 @@ static var _cash_looked: bool = false
 static var _actor_scenes: Dictionary[StringName, PackedScene] = {}
 static var _actor_looked: Dictionary[StringName, bool] = {}
 
+## A drawn figure for one body of `team`, origin at its feet, in the theme's
+## figure material (a copy per body, for the fade) and sized/nudged by the
+## theme; null when no model exists (the capsule shows instead). Wrapped in a
+## holder so the crouch squash (_drawn_height) does not undo the theme's scale.
+func _figure_instance(team: StringName, model: PackedScene = null) -> Node3D:
+	var figure: PackedScene = model if model != null else _actor_model(team)
+	if figure == null:
+		return null
+	var theme: ArtTheme = ArtTheme.current()
+	var art: Node3D = figure.instantiate() as Node3D
+	ArtTheme.dress_whole(art, theme.figure_material(team))
+	if model != null or theme.figure_scene() != null:
+		theme.shape_figure(art)
+	var holder: Node3D = Node3D.new()
+	holder.add_child(art)
+	return holder
+
 func _actor_model(team: StringName) -> PackedScene:
 	if team == &"":
 		return null
+	var themed: PackedScene = ArtTheme.current().figure_scene()
+	if themed != null:
+		return themed
 	if not _actor_looked.get(team, false):
 		_actor_looked[team] = true
 		# team_a -> "a", so one model serves whatever the team is called.
@@ -1137,15 +1169,13 @@ func _rebuild_views() -> void:
 			body.radius = level.tuning.actor_radius
 			body.height = ACTOR_HEIGHT
 			view.mesh = body
-			var figure: PackedScene = _actor_model(entity.team)
-			if figure != null:
-				var art: Node3D = figure.instantiate() as Node3D
+			# Whatever the model came with, it is drawn in the theme's one
+			# figure material (STYLE.md §2.3), a copy per body for the fade.
+			var art: Node3D = _figure_instance(entity.team)
+			if art != null:
 				# The model's origin is its FEET and the capsule's is its
 				# middle, so the figure drops half a body to stand in it.
 				art.position = Vector3(0.0, -ACTOR_HEIGHT * 0.5, 0.0)
-				# Whatever the model came with, it is drawn in the theme's one
-				# figure material (STYLE.md §2.3), a copy per body for the fade.
-				ArtTheme.dress_whole(art, theme.figure_material(entity.team))
 				view.add_child(art)
 				# The capsule becomes the crouch scaffold rather than the thing
 				# seen - see the material choice below.
