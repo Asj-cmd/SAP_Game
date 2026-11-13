@@ -82,6 +82,9 @@ const DEFAULT_CHASE_PITCH_DEG: float = -12.0
 ## the theme's figure). Presentation only; the simulation never sees them.
 var figures: Array[Vector4] = []
 var figure_models: PackedStringArray = PackedStringArray()
+## Per figure, "" or "clip@seconds": hold it in that pose of the figure
+## animation set (FigureAnimation, P2-2).
+var figure_clips: PackedStringArray = PackedStringArray()
 ## Drawn-only imported props (P1-6) stood in the world for every shot: a model
 ## path, and its base position and yaw in degrees, as for figures.
 var props: Array[Vector4] = []
@@ -114,9 +117,11 @@ func path_for(index: int) -> String:
 ##                             the chase camera behind it
 ##   --capture-facing=x,y,z    the preceding --capture-chase faces this point
 ##   --capture-pitch=degrees   and pitches the rig this much (negative = down)
-##   --capture-figure=x,y,z,yaw[,res://model | ,member]   (member: a theme family id, e.g. younger_boy)
+##   --capture-figure=x,y,z,yaw[,res://model | ,member][,clip@seconds]   (member: a theme family id, e.g. younger_boy)
 ##                             stand a drawn-only figure (feet, yaw in degrees,
-##                             0 faces +z like every body) in every shot; repeatable
+##                             0 faces +z like every body) in every shot; repeatable.
+##                             clip@seconds holds it in that pose of the figure
+##                             animation set (e.g. walk@0.4; an empty member = the theme's)
 ##   --capture-prop=res://model,x,y,z,yaw
 ##                             stand a drawn-only imported prop (its base at x,y,z),
 ##                             dressed by the ArtTheme, in every shot; repeatable
@@ -200,6 +205,7 @@ static func from_command_line(args: PackedStringArray) -> FrameCapture:
 			request.figures.append(Vector4(float(parts[0]), float(parts[1]),
 				float(parts[2]), float(parts[3])))
 			request.figure_models.append(parts[4] if parts.size() > 4 else "")
+			request.figure_clips.append(parts[5] if parts.size() > 5 else "")
 		elif arg.begins_with("--capture-prop="):
 			var bits: PackedStringArray = arg.trim_prefix("--capture-prop=").split(",")
 			if bits.size() < 5:

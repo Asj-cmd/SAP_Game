@@ -1,0 +1,127 @@
+{
+  "arms_carry": {
+    "length": 0.033,
+    "loop": false,
+    "stride_speed": 0.0
+  },
+  "arms_panic": {
+    "length": 0.033,
+    "loop": false,
+    "stride_speed": 0.0
+  },
+  "carry_crouch_idle": {
+    "length": 0.033,
+    "loop": false,
+    "stride_speed": 0.0
+  },
+  "carry_crouch_walk": {
+    "length": 2.0,
+    "loop": true,
+    "stride_speed": 80.2
+  },
+  "carry_idle": {
+    "length": 0.033,
+    "loop": false,
+    "stride_speed": 0.0
+  },
+  "carry_jog": {
+    "length": 0.933,
+    "loop": true,
+    "stride_speed": 573.0
+  },
+  "carry_jump_air": {
+    "length": 0.033,
+    "loop": false,
+    "stride_speed": 0.0
+  },
+  "carry_jump_land": {
+    "length": 0.517,
+    "loop": false,
+    "stride_speed": 0.0
+  },
+  "carry_jump_start": {
+    "length": 0.33,
+    "loop": false,
+    "stride_speed": 0.0
+  },
+  "carry_sprint": {
+    "length": 0.667,
+    "loop": true,
+    "stride_speed": 882.5
+  },
+  "carry_walk": {
+    "length": 1.333,
+    "loop": true,
+    "stride_speed": 104.3
+  },
+  "crouch_idle": {
+    "length": 0.033,
+    "loop": false,
+    "stride_speed": 0.0
+  },
+  "crouch_walk": {
+    "length": 2.0,
+    "loop": true,
+    "stride_speed": 80.2
+  },
+  "grab": {
+    "length": 0.833,
+    "loop": false,
+    "stride_speed": 0.0
+  },
+  "idle": {
+    "length": 0.033,
+    "loop": false,
+    "stride_speed": 0.0
+  },
+  "interact": {
+    "length": 2.0,
+    "loop": false,
+    "stride_speed": 0.0
+  },
+  "jog": {
+    "length": 0.933,
+    "loop": true,
+    "stride_speed": 573.0
+  },
+  "jump_air": {
+    "length": 0.033,
+    "loop": false,
+    "stride_speed": 0.0
+  },
+  "jump_land": {
+    "length": 0.517,
+    "loop": false,
+    "stride_speed": 0.0
+  },
+  "jump_start": {
+    "length": 0.33,
+    "loop": false,
+    "stride_speed": 0.0
+  },
+  "panic_run": {
+    "length": 0.933,
+    "loop": true,
+    "stride_speed": 573.0
+  },
+  "sprint": {
+    "length": 0.667,
+    "loop": true,
+    "stride_speed": 882.5
+  },
+  "throw": {
+    "length": 0.9,
+    "loop": false,
+    "stride_speed": 0.0
+  },
+  "walk": {
+    "length": 1.333,
+    "loop": true,
+    "stride_speed": 104.3
+  },
+  "walk_loose": {
+    "length": 1.333,
+    "loop": true,
+    "stride_speed": 104.3
+  }
+}

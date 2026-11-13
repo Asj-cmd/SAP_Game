@@ -339,6 +339,15 @@ func _arm_capture() -> void:
 		posed.position = Vector3(spot.x, spot.y, spot.z)
 		posed.rotation = Vector3(0.0, deg_to_rad(spot.w), 0.0)
 		add_child(posed)
+		var clip: String = request.figure_clips[i]
+		if clip != "":
+			# The holder's one child is the shaped model (_figure_instance).
+			var art: Node3D = posed.get_child(0) as Node3D
+			var at: int = clip.find("@")
+			var clip_name: String = clip if at < 0 else clip.substr(0, at)
+			var seconds: float = 0.0 if at < 0 else float(clip.substr(at + 1))
+			if not FigureAnimation.pose(art, StringName(clip_name), seconds):
+				push_error("frame capture: no figure clip %s" % clip_name)
 	for i: int in request.props.size():
 		var spot: Vector4 = request.props[i]
 		var prop: Node3D = ArtTheme.current().prop_instance(request.prop_models[i])
