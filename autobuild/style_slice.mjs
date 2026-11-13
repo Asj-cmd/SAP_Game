@@ -2,14 +2,14 @@
 // P1-5 style slice: the same room (House A's study, a cash/vault room) under each
 // theme variant, from the same four views, with a dad and a mom figure stood in it.
 //
-//   node autobuild/style_slice.mjs [--variants=a,b,c] [--import]
+//   node autobuild/style_slice.mjs [--variants=a,b,c,pick] [--import]   (pick = default_theme.tres)
 //
 // Variants are whole ArtTheme files (godot/art/theme/slice_<v>.tres), swapped in
 // with `--art-theme=` - no code differs between them. Frames land in
 // autobuild/slice/<variant>_<view>.png. Windowed (the real GPU); a run is ~1 min
 // a variant. `--import` first lets Godot import new art (figure_bake.mjs output).
 import { spawnSync } from "node:child_process";
-import { copyFileSync, existsSync, mkdirSync, readdirSync, renameSync } from "node:fs";
+import { existsSync, mkdirSync, readdirSync, renameSync } from "node:fs";
 import { dirname, join, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
 
@@ -48,7 +48,7 @@ mkdirSync(OUT, { recursive: true });
 for (const v of variants) {
   const shot = join(OUT, `${v}.png`);
   const a = ["--rendering-driver", "opengl3", "--path", join(ROOT, "godot"), "--",
-    `--art-theme=res://art/theme/slice_${v}.tres`, "--capture", "--capture-clean", "--capture-stats",
+    `--art-theme=res://art/theme/${v === "pick" ? "default_theme" : `slice_${v}`}.tres`, "--capture", "--capture-clean", "--capture-stats",
     "--capture-delay=3", `--capture-path=${shot}`, ...FIGURES.map((f) => `--capture-figure=${f}`)];
   for (const view of VIEWS.filter((x) => x.at)) a.push(`--capture-at=${view.at.join(",")}`, `--capture-look=${view.look.join(",")}`);
   for (const view of VIEWS.filter((x) => x.chase)) {

@@ -4,12 +4,14 @@
 
 [sub_resource type="StandardMaterial3D" id="figure"]
 resource_name = "figure"
-albedo_color = Color(0.72, 0.69, 0.64, 1)
-roughness = 0.55
+albedo_color = Color(0.74, 0.71, 0.66, 1)
+roughness = 0.7
 metallic_specular = 0.4
 rim_enabled = true
 rim = 0.2
 rim_tint = 0.5
+vertex_color_use_as_albedo = true
+vertex_color_is_srgb = true
 
 [sub_resource type="StandardMaterial3D" id="cash_note"]
 resource_name = "cash_note"
@@ -134,4 +136,13 @@ interior_energy_by_kind = Dictionary[StringName, float]({
 })
 interior_colour_by_kind = Dictionary[StringName, Color]({
 &"jail": Color(0.95, 0.93, 0.86, 1)
+})
+figure_model = "res://art/characters/figure_male.gltf"
+figure_height = 180.0
+figure_bone_scales = Dictionary[StringName, Vector3]({
+&"Head": Vector3(1.08, 1.08, 1.08),
+&"neck_01": Vector3(1, 1.08, 1),
+&"spine_02": Vector3(1, 1.04, 1),
+&"hand_l": Vector3(1.06, 1.06, 1.06),
+&"hand_r": Vector3(1.06, 1.06, 1.06)
 })

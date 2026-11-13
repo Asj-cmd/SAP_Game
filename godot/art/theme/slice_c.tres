@@ -10,6 +10,8 @@ metallic_specular = 0.6
 rim_enabled = true
 rim = 0.2
 rim_tint = 0.5
+vertex_color_use_as_albedo = false
+vertex_color_is_srgb = true
 
 [sub_resource type="StandardMaterial3D" id="cash_note"]
 resource_name = "cash_note"
@@ -142,4 +144,10 @@ figure_bone_scales = Dictionary[StringName, Vector3]({
 &"neck_01": Vector3(1, 1.18, 1),
 &"hand_l": Vector3(0.9, 0.9, 0.9),
 &"hand_r": Vector3(0.9, 0.9, 0.9)
+})
+&"Head": Vector3(1.08, 1.08, 1.08),
+&"neck_01": Vector3(1, 1.08, 1),
+&"spine_02": Vector3(1, 1.04, 1),
+&"hand_l": Vector3(1.06, 1.06, 1.06),
+&"hand_r": Vector3(1.06, 1.06, 1.06)
 })

@@ -20,6 +20,7 @@
 // Reads the zips' contents from autobuild/Incoming/x/ (extract them there; the
 // folder is gitignored, D10). Decimation to the STYLE budget is P2-1's job.
 
+import crypto from 'node:crypto';
 import fs from 'node:fs';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
@@ -44,9 +45,13 @@ if (!SOURCE) throw new Error(`unknown --body=${bodyName}`);
 // The bare parts are white, so the material's albedo (putty) shows through.
 const PAINT = {
   bare: [255, 255, 255],
-  shirt: [128, 136, 140], // muted blue-grey
-  trousers: [112, 102, 90], // taupe
-  shoes: [62, 58, 55], // dark brown-grey
+  // Multiplied by the figure albedo (putty), so these are lighter than they read.
+  // First try (128/112/62) read as a dark wetsuit at chase distance (P1-5).
+  // Second try (178/158/84) still read darker than the bare putty; the pick
+  // (STYLE-PICK) wants the clothes a step under the head and hands, not two.
+  shirt: [206, 214, 222], // muted blue-grey
+  trousers: [182, 166, 146], // taupe
+  shoes: [96, 90, 84], // dark brown-grey
 };
 
 const COMPONENTS = { SCALAR: 1, VEC2: 2, VEC3: 3, VEC4: 4, MAT4: 16 };
@@ -291,7 +296,11 @@ const out = {
 };
 
 fs.mkdirSync(OUT_DIR, { recursive: true });
-fs.writeFileSync(path.join(OUT_DIR, `figure_${bodyName}.bin`), Buffer.concat(chunks));
+const binary = Buffer.concat(chunks);
+// Godot re-imports a .gltf only when the .gltf itself changes, not its .bin: carry
+// the binary's hash in the JSON so a re-bake always reaches the game.
+out.asset.extras = { bin_sha1: crypto.createHash('sha1').update(binary).digest('hex') };
+fs.writeFileSync(path.join(OUT_DIR, `figure_${bodyName}.bin`), binary);
 fs.writeFileSync(path.join(OUT_DIR, `figure_${bodyName}.gltf`), JSON.stringify(out));
 const tris = indexRows.length / 3;
 console.log(`figure_${bodyName}: ${positions.length} vertices, ${tris} triangles, ` +
