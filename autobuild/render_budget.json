@@ -1,0 +1,11 @@
+{
+  "_note": "Per-view render budgets for the GT 730M dev laptop, Compatibility renderer, 1600x900 (STYLE.md §Budgets, P1-1). Checked by `node autobuild/render_stats.mjs`; keys are RENDER_STATS fields, a view over any of them is listed. Not a verify gate until P3-6. Frame times only count from a windowed run on the real GPU.",
+  "per_view": {
+    "draw_calls": 1000,
+    "triangles": 300000,
+    "seat_gpu_ms_median": 9.0,
+    "frame_ms_median": 12.0,
+    "texture_mem_mb": 256,
+    "video_mem_mb": 512
+  }
+}

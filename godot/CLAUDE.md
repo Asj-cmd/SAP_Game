@@ -80,6 +80,17 @@ godot --path godot -- --pilot --pilot-speed=2             # solo, ~8 min
 godot --path godot -- --pilot=host   &   godot --path godot -- --pilot=guest
 ```
 
+To see what the renderer does for a view (draw calls, triangles, objects, and
+frame/GPU time on this machine's GPU), against the budgets in the root `STYLE.md`:
+
+```bash
+godot --path godot -- --capture-at=... --capture-stats        # counters for the shot
+godot --path godot -- --capture-at=... --capture-timing=120   # plus 120 uncapped frames timed
+node autobuild/render_stats.mjs [--views=room_]               # every view, one table
+```
+
+Counters are zero under `--headless`; measure windowed.
+
 The debug HUD is hidden by default (`[F1]` toggles it, `--debug-hud` starts
 with it on); `--capture-clean` also hides the hint line and banner.
 

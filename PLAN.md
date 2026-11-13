@@ -79,7 +79,7 @@ Aug 16–Oct 10 are in; an earlier version of this plan was written against the 
 
 ## Phase 1 — Art foundation (style, shader, asset pipeline)
 
-- [ ] **P1-1 Render stats tool.** `godot/tools/render_stats.gd`: print draw calls, triangles,
+- [x] **P1-1 Render stats tool.** *(Done: `RenderStats` via `--capture-stats`/`--capture-timing=N` + `autobuild/render_stats.mjs` over every view; budgets in STYLE.md and `autobuild/render_budget.json`; baseline max 526 draws, 27k tris, GPU 5.4 ms on the GT 730M. See PROGRESS.md.)* `godot/tools/render_stats.gd`: print draw calls, triangles,
   objects in view for a given view. Propose budgets for the Compatibility renderer on a GT 730M-class
   GPU, record them in `STYLE.md`. Frame time is measured only when running windowed on the
   dev machine; software-rendered frame time is meaningless.

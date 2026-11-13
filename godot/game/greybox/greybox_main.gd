@@ -306,6 +306,8 @@ func _arm_capture() -> void:
 	var request: FrameCapture = FrameCapture.from_command_line(OS.get_cmdline_user_args())
 	if not request.requested:
 		return
+	_capture_stats = request.stats
+	_capture_timing = request.timing_frames
 	await get_tree().create_timer(request.delay).timeout
 	if request.clean:
 		# The menu is its own layer and stays: a clean shot of the menu is still
@@ -449,7 +451,19 @@ func _capture_frame(to_path: String) -> void:
 		return
 	print("frame capture: %s" % written)
 	print("  %s" % FrameCapture.describe(_active_camera(), _actor_views.size()))
+	if _capture_stats:
+		# Read now: the counters describe the frame just saved, and the timing
+		# below draws more frames over them.
+		var seat: Viewport = _active_camera().get_viewport() if _active_camera() != null else null
+		var stats: Dictionary = RenderStats.counters(seat)
+		if _capture_timing > 0:
+			stats.merge(await RenderStats.time_frames(get_tree(), seat, _capture_timing))
+		print(RenderStats.line(to_path.get_file().get_basename(), stats))
 
+## `--capture-stats` / `--capture-timing=N` (FrameCapture): print what the
+## renderer did for each command-line shot. Off for F12 and the pilot.
+var _capture_stats: bool = false
+var _capture_timing: int = 0
 ## The camera a capture is actually looking through - the placed one while a
 ## viewpoint shot is being taken, otherwise the first seat's chase camera.
 var _capture_camera: Camera3D = null

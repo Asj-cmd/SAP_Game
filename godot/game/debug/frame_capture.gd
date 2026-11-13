@@ -43,6 +43,12 @@ var paths: bool = false
 ## the frame shows only the world. Art review cannot judge a picture with a
 ## wall of debug text over a third of it.
 var clean: bool = false
+## Print the renderer's counters for each shot (draw calls, triangles, objects;
+## RenderStats). Free: they are read from the frame that was saved.
+var stats: bool = false
+## Also time this many uncapped frames after each shot (0 = don't). Costs a
+## second or two a view; only meaningful windowed on a real GPU.
+var timing_frames: int = 0
 
 ## Places to stand the camera, and what to point it at.
 ##
@@ -89,6 +95,8 @@ func path_for(index: int) -> String:
 ##   --capture-path=<file>     where to write it
 ##   --capture-delay=<seconds> how long to wait first
 ##   --capture-clean           hide all on-screen text, so the shot is the world only
+##   --capture-stats           print draw calls / triangles / objects per shot
+##   --capture-timing=N        also time N uncapped frames per shot (real GPU only)
 ##   --capture-crouch          hold crouch, so the shot shows a ducked body
 ##   --capture-at=x,y,z        stand the camera here instead of behind a body
 ##   --capture-look=x,y,z      point the preceding --capture-at at this
@@ -126,6 +134,11 @@ static func from_command_line(args: PackedStringArray) -> FrameCapture:
 			request.requested = true
 			request.quit_after = true
 			request.clean = true
+		elif arg == "--capture-stats":
+			request.stats = true
+		elif arg.begins_with("--capture-timing="):
+			request.stats = true
+			request.timing_frames = maxi(0, int(arg.trim_prefix("--capture-timing=")))
 		elif arg == "--capture-crouch":
 			request.requested = true
 			request.quit_after = true

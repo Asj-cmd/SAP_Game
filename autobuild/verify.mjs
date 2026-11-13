@@ -194,8 +194,8 @@ if (args.has("--frames") || framesOnly) {
   mkdirSync(FRAMES_DIR, { recursive: true });
   for (const v of views) {
     const path = join(FRAMES_DIR, `${v.name}.png`);
-    const a = ["--rendering-driver", "opengl3", "--path", GODOT_PROJECT, "--", "--capture", "--capture-clean", `--capture-delay=${v.delay ?? 3}`,
-      `--capture-path=${path}`];
+    const a = ["--rendering-driver", "opengl3", "--path", GODOT_PROJECT, "--", "--capture", "--capture-clean", "--capture-stats",
+      `--capture-delay=${v.delay ?? 3}`, `--capture-path=${path}`];
     // A free camera ("at"/"look"), or a body at "chase" (feet) seen through the
     // real chase rig, facing "facing", pitched "pitch" degrees.
     if (v.chase) {
@@ -213,6 +213,12 @@ if (args.has("--frames") || framesOnly) {
     if (!existsSync(path) && !existsSync(numbered)) failures.push(`frame ${v.name}`);
     const arm = r.out.match(/chase arm .*/);
     if (arm) console.log(`        ${arm[0]}`);
+    // Renderer counters for the same frame (RenderStats); frame time is render_stats.mjs's job.
+    const rs = r.out.match(/^RENDER_STATS \S+ (\{.*\})\s*$/m);
+    if (rs) {
+      const s = JSON.parse(rs[1]);
+      console.log(`        draws ${s.draw_calls}, triangles ${s.triangles}, objects ${s.objects}`);
+    }
   }
   console.log("  -> open each PNG with the Read tool and judge it against STYLE.md / the checklist in PLAN.md.");
 }
