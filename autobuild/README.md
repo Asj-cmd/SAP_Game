@@ -28,8 +28,9 @@
    ```
    $env:GODOT_BIN = "C:\Godot\Godot_v4.7-stable_win64_console.exe"
    ```
-6. *Optional, helps a lot:* put 3–5 screenshots of games whose look you like in
-   `autobuild\references\` (Meccha Chameleon, etc.). The style tasks read them.
+6. *Optional:* put 3-5 screenshots of games whose tone or look you like in `autobuild\references\`
+   (for example Meccha Chameleon, for its deadpan humour). References guide mood, lighting and
+   comedy only; per D2 we never copy another game's characters or designs.
 7. **Characters and animations** come from the two free Quaternius zips (Universal Base Characters
    and Universal Animation Library, both CC0) in `autobuild\incoming\`. The loop unzips them from
    there; they stay out of git (DECISIONS.md D10). No sign-in or paid tool is needed.
