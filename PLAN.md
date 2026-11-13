@@ -88,7 +88,7 @@ Aug 16–Oct 10 are in; an earlier version of this plan was written against the 
   tools or credits, nothing bought. Never: NC/ND licences, ripped game assets, anything unclear.
   Add the two Quaternius packs the user downloaded (Universal Base Characters, Universal Animation
   Library, both CC0, zips in `autobuild/incoming/`).
-- [ ] **P1-3 STYLE.md.** Art direction per DECISIONS.md D2 (deadpan): identical, blank-faced,
+- [x] **P1-3 STYLE.md.** *(Done: STYLE.md §1–6 above the budgets: figures (blank, putty-grey satin, heights 180/176/160/145, one nudge each), team identity and family colours, house scale to the thresholds, rooms, palette, lighting, the 9-point "polished" checklist. No references were supplied. See PROGRESS.md.)* Art direction per DECISIONS.md D2 (deadpan): identical, blank-faced,
   slightly off-proportioned, silly figures with no facial features and no expressive acting (not
   literal crash-test dummies); the house is the realistic side — believable suburban furniture,
   materials and warm lighting, as realistic as the Compatibility renderer allows. No toon outlines,

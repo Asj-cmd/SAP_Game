@@ -1,7 +1,252 @@
 # Style
 
-Art direction (DECISIONS.md D2, deadpan) is written by P1-3. This file starts with the
-**render budgets** (P1-1), because every art task after it is checked against them.
+What the game looks like, and the numbers that hold it to that. Art direction is DECISIONS.md
+**D2 (deadpan)**, written out here by P1-3; the budgets below it are P1-1's. Every art task
+(P1-4 onwards) is judged against this file, by frames.
+
+**References.** `autobuild/references/` held no images when this was written (only
+`.gitkeep`), so nothing here is derived from a picture. It is derived from D2, D3, D9, D10 and
+the measured house (`godot/tools/build_house.gd`, `WORLD_AUTHORING.md` §10, §12). If the user
+adds references later, they guide **tone only** (D10 alignment, commit `2a436e8`): no copying a
+specific game's characters, art or look.
+
+## 1. The idea in one paragraph
+
+**Plain people in a real house.** The house is the straight man: an ordinary, believable
+suburban home, lit warmly, furnished like someone lives there. The family members are the
+joke: identical, featureless, slightly wrong-shaped figures who do absurd things (sprint with
+their arms up, carry a cash brick over their heads, get teleported to jail) with no reaction at
+all. Nothing in the world winks at the player. No outlines, no cartoon effects, no confetti, no
+squash-and-stretch, no faces. If a frame would work as a still from an estate agent's listing
+with some odd mannequins in it, it is on style.
+
+## 2. The figures
+
+### 2.1 What they are, and are not
+
+- **Blank.** No eyes, eyebrows, mouth, nose detail, ears modelled out, hair, beards or
+  fingernails. The head is a smooth rounded form. Hands are mitten-simple (fingers may stay on
+  the mesh if the rig needs them, but smoothed so they read as one shape at chase distance).
+- **Identical.** Every dad is the same dad, in both families. Members differ in **size and
+  shape only** (2.2), never in colour, clothes or accessories, except the one optional team
+  detail D3 (c) adds (2.4).
+- **Slightly off.** Proportions are plausibly human and then nudged, never caricatured (2.2).
+  The aim is "something is not quite right about these people", not "cartoon character".
+- **Not crash-test dummies** (D2). So: no yellow/black, no quadrant target discs on the head or
+  hips, no visible joint segmentation or bolts, no stencilled numbers. **Not shop mannequins
+  either**: no seams at the neck or wrists, no stands, no glossy white fibreglass. They are
+  people, rendered without the details that make a person somebody.
+- **No acting.** No expressions (there is no face), no idle fidget, no breathing. Standing still
+  is perfectly still (D9). Motion comes from the verbs only (P2-2/P2-3).
+
+### 2.2 Proportions (sizes in units; 1 unit = 1 cm)
+
+The simulation body is the same for everyone: a 20-radius sphere for collision and a
+**180-tall visible body** for every vertical rule (`TuningDef.actor_height`). Art never changes
+either. So the drawn figures may be **180 or shorter, never taller**, which keeps every
+headroom and jump rule conservative for everybody.
+
+| Member | Drawn height | Head : height | Off-proportion nudge (one each, subtle) | Base mesh (D10, P1-2) |
+|---|---|---|---|---|
+| Dad | 180 | 1 : 7 | Torso a touch long, legs a touch short; shoulders squared | Quaternius Superhero_Male, muscle detail smoothed out |
+| Mom | 176 | 1 : 7 | Neck a touch long; hands a touch large | Quaternius Superhero_Female, smoothed |
+| Elder child | 160 | 1 : 6 | Head a touch big for the body | Same two bodies, scaled, head enlarged |
+| Younger child | 145 | 1 : 5 | Head clearly big; arms a touch short | Same two bodies, scaled, head enlarged |
+
+- "A touch" means **5 to 10 per cent** off normal, chosen so a still frame of one figure looks
+  ordinary for a moment and wrong on a second look. If a nudge is noticeable on first glance in
+  a chase-camera frame, halve it.
+- **Silhouette first.** Each of the four sizes must be told apart by outline alone at 20 m
+  (P2-4 checks this from 20 m and 40 m). Never by colour.
+- Kid swap (D3 d) needs a girl and a boy at each child size: the elder and younger children are
+  each built from both the male and the female base body.
+- **Why the kids are not much smaller:** the crouch gap is 130 (`WORLD_AUTHORING` §12). Every
+  member standing must look taller than a crouch gap, or the threshold stops reading. The
+  younger child, at 145, is the floor. Crouched, every member must look at or under 130.
+- **Width:** adults about 45–50 across the shoulders. They look broader than the 40 collision
+  sphere; that is accepted, the same way 180 is accepted against a 40-tall sphere.
+
+### 2.3 Material
+
+**One material for every figure: smooth, warm-grey, satin, featureless.** Like unpainted
+modelling clay or a matt vinyl toy, not skin and not glossy plastic.
+
+| Property | Value (starting point; the ArtTheme owns it, P1-4) |
+|---|---|
+| Albedo | Warm putty grey, about `Color(0.72, 0.69, 0.64)`. No texture. Deliberately not a skin tone |
+| Roughness | 0.55 (a soft, broad highlight that shows the form; never a sharp hotspot) |
+| Metallic | 0 |
+| Specular | 0.4 |
+| Rim | A faint rim term (StandardMaterial3D `rim`, about 0.2, tint 0.5) so a figure separates from a dark wall without an outline. P1-4 checks by frame that Compatibility draws it; if not, drop it and rely on value contrast (3.4) |
+| Vertex colour | Allowed for **baked ambient occlusion** only (armpits, under the chin), to keep the form readable without shadows |
+
+Clothes: **none modelled, none painted** in the default. A body in one flat material is the
+D2 look. P1-5 is where alternatives are tried (one of its three variants may give every figure
+the same plain painted shirt-and-trousers in muted tones through vertex colour, one material
+still). Whatever wins goes into the theme, so it is one edit to change.
+
+### 2.4 Team identity (D3 is an experiment)
+
+- **Figures carry no team colour.** The blockout's red/blue bodies (`greybox_main.gd`, team
+  base colour) are a placeholder and go when the D2 figures arrive (P2-1). The game is built so
+  that a still enemy is hard to tell from your own family (D3).
+- The team tell is a data setting (P2-4): (a) a marker over **your own** teammates only,
+  (b) a minimap of your own teammates only, (c) one small detail differs (a wristband), (d) kid
+  swap. When (c) is on, the wristband is the only coloured thing on a figure: a 6–8 wide band on
+  the left wrist, in the family colour below, same satin material.
+- **Family colours** (REVIEW, logged in DECISIONS): Family A **sage** `Color(0.48, 0.58, 0.45)`,
+  Family B **terracotta** `Color(0.70, 0.40, 0.30)`. Muted on purpose, both mid-value, so neither
+  shouts. They are used for: the D3 (c) wristband, the HUD/minimap, and each house's **front
+  door and window frames** (so you know whose house you are in, without telling you who a person
+  is). Nowhere else. The blockout's red/blue floor tints are debug, not art.
+
+## 3. The house
+
+### 3.1 Scale: built to the thresholds, about a third larger than life
+
+The house is sized for the camera (`WORLD_AUTHORING` §10): rooms 1000 square, 320 clear under
+the ceiling, doorways 240 wide and 240 high, walls 30 thick, slabs 40. Furniture follows the
+**threshold set** (§12), and that is binding on the art:
+
+| Threshold | Height | What is built to it |
+|---|---|---|
+| step_up 30 | ≤ 30 | Sills, kerbs, rugs, a stair tread (30 rise, 48 run) |
+| vault 120 | **exactly 120** top surface | Kitchen counters, tables, desks, dressers, chests of drawers, sofa backs, railings, low garden walls |
+| crouch gap 130 | **≥ 130** underside, open below | Tables and desks you can crawl under; nothing else looks like a gap |
+| above 180 | ≥ 210 | Anything tall enough to block: wardrobes, fridges, bookcases, door heads (240), hedges |
+| drop 480 | — | Upstairs windows and the balcony drop look like a fall you would survive |
+
+So counters and tables are **about 1.3× real height** (120 against a real 90), and furniture is
+scaled up to match: a sofa about 260 long, a bed about 260 by 200, doors 240 high. **The
+figures are not scaled up.** Ordinary people in a house that is a little too big for them is
+part of the "slightly off" (and makes rooms read larger, which the camera needs). Never fake a
+height: nothing between 30 and 120 may look climbable unless it is at a threshold, and nothing
+between 120 and 210 may look like it blocks a standing body (it would be vaultable).
+
+### 3.2 Rooms and what they are
+
+Both houses are the same house, turned (DESIGN_DIRECTION §4, mirrored). Two rooms by two, two
+floors:
+
+| Floor | Room | Reads as | Floor | Walls | Silhouette that must read |
+|---|---|---|---|---|---|
+| Ground | Front hall | Entrance hall with the main stair | Oak boards | Painted plaster | Stair, front door (family colour) |
+| Ground | Kitchen | Family kitchen-diner | Cream ceramic tile | Painted plaster, tiled splashback | Counters at 120, table you can crawl under |
+| Ground | Back hall | Hall to the garden door | Oak boards | Painted plaster | Garden door, coat hooks |
+| Ground | Jail | Utility room / laundry, behind a door | Grey concrete, painted | Bare painted block | Washing machine, a barred or cage-like pen: obviously "you are kept here" |
+| Upper | Landing SE / NW | Landings at the stair heads | Carpet, warm grey | Painted plaster | Banister rail at 120 |
+| Upper | Study (cash) | Home office | Carpet, muted green-grey | Wallpaper, faint stripe | **The safe/vault**: squat, steel, dark, nothing else like it |
+| Upper | Bedroom (cash) | Main bedroom | Carpet, muted beige | Painted plaster | Bed, wardrobe; the cash room's vault too |
+
+Distinct silhouettes the player must find instantly (P3-3): **the vault/safe, the cash
+bundle, the jail pen and its door, the safe room**. Each gets a shape nothing else in the house
+shares. Everything else is background and should look it.
+
+### 3.3 Materials and palette
+
+Realistic-leaning means **believable materials, true proportions, restrained colour**. Not
+photo-real: there is no GI, AO or reflections in Compatibility (D6), so detail goes into
+albedo, roughness and baked vertex AO, not into lighting.
+
+- **Surfaces are tiled PBR-style albedo + roughness** (normal maps only where they earn it at
+  chase distance: brick, tile grout). Sources: CC0 only (Poly Haven, ambientCG, Kenney; P3-1
+  chooses). Textures 512² or 1024² for big surfaces (budgets below), VRAM-compressed, mipmaps on.
+- **Texel density:** about **2 texels per unit** (200 per metre) on walls and floors, 2–3 on
+  furniture. Every surface in a frame must look equally sharp; a blurry floor under a crisp
+  sofa is a defect.
+- **Every imported mesh has its materials replaced from the ArtTheme** (P1-4), so packs from
+  different sources look like one house. A pack's own stylised materials never ship.
+- **Furniture packs that are stylised** (chunky bevels, toy proportions) are used only if their
+  shapes pass for real furniture once re-materialed. Otherwise do not use them.
+
+Palette (sRGB, a starting point the theme owns):
+
+| Material | Colour | Roughness | Notes |
+|---|---|---|---|
+| Wall paint | warm off-white `(0.86, 0.83, 0.77)` | 0.9 | The most common surface; must not be pure white |
+| Ceiling | white `(0.92, 0.91, 0.88)` | 0.95 | Always the darkest face by lighting, not by colour |
+| Oak floor | `(0.55, 0.40, 0.27)` | 0.6 | Boards run the long way of the room |
+| Carpet | warm grey `(0.55, 0.52, 0.48)` / green-grey / beige | 1.0 | |
+| Kitchen tile | cream `(0.85, 0.82, 0.74)` | 0.4 | Grout lines visible at 5 m |
+| Concrete (jail) | `(0.55, 0.55, 0.53)` | 0.9 | Colder than the rest of the house |
+| Painted wood trim | off-white `(0.90, 0.88, 0.83)` | 0.5 | Skirting, door frames, banisters |
+| Brick (exterior) | `(0.55, 0.33, 0.25)` | 0.85 | Or render `(0.85, 0.82, 0.75)`; P3-4 picks one for both houses |
+| Roof tile | dark grey `(0.30, 0.30, 0.32)` | 0.8 | |
+| Steel (safe, jail bars) | `(0.30, 0.31, 0.33)` | 0.45, metallic 0.8 | The only metal surfaces of note |
+| Grass | `(0.36, 0.50, 0.30)` | 1.0 | Today's `world_backdrop.gd` value; keep |
+| Cash bundle | banknote green `(0.45, 0.62, 0.42)` + paper band | 0.7 | Must be the most saturated small object in any room (3.4) |
+
+**Saturation rule:** the house stays below about 35 per cent saturation everywhere except
+the cash and the two family colours. Then the eye goes to cash and doors without any effect.
+
+### 3.4 Readability (the game comes first)
+
+- **Cash is readable at 30 m** in daylight (P3-5's check): it is the most saturated small
+  object in view, never placed on a surface of the same green, never hidden by dressing.
+- **Figures separate from the background** by value: putty grey sits between the dark floors
+  and the light walls, plus the rim term. Check in the darkest room (jail) and the brightest
+  (kitchen at noon).
+- **Thresholds look like their verbs** (3.1). This beats realism every time it conflicts.
+- **Floors are not tinted by zone** in the art. Who owns a room is the HUD's job (P5-2).
+
+## 4. Lighting
+
+The Compatibility renderer has no GI, SSAO or SSR (D6), so the lighting is built from a few
+cheap parts, each measured (P1-1's rule: run `render_stats.mjs --views=room_` before and after).
+
+- **Outside:** one sun, warm late-morning white `(1.0, 0.95, 0.86)`, high enough that every room
+  with a window gets a patch of it. Sky as now (`world_backdrop.gd`: procedural, horizon fog).
+  The shadowless cool fill from the opposite side stays (P0-7) so unlit faces still differ.
+- **Inside:** warm lamp light, **2700–3000 K** `(1.0, 0.84, 0.66)`, from fittings that exist
+  in the room (ceiling light, desk lamp, under-cabinet light). **At most two omni/spot lights
+  touch any object** (budget rule below), **no shadows on omni/spot lights**. Ambient lower
+  indoors than out, so interiors read as interiors.
+- **Contrast between inside and out** is the realism cue: windows are brighter than walls, and
+  the garden seen from inside is a little over-exposed.
+- **Shadows:** at most one shadowed light, the sun, and only if P3-5 measures that it fits. A
+  **contact shadow under every figure and every cash bundle** (a soft dark disc on the floor,
+  drawn as a transparent quad, since Compatibility has no decals) is mandatory either way: it is
+  what makes a jump and a throw readable.
+- **Baked vertex AO** in corners, under furniture and on figures substitutes for SSAO.
+- **Tonemapping** filmic-style if the Compatibility renderer honours it (P1-4 checks by frame),
+  exposure set so the wall paint sits at about 75–80 per cent brightness in a lit room. No
+  bloom-heavy glow.
+- Room by room: the jail is the coldest and dimmest (a single bare bulb), the kitchen the
+  brightest, the study and bedroom warm and lamp-lit. Same at every team size.
+
+## 5. Motion, effects, sound (summary; the tasks own the detail)
+
+- Animation is stiff and committed, never cartoon (D9): no squash-and-stretch, no anticipation
+  poses, no overshoot. Wobble (jump landing) is subtle and short, under 0.25 s.
+- Effects (P5-4) are plain and physical: a puff of dust on a hard landing, a paper flutter when
+  cash lands. No stars, no speed lines, no confetti, no screen-filling flashes.
+- Sounds are ordinary household sounds (P5-3).
+
+## 6. What "polished" means
+
+A view is polished when all of these hold in a clean frame (`--capture-clean`), opened and
+looked at:
+
+1. **No construction artefacts:** no z-fighting, no gaps or light leaks at wall joins, no
+   floating or sunken props, no flipped normals, no visible blockout grey, no debug colour.
+2. **One material language:** every surface comes from the ArtTheme; no two packs' looks side
+   by side; equal texel density across the frame (3.3).
+3. **Grounded:** every figure and cash bundle has a contact shadow; furniture touches the floor.
+4. **Readable:** cash visible at 30 m; the four must-read silhouettes (3.2) recognisable at a
+   glance; every threshold-height surface looks like its verb; a figure always separates from
+   what is behind it.
+5. **Lit like a home:** warm interiors, brighter windows, ceilings darkest, no flat
+   one-colour faces, no pitch-black corners.
+6. **Deadpan intact:** no faces, no expressions, no idle motion, no team colour on figures
+   beyond the D3 detail in use, no cartoon effect anywhere.
+7. **Camera-clean:** no wall between camera and body (P0-6), the body fade works with the real
+   figure (no inner faces showing).
+8. **In budget:** the view is inside every per-view number below at 4v4.
+9. **The same in both houses:** twin views of House A and House B differ only by the family
+   colour and the bodies in them.
+
+Smaller and consistent beats larger and patchy (DECISIONS working agreements): a room that is
+not polished yet stays plain and tidy rather than half-dressed.
 
 ## Budgets (P1-1)
 
