@@ -30,17 +30,17 @@ static func library() -> AnimationLibrary:
 ## node ArtTheme.shape_figure sized). Null when the set is not built or the
 ## figure has no skeleton where the set expects one.
 static func attach(art: Node3D) -> AnimationPlayer:
-	var set: AnimationLibrary = library()
-	if set == null:
+	var clips: AnimationLibrary = library()
+	if clips == null:
 		return null
-	var skeleton: String = String(set.get_meta(&"skeleton_path", "Armature/Skeleton3D"))
+	var skeleton: String = String(clips.get_meta(&"skeleton_path", "Armature/Skeleton3D"))
 	if art.get_node_or_null(skeleton) == null:
 		return null
 	var player: AnimationPlayer = AnimationPlayer.new()
 	player.name = "FigureAnimation"
 	art.add_child(player)
 	player.root_node = NodePath("..")
-	player.add_animation_library(&"", set)
+	player.add_animation_library(&"", clips)
 	return player
 
 ## Holds `art` still in `clip` at `time` seconds (the capture tool's posed
@@ -52,5 +52,5 @@ static func pose(art: Node3D, clip: StringName, time: float) -> bool:
 		return false
 	player.callback_mode_process = AnimationMixer.ANIMATION_CALLBACK_MODE_PROCESS_MANUAL
 	player.play(clip)
-	player.seek(clamp(time, 0.0, player.get_animation(clip).length), true)
+	player.seek(clampf(time, 0.0, player.get_animation(clip).length), true)
 	return true

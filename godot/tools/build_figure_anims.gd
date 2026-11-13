@@ -61,19 +61,22 @@ const ARM_BONES: Array[String] = [
 ##   arms     "" (the clip's own), a pose name from _arm_poses, or keys
 ##            [[t, pose], ...] (seconds from the clip's start; "clip" = its own)
 ##   carry    also emit "carry_<name>" with the arms in the carry pose
+##            (`carry_arms` names another pose, e.g. carry_crouch)
 ##   no_lift  the pelvis may dip, never rise (the sim moves the body up)
 const CLIPS: Array[Dictionary] = [
 	{"name": "idle", "src": "Idle_Loop", "still": true, "carry": true},
 	{"name": "walk", "src": "Walk_Formal_Loop", "loop": true, "carry": true},
 	{"name": "walk_loose", "src": "Walk_Loop", "loop": true},
 	{"name": "jog", "src": "Jog_Fwd_Loop", "loop": true, "carry": true},
-	{"name": "sprint", "src": "Sprint_Loop", "loop": true, "carry": true},
+	# No carry_sprint: the sprint's lean tips overhead arms forward, and a
+	# panicking carrier runs as carry_jog, faster (D9: the cash is already overhead).
+	{"name": "sprint", "src": "Sprint_Loop", "loop": true},
 	# The jog, not the sprint: the sprint's deep athletic lean is acting (D2).
 	{"name": "panic_run", "src": "Jog_Fwd_Loop", "loop": true, "arms": "panic"},
 	# Crouch: the library holds its hands up by the face, a sneak (acting, D2);
 	# here the arms hang stiff ("rest" = the idle arms, riding the bent torso).
-	{"name": "crouch_idle", "src": "Crouch_Idle_Loop", "still": true, "arms": "rest", "carry": true},
-	{"name": "crouch_walk", "src": "Crouch_Fwd_Loop", "loop": true, "arms": "rest", "carry": true},
+	{"name": "crouch_idle", "src": "Crouch_Idle_Loop", "still": true, "arms": "rest", "carry": true, "carry_arms": "carry_crouch"},
+	{"name": "crouch_walk", "src": "Crouch_Fwd_Loop", "loop": true, "arms": "rest", "carry": true, "carry_arms": "carry_crouch"},
 	# Jump, made deadpan (D2/D9): the library's is a superhero leap (a wind-up
 	# crouch the instant sim jump would not wait for, one arm flung up, a deep
 	# landing squat). Kept: lift-off to tuck, ONE held air pose, and the second
@@ -125,7 +128,8 @@ func _run() -> int:
 	var rm: Node = _read(rm_path)
 	var rm_player: AnimationPlayer = null if rm == null else _find(rm, "AnimationPlayer") as AnimationPlayer
 
-	var poses: Dictionary[String, Dictionary] = _arm_poses(bones)
+	var poses: Dictionary[String, Dictionary] = _arm_poses(bones,
+		source_player.get_animation(&"Crouch_Idle_Loop"))
 	var idle: Animation = source_player.get_animation(&"Idle_Loop")
 	var pelvis_zero: Vector3 = _position_at(idle, "pelvis", 0.0)
 	var pelvis: int = bones.find_bone("pelvis")
@@ -141,7 +145,7 @@ func _run() -> int:
 		if row.get("carry", false):
 			var carried: Dictionary = row.duplicate()
 			carried["name"] = "carry_" + row["name"]
-			carried["arms"] = "carry"
+			carried["arms"] = row.get("carry_arms", "carry")
 			carried.erase("carry")
 			rows.append(carried)
 	for row: Dictionary in rows:
@@ -261,7 +265,8 @@ func _pose_rotation(pose: String, bone: String, poses: Dictionary[String, Dictio
 ## The arm poses the library does not have, by two-bone IK on the figure's rest
 ## skeleton (the idle stance). Each is { bone name: local rotation }. Targets are
 ## in the skeleton's own space, measured from the body (shoulder height, reach).
-func _arm_poses(bones: Skeleton3D) -> Dictionary[String, Dictionary]:
+func _arm_poses(bones: Skeleton3D, crouch: Animation) -> Dictionary[String, Dictionary]:
+	bones.reset_bone_poses()
 	var up: Vector3 = Vector3.UP
 	var head: Vector3 = _at(bones, "Head")
 	var pelvis: Vector3 = _at(bones, "pelvis")
@@ -275,6 +280,19 @@ func _arm_poses(bones: Skeleton3D) -> Dictionary[String, Dictionary]:
 	for bone: String in ARM_BONES:
 		rest[bone] = bones.get_bone_rest(bones.find_bone(bone)).basis.get_rotation_quaternion()
 	poses["rest"] = rest
+	# Carrying while crouched: the arm poses are torso-relative, and the crouch
+	# bends the torso ~80 degrees, so the standing carry pointed the arms straight
+	# AHEAD like a battering ram (first sheet). Solved instead on the skeleton bent
+	# into the crouch, hands just over the head in world up.
+	_bend_into(bones, crouch, 0.0)
+	var crouched_head: Vector3 = _at(bones, "Head")
+	var low: Dictionary = {}
+	for side: String in ["l", "r"]:
+		var outward: Vector3 = Vector3(signf(_at(bones, "upperarm_" + side).x - pelvis.x), 0.0, 0.0)
+		var target: Vector3 = crouched_head + outward * 0.09 + up * 0.24 + forward * 0.04
+		_solve_arm(bones, side, target, outward - up * 0.2, low)
+	poses["carry_crouch"] = low
+	bones.reset_bone_poses()
 	# Each pose: per side, hand target = shoulder + (out, up, forward) in reach
 	# fractions, and the way the elbow points.
 	var specs: Dictionary[String, Array] = {
@@ -302,17 +320,27 @@ func _arm_poses(bones: Skeleton3D) -> Dictionary[String, Dictionary]:
 		poses[pose] = table
 	return poses
 
-## Two-bone IK for one arm: writes local rotations for clavicle (unchanged),
-## upper arm, forearm and hand (unchanged) into `table`.
+## Poses the body (not the arms) as `clip` at `t`: rotations only, which is all
+## the arm IK needs to know where the shoulders and head are.
+func _bend_into(bones: Skeleton3D, clip: Animation, t: float) -> void:
+	bones.reset_bone_poses()
+	for bone: String in BONES:
+		if not ARM_BONES.has(bone):
+			bones.set_bone_pose_rotation(bones.find_bone(bone), _rotation_at(clip, bone, t))
+	bones.force_update_all_bone_transforms()
+
+## Two-bone IK for one arm on the skeleton's CURRENT pose (arms at rest): writes
+## local rotations for clavicle (unchanged), upper arm, forearm and hand
+## (unchanged) into `table`.
 func _solve_arm(bones: Skeleton3D, side: String, target: Vector3, pole: Vector3, table: Dictionary) -> void:
 	var clav: int = bones.find_bone("clavicle_" + side)
 	var upper: int = bones.find_bone("upperarm_" + side)
 	var lower: int = bones.find_bone("lowerarm_" + side)
 	var hand: int = bones.find_bone("hand_" + side)
-	var shoulder: Transform3D = bones.get_bone_global_rest(upper)
+	var shoulder: Transform3D = bones.get_bone_global_pose(upper)
 	var s: Vector3 = shoulder.origin
-	var e: Vector3 = bones.get_bone_global_rest(lower).origin
-	var w: Vector3 = bones.get_bone_global_rest(hand).origin
+	var e: Vector3 = bones.get_bone_global_pose(lower).origin
+	var w: Vector3 = bones.get_bone_global_pose(hand).origin
 	var l1: float = s.distance_to(e)
 	var l2: float = e.distance_to(w)
 	var reach: Vector3 = target - s
@@ -323,7 +351,7 @@ func _solve_arm(bones: Skeleton3D, side: String, target: Vector3, pole: Vector3,
 	var elbow: Vector3 = s + l1 * (u * cos(a) + v * sin(a))
 	var wrist: Vector3 = s + u * d
 	var upper_global: Basis = Basis(Quaternion((e - s).normalized(), (elbow - s).normalized())) * shoulder.basis
-	var clav_global: Basis = bones.get_bone_global_rest(clav).basis
+	var clav_global: Basis = bones.get_bone_global_pose(clav).basis
 	var lower_rest: Transform3D = bones.get_bone_rest(lower)
 	var lower_global: Basis = upper_global * lower_rest.basis
 	var along: Vector3 = (lower_global * bones.get_bone_rest(hand).origin).normalized()
@@ -356,8 +384,9 @@ func _track(clip: Animation, bone: String, kind: Animation.TrackType) -> int:
 			return i
 	return -1
 
+## Where a bone is in the skeleton's current pose (the rest pose unless _bend_into).
 func _at(bones: Skeleton3D, bone: String) -> Vector3:
-	return bones.get_bone_global_rest(bones.find_bone(bone)).origin
+	return bones.get_bone_global_pose(bones.find_bone(bone)).origin
 
 ## Hip to ankle, rest pose.
 func _leg(bones: Skeleton3D) -> float:

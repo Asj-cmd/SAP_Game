@@ -44,11 +44,6 @@
     "loop": false,
     "stride_speed": 0.0
   },
-  "carry_sprint": {
-    "length": 0.667,
-    "loop": true,
-    "stride_speed": 882.5
-  },
   "carry_walk": {
     "length": 1.333,
     "loop": true,

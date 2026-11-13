@@ -28,6 +28,7 @@ load the result.
 |---|---|---|
 | Our own simple models (cash) | `models/` | Blender scripts in `blender/` |
 | Family figures (skinned) | `characters/` | `autobuild/figure_bake.mjs` from the Quaternius zips (STYLE §2) |
+| Figure animation set (one for every member) | `characters/figure_anims.res` | `node autobuild/run_tool.mjs build_figure_anims` from the Quaternius Animation Library (clip table `CLIPS` in `tools/build_figure_anims.gd`); `FigureAnimation.attach` plays it; `node autobuild/anim_sheet.mjs [--clips=] [--member=]` shoots contact sheets |
 | Downloaded static props, furniture | `props/` | **the import pipeline below** (P1-6) |
 
 ## Importing a downloaded model (the pipeline)

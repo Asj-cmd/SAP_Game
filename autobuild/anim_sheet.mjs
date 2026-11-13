@@ -38,10 +38,12 @@ if (process.argv.includes("--import")) {
 // The strip between House A (x <= 2440) and House B (x >= 2960), ground top y 300.
 const Y = 300;
 const Z = 1000;
-const SPACING = 90; // six fit inside the 520-wide strip
+// Six fit inside the 520-wide strip; centred a little toward House B because a
+// running figure leans its head forward, toward -x (House A's wall at 2440).
+const SPACING = 85;
 // The cameras look toward +z, so screen right is -x: the row runs from +x (first
 // moment, screen left) to -x, and the figures face -x (yaw -90), i.e. screen right.
-const xs = Array.from({ length: COUNT }, (_, i) => 2700 - (i - (COUNT - 1) / 2) * SPACING);
+const xs = Array.from({ length: COUNT }, (_, i) => 2708 - (i - (COUNT - 1) / 2) * SPACING);
 const SHOTS = [
   { name: "side", at: [2700, 390, Z - 540], look: [2700, 385, Z] },
   // Kept inside the strip (House A's wall is at x 2440).

@@ -122,7 +122,7 @@ Aug 16–Oct 10 are in; an earlier version of this plan was written against the 
   Make both children available as a girl and a boy so D3 option (d) (kid swap) works. Unzip from
   `autobuild/incoming/` (keep the zips out of git), record in ASSETS.md. The old blocky
   `character_a/b.glb` stay in place until the new figures load (art stays optional via fallback).
-- [ ] **P2-2 One skeleton, one animation set** from the Quaternius Universal Animation Library per
+- [x] **P2-2 One skeleton, one animation set** *(Done: `art/characters/figure_anims.res`, 24 clips built by `tools/build_figure_anims.gd`; deadpan picks and IK arm poses (carry overhead, panic arms, throw); stride speeds per loop; `anim_sheet.mjs` contact sheets. See PROGRESS.md.)* from the Quaternius Universal Animation Library per
   D10 (same rig as the base characters). Needed: walk, panic-run with arms up, idle (completely
   still), jump and land, crouch-walk, carry-overhead walk and run, throw, jail run-in-place, free
   ally. Procedural wobble allowed but subtle. No ragdoll, stumble or get-up (D9).

@@ -2,6 +2,50 @@
 
 Newest first. One entry per task: date, task id, what changed, what the frames showed, numbers, what is left.
 
+## 2026-11-13 — P2-2 One skeleton, one animation set
+- **The set** is `godot/art/characters/figure_anims.res`: one `AnimationLibrary`, 24 clips, 348 KB, the same for all six family members. `figure_anims.json` beside it lists lengths and stride speeds.
+  - Built by `node autobuild/run_tool.mjs build_figure_anims` (`tools/build_figure_anims.gd`). Godot reads `UAL1_Standard.glb` from the gitignored zip folder at runtime and resamples the chosen clips at 30 fps. A rebuild is byte-identical (same SHA-1).
+  - Rotation tracks only, for 22 body bones, plus the pelvis position as a change from the library's idle, ×1.07 for the bodies' longer legs. No scale tracks, so the family's sizes and the theme nudge survive playback. Fingers keep the rest pose.
+  - Leg ratio measured: figure 0.888 m hip→ankle against the library's 0.830.
+- **Clips (D9 list → name):**
+  - idle (one still frame) and walk (Walk_Formal: arms held at the sides). `walk_loose` (arm swing) is kept as an alternative.
+  - jog and sprint, and panic_run = the jog with both arms straight up.
+  - crouch_idle (still) and crouch_walk, both with stiff hanging arms.
+  - jump_start (lift-off → tuck, 0.33 s), jump_air (one held pose) and jump_land (last 0.52 s: a stoop back to standing). Arms stiff; the pelvis never rises above idle (the sim owns height).
+  - carry_* versions of idle/walk/jog/crouch_idle/crouch_walk/jump_*, with the cash held overhead. There is no carry_sprint: a panicking carrier runs as carry_jog, faster.
+  - throw (carry → hands back → two-handed push → arms down, 0.9 s), grab (PickUp_Table), and interact (Interact: one arm reaches out, for free ally and seize).
+  - arms_carry and arms_panic are arm-only layers.
+  - Jail run-in-place has no clip of its own: every clip is in place, so a jailed body plays jog/panic_run where it stands (P4-3).
+- **Arm poses the library lacks** are two-bone IK on the figure's own rest skeleton: cash overhead, panic arms, throw back and push. Each is stored as clavicle-relative rotations, so it rides whatever torso it is laid on.
+- **Stride speeds** (model units/s at playback 1, from the root-motion copy): walk 104, jog 573, sprint 883, crouch-walk 80. The sim moves at 440 (jog ×0.77), carry 374 (jog ×0.65) and crouch 242 (crouch-walk ×3.0, which may look frantic; P2-3 to judge).
+  - These are in the model's own units, before `shape_figure` scales it to the member's height. P2-3 must multiply by the figure's scale.
+- **Seeing it:** `--capture-figure=x,y,z,yaw,member,clip@seconds` holds a stand-in in a clip (`FigureAnimation.pose`). `node autobuild/anim_sheet.mjs [--clips=] [--member=]` stands six figures at six moments in the strip between the houses and shoots side and three-quarter views to `autobuild/frames/p2_2/<clip>[_member]_{side,front}.png`.
+- **What the frames showed** (dad unless named; the sheets read left to right after one fix, see below):
+  - `walk_side`: a stiff stride, arms still at the sides, head pitched forward (the idle's posture), soles on the lawn in every phase. `walk_loose_side`: the same legs with the arms swinging.
+  - `jog`: long strides with a forward lean and a flight phase where both feet leave the ground. `panic_run_side`/`_front`: the same jog, upright, both arms straight up with fists over the head. It reads as "running from something".
+    - First attempt was on the sprint: a deep athletic lean with the arms reaching forward. Changed to the jog with the arms aimed slightly back.
+  - `carry_idle_front` and `carry_jog_front`: both hands together a hand-width apart above the crown, elbows out. The cash (P2-3 attaches it) will sit there.
+  - `throw_front`/`_side`: carry → hands drawn back behind the head → arms straight out at shoulder height → arms coming down → standing.
+  - `crouch_walk_side`: a low hunched shuffle, knees deep, arms hanging back along the bent torso.
+    - The library's own crouch held its hands up by the face (a sneak) and was replaced.
+  - `jump_start_side`: knees tucking up, arms at the sides, feet leaving the ground. `jump_land_side`: a forward stoop straightening to standing.
+    - The library's jump (crouch wind-up, one arm flung skyward, deep landing squat) was replaced.
+  - `interact_side`: one arm reaches forward at chest height and returns. `grab_side`: both hands reach down-forward to waist height and return. `idle_front`: six identical motionless figures.
+  - `walk/jog/crouch_walk_younger_boy_side`: the narrowed pelvis and short thighs (P2-1's worry) show no shearing or stretching, and the feet meet the ground.
+- **Fixed on the way:**
+  - `carry_crouch_walk` pointed the arms straight AHEAD at head height, like a battering ram. The carry pose is torso-relative and the crouch bends the torso ~80°.
+    - The crouch rows now carry a `carry_crouch` pose, solved by IK on the skeleton bent into the crouch, aiming the hands 24 cm over the head in world up.
+    - Re-shot, `carry_crouch_walk_side` and `carry_crouch_idle_front`: hunched figures with the hands clasped over the top and back of the head. That reads as "something held on the head", not ahead. The hands sit closer to the crown than aimed; accepted.
+    - `carry_sprint` showed the same tilt; it was dropped.
+  - The first sheets ran right to left (the cameras look +z, so screen right is −x), so the order was reversed.
+  - The three-quarter camera stood inside House A.
+  - The last figure clipped House A's wall; spacing 105 → 90.
+- **Left for P2-3:**
+  - The driver: state machine, playback speed from `stride_speed`, the carried bundle placed between the hands.
+  - Judging crouch-walk at ×3.0 and whether jump_land's stoop is the "tiny wobble" D9 asks for; a procedural dip may be better.
+  - grab reaches to table height; cash on the floor may want a lower reach.
+  - The crouch's pelvis drop is scaled for dad's legs. The younger kids' ×0.94 thighs may leave the feet 1-2 cm below the floor in a deep crouch (not visible in the sheets).
+
 ## 2026-11-13 — P2-1 The family of four
 - **Decimation** (`autobuild/figure_bake.mjs`): the bodies are welded by position first. UV seams buy nothing without a texture, and they are what stopped the P1-6 simplifier at half. Then a quadric half-edge collapse runs to `--max-tris` (default 5000). Every kept vertex keeps its own skin weights. It never collapses across a paint border, never moves an open boundary inward, never flips a face, and keeps the mesh manifold.
   - Male 12,566 → 5,000 triangles (2,502 vertices); female 12,812 → 5,000. Under a second each. 199 KB per .bin (was ~565 KB).
