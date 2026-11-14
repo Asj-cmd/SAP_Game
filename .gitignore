@@ -43,3 +43,5 @@ STOP
 # what is used gets extracted into godot/art and recorded in ASSETS.md
 autobuild/Incoming/
 autobuild/incoming/
+# P2-1b candidate previews, rebuilt from the zips by tools/convert_character.gd
+godot/art/characters/candidates/
