@@ -113,6 +113,15 @@ frames: `autobuild/slice/`; the clothes colours are `PAINT` in `autobuild/figure
   shouts. They are used for: the D3 (c) wristband, the HUD/minimap, and each house's **front
   door and window frames** (so you know whose house you are in, without telling you who a person
   is). Nowhere else. The blockout's red/blue floor tints are debug, not art.
+- **As built (P2-4, REVIEW).** `TeamTell` (`game/art/team_tell.gd`, default
+  `art/theme/team_tell.tres`): **minimap + wristband** on, marker and kid swap off. Switch in the
+  menu (four checkboxes) or in a match with F5 marker / F6 minimap / F7 wristband / F8 kid swap;
+  `--team-tell=` on the command line. Wristband: 7 long on the left forearm cuff, radius measured
+  from the mesh, satin family colour (theme `wristband_*`). Marker: a small family-colour
+  point-down triangle over each teammate's head, never over an enemy. Minimap: top right, rooms
+  outlined, your teammates as dots, you as a white arrow, your house at the bottom. Kid swap uses
+  the theme's `family_order_by_team` (B: dad, mom, elder boy, younger girl). Frames:
+  `autobuild/frames/p2_4/<set>_{close,20m,40m}.png` (`node autobuild/team_tell_frames.mjs`).
 
 ## 3. The house
 

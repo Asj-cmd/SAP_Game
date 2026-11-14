@@ -2,6 +2,41 @@
 
 Newest first. One entry per task: date, task id, what changed, what the frames showed, numbers, what is left.
 
+## 2026-11-13 — P2-4 Team tell (D3 experiment)
+- **The setting** is `TeamTell` (`godot/game/art/team_tell.gd`): four booleans, any combination: marker, minimap, wristband, kid_swap.
+  - Shipped default in `godot/art/theme/team_tell.tres`.
+  - The menu's four checkboxes and F5–F8 in a match save to `user://settings.cfg`.
+  - `--team-tell=none|marker,minimap,...` overrides and is never saved.
+  - Per machine, presentation only; nothing reaches the sim or the network.
+  - Capture/pilot/net-smoke runs ignore the saved file, so tool frames depend only on their command line.
+- **(a) marker**, `TeamTellOverlay`: a small point-down triangle in the family colour with a dark rim, over each of your own teammates' heads. Never over enemies or yourself; shown through walls; shrinks with distance.
+- **(b) minimap**, same overlay: a top-right square with the indoor rooms outlined, your teammates as family-colour dots, you as a white arrow facing the camera. Turned so your house is at the bottom.
+- **(c) wristband**, `ArtTheme.add_wristband`: a ring on `lowerarm_l` at the shirt cuff, in a satin family-colour material. Its radius is measured from the mesh's forearm/hand-weighted vertices, so it fits the adult and kid bodies alike. It rides every animation clip and fades with the local body.
+- **(d) kid swap**: `member_for(team, slot, kid_swap)` uses the theme's new `family_order_by_team` (team_b: dad, mom, elder boy, younger girl). Toggling (c) or (d) in a match rebuilds the figures.
+- **Default (REVIEW): minimap + wristband.** Why: see DECISIONS.
+- **Frames** (`node autobuild/team_tell_frames.mjs` → `autobuild/frames/p2_4/<set>_{close,20m,40m}.png`):
+  - Setup: both families stand in the strip, paired by slot. Seen from the camera, left to right: B younger, A younger, B elder, A elder, B mom, A mom, B dad, A dad. This machine is team_a.
+  - `none_close`: the pairs are identical. Two younger boys, two elder girls, two moms, two dads.
+  - `kid_swap_close`: B's younger child is now the girl (female body, smallest, chest visible) and B's elder child the boy (broader shoulders). Readable at 4 m only if you know the families. Adults stay identical.
+  - `wristband_close`: a small terracotta or sage band on each figure's left wrist, on the cuff, neither floating nor sunk. The only colour on the figures.
+  - `wristband_20m`, `wristband_40m`: the bands cannot be seen. Figures are ~45 px tall at 20 m and ~20 px at 40 m.
+  - `marker_*`: triangles over the four team_a figures and over the live team_a bots, one of them inside House A (through the wall). None over team_b.
+    - At 40 m the triangles were at first bigger than the heads. They now shrink from 9 px at 10 m to 5 px at 30 m, and `marker_40m` shows them about head-sized.
+  - `minimap_*`: the minimap shows House A's 2×2 rooms at the bottom and House B's at the top. The stand-ins are a dot cluster in the gap, the two live team_a bots are dots, and you are a white arrow at your spawn. No team_b dots.
+  - `default_20m`: nothing on the figures tells the families apart; only the minimap dots do.
+  - `all_*`: everything at once. Close up, the markers and bands agree.
+  - `menu.png`: a "Team tell" row of four checkboxes under Team size; Minimap and Wristband ticked. Unticked boxes are hard to see on the dark menu (Godot default theme; P5-1).
+  - `toggle_sheet.png` (live, F7/F8/F5/F6 injected): the minimap is gone after F6. The figure was rebuilt after F7/F8 with no error.
+- **Fixed from the frames:**
+  - The first wristband frame showed 4 m-tall cylinders. The skinned mesh is in metres under a ×100 armature, so width and clearance are now converted to mesh units.
+  - The minimap was tilted ~30°: the two spawn centres are not exactly opposite. It is now snapped to the nearer axis.
+- **Note:** the toggle test wrote `user://settings.cfg` before capture runs were made transient. The session reset it to the default values (the file could not be deleted from here). It now pins minimap + wristband for this machine until changed in the menu.
+- **Left:**
+  - Whether the default is right needs a human playtest (D3 says playtesting decides).
+  - The minimap is minimal (no floors, no rotation with the camera); P5-2 makes the final one.
+  - The setting is not synced from the host (P5-1 lobby).
+- Verify: `node autobuild/verify.mjs` healthy. 16 suites; symmetry 200/200. Bot match 3v3 won by team_b in 439 s with 90 s of stalls, 1v1 stalls 7 s; both are the same numbers as P2-3, as expected for a change that is presentation only. Tick budget 3v3 0 of 600 over, 4v4 0. net_smoke 1698 ticks agree.
+
 ## 2026-11-13 — P2-3 Animation driver
 - **Picked up a cut-off session.** The driver was committed as `P2-3 (part)` (8c7fe69). The working tree held `--capture-press` (keys injected during a follow) and five P2-3 decision rows. Both were finished work; committed as e97825b.
 - **The driver** is `FigureAnimator` (`game/art/figure_animator.gd`): one AnimationTree per figure, built in code and advanced by hand from `GreyBoxMain._render`.

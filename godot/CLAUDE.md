@@ -101,7 +101,12 @@ node autobuild/family_lineup.mjs [--import]          # the six family members, f
 godot --path godot -- --capture-figure=2700,300,1000,180,younger_girl   # one member by id
 godot --path godot -- --capture-figure=2700,300,1000,-90,,walk@0.4      # held in a clip of the animation set
 node autobuild/anim_sheet.mjs [--clips=walk,throw] [--member=younger_boy]   # contact sheets per clip
+node autobuild/team_tell_frames.mjs [--sets=none,marker,minimap,wristband,kid_swap,default,all]  # D3 team tell, close/20 m/40 m
+godot --path godot -- --team-tell=marker,wristband --capture-clean --capture-hud ...   # a team tell set; --capture-hud keeps marker/minimap
 ```
+
+The team tell (P2-4) is a per-machine setting (`TeamTell`): menu checkboxes, F5-F8 in a
+match, `--team-tell=`. Capture runs ignore the player's saved choice.
 
 To see the animation DRIVER (FigureAnimator, P2-3) in live play, follow one body
 with a free camera beside it; it writes one contact sheet and prints the clip each
