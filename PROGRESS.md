@@ -2,6 +2,42 @@
 
 Newest first. One entry per task: date, task id, what changed, what the frames showed, numbers, what is left.
 
+## 2026-11-14 — P2-1b Evaluate all character packs (partly done)
+- **Licences (all four read from the zips):** Animated low poly men, Animated low poly women, Ultimate Modular Men and Ultimate Modular Women are each CC0 1.0. The women's Modular licence file is headed "Ultimate Modular Males" but carries the same CC0 text. Recorded in ASSETS.md.
+- **What is in them (`tools/probe_character.gd`):**
+  - Low-poly men/women: FBX/OBJ/Blend only, about 2k triangles (Smooth_ variants 8.4k). They use their own 42-bone rig with the feet hanging off the root (IK), no clavicle or ball bones, and paddle hands.
+  - Modular: glTF, 4.5–5.8k triangles per casual outfit. Also their own 62-bone rig with IK feet.
+  - Neither uses the UAL rig that `figure_anims.res` is built for.
+- **New tools:**
+  - `autobuild/unzip_pack.mjs`: list or extract a zip with node.
+  - `tools/probe_character.gd`: bones, triangles, materials and clips of a model.
+  - `tools/convert_character.gd`: static preview of a candidate in its own idle, painted like the figures.
+  - `autobuild/character_compare.mjs`: the current family and candidates in one row, with front, three-quarter, 20 m and `--close` shots. An entry `model+clip@t` holds a clip.
+  - `tools/rerig_character.gd`: see below.
+- **Comparison frame** (`autobuild/slice/p2_1b_packs_front.png`, `_three_quarter.png`). Left to right: dad, mom, low-poly man, low-poly woman, smooth low-poly man, Modular man, Modular woman, all in the same putty and the same painted clothes.
+  - Dad and mom are the most sculpted: pecs, lats and a chest, standing in a wide, hunched idle stance.
+  - The low-poly bodies stand straight and plain, slightly lanky, with small heads and big flat mitten hands. These are the plainest and silliest bodies in the row.
+  - The Modular man has biceps and the woman has hips and a chest. Both are more "character".
+  - At 20 m all seven are about the same.
+  - **Pick: low-poly man (`Male_LongSleeve`) and woman (`Female_Casual`), REVIEW.**
+- **Re-rig instead of retarget** (DECISIONS): `rerig_character.gd` turns the low-poly body, through its own skin, into the figure skeleton's rest stance, keeping its own segment lengths. It then moves the rig's joints onto that body (rest rotations unchanged), rebinds the weights by bone name, paints the body and egg-heads it. Results:
+  - Man: 1,894 triangles, leg 81 against the rig's 89, hands ×1.35.
+  - Woman: 1,596 triangles, leg 83 against 88, hands ×1.78.
+- **Frames while building it** (`autobuild/frames/p2_1b/rerig*.png`; the keepers are in `autobuild/slice/p2_1b_rerig_*.png`):
+  - rerig1: the skinning works. jog, carry_walk (cash arms overhead) and panic_run (arms up) all deform the new body cleanly, and the wristband sits on the cuff. But the bodies drew washed-out white, because my face normals were inverted (Godot winds clockwise). Fixed.
+  - rerig2–3: dropping the hair left the scalp open (the head read as a cup), so hair is now kept as bare. The woman's hair strands scribbled over the head, so when a body has a separate scalp (`HairBase`) the strands are dropped.
+  - rerig5–6: the faces still had eyes and a nose. The men's shoes share the eyes' material, so they came out bare; shoes are now chosen by foot weight. The face is weighted to the neck in this rig, so the head is now chosen by height above the head joint.
+  - rerig7–9: no change at all. The cause: GDScript passes packed arrays by value, so the egg was never applied. Fixed by returning the result. Then still no change, although the written vertices sat on the ellipsoid within 3% (checked by decoding the .bin). The face was being drawn by **shading**: the folded eyes and nose cancel their welded normals.
+  - rerig10: egged points now take the ellipsoid's own normal, and the eyes and nose are gone.
+  - rerig11: inside-out triangles dropped as well. **What is still there:** a faint face-shaped smudge on both new heads at 1.8 m (darker brow and mouth area, a line at the old hairline). My guess is the chin/jaw blend zone (below joint + 3 % of height), plus the coplanar layers (eyes, hair) left on the egg catching the sun's shadow. I made more than two attempts on the head, so it is logged here and left.
+- **Left for the next session (P2-1b stays `[~]`):**
+  1. The smudge. Try a wider blend (start the egg at the head joint itself), or drop the eyeball and hair layers once they are on the egg.
+  2. Point the six `FamilyMember`s in `default_theme.tres` at `figure_lp_male/female.gltf`.
+  3. Re-run `tools/build_figure_anims.gd` against the new male (it reads `FIGURE`; add a `--figure=` option). The leg ratio changes from 88.8 to 81.3, which changes stride speeds and the pelvis track.
+  4. Re-check the bone nudges: the new head is already small and the neck long, so the shared Head ×1.08 / neck ×1.08 may want to change.
+  5. Re-shoot `family_lineup.mjs` and `turnaround.mjs`, then a live contact sheet.
+- Nothing in the game changed: the theme still draws the P2-1 figures. Verify: see below.
+
 ## 2026-11-13 — P3-1 Kit selection
 - **The pick (REVIEW; reasons in DECISIONS.md and STYLE §3.3 "The kit"):**
   - Furniture and appliances: **Kenney Furniture Kit** (CC0, 140 models), the one furniture pack.

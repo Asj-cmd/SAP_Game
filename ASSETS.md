@@ -25,6 +25,9 @@ Columns: **Name** · **Source** (URL) · **Licence** · **Date** (added to the p
 | Interior Tiles texture (Poly Haven), 1.9 × 1.9 m | https://polyhaven.com/a/interior_tiles | CC0 1.0 (polyhaven.com/license; `SOURCE.txt`) | 2026-11-14 | No. Diffuse 1k JPG, md5-checked. Not used yet (P3-2) | `godot/art/textures/interior_tiles/` (+ `SOURCE.txt`) |
 | Laminate Floor 02 texture (Poly Haven), 1.7 × 1.7 m | https://polyhaven.com/a/laminate_floor_02 | CC0 1.0 (polyhaven.com/license; `SOURCE.txt`) | 2026-11-14 | No. Diffuse 1k JPG, md5-checked. Not used yet (P3-2) | `godot/art/textures/laminate_floor_02/` (+ `SOURCE.txt`) |
 | Painted Plaster Wall texture (Poly Haven), 2 × 2 m | https://polyhaven.com/a/painted_plaster_wall | CC0 1.0 (polyhaven.com/license; `SOURCE.txt`) | 2026-11-14 | No. Diffuse 1k JPG, md5-checked. Not used yet (P3-2) | `godot/art/textures/painted_plaster_wall/` (+ `SOURCE.txt`) |
+| Animated low poly men (Quaternius, 2019 pack: Male_Casual / LongSleeve / Shirt / Suit, flat and Smooth_ variants) | https://quaternius.com | CC0 1.0 (`License.txt` in the zip, checked 2026-11-14) | 2026-11-13 (downloaded by the user) | P2-1b pick (REVIEW). `Male_LongSleeve.fbx` re-rigged onto the figure skeleton by `tools/rerig_character.gd`: posed into the rig's rest stance, weights rebound to the rig's bone names, painted (bare / shirt / trousers / shoes by weight), head projected onto an ellipsoid with the ellipsoid's own normals, inside-out triangles dropped, smoothed normals. 1,894 triangles. Not yet drawn in play (the theme still points at `figure_male.gltf`) | Zip in `autobuild/Incoming/` (gitignored, 18 MB). Derived: `godot/art/characters/figure_lp_male.gltf` + `figure_lp_male0.bin` |
+| Animated low poly women (Quaternius, 2019 pack: Female_Alternative / Casual / Dress / TankTop, flat and Smooth_) | https://quaternius.com | CC0 1.0 (`License.txt`, checked 2026-11-14) | 2026-11-13 (downloaded by the user) | P2-1b pick (REVIEW). `Female_Casual.fbx` through the same tool onto `figure_female.gltf`'s skeleton; hair strands dropped (the scalp `HairBase` kept). 1,596 triangles. Not yet drawn in play | Zip in `autobuild/Incoming/` (gitignored, 8 MB). Derived: `godot/art/characters/figure_lp_female.gltf` + `figure_lp_female0.bin` |
+| Ultimate Modular Men / Women (Quaternius, "Individual Characters" glTF) | https://quaternius.com | CC0 1.0 (`License.txt` in each zip, checked 2026-11-14; the women's file is headed "Ultimate Modular Males" but is the same CC0 text) | 2026-11-13 (downloaded by the user) | Evaluated in P2-1b, **not used** (see "Not used, on purpose") | Zips in `autobuild/Incoming/` (gitignored, 54 + 46 MB) |
 
 **What the free character pack actually contains** (central directory read 2026-11-13): two
 full bodies only, `Superhero_Male_FullBody` and `Superhero_Female_FullBody` (glTF for Godot,
@@ -65,6 +68,12 @@ Each file still gets its own row above when it lands in `godot/`.
 - P3-1: **Poly Haven furniture** for the house. Almost all of it is antique or gothic, it has no
   kitchen units, fridge, washer, modern bed or wardrobe, and it runs 5–60k triangles. The two
   samples in `godot/art/props/` stay as pipeline examples and are not placed.
+- P2-1b: **Quaternius Ultimate Modular Men/Women**. CC0, but the bodies are sculpted (biceps,
+  hips, chest), most outfits are costumes (knight, astronaut, witch, SWAT), the casual ones are
+  4.5–5.8k triangles, and the rig is its own (Root/Hips/Abdomen…, IK feet), so they buy nothing
+  over the low-poly pack, which is plainer and half the triangles.
+- P1-5/P2-1 bodies (Universal Base Characters "Superhero") are replaced by the low-poly bodies once
+  P2-1b is finished; the pack stays recorded above because the rig and the animation set come from it.
 - P3-1: **KayKit Furniture Bits**. Toy-chunky proportions fail STYLE §3.3.
 - P3-1: **Quaternius Ultimate House Interior**. CC0, but rounded and stylised, FBX/OBJ/Blend only,
   and only on Google Drive (no repeatable fetch). One coherent pack (Kenney) beats two.

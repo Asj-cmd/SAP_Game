@@ -40,16 +40,19 @@ const shots = [
   { cam: [X + 330, Y + 120, Z + 330], look: [X, Y + 95, Z] }, // three-quarter
   { cam: [X, Y + 400, Z + 2000], look: [X, Y + 90, Z] }, // far, 20 m, chase-ish height
 ];
+// --close: the heads and hands of the middle of the row, 1.8 m away.
+if (process.argv.includes("--close")) shots.push({ cam: [X, Y + 150, Z + 180], look: [X, Y + 130, Z] });
 mkdirSync(OUT, { recursive: true });
 const stem = join(OUT, `${NAME}.png`);
 const a = ["--rendering-driver", "opengl3", "--path", join(ROOT, "godot"), "--",
   "--capture", "--capture-clean", "--capture-delay=3", `--capture-path=${stem}`];
 for (const s of shots) a.push(`--capture-at=${s.cam.join(",")}`, `--capture-look=${s.look.join(",")}`);
 // Everyone faces +z (toward the front camera): yaw 0.
-FIGURES.forEach((f, i) => a.push(`--capture-figure=${xs[i]},${Y},${Z},0,${f}`));
+// An entry may carry a clip of the animation set after a "+": dad+jog@0.2.
+FIGURES.forEach((f, i) => a.push(`--capture-figure=${xs[i]},${Y},${Z},0,${f.replace("+", ",")}`));
 const r = spawnSync(GODOT, a, { cwd: ROOT, encoding: "utf8", timeout: 240000, maxBuffer: 1 << 26 });
 const out = `${r.stdout ?? ""}\n${r.stderr ?? ""}`.replace(ANSI, "");
-const views = ["front", "three_quarter", "far"];
+const views = ["front", "three_quarter", "far", "close"].slice(0, shots.length);
 views.forEach((v, i) => {
   const numbered = stem.replace(/\.png$/, `_${i + 1}.png`);
   const named = stem.replace(/\.png$/, `_${v}.png`);
