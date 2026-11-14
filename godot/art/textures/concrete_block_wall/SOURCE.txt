@@ -1,0 +1,5 @@
+source: https://polyhaven.com/a/concrete_block_wall
+licence: CC0 (https://polyhaven.com/license)
+fetched: 2026-11-14
+real size (mm): [2000,2000]
+diff: https://dl.polyhaven.org/file/ph-assets/Textures/jpg/1k/concrete_block_wall/concrete_block_wall_diff_1k.jpg md5 887af6e633fd0fb241eb5924623e510c

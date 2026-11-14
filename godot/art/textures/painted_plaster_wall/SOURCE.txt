@@ -1,0 +1,5 @@
+source: https://polyhaven.com/a/painted_plaster_wall
+licence: CC0 (https://polyhaven.com/license)
+fetched: 2026-11-14
+real size (mm): [2000,2000]
+diff: https://dl.polyhaven.org/file/ph-assets/Textures/jpg/1k/painted_plaster_wall/painted_plaster_wall_diff_1k.jpg md5 15ba8c1f63a5ab412b1eabe31728540a

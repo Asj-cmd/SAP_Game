@@ -1,0 +1,5 @@
+source: https://polyhaven.com/a/laminate_floor_02
+licence: CC0 (https://polyhaven.com/license)
+fetched: 2026-11-14
+real size (mm): [1699.9999284744263,1700.0000476837158]
+diff: https://dl.polyhaven.org/file/ph-assets/Textures/jpg/1k/laminate_floor_02/laminate_floor_02_diff_1k.jpg md5 34ab81c5882c1083028ffa71d40fe44d

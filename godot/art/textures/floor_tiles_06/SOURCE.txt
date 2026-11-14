@@ -1,0 +1,5 @@
+source: https://polyhaven.com/a/floor_tiles_06
+licence: CC0 (https://polyhaven.com/license)
+fetched: 2026-11-14
+real size (mm): [3000,3000]
+diff: https://dl.polyhaven.org/file/ph-assets/Textures/jpg/1k/floor_tiles_06/floor_tiles_06_diff_1k.jpg md5 a911ad8dc31e4f49a7cf782a114f7aa6

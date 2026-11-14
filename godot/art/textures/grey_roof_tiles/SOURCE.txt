@@ -1,0 +1,5 @@
+source: https://polyhaven.com/a/grey_roof_tiles
+licence: CC0 (https://polyhaven.com/license)
+fetched: 2026-11-14
+real size (mm): [3000,3000]
+diff: https://dl.polyhaven.org/file/ph-assets/Textures/jpg/1k/grey_roof_tiles/grey_roof_tiles_diff_1k.jpg md5 9a0d2c1ca66e79972c7c35cefa238cf7

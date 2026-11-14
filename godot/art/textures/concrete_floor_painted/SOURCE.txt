@@ -1,0 +1,5 @@
+source: https://polyhaven.com/a/concrete_floor_painted
+licence: CC0 (https://polyhaven.com/license)
+fetched: 2026-11-14
+real size (mm): [2000,2000]
+diff: https://dl.polyhaven.org/file/ph-assets/Textures/jpg/1k/concrete_floor_painted/concrete_floor_painted_diff_1k.jpg md5 07cee8ac8966a2f84fd7bc2ecb416de9

@@ -1,0 +1,5 @@
+source: https://polyhaven.com/a/interior_tiles
+licence: CC0 (https://polyhaven.com/license)
+fetched: 2026-11-14
+real size (mm): [1899.9998569488525,1899.9998569488525]
+diff: https://dl.polyhaven.org/file/ph-assets/Textures/jpg/1k/interior_tiles/interior_tiles_diff_1k.jpg md5 94ba3714450bb6bbe6a57c9a26e8dac5
