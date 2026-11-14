@@ -172,6 +172,22 @@ Distinct silhouettes the player must find instantly (P3-3): **the vault/safe, th
 bundle, the jail pen and its door, the safe room**. Each gets a shape nothing else in the house
 shares. Everything else is background and should look it.
 
+**As built in P3-3.** Furniture is real collision. One table in `tools/build_house.gd`
+(`_furnish`) writes each piece's blocker (`blocker_furniture_*`) and its drawn placement
+(`prop_*` → `LevelDef.props`), and `FurnitureDresser` scales each model per axis to fill its
+box exactly. Every floor-standing piece tops out at **exactly 120** (counters, island, dining
+table, console, sideboards, dresser, desk, washer/dryer, bed mattress, safes) or **at least 210**
+(fridge, wardrobes, bookcases, shelving 230, coat stand 210, pen bars 220). Pieces stand flush
+to a wall or at least 120 clear of everything. **No seating yet**: a seat would sit between 30
+and 120. A bed's headboard rises above its 120 mattress (theme `furniture_top_surface`). Rugs,
+mats, coats, lamps, a screen, a microwave, a toaster and plants are dressing with no collision.
+The **safe** is a squat dark steel block with a raised door, a brass dial and a three-spoke
+wheel (both cash rooms, in a corner). The **pen** is a cage of round bars every 14, 260 square,
+with a 120 gate left open toward the front-hall door, round the prisoners' holding spot.
+Furniture ids map to models in the theme (`furniture_models`), so a piece's look changes
+without a re-bake. Its position or size changes only through `build_house.gd`, followed by
+`bake_blockout_headless`.
+
 ### 3.3 Materials and palette
 
 Realistic-leaning means **believable materials, true proportions, restrained colour**. Not

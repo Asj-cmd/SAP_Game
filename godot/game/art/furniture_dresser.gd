@@ -47,17 +47,20 @@ static func _model(placement: PropPlacement, theme: ArtTheme) -> Node3D:
 	var turn: Basis = Basis(Vector3.UP, deg_to_rad(yaw))
 	var basis: Basis = turn
 	var box: AABB = placement.box
-	var anchor: Vector3 = bounds.get_center()
-	var target: Vector3 = box.get_center()
+	# Bottom centre to bottom centre.
+	var anchor: Vector3 = Vector3(bounds.get_center().x, bounds.position.y, bounds.get_center().z)
+	var target: Vector3 = box.position
 	if placement.fit and box.size.x > 0.0:
+		target = Vector3(box.get_center().x, box.position.y, box.get_center().z)
+		var top: float = bounds.end.y
+		var top_name: String = theme.furniture_top_surface.get(placement.model, "")
+		if top_name != "":
+			top = _surface_top(made, top_name, Transform3D.IDENTITY, bounds.end.y)
 		# A quarter turn swaps which model axis lies along world x.
 		var quarter: bool = absf(sin(deg_to_rad(yaw))) > 0.5
 		var want: Vector3 = Vector3(box.size.z, box.size.y, box.size.x) if quarter else box.size
 		basis = turn * Basis.from_scale(Vector3(want.x / bounds.size.x,
-			want.y / bounds.size.y, want.z / bounds.size.z))
-	else:
-		anchor.y = bounds.position.y
-		target = box.position
+			want.y / maxf(top - bounds.position.y, 0.01), want.z / bounds.size.z))
 	made.transform = Transform3D(basis, target - basis * anchor)
 	made.name = String(placement.model)
 	return made
@@ -190,6 +193,27 @@ static func _cylinder_into(tool: SurfaceTool, centre: Vector3, radius: float, he
 	cylinder.radial_segments = sides
 	cylinder.rings = 1
 	tool.append_from(cylinder, 0, Transform3D(turn, centre))
+
+## The highest vertex of the surfaces whose material is named `surface_name`,
+## in the root's space; `fallback` when no surface has that name.
+static func _surface_top(node: Node, surface_name: String, to_root: Transform3D,
+		fallback: float) -> float:
+	var best: float = -INF
+	var view: MeshInstance3D = node as MeshInstance3D
+	if view != null and view.mesh != null:
+		for surface: int in view.mesh.get_surface_count():
+			var material: Material = view.mesh.surface_get_material(surface)
+			if material == null or material.resource_name != surface_name:
+				continue
+			var points: PackedVector3Array = view.mesh.surface_get_arrays(surface)[Mesh.ARRAY_VERTEX]
+			for point: Vector3 in points:
+				best = maxf(best, (to_root * point).y)
+	for child: Node in node.get_children():
+		var spatial: Node3D = child as Node3D
+		var inner: float = _surface_top(child, surface_name,
+			to_root * (spatial.transform if spatial != null else Transform3D.IDENTITY), -INF)
+		best = maxf(best, inner)
+	return best if best > -INF else fallback
 
 ## The model's bounds in its own root's space, over every mesh under it.
 static func _bounds(node: Node, to_root: Transform3D) -> AABB:

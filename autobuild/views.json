@@ -15,7 +15,7 @@
     { "name": "cam_front_door_threshold", "chase": [1910, 300, 420], "facing": [1910, 300, 1200] },
     { "name": "cam_doorway_turn", "chase": [1910, 300, 1480], "facing": [2400, 300, 1480] },
     { "name": "cam_jail", "chase": [880, 300, 1250], "facing": [880, 300, 400] },
-    { "name": "cam_jail_corner", "chase": [480, 300, 480], "facing": [1300, 300, 1300] },
+    { "name": "cam_jail_corner", "chase": [480, 300, 1280], "facing": [1300, 300, 480] },
     { "name": "cam_kitchen_look_down", "chase": [1910, 300, 1910], "facing": [2400, 300, 1910], "pitch": -60 },
     { "name": "cam_kitchen_look_up", "chase": [1910, 300, 1910], "facing": [2400, 300, 1910], "pitch": 25 },
     { "name": "cam_stair_a_climb", "chase": [2270, 510, 830], "facing": [2270, 510, 1500] },

@@ -126,6 +126,10 @@ const DEFAULT_PATH: String = "res://art/theme/default_theme.tres"
 ## Turn added to every furniture model so its front faces +z at yaw 0 (the
 ## level's facings are "which way the front looks").
 @export var furniture_front_yaw: float = 0.0
+## For a piece whose standable top is not its highest point (a bed: the
+## mattress, below the headboard): the surface whose top is fitted to the
+## collision box's top. The rest of the model rises above the box.
+@export var furniture_top_surface: Dictionary[StringName, String] = {}
 @export var safe_body: StandardMaterial3D = null
 @export var safe_trim: StandardMaterial3D = null
 @export var pen_bars: StandardMaterial3D = null

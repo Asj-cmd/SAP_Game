@@ -356,6 +356,9 @@ furniture_models = Dictionary[StringName, String]({
 &"screen": "res://art/props/kenney/screen.glb"
 })
 furniture_front_yaw = 0.0
+furniture_top_surface = Dictionary[StringName, String]({
+&"bed_double": "fabric"
+})
 safe_body = SubResource("safe_body")
 safe_trim = SubResource("safe_trim")
 pen_bars = SubResource("pen_bars")

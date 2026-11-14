@@ -102,6 +102,11 @@ Author collision explicitly, by convention, in the same Blender file:
 
 - Empties or boxes named `zone_<id>` → exported to `ZoneDef` bounds.
 - Boxes named `blocker_*` → exported to `WorldCollisionDef.blockers`.
+  `blocker_furniture_*` are blockers too, also listed in `LevelDef.furniture` so the
+  shell does not draw them as walls (P3-3).
+- Markers named `prop_*` (metadata `model`, `box`, `yaw_deg`, `fit`) → `LevelDef.props`,
+  the furniture presentation draws. Never collision. A blocking piece's prop box and
+  blocker box come from one entry in `build_house.gd` `_furnish`, so they cannot drift.
 - Empties named `spawn_<team>_<slot>`, `jail_<team>`, `cash_<team>` → placement.
 
 A headless export script reads those objects and writes `.tres` content. Art
