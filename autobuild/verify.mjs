@@ -122,7 +122,9 @@ if (!args.has("--quick") && !framesOnly) {
   const budget = readJson(BUDGET_PATH, {});
   for (const [size, sizeBudget] of Object.entries(budget.bot_match ?? {}).sort(([a], [b]) => Number(b) - Number(a))) {
     const label = `bot_match ${size}v${size}`;
-    const r = godot(["--headless", "--path", GODOT_PROJECT, "--script", "res://tools/bot_match.gd", "--", `--team-size=${size}`], { timeoutSec: 900 });
+    // An optional per-size `seed` in metrics_budget.json; bot_match's own default otherwise.
+    const seedArgs = sizeBudget.seed != null ? [`--seed=${sizeBudget.seed}`] : [];
+    const r = godot(["--headless", "--path", GODOT_PROJECT, "--script", "res://tools/bot_match.gd", "--", `--team-size=${size}`, ...seedArgs], { timeoutSec: 900 });
     if (r.timedOut) { fail(`${label}: timed out`); continue; }
     const num = (re) => { const x = r.out.match(re); return x ? Number(x[1]) : null; };
     const m = {

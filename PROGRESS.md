@@ -2,6 +2,60 @@
 
 Newest first. One entry per task: date, task id, what changed, what the frames showed, numbers, what is left.
 
+## 2026-11-14 — P3-3 Interiors (partly done)
+- **Furniture is real collision.** It had to be, because a counter you walk through breaks §12's "looks climbable = is climbable". One table, `_furnish` in `tools/build_house.gd`, writes each piece twice:
+  - its blocker (`blocker_furniture_*`, stamped into both houses like the walls);
+  - its drawn placement (`prop_*` markers with model/box/yaw/fit metadata).
+  - The baker reads them into `LevelDef.furniture` and `LevelDef.props` (new `PropPlacement` resource). The shell skips furniture boxes. New `FurnitureDresser` scales each Kenney model per axis to fill its collision box exactly.
+- **Heights.** Every floor-standing top is exactly 120 or at least 210, and pieces stand flush to a wall or ≥120 clear. No seating, since a seat would be a ledge between 30 and 120.
+  - At 120: counters, island, dining table, console, sideboards, dresser, desk, washer/dryer, bed mattress, safes.
+  - At 210 or more: fridge, wardrobes, bookcases, shelving 230, coat stand 210, pen bars 220.
+- **What each room has:**
+  - Kitchen: north-wall run (counter, sink, stove, drawers), east run, fridge, island, table.
+  - Front hall: console with lamp, coat stand, rug, mat.
+  - Back hall: sideboard, bookcase, wall coat rack, mat.
+  - Jail: washer, dryer, open shelving, and the pen round the holding spot with its 120 gate toward the front-hall door.
+  - Landing A: bookcase, rug. Landing B: sideboard, rug.
+  - Bedroom: bed, two wardrobes, dresser, safe.
+  - Study: desk with screen and lamp, two bookcases, safe.
+  - 50 furniture blockers (239 total), 92 props. The bake passed the validator (reachability, escapability, two ways in).
+- **Hero silhouettes, procedural:**
+  - Safe: squat dark steel block, raised door, brass dial, three-spoke wheel, hinges.
+  - Pen: round bars every 14 cm, three rails, corner posts, open gate. Its collision boxes come from the same `PropPlacement.PEN_BAR`/`PEN_GATE` numbers.
+- **Kenney imports.** 19 new pieces. New theme materials: worktop, enamel, rug, rug_border, screen, lampshade, plant, safe body/trim, pen bars. Theme `furniture_models` maps id → model, so a look changes without a re-bake. `furniture_top_surface` fits a bed by its mattress, not its headboard.
+- **Frames looked at** (`autobuild/frames/`):
+  - `room_a_gf_kitchen`: wood units with a dark worktop; fronts face into the room (the Kenney front is +z, so `furniture_front_yaw` = 0). Microwave, toaster, island plant, white fridge, a tall dark-red table with open legs.
+  - `room_a_gf_jail`, `cam_jail`: through the door you see the washer, the blue-grey cage and its open gate, and red-brown open shelving. Reads as "you are kept here" at once.
+  - `room_a_up_bedroom`: wardrobes, bed and the safe in the corner. The safe is small but nothing else looks like it.
+  - `room_a_up_study`: bookcase, desk with lamp and screen, wide dark safe. The cash on the green carpet is clearly the most saturated thing in the room.
+  - `room_a_gf_fronthall`, `room_a_gf_backhall`: console/sideboard against walls, rug and mats. Sparse but tidy.
+  - `room_a_up_landing_se/nw`: one piece and a rug each. The stairwell edge still has no banister.
+  - `cam_kitchen_look_down`, `cam_bedroom_vault_a`: readable from the chase camera. In the bedroom shot the dresser lamp is close to the camera.
+  - House B twins (`room_b_up_study`, `room_b_gf_jail`) are identical apart from the terracotta doors.
+- **Fixes after looking:**
+  - The bed first stood with its headboard at 120 and the mattress ~50 lower, so a body on it would have floated. Fixed by fitting the mattress top to 120.
+  - `cam_jail_corner` stood its body inside the new washer. Moved to the jail's free NW corner (views.json).
+- **Sim impact, measured** (bot_match `--once` sweep, seeds 1–8 per size):
+  - 3v3: 8 of 8 decided, stalls 47–118 s. The old gate seed 20260802 is deterministic and lively (69 pick-ups, 49 deposits, 33 seizures, stalls 114 s), but round 2 drew 4–4, so it ended 1–1 outside regulation.
+  - 2v2: 7 of 8 decided.
+  - 4v4: 6 of 8 decided. Seeds 3 and 8 stalled 607 and 626 s (summed over 8 bodies). In seed 8, 88 % of stalls are in five spots, the worst being the upstairs **study NE corner in both houses** (local ~(970–1090, 970–1090)), with bots stuck at leg 0 of a PATROL route.
+  - 1v1: stalls 3–16 s (was 7), 3 of 4 decided.
+  - Side lean in decided matches: team_a 16, team_b 6 (P0-5b had 13–9). `symmetry_probe` is still exact: 193 of 193 sampled trips match their twin. The other 7 sampled trips end on furniture tops, which can only be reached by jumping.
+- **Gate re-baselined** (DECISIONS): 3v3 on seed 1 (team_b, 95 s stalls); 1v1 stall budget 7 → 16. `verify.mjs` takes an optional per-size `seed` from `metrics_budget.json`.
+- Verify: `node autobuild/verify.mjs` healthy. 16 suites; symmetry 193/193.
+  - Bot match 3v3 (seed 1): team_b in 463 s, 95 s of stalls, 26 captures. 1v1: team_b, 14 s of stalls.
+  - Tick budget: 1v1 0, 3v3 0, 4v4 1 of 600 over (p99 10.6 / 21.8 / 25.9 ms). net_smoke: 1687 ticks agree.
+- **Numbers:**
+  - kitchen view 492 draws / 79k triangles (P3-2: 239 / 44k).
+  - bedroom 493 draws, jail 151.
+  - All are under the 1000-draw budget. GPU time was NOT re-measured this session; the kitchen had only 0.6 ms of headroom.
+- **Left (why `[~]`):**
+  1. The 4v4 study-corner PATROL stall (find what the patrol leg aims at; probably a destination whose nearest stance is now on or beside a piece).
+  2. The side lean: run `side_sweep.mjs` with furniture in.
+  3. GPU timing of the kitchen/bedroom views (`render_stats.mjs --views=room_a_gf_kitchen,room_a_up_bedroom`).
+  4. Bots may not reach cash thrown onto a counter top: they route to the nearest stance, which can be the top. Unseen in the sweep.
+  5. Banisters at the stairwell edges (they would remove the drop-into-stairwell route, so that is a gameplay change), and a crawl-under table (needs crouch stances checked).
+
 ## 2026-11-14 — P3-2 Shell dressing
 - **Picked up a cut-off session's work.** The tree held an uncommitted, coherent P3-2: `game/art/shell_builder.gd` (new), theme materials and a `Shell` group in `art_theme.gd` / `default_theme.tres`, `greybox_main.gd` building the shell instead of blockout boxes, eight Poly Haven textures re-imported VRAM-compressed with mipmaps, and ASSETS.md rows saying where each is used. `verify --quick` was green, so I committed it as is (`003d604`, P3-2 part).
 - **What the shell is** (DECISIONS 2026-11-14 P3-2): generated at load from the blocker AABBs. Each face is cut where other boxes and room edges meet it. Covered cells are dropped. Each cell's material comes from what is in front of it. Stair treads get oak tops and painted risers. Openings get casings (family colour outside), and exterior ones get a pair of open glazed doors flat against the inside wall. Interior walls get skirting. Each house gets a hipped roof with an overhang, soffit and fascia. It is all merged into one mesh per house with a surface per material, using world UVs. No collision, no zone or `content/` change, and the bot match is bit-identical.

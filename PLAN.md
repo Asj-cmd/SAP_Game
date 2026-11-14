@@ -153,9 +153,15 @@ Aug 16–Oct 10 are in; an earlier version of this plan was written against the 
 - [x] **P3-2 Shell dressing.** *(Done: `ShellBuilder` generates the textured shell from the blockers at load: plaster/block/brick walls, tiled/oak/carpet floors, ceilings, oak treads with painted risers, casings, open family-colour french doors, skirting, a hipped roof; one mesh per house. Collision and zones untouched. Frames of all 16 rooms, 6 exteriors, 16 camera views. See PROGRESS.md.)* Visual shell from the existing blockout data (`godot/game/blockout`,
   `HOUSE_LAYOUT`/`WORLD_AUTHORING`): walls, floors, doors, windows, stairs, roof with reveal. Collision
   and zones unchanged. *Verify:* content validator + all tests green; frames of every room.
-- [ ] **P3-3 Interiors.** Furnish every room. Obey `WORLD_AUTHORING.md` §12 thresholds: anything the
+- [~] **P3-3 Interiors.** *(Partly done: every room furnished with real collision at the 120/≥210 thresholds from one table in `build_house.gd`; Kenney pieces fitted to their boxes; procedural safe and jail pen. Left: a 4v4 bot stall in the upstairs study corner, a team_a lean in the sweep, GPU timing, banisters. See PROGRESS.md.)* Furnish every room. Obey `WORLD_AUTHORING.md` §12 thresholds: anything the
   rules let you climb must *look* climbable, anything that blocks must *look* tall. Distinct
   silhouettes for vault, cash bundle, jail/basement door, safe room.
+- [ ] **P3-3b Furniture follow-ups.** With furniture in (P3-3): (1) 4v4 bot_match seeds 3 and 8
+  stall 600+ s, 88 % of it in five spots, the worst being the upstairs study NE corner in both houses, bots at leg 0
+  of a PATROL route. Find what the leg aims at and fix it (measure first; `bot_match --team-size=4 --seed=8 --once`).
+  (2) Re-run `autobuild/side_sweep.mjs`: the decided matches leaned team_a 16 to 6. (3) GPU timing of the kitchen and
+  bedroom views against the 9 ms budget (`render_stats.mjs`). (4) Check that bots can fetch cash lying on a
+  120 top. *Verify:* 4v4 sweep stalls back near the 3v3 range, and side lean within P0-5b's target.
 - [ ] **P3-4 Exterior.** Lot, fences, garden, trees, path, neutral strip, street, sky, sun.
 - [ ] **P3-5 Lighting and readability pass.** Lighting per room, shadow settings the Compatibility
   renderer can afford, contrast between floor/wall/characters/cash. *Verify:* frames at day-like
