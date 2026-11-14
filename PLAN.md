@@ -134,7 +134,7 @@ Aug 16–Oct 10 are in; an earlier version of this plan was written against the 
   (b) minimap showing only your teammates (build a minimal minimap here; P5-2 makes it final);
   (c) both families identical except one small detail such as a wristband colour; (d) kid swap.
   Pick a default and log it as REVIEW. *Verify:* frames of each option, from 20 m and 40 m.
-- [ ] **P2-5 Turnaround sheet.** One capture per character from 4 angles in `autobuild/slice/`.
+- [x] **P2-5 Turnaround sheet.** *(Done: `node autobuild/turnaround.mjs` → `autobuild/slice/turnaround_<member>.png`, the six family members, each one frame of four copies turned front/right/back/left against their own line of sight. See PROGRESS.md.)* One capture per character from 4 angles in `autobuild/slice/`.
 
 ## Phase 3 — The house and the lot
 

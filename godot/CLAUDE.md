@@ -98,6 +98,7 @@ godot --path godot -- --art-theme=res://art/theme/slice_b.tres --capture-figure=
 node autobuild/style_slice.mjs [--variants=a,b,c,pick] [--import]   # P1-5 slice
 node autobuild/figure_bake.mjs --body=male|female    # re-bake a figure from the zips
 node autobuild/family_lineup.mjs [--import]          # the six family members, front/side/back, 20 m, 40 m
+node autobuild/turnaround.mjs [--members=dad] [--clip=jog@0.2]   # one sheet per member: front/right/back/left -> autobuild/slice/
 godot --path godot -- --capture-figure=2700,300,1000,180,younger_girl   # one member by id
 godot --path godot -- --capture-figure=2700,300,1000,-90,,walk@0.4      # held in a clip of the animation set
 node autobuild/anim_sheet.mjs [--clips=walk,throw] [--member=younger_boy]   # contact sheets per clip

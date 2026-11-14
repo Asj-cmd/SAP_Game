@@ -2,6 +2,26 @@
 
 Newest first. One entry per task: date, task id, what changed, what the frames showed, numbers, what is left.
 
+## 2026-11-13 — P2-5 Turnaround sheet
+- **Tool:** `node autobuild/turnaround.mjs [--members=...] [--clip=jog@0.2]` writes `autobuild/slice/turnaround_<member>.png` for dad, mom, elder_girl, elder_boy, younger_girl, younger_boy. Each sheet is one capture of four drawn-only copies of the member in a row.
+  - Left to right: front, right side, back, left side.
+  - Each copy is turned against its own line of sight to the camera, so the outer copies are not skewed by perspective.
+  - Same camera for all six (3 m away, level at 95 cm), so heights compare across sheets.
+  - Drawn in the theme's rest pose (Idle frame 0), the same still pose the in-game idle shows.
+- **Fixed from the frames:**
+  - First attempt was in the strip between the houses, where the lineup stands. The two right copies stood in House A's shadow and the fronts were backlit. Moved to House A's back yard, shot toward the plain back wall: all four are evenly sunlit.
+  - Side labels were swapped in my first reasoning. The wristband (left wrist, sage) is visible on the near arm of the copy facing screen-left, so that copy is the LEFT side. Labels and comments are corrected.
+  - The row was moved along the wall so the back door is not behind a figure.
+- **What the six sheets show:**
+  - Every figure has the same blank egg head, a blue-grey long-sleeved shirt, grey-brown trousers, dark feet, putty hands, and a sage band on the left cuff. The band fits snugly on adults and kids alike and shows in the front, back and left views.
+  - In profile every member's head sits on a neck tilted forward, the head ahead of the chest, as if peering. This reads as the intended slight "off" look and is the same on all six.
+  - All six have the rest pose's wide stance and half-closed fists.
+  - Female bodies (mom, elder_girl, younger_girl) show a chest and hips in front and profile. Male bodies show broader shoulders, and from the back the superhero V-shaped lats and deltoids still show through the shirt (known since P1-5).
+  - Kids are visibly shorter, with bigger heads; younger_girl and younger_boy have the largest heads for their size.
+  - **Defect seen, not fixed:** on the three male backs (dad, elder_boy, younger_boy) there is a ragged light patch at the back of the neck where the putty neck meets the shirt. The paint border is jagged there. The female backs have a clean neckline. It is small at chase distance. A fix belongs in `figure_bake.mjs` PAINT and needs a re-bake; left for the readability audit (P4-7) or a later figure pass.
+- Counters per sheet: 609 draws, 78.6k triangles (the whole yard view plus four figures).
+- Verify: `node autobuild/verify.mjs` healthy. 16 suites; symmetry 200/200. Bot match 3v3 won by team_b in 439 s with 90 s of stalls; 1v1 7 s. These are the same numbers as P2-4: nothing in the game changed. Tick budget 1v1 0, 3v3 0 of 600 over, 4v4 2 (not gated). net_smoke 1692 ticks agree.
+
 ## 2026-11-13 — P2-4 Team tell (D3 experiment)
 - **The setting** is `TeamTell` (`godot/game/art/team_tell.gd`): four booleans, any combination: marker, minimap, wristband, kid_swap.
   - Shipped default in `godot/art/theme/team_tell.tres`.
