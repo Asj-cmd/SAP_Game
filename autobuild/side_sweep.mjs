@@ -40,8 +40,9 @@ function play(run) {
       const winner = (out.match(/^winner\s+(\S+)/m) ?? [, "?"])[1];
       const rounds = (out.match(/^rounds won\s+(.*)$/m) ?? [, "?"])[1].trim();
       const raiding = (out.match(/^raiding\s+(.*)$/m) ?? [, "?"])[1].trim();
+      const stalls = Number((out.match(/^stalls\s+(\d+)/m) ?? [, "NaN"])[1]);
       if (rounds === "?") console.log(`-- ${run.size}v${run.size} seed ${run.seed} gave no result:\n${out.split("\n").slice(-25).join("\n")}`);
-      resolve({ ...run, winner: winner.startsWith("team_") ? winner : "none", rounds, raiding });
+      resolve({ ...run, winner: winner.startsWith("team_") ? winner : "none", rounds, raiding, stalls });
     });
   });
 }
@@ -53,7 +54,7 @@ async function worker() {
     const run = runs[next++];
     const r = await play(run);
     results.push(r);
-    console.log(`${r.size}v${r.size} seed ${r.seed} ${r.swapped ? "swapped" : "as-is  "}  winner ${r.winner.padEnd(7)} rounds ${r.rounds}  raiding ${r.raiding}`);
+    console.log(`${r.size}v${r.size} seed ${r.seed} ${r.swapped ? "swapped" : "as-is  "}  winner ${r.winner.padEnd(7)} rounds ${r.rounds}  stalls ${r.stalls} s  raiding ${r.raiding}`);
   }
 }
 await Promise.all(Array.from({ length: jobs }, worker));
@@ -69,7 +70,8 @@ for (const size of sizes) {
   const line = (label, list) =>
     `  ${label.padEnd(8)} team_a ${count(list, (r) => r.winner, "team_a")}  team_b ${count(list, (r) => r.winner, "team_b")}  ` +
     `house A ${count(list, houseOf, "A")}  house B ${count(list, houseOf, "B")}  undecided ${count(list, (r) => r.winner, "none")}  of ${list.length}`;
-  console.log(`${size}v${size}`);
+  const st = rows.map((r) => r.stalls).filter(Number.isFinite).sort((a, b) => a - b);
+  console.log(`${size}v${size}  stalls ${st[0]}-${st[st.length - 1]} s, median ${st[Math.floor(st.length / 2)]}`);
   console.log(line("as-is", asIs));
   console.log(line("all", rows));
   total.team_a += count(asIs, (r) => r.winner, "team_a");

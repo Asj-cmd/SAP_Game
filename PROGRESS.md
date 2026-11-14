@@ -2,6 +2,39 @@
 
 Newest first. One entry per task: date, task id, what changed, what the frames showed, numbers, what is left.
 
+## 2026-11-14 — P3-3b Furniture follow-ups
+- **(1) The 4v4 "study corner" stall was not about furniture.** I added the task's zone and the route's end point to bot_match's stall samples. The stuck bots were on `PATROL yard_b`, with a one-point route to (4075, 680, 2325).
+  - That point is yard_b's box centre. The yard wraps the house, so its centre sits inside the house, in the upstairs wall between the study and landing B, at body height.
+  - The stance nearest it is the study's NE corner, 35 past the wall face. The arrival radius is 30, so the bot pushed into the wall for the whole errand.
+  - Listing every zone's nearest stance found three more wrong places:
+    - The lot's centre is nearest a stance in **House A's bedroom**. Both teams "patrolling neutral ground" were guarding team_a's cash room, which is a side bias.
+    - The jail's centre is nearest the top of the pen's bars, and the kitchen's is nearest the island top. Both are furniture tops new in P3-3, which no walk reaches, so those routes came back empty.
+  - Fix: `NavGraph.zone_point`. Each zone gets a stance in it that a body can reach on foot (measured from a spawn). Where a zone has two equal points (the lot is its own twin), each bot takes the one nearest itself. The points are worked out when the bots are seated, never inside a tick. The 12 rooms whose centre was fine are unchanged.
+  - 4v4 seed 8: stalls 626 → 169 s, idle 1560 → 45 s, undecided → team_a 2–1 (118 pick-ups, 56 seizures).
+  - The new patrol points:
+    - yard_a: by the back wall at (340, 320, 1500); yard_b: its twin.
+    - lot: (2740, 320, 860) or (2660, 320, 2860), whichever is nearer the bot.
+    - jail: the pen's floor.
+    - kitchen: the floor under its centre.
+- **(2) Side sweep** (`side_sweep.mjs`, 48 matches; it now prints stalls per match):
+  - Side lean, by seat: team_a 10, team_b 13 of 24 as-is (P3-3 had 16–6).
+  - By house: A 22, B 20, 6 undecided of 48. Within P0-5b's target.
+  - Stalls: 2v2 17–127 s (median 55), 3v3 24–132 (median 73), 4v4 48–374 (median 125).
+  - Four 4v4 swapped runs are still 228–374 s. In the worst (seed 4 swapped), 63 % of the stalls are at the two stairwells, with bodies on DEPOSIT routes crowding in. That is a different mechanism, so it goes to the new **P3-3c**.
+- **(3) GPU timing**, House A rooms, `render_stats.mjs --views=room_a_`, GT 730M, 120 frames each:
+  - Kitchen 8.7 ms GPU (budget 9.0), 492 draws, 79k triangles.
+  - Bedroom 8.1 ms, 493 draws.
+  - The rest 7.6–8.4 ms. All within budget; the kitchen has 0.3 ms of headroom left.
+- **(4) Cash on a 120 top:** bots never fetch it.
+  - A throwaway probe (deleted) put House A's bundles on the kitchen counter. The pickup range is 70 and the top is 100 above a standing body's centre, so nobody can reach it from the floor; it takes a jump, and bots do not jump.
+  - The bundle scores as unreachable, so the bot ignores it: no stall, no pushing.
+  - I tried routing bots to the floor beside the top and giving them full reach for things on tops. It changed nothing at this pickup range, so I removed it (DECISIONS).
+- Verify: `node autobuild/verify.mjs` healthy. 16 suites; symmetry 193/193.
+  - Bot match 3v3 (seed 1): team_a in 317 s, stalls 95 → 61 s. 1v1: team_b, 14 s of stalls.
+  - Tick budget: 1v1 0, 3v3 0, 4v4 1 of 600 over. net_smoke: 1687 ticks agree.
+  - The 3v3 stall budget is tightened 150 → 120.
+- **Left:** P3-3c (4v4 stairwell congestion). From P3-3: banisters, and a table you can crawl under.
+
 ## 2026-11-14 — P3-3 Interiors (partly done)
 - **Furniture is real collision.** It had to be, because a counter you walk through breaks §12's "looks climbable = is climbable". One table, `_furnish` in `tools/build_house.gd`, writes each piece twice:
   - its blocker (`blocker_furniture_*`, stamped into both houses like the walls);

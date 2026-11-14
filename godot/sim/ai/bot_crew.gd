@@ -187,6 +187,11 @@ func _attach(world: SimWorld, actor_id: int, seat: Seat) -> BotDirector:
 	if actor == null or not actor.is_actor():
 		return null
 	var director: BotDirector = BotDirector.for_actor(actor_id, profile, nav, match_seed)
+	# Every zone's patrol point now, while seating, so the stance scan behind a
+	# wrapping zone's point never lands inside a tick. Remembered, so only the
+	# first bot pays.
+	for zone_id: StringName in world.zone_ids_in_resolution_order():
+		nav.zone_point(world, world.zones[zone_id], Vector3.ZERO)
 	_directors[actor_id] = director
 	_seats[actor_id] = seat
 	# A LABEL, not simulation state. No rule reads it and the digest omits it,

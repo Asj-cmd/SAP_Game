@@ -40,6 +40,10 @@ var last_expanded: int = 0
 ## stance_near's answers, per exact point. See stance_near.
 var _near_memo: Dictionary[Vector3, int] = {}
 const _NEAR_MEMO_LIMIT: int = 4096
+## zone_point's candidate sets, per zone id, and the on-foot flood behind them.
+var _zone_points: Dictionary[StringName, PackedVector3Array] = {}
+var _foot: PackedInt32Array = PackedInt32Array()
+var _foot_measured: bool = false
 
 ## The surface's edges, each stance's set re-sorted into one fixed order of
 ## directions and into the same order turned half a circle. See _trace.
@@ -95,6 +99,94 @@ func stance_near(point: Vector3) -> int:
 		_near_memo.clear()
 	_near_memo[point] = node
 	return node
+
+## A point IN `zone` that a body can walk to, for errands about the zone as a
+## place (patrols). The zone's centre when the stance nearest it is in the zone
+## and on foot - which is every room on the shipped level except two - and
+## otherwise the on-foot stance in the zone nearest that centre.
+##
+## The centre alone sent bots to three wrong places (P3-3b, 4v4 seed 8):
+##   - A YARD is a box round its house at priority 0, so its centre is inside
+##     the house, in the upstairs wall between the study and landing B. No room
+##     claims a point inside a wall, so it still resolves to the yard, but the
+##     stance nearest it is the study's: a bot patrolling the yard pushed into
+##     the study's corner for the whole errand, 35 past the wall face against a
+##     30 arrival radius. That spot held 424 of 626 stall seconds.
+##   - The LOT's centre is on the midline at body height, and the stance
+##     nearest it was in House A's bedroom: patrolling neutral ground meant
+##     guarding team_a's cash room, for both teams.
+##   - The jail's and the kitchen's centres are nearest a FURNITURE TOP (the
+##     pen's bars, the island): a stance nothing reaches without a jump, so the
+##     route came back empty and the bot stood still.
+##
+## `on foot` = reached by a walk from the first team's first spawn, which by
+## definition is ground a body starts on. Ties - a zone that is its own half-
+## turned twin, like the lot, has its nearest point twice - are kept as a set,
+## and each asker takes the one nearest itself, then the lower index. Nearest
+## the asker turns with the house; index alone would hand one house both.
+## The set is remembered per zone id: surface and zones never change after load.
+func zone_point(world: SimWorld, zone: ZoneDef, asker: Vector3) -> Vector3:
+	var points: PackedVector3Array = _zone_candidates(world, zone)
+	var pick: Vector3 = points[0]
+	var best: float = INF
+	for point: Vector3 in points:
+		var gap: float = Vector2(point.x - asker.x, point.z - asker.z).length_squared()
+		if gap < best:
+			best = gap
+			pick = point
+	return pick
+
+## Distances nearer than this to the best count as a tie: twin stances sit at
+## x and 5400 - x, which round differently.
+const _ZONE_TIE: float = 1.0
+
+func _zone_candidates(world: SimWorld, zone: ZoneDef) -> PackedVector3Array:
+	if _zone_points.has(zone.id):
+		return _zone_points[zone.id]
+	var centre: Vector3 = zone.bounds.get_center()
+	var points: PackedVector3Array = PackedVector3Array([centre])
+	if is_ready():
+		var foot: PackedInt32Array = _on_foot(world)
+		var near: int = node_at(centre)
+		var near_ok: bool = near >= 0 and world.zone_at(surface.nodes[near]) == zone \
+			and (foot.is_empty() or foot[near] >= 0)
+		if not near_ok:
+			var gaps: PackedFloat32Array = PackedFloat32Array()
+			gaps.resize(surface.nodes.size())
+			var best: float = INF
+			for i: int in surface.nodes.size():
+				gaps[i] = INF
+				var node: Vector3 = surface.nodes[i]
+				if not zone.bounds.has_point(node):
+					continue # cheap reject before the full resolution
+				if not foot.is_empty() and foot[i] < 0:
+					continue
+				if world.zone_at(node) != zone:
+					continue
+				gaps[i] = node.distance_to(centre)
+				best = minf(best, gaps[i])
+			if best < INF:
+				points = PackedVector3Array()
+				for i: int in surface.nodes.size():
+					if gaps[i] <= best + _ZONE_TIE:
+						points.append(surface.nodes[i])
+	_zone_points[zone.id] = points
+	return points
+
+## Hops from the first team's first spawn: which stances a body reaches on
+## foot. Empty when the world has no spawn to start from.
+func _on_foot(world: SimWorld) -> PackedInt32Array:
+	if _foot_measured:
+		return _foot
+	_foot_measured = true
+	for team_id: StringName in world.sorted_team_ids():
+		var team: TeamDef = world.get_team(team_id)
+		if team != null and not team.spawn_points.is_empty():
+			var origin: int = node_at(team.spawn_points[0])
+			if origin >= 0:
+				_foot = hops_from(origin)
+			break
+	return _foot
 
 ## Hop counts from `origin` to every node; -1 where there is no walk at all.
 ##

@@ -255,9 +255,12 @@ func _candidates(world: SimWorld, me: SimEntity) -> Array[BotTask]:
 					BotTask.Kind.DEFEND, entity_id, other.position, standing.id
 				))
 
+	# A point IN the zone that can be walked to, not its box's centre: a yard's
+	# centre is inside the house it wraps (NavGraph.zone_point).
 	for zone_id: StringName in world.zone_ids_in_resolution_order():
 		tasks.append(BotTask.make(
-			BotTask.Kind.PATROL, SimEntity.NO_ENTITY, world.zones[zone_id].bounds.get_center(), zone_id
+			BotTask.Kind.PATROL, SimEntity.NO_ENTITY,
+			nav.zone_point(world, world.zones[zone_id], me.position), zone_id
 		))
 	return tasks
 

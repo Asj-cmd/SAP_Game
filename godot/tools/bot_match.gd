@@ -189,6 +189,14 @@ func _play(stop_at: int = -1) -> Dictionary:
 	if _lone:
 		seated.append(world.actor_ids()[0]) # an idle human, holding a seat
 	crew.fill_lobby(world, seated, world.actor_ids().size())
+	# Zones patrolled somewhere other than their box's centre (NavGraph.zone_point).
+	for zone_id: StringName in world.zone_ids_in_resolution_order():
+		var zone: ZoneDef = world.zones[zone_id]
+		var near_a: Vector3 = crew.nav.zone_point(world, zone, Vector3.ZERO)
+		var near_b: Vector3 = crew.nav.zone_point(world, zone, Vector3(1.0e5, 0.0, 1.0e5))
+		if near_a != zone.bounds.get_center():
+			print("patrol      %s at %s%s, not its centre %s" % [zone_id, near_a.round(),
+				"" if near_b == near_a else " / %s" % near_b.round(), zone.bounds.get_center().round()])
 
 	var tally: Dictionary[StringName, int] = {}
 	## The same counts split by the acting body's team, plus seizures SUFFERED
@@ -320,11 +328,17 @@ func _play(stop_at: int = -1) -> Dictionary:
 						# not following is a steering failure; one that is
 						# BLOCKED is neither.
 						var director: BotDirector = crew.director_for(actor_id)
-						stall_spots.append("%s  %s  route %d leg %d  %s" % [
+						# Where the route ENDS, and for which zone: a stall at leg 0
+						# of a one-point route is a destination problem, and only
+						# the destination says which one.
+						var bound: PackedVector3Array = director.route()
+						stall_spots.append("%s  %s %s  route %d leg %d  to %s  %s" % [
 							body.position.round(),
 							BotTask.Kind.keys()[task.kind],
-							director.route().size(),
+							task.zone_id,
+							bound.size(),
 							director.leg(),
+							bound[bound.size() - 1].round() if not bound.is_empty() else Vector3.ZERO,
 							SimEntity.MotionState.keys()[body.motion_state],
 						])
 				anchor[actor_id] = body.position

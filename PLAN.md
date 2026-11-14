@@ -156,12 +156,17 @@ Aug 16–Oct 10 are in; an earlier version of this plan was written against the 
 - [~] **P3-3 Interiors.** *(Partly done: every room furnished with real collision at the 120/≥210 thresholds from one table in `build_house.gd`; Kenney pieces fitted to their boxes; procedural safe and jail pen. Left: a 4v4 bot stall in the upstairs study corner, a team_a lean in the sweep, GPU timing, banisters. See PROGRESS.md.)* Furnish every room. Obey `WORLD_AUTHORING.md` §12 thresholds: anything the
   rules let you climb must *look* climbable, anything that blocks must *look* tall. Distinct
   silhouettes for vault, cash bundle, jail/basement door, safe room.
-- [ ] **P3-3b Furniture follow-ups.** With furniture in (P3-3): (1) 4v4 bot_match seeds 3 and 8
+- [x] **P3-3b Furniture follow-ups.** *(Done: the "study corner" stall was bots patrolling a zone's box centre (the yard's is inside the house wall, the lot's nearest stance is House A's bedroom, jail/kitchen centres are nearest furniture tops); `NavGraph.zone_point` now gives an on-foot stance in the zone. 4v4 seed 8 stalls 626 → 169 s; sweep side lean team_a 10 / team_b 13, house A 22 / B 20; kitchen GPU 8.7 ms; cash on a top is out of floor reach (pickup 70), so bots ignore it. 4v4 stairwell congestion left as P3-3c. See PROGRESS.md.)* With furniture in (P3-3): (1) 4v4 bot_match seeds 3 and 8
   stall 600+ s, 88 % of it in five spots, the worst being the upstairs study NE corner in both houses, bots at leg 0
   of a PATROL route. Find what the leg aims at and fix it (measure first; `bot_match --team-size=4 --seed=8 --once`).
   (2) Re-run `autobuild/side_sweep.mjs`: the decided matches leaned team_a 16 to 6. (3) GPU timing of the kitchen and
   bedroom views against the 9 ms budget (`render_stats.mjs`). (4) Check that bots can fetch cash lying on a
   120 top. *Verify:* 4v4 sweep stalls back near the 3v3 range, and side lean within P0-5b's target.
+- [ ] **P3-3c 4v4 stairwell congestion.** After P3-3b, 4 of 16 4v4 sweep matches still stall 228–374 s
+  (median 125; 3v3 range 24–132), all with `--swap-houses`. `bot_match --team-size=4 --seed=4 --once --swap-houses`:
+  63 % of 374 s in five spots at the two stairwells (House A local ~(250–370, 1450) by stair B, ~(1570–1690, 490)
+  by stair A), DEPOSIT routes at legs 3–5, many bodies at once. Measure first (who is pressed against whom, which
+  leg); the give-way rule in `BotDirector._steer` is the likely place. *Verify:* 4v4 sweep stalls within the 3v3 range.
 - [ ] **P3-4 Exterior.** Lot, fences, garden, trees, path, neutral strip, street, sky, sun.
 - [ ] **P3-5 Lighting and readability pass.** Lighting per room, shadow settings the Compatibility
   renderer can afford, contrast between floor/wall/characters/cash. *Verify:* frames at day-like

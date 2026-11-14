@@ -495,6 +495,31 @@ Within noise (one standard deviation over 44 decided is about 3), so the
 seat-ordered loops were left alone. If a later sweep leans by NAME but not by
 house, they are where to look.
 
+## 6c-iii. A zone's centre is not a place in the zone (P3-3b)
+
+The 4v4 "study corner" stall that appeared with the furniture was not about
+furniture. Bots PATROL to a zone's box centre, and three of those centres were
+wrong places: a yard wraps its house, so its centre is inside the house, in
+the upstairs study / landing B wall (the stance nearest it is the study's NE
+corner: 35 past the wall face, against a 30 arrival radius, so the bot pushed
+there for the whole errand); the lot's centre is nearest a stance in House A's
+bedroom (both teams "patrolling neutral ground" guarded team_a's cash room,
+a side bias); and since P3-3 the jail's and kitchen's centres are nearest a
+furniture TOP, which no walk reaches, so the route was empty. Furniture only
+made the match visit them differently.
+
+`NavGraph.zone_point` now answers "a place in this zone a body can walk to":
+the centre where its nearest stance is in the zone and on foot, else the
+on-foot stance in the zone nearest the centre, ties (the lot is its own twin)
+going to the one nearest the asking bot. 4v4 seed 8: 626 -> 169 stall seconds,
+idle 1560 -> 45, undecided -> decided.
+
+**Rule:** a destination handed to a bot must be a stance it can walk to, not a
+box's centre. Bots do not jump, so anything only a jump reaches (furniture
+tops) is invisible to them - including cash on a counter, which no one can
+pick up from the floor anyway (pickup range 70; a top is 100 above a standing
+body's centre).
+
 ## 6d. Multiplayer is reachable from a menu
 
 It was complete and unusable: hosting meant `CashGrab.exe -- --host

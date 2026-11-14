@@ -4,7 +4,7 @@
       "max_stall_seconds": 16
     },
     "3": {
-      "max_stall_seconds": 150,
+      "max_stall_seconds": 120,
       "seed": 1
     }
   },
