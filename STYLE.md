@@ -96,8 +96,15 @@ muted blue-grey long-sleeved shirt, grey-brown trousers, dark shoes, with bare p
 hands. The slice showed a bare body reading as an anatomical clay model, and the clothed one
 as "a person without the details". Material as built: putty `(0.74, 0.71, 0.66)`, roughness
 0.7, rim 0.2, `vertex_color_use_as_albedo`. Off-proportion as built (theme
-`figure_bone_scales`): head ×1.08, neck ×1.08 long, torso ×1.04 long, hands ×1.06. Slice
+`figure_bone_scales`): head ×1.08, neck ×1.08 long, torso ×1.04 long. Slice
 frames: `autobuild/slice/`; the clothes colours are `PAINT` in `autobuild/figure_bake.mjs`.
+
+Bodies since P2-1b (REVIEW): the Quaternius "Animated low poly" man (`Male_LongSleeve`) and
+woman (`Female_Casual`), re-rigged onto the figure skeleton by `tools/rerig_character.gd`
+(`node autobuild/rerig_family.mjs`) into `art/characters/figure_lp_{male,female}.gltf`, painted
+the same way (`PAINT` in that tool). Plain, straight, slightly lanky, big mitten hands, so the
+hands ×1.06 nudge was dropped. The head is a smooth egg from the chin to the crown. Triangles:
+man 3,987, woman 3,027.
 
 ### 2.4 Team identity (D3 is an experiment)
 

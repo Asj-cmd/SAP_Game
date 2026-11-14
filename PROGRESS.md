@@ -2,6 +2,32 @@
 
 Newest first. One entry per task: date, task id, what changed, what the frames showed, numbers, what is left.
 
+## 2026-11-14 — P2-1b Evaluate all character packs (finished)
+- **The face smudge, traced and fixed** (`tools/rerig_character.gd`, re-run by the new `node autobuild/rerig_family.mjs`; frames `autobuild/frames/p2_1b/rerig12–15_close.png`):
+  - New `tools/head_probe.gd` checked the written head. Above the Head joint +9 cm: 80 vertices, every normal within 2° of the egg's, all white, none inside out. So the file was clean there, and the face lived lower down.
+  - Attempt 1, wrong theory (shadow terminator on a coarse head): two subdivision levels gave 10,955 triangles, and the face was still there (rerig13), if anything sharper.
+  - The real cause, measured: in these rigs the Head joint is at mouth height. The eyes sit ~7 cm above it, the nose ~4, the mouth ~1, but the egg was fully on only from +5.4 cm. Attempt 2 put the egg fully on from the joint itself (rerig14): eyes, brows and nose gone, but the chin and jaw hung under the egg like a crumpled goatee. Attempt 3 starts the egg at the chin (3.5 % of height below the joint). In rerig15 both low-poly heads are smooth, featureless eggs from the chin to the crown. The heads are a little longer than before and sit low on the collar. The woman has one stray white pixel on her shirt below the collar.
+  - Also: egged points now follow the Head bone (they shared the face's weights with the neck, so any clip turning the head would have pulled the features back out), and one subdivision level is kept. Man 3,987 triangles, woman 3,027 (budget 5,000).
+- **The family switched:** all six members and `figure_model` in `default_theme.tres` now point at `figure_lp_male/female.gltf`. The shared hands ×1.06 nudge is dropped (the bodies already have mitten hands). The kids' scales are unchanged.
+- **Animation set rebuilt** against the low-poly man (`build_figure_anims.gd` gains `--figure=`, default now the low-poly man). Leg ratio 1.07 → 0.98. Strides: walk 96, jog 525, sprint 808, crouch-walk 73 per s (were 104/573/883/80). 24 clips.
+- **Frames looked at:**
+  - `autobuild/frames/p2_1/lineup_front.png`: all six on the new bodies. Plain, lanky, blank egg heads, graded heights, wristbands visible, kids with visibly bigger heads.
+  - `autobuild/slice/turnaround_dad.png` and `turnaround_younger_girl.png`: blank from front, side and back. The rig's idle stoop puts the egg slightly ahead of the chest in profile. The younger girl's head is big and round on a thin body, which is silly in the intended way.
+  - `autobuild/frames/p2_2/{jog,carry_jog,crouch_walk,throw}_side.png`:
+    - jog: full stride, feet on the ground.
+    - carry_jog: both arms straight up holding the bundle over the head.
+    - crouch_walk: deep stiff crouch, feet planted.
+    - throw: hands overhead, push forward together, then drop.
+  - Nothing tears and the head stays an egg in every clip.
+  - All 6 turnarounds were re-shot (`autobuild/slice/turnaround_*.png`); `p2_1b_rerig_close/front.png` are now the rerig15 frames.
+- Verify: `node autobuild/verify.mjs` healthy. 16 suites; symmetry 200/200.
+  - Bot match 3v3: team_b in 439 s, 90 s of stalls. 1v1: 7 s. Identical to before, since art never reaches the sim.
+  - Tick budget: 0 of 600 over at 1v1, 3v3 and 4v4. net_smoke: 1706 ticks agree.
+- **Left / for review:**
+  - The pick and the switch are REVIEW in DECISIONS.
+  - Not checked in live play with the chase camera this session (the clip sheets and the lineup go through the same theme and driver).
+  - The driver's walk/jog thresholds were not re-tuned for the new strides.
+
 ## 2026-11-14 — P2-1b Evaluate all character packs (partly done)
 - **Licences (all four read from the zips):** Animated low poly men, Animated low poly women, Ultimate Modular Men and Ultimate Modular Women are each CC0 1.0. The women's Modular licence file is headed "Ultimate Modular Males" but carries the same CC0 text. Recorded in ASSETS.md.
 - **What is in them (`tools/probe_character.gd`):**

@@ -104,7 +104,7 @@ roughness = 0.8
 [sub_resource type="Resource" id="member_dad"]
 script = ExtResource("2_member")
 id = &"dad"
-model = "res://art/characters/figure_male.gltf"
+model = "res://art/characters/figure_lp_male.gltf"
 height = 180.0
 bone_scales = Dictionary[StringName, Vector3]({
 &"thigh_l": Vector3(1, 0.97, 1),
@@ -114,14 +114,14 @@ bone_scales = Dictionary[StringName, Vector3]({
 [sub_resource type="Resource" id="member_mom"]
 script = ExtResource("2_member")
 id = &"mom"
-model = "res://art/characters/figure_female.gltf"
+model = "res://art/characters/figure_lp_female.gltf"
 height = 176.0
 bone_scales = Dictionary[StringName, Vector3]({})
 
 [sub_resource type="Resource" id="member_elder_girl"]
 script = ExtResource("2_member")
 id = &"elder_girl"
-model = "res://art/characters/figure_female.gltf"
+model = "res://art/characters/figure_lp_female.gltf"
 height = 160.0
 bone_scales = Dictionary[StringName, Vector3]({
 &"pelvis": Vector3(0.87, 1, 0.9),
@@ -131,7 +131,7 @@ bone_scales = Dictionary[StringName, Vector3]({
 [sub_resource type="Resource" id="member_elder_boy"]
 script = ExtResource("2_member")
 id = &"elder_boy"
-model = "res://art/characters/figure_male.gltf"
+model = "res://art/characters/figure_lp_male.gltf"
 height = 160.0
 bone_scales = Dictionary[StringName, Vector3]({
 &"pelvis": Vector3(0.87, 1, 0.9),
@@ -141,7 +141,7 @@ bone_scales = Dictionary[StringName, Vector3]({
 [sub_resource type="Resource" id="member_younger_girl"]
 script = ExtResource("2_member")
 id = &"younger_girl"
-model = "res://art/characters/figure_female.gltf"
+model = "res://art/characters/figure_lp_female.gltf"
 height = 145.0
 bone_scales = Dictionary[StringName, Vector3]({
 &"pelvis": Vector3(0.86, 1, 0.9),
@@ -155,7 +155,7 @@ bone_scales = Dictionary[StringName, Vector3]({
 [sub_resource type="Resource" id="member_younger_boy"]
 script = ExtResource("2_member")
 id = &"younger_boy"
-model = "res://art/characters/figure_male.gltf"
+model = "res://art/characters/figure_lp_male.gltf"
 height = 145.0
 bone_scales = Dictionary[StringName, Vector3]({
 &"pelvis": Vector3(0.86, 1, 0.9),
@@ -234,14 +234,12 @@ interior_energy_by_kind = Dictionary[StringName, float]({
 interior_colour_by_kind = Dictionary[StringName, Color]({
 &"jail": Color(0.95, 0.93, 0.86, 1)
 })
-figure_model = "res://art/characters/figure_male.gltf"
+figure_model = "res://art/characters/figure_lp_male.gltf"
 figure_height = 180.0
 figure_bone_scales = Dictionary[StringName, Vector3]({
 &"Head": Vector3(1.08, 1.08, 1.08),
 &"neck_01": Vector3(1, 1.08, 1),
-&"spine_02": Vector3(1, 1.04, 1),
-&"hand_l": Vector3(1.06, 1.06, 1.06),
-&"hand_r": Vector3(1.06, 1.06, 1.06)
+&"spine_02": Vector3(1, 1.04, 1)
 })
 family = Array[ExtResource("2_member")]([SubResource("member_dad"), SubResource("member_mom"), SubResource("member_elder_girl"), SubResource("member_elder_boy"), SubResource("member_younger_girl"), SubResource("member_younger_boy")])
 family_order = PackedStringArray("dad", "mom", "elder_girl", "younger_boy")

@@ -17,7 +17,7 @@
   "carry_crouch_walk": {
     "length": 2.0,
     "loop": true,
-    "stride_speed": 80.2
+    "stride_speed": 73.5
   },
   "carry_idle": {
     "length": 0.033,
@@ -27,7 +27,7 @@
   "carry_jog": {
     "length": 0.933,
     "loop": true,
-    "stride_speed": 573.0
+    "stride_speed": 524.8
   },
   "carry_jump_air": {
     "length": 0.033,
@@ -47,7 +47,7 @@
   "carry_walk": {
     "length": 1.333,
     "loop": true,
-    "stride_speed": 104.3
+    "stride_speed": 95.5
   },
   "crouch_idle": {
     "length": 0.033,
@@ -57,7 +57,7 @@
   "crouch_walk": {
     "length": 2.0,
     "loop": true,
-    "stride_speed": 80.2
+    "stride_speed": 73.5
   },
   "grab": {
     "length": 0.833,
@@ -77,7 +77,7 @@
   "jog": {
     "length": 0.933,
     "loop": true,
-    "stride_speed": 573.0
+    "stride_speed": 524.8
   },
   "jump_air": {
     "length": 0.033,
@@ -97,12 +97,12 @@
   "panic_run": {
     "length": 0.933,
     "loop": true,
-    "stride_speed": 573.0
+    "stride_speed": 524.8
   },
   "sprint": {
     "length": 0.667,
     "loop": true,
-    "stride_speed": 882.5
+    "stride_speed": 808.1
   },
   "throw": {
     "length": 0.9,
@@ -112,11 +112,11 @@
   "walk": {
     "length": 1.333,
     "loop": true,
-    "stride_speed": 104.3
+    "stride_speed": 95.5
   },
   "walk_loose": {
     "length": 1.333,
     "loop": true,
-    "stride_speed": 104.3
+    "stride_speed": 95.5
   }
 }

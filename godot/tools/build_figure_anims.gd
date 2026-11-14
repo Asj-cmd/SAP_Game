@@ -3,7 +3,7 @@ extends SceneTree
 ## an AnimationLibrary for the baked figure rig, from the Quaternius Universal
 ## Animation Library (CC0, D10; same rig as the bodies).
 ##
-##   node autobuild/run_tool.mjs build_figure_anims [-- --src=<UAL1_Standard.glb>] [--list]
+##   node autobuild/run_tool.mjs build_figure_anims [-- --src=<UAL1_Standard.glb>] [--figure=res://….gltf] [--list]
 ##
 ## Reads the library at RUNTIME (GLTFDocument), so the 7.6 MB .glb never has to
 ## be in the project; it stays in the gitignored autobuild/Incoming/x/ (D10).
@@ -37,7 +37,9 @@ extends SceneTree
 
 const FPS: float = 30.0
 const OUT: String = "res://art/characters/figure_anims.res"
-const FIGURE: String = "res://art/characters/figure_male.gltf"
+## The body whose skeleton the clips are built against (pelvis rest height, leg
+## ratio, IK arm poses). P2-1b: the re-rigged low-poly man; `--figure=` to change.
+const FIGURE: String = "res://art/characters/figure_lp_male.gltf"
 const SRC_DIR: String = "../autobuild/Incoming/x/Universal Animation Library[Standard]/Unreal-Godot/"
 const SRC_FILE: String = "UAL1_Standard.glb"
 const RM_FILE: String = "UAL1_Standard_RM.glb"
@@ -117,7 +119,7 @@ func _run() -> int:
 		for clip: StringName in source_player.get_animation_list():
 			print("  %s %.2f" % [clip, source_player.get_animation(clip).length])
 		return 0
-	var figure: Node = _read(ProjectSettings.globalize_path(FIGURE))
+	var figure: Node = _read(ProjectSettings.globalize_path(_opts.get("figure", FIGURE)))
 	if figure == null:
 		return 1
 	var bones: Skeleton3D = _find(figure, "Skeleton3D") as Skeleton3D

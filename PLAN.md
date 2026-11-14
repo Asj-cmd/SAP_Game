@@ -140,7 +140,7 @@ Aug 16–Oct 10 are in; an earlier version of this plan was written against the 
 
 - [x] **P3-1 Kit selection.** *(Done: Kenney Furniture Kit for furniture and appliances; Poly Haven textures plus ambientCG for carpet/wallpaper; the shell generated from the blockout; safe, jail pen and cash our own. `autobuild/fetch_kenney.mjs`; 8 trial pieces in `art/props/kenney/`, seen in kitchen A and bedroom A. REVIEW. See PROGRESS.md.)* Choose wall/door/window/floor/roof/stair/furniture packs (Kenney,
   Quaternius, KayKit, others CC0). Log in ASSETS.md. Prefer one or two coherent packs over many.
-- [~] **P2-1b Evaluate all character packs.** *(Partly done: all four packs CC0; pick = Quaternius Animated low poly men/women (REVIEW); `tools/rerig_character.gd` puts them on the figure skeleton and every clip plays on them. Left: faint face smudge on the egg head, then switch the theme's family to `figure_lp_*.gltf`, rebuild `figure_anims.res` against the new male (leg 81 vs 89), lineup/turnaround frames. See PROGRESS.md.)* P2-1 used only the Quaternius Universal Base
+- [x] **P2-1b Evaluate all character packs.** *(Done: all four packs CC0; pick = Quaternius Animated low poly men/women (REVIEW), re-rigged onto the figure skeleton by `tools/rerig_character.gd` (`autobuild/rerig_family.mjs`) with a clean egg head; the whole family and `figure_anims.res` now use them; lineup, turnarounds and clip sheets re-shot. See PROGRESS.md.)* P2-1 used only the Quaternius Universal Base
   Characters. Evaluate ALL character packs in `autobuild/Incoming/`: the two Quaternius Ultimate
   Modular packs (`Quaternius Ultimate Modular Men.zip`, `… Women.zip`) plus the two low-poly animated
   men/women packs the user added (`Animated low poly men.zip`, `Animated low poly women.zip`).
