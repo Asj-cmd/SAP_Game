@@ -239,10 +239,43 @@ func _run() -> int:
 	var egg_normal: PackedVector3Array = []
 	var egg_w: PackedFloat32Array = []
 	if egg:
-		var made: Dictionary = _egg_head(points, joint["Head"].y, r_height)
+		# The egg's base is below the Head joint, at the chin: these heads hang
+		# their jaw ~6 cm under the joint, and an egg fitted from the joint up
+		# left the chin crumpled under it like a goatee (P2-1b rerig14).
+		var base: float = float(_opts.get("egg-base", "0.035")) * r_height
+		var made: Dictionary = _egg_head(points, joint["Head"].y - base, r_height)
 		points = made["points"]
 		egg_normal = made["normals"]
 		egg_w = made["weights"]
+		# The egg is round only while every point on it moves together. These
+		# rigs share the face's weights with the neck, so any clip that turns the
+		# head against the neck pulled the folded eyes, nose and mouth back out
+		# of the egg (the "face smudge" of P2-1b). Egged points follow the Head
+		# bone alone, blended in by how far they are on the egg.
+		var head_bone: int = r_bones.find_bone("Head")
+		for i: int in egg_w.size():
+			var w: float = egg_w[i]
+			if w <= 0.0:
+				continue
+			var mixed: Dictionary = {}
+			for rb: int in weights_out[i]:
+				mixed[rb] = float(weights_out[i][rb]) * (1.0 - w)
+			mixed[head_bone] = float(mixed.get(head_bone, 0.0)) + w
+			weights_out[i] = mixed
+		# The low-poly head is ~130 flat triangles still laid out like the face it
+		# had (dense at eyes, nose and mouth). Facets that coarse shadow themselves
+		# near the sun's terminator, and the shadow drew the old face (P2-1b
+		# rerig11). Each subdivision level splits every triangle touching the egg
+		# in four, new points on the egg: facet sag falls 4x per level.
+		var levels: int = int(_opts.get("egg-subdiv", "1"))
+		for _l: int in levels:
+			var soup: Dictionary = _subdivide_egg({"points": points, "colours": colours,
+				"weights": weights_out, "egg_normal": egg_normal, "egg_w": egg_w}, made["centre"], made["radii"])
+			points = soup["points"]
+			colours = soup["colours"]
+			weights_out = soup["weights"]
+			egg_normal = soup["egg_normal"]
+			egg_w = soup["egg_w"]
 
 	# --- 3. Move the rig's joints.
 	var placed: Dictionary[String, Vector3] = {}
@@ -438,9 +471,13 @@ func _egg_head(source: PackedVector3Array, joint_y: float, height: float) -> Dic
 	normals.resize(points.size())
 	var weights: PackedFloat32Array = []
 	weights.resize(points.size())
-	var result: Dictionary = {"points": points, "normals": normals, "weights": weights}
-	var rise: float = 0.03 * height
-	var blend: float = 0.035 * height
+	var result: Dictionary = {"points": points, "normals": normals, "weights": weights,
+		"centre": Vector3.ZERO, "radii": Vector3.ONE}
+	# Fully on the egg from the joint itself: in the low-poly men the eyes sit
+	# only ~7 cm, the nose ~4 and the mouth ~1 above the Head joint, so a rise
+	# of 3 % of height left nose and mouth half-blended (the P2-1b smudge).
+	var rise: float = float(_opts.get("egg-rise", "0")) * height
+	var blend: float = float(_opts.get("egg-blend", "0.03")) * height
 	var low: Vector3 = Vector3(INF, INF, INF)
 	var high: Vector3 = -low
 	var n: int = 0
@@ -468,7 +505,74 @@ func _egg_head(source: PackedVector3Array, joint_y: float, height: float) -> Dic
 	result["points"] = points
 	result["normals"] = normals
 	result["weights"] = weights
+	result["centre"] = centre
+	result["radii"] = radii
 	return result
+
+## One level of 1-to-4 subdivision of every triangle with a corner on the egg
+## (egg weight > 0), over the triangle soup. An edge's new point is its chord
+## midpoint moved onto the egg by the mean egg weight of its ends, so an edge
+## with both ends off the egg stays straight (no crack against an undivided
+## neighbour) and both triangles sharing an edge make the same point.
+func _subdivide_egg(soup: Dictionary, centre: Vector3, radii: Vector3) -> Dictionary:
+	var points: PackedVector3Array = soup["points"]
+	var colours: PackedColorArray = soup["colours"]
+	var weights: Array[Dictionary] = soup["weights"]
+	var en: PackedVector3Array = soup["egg_normal"]
+	var ew: PackedFloat32Array = soup["egg_w"]
+	var out: Dictionary = {"points": PackedVector3Array(), "colours": PackedColorArray(),
+		"weights": [] as Array[Dictionary], "egg_normal": PackedVector3Array(), "egg_w": PackedFloat32Array()}
+	var p_out: PackedVector3Array = []
+	var c_out: PackedColorArray = []
+	var w_out: Array[Dictionary] = []
+	var n_out: PackedVector3Array = []
+	var e_out: PackedFloat32Array = []
+	for t: int in points.size() / 3:
+		var a: int = t * 3
+		var corners: Array = []
+		for k: int in 3:
+			corners.append([points[a + k], colours[a + k], weights[a + k], en[a + k], ew[a + k]])
+		if ew[a] <= 0.0 and ew[a + 1] <= 0.0 and ew[a + 2] <= 0.0:
+			for c: Array in corners:
+				p_out.append(c[0]); c_out.append(c[1]); w_out.append(c[2]); n_out.append(c[3]); e_out.append(c[4])
+			continue
+		var mids: Array = []
+		for k: int in 3:
+			mids.append(_egg_mid(corners[k], corners[(k + 1) % 3], centre, radii))
+		# Corners 0,1,2 with midpoints m01, m12, m20; same winding as the parent.
+		for tri: Array in [[corners[0], mids[0], mids[2]], [mids[0], corners[1], mids[1]],
+				[mids[2], mids[1], corners[2]], [mids[0], mids[1], mids[2]]]:
+			for c: Array in tri:
+				p_out.append(c[0]); c_out.append(c[1]); w_out.append(c[2]); n_out.append(c[3]); e_out.append(c[4])
+	out["points"] = p_out
+	out["colours"] = c_out
+	out["weights"] = w_out
+	out["egg_normal"] = n_out
+	out["egg_w"] = e_out
+	return out
+
+## The new corner between two soup corners [point, colour, weights, egg normal,
+## egg weight]. Symmetric in its two ends up to the order of the sums, which is
+## made canonical so both sides of an edge agree exactly.
+func _egg_mid(x: Array, y: Array, centre: Vector3, radii: Vector3) -> Array:
+	var p: Vector3 = x[0]
+	var q: Vector3 = y[0]
+	if q < p:
+		var swap: Array = x
+		x = y
+		y = swap
+	var chord: Vector3 = ((x[0] as Vector3) + (y[0] as Vector3)) * 0.5
+	var w: float = (float(x[4]) + float(y[4])) * 0.5
+	var d: Vector3 = (chord - centre) / radii
+	var on: Vector3 = centre + d.normalized() * radii if d.length() > 1e-6 else chord
+	var at: Vector3 = chord.lerp(on, w)
+	var normal: Vector3 = ((on - centre) / (radii * radii)).normalized()
+	var mixed: Dictionary = {}
+	for side: Dictionary in [x[2], y[2]]:
+		for rb: int in side:
+			mixed[rb] = float(mixed.get(rb, 0.0)) + float(side[rb]) * 0.5
+	var colour: Color = (x[1] as Color).lerp(y[1] as Color, 0.5)
+	return [at, colour, mixed, normal, w]
 
 ## Area-weighted normals over the mesh welded by position, then averaged with
 ## their neighbours `passes` times (soft, plain shading; P2-1 did the same).
