@@ -43,6 +43,9 @@ var paths: bool = false
 ## the frame shows only the world. Art review cannot judge a picture with a
 ## wall of debug text over a third of it.
 var clean: bool = false
+## Keep the game's HUD overlays (the D3 team tell's marker and minimap, P2-4)
+## in a clean shot. They are part of what a player sees, not debug text.
+var hud: bool = false
 ## Print the renderer's counters for each shot (draw calls, triangles, objects;
 ## RenderStats). Free: they are read from the frame that was saved.
 var stats: bool = false
@@ -127,6 +130,7 @@ func path_for(index: int) -> String:
 ##   --capture-path=<file>     where to write it
 ##   --capture-delay=<seconds> how long to wait first
 ##   --capture-clean           hide all on-screen text, so the shot is the world only
+##   --capture-hud             with --capture-clean, keep the team tell's marker/minimap
 ##   --capture-stats           print draw calls / triangles / objects per shot
 ##   --capture-timing=N        also time N uncapped frames per shot (real GPU only)
 ##   --capture-crouch          hold crouch, so the shot shows a ducked body
@@ -136,7 +140,8 @@ func path_for(index: int) -> String:
 ##                             the chase camera behind it
 ##   --capture-facing=x,y,z    the preceding --capture-chase faces this point
 ##   --capture-pitch=degrees   and pitches the rig this much (negative = down)
-##   --capture-figure=x,y,z,yaw[,res://model | ,member][,clip@seconds]   (member: a theme family id, e.g. younger_boy)
+##   --capture-figure=x,y,z,yaw[,res://model | ,member | ,team:slot][,clip@seconds]   (member: a theme family id, e.g. younger_boy;
+##                             team:slot, e.g. team_b:2: drawn as that roster slot with the team tell applied)
 ##                             stand a drawn-only figure (feet, yaw in degrees,
 ##                             0 faces +z like every body) in every shot; repeatable.
 ##                             clip@seconds holds it in that pose of the figure
@@ -182,6 +187,8 @@ static func from_command_line(args: PackedStringArray) -> FrameCapture:
 			request.requested = true
 			request.quit_after = true
 			request.clean = true
+		elif arg == "--capture-hud":
+			request.hud = true
 		elif arg == "--capture-stats":
 			request.stats = true
 		elif arg.begins_with("--capture-timing="):

@@ -141,6 +141,19 @@ var _banner: Label = null
 ## between rounds and at the end of the match.
 var _status: Label = null
 var _headline: Label = null
+## The D3 team tell's marker and minimap (TeamTell, P2-4), on their own layer:
+## they are the game's HUD, not debug text, so `--capture-hud` keeps them in a
+## clean shot.
+var _tell_layer: CanvasLayer = null
+var _tell_overlay: TeamTellOverlay = null
+## The team the overlay's map was turned for (re-set when this machine's seat
+## changes team).
+var _tell_team: StringName = &""
+## Drawn-only capture stand-ins (`--capture-figure=...,team_b:2`), shown by the
+## team tell like live bodies.
+var _tell_extras: Array[TeamTellOverlay.Body] = []
+## Drawn height per actor's figure (its family member's), for the marker.
+var _figure_heights: Dictionary[int, float] = {}
 ## Enter was pressed on the result screen; sent with the next tick.
 var _rematch_asked: bool = false
 ## Marks that the local player has ASKED for something the host has not answered.
@@ -302,6 +315,8 @@ func _tear_down() -> void:
 	# Nothing updates these without a match, so they would sit over the menu.
 	_status.visible = false
 	_headline.visible = false
+	_tell_team = &""
+	_tell_overlay.bodies = []
 	_rematch_asked = false
 
 # ---- looking at the screen ----
@@ -334,6 +349,8 @@ func _arm_capture() -> void:
 		# The menu is its own layer and stays: a clean shot of the menu is still
 		# a shot of the menu. Only the in-game text goes.
 		_text_layer.visible = false
+		# The team tell's marker and minimap are HUD, kept only when asked for.
+		_tell_layer.visible = request.hud
 		await get_tree().process_frame
 	if request.paths:
 		_show_paths = true
@@ -345,17 +362,31 @@ func _arm_capture() -> void:
 		var model: PackedScene = null
 		var named: String = request.figure_models[i]
 		var who: FamilyMember = null
-		if named.begins_with("res://"):
+		# Or "team_b:2": that team's roster slot, drawn as a live body of it would
+		# be (family member, kid swap, wristband) and shown by the team tell.
+		var team: StringName = &"team_a"
+		var slot: int = 0
+		var as_body: bool = named.begins_with("team_") and named.contains(":")
+		if as_body:
+			team = StringName(named.get_slice(":", 0))
+			slot = int(named.get_slice(":", 1))
+		elif named.begins_with("res://"):
 			if ResourceLoader.exists(named):
 				model = load(named) as PackedScene
 		elif named != "":
 			who = ArtTheme.current().member(StringName(named))
 			if who == null:
 				push_error("frame capture: no family member %s" % named)
-		var posed: Node3D = _figure_instance(&"team_a", model, 0, who)
+		var posed: Node3D = _figure_instance(team, model, slot, who)
 		if posed == null:
 			push_error("frame capture: no figure model to stand at %s" % spot)
 			break
+		if as_body:
+			var shown: TeamTellOverlay.Body = TeamTellOverlay.Body.new()
+			shown.feet = Vector3(spot.x, spot.y, spot.z)
+			shown.height = float(posed.get_meta(&"drawn_height", ACTOR_HEIGHT))
+			shown.team = team
+			_tell_extras.append(shown)
 		posed.position = Vector3(spot.x, spot.y, spot.z)
 		posed.rotation = Vector3(0.0, deg_to_rad(spot.w), 0.0)
 		add_child(posed)
@@ -1095,6 +1126,60 @@ func _render(alpha: float, delta: float) -> void:
 	_animate(drawn, truth, mine, remote, delta)
 	_hold_carried(truth)
 	_show_reach(mine)
+	_update_tell(truth, mine)
+
+## Hands the team tell's overlay (marker, minimap) the bodies as drawn this
+## frame, and turns its map for this machine's team. Your team is read from the
+## confirmed world, like every other outcome.
+func _update_tell(truth: SimWorld, mine: int) -> void:
+	if _tell_overlay == null:
+		return
+	var me: SimEntity = truth.get_entity(mine)
+	var team: StringName = me.team if me != null else &""
+	if team != _tell_team and team != &"":
+		_tell_team = team
+		var own_spawn: Vector3 = Vector3.ZERO
+		var enemy_spawn: Vector3 = Vector3.ZERO
+		for each: TeamDef in level.teams:
+			var centre: Vector3 = Vector3.ZERO
+			for point: Vector3 in each.spawn_points:
+				centre += point / float(maxi(1, each.spawn_points.size()))
+			if each.id == team:
+				own_spawn = centre
+			else:
+				enemy_spawn = centre
+		var lot: AABB = WorldBackdrop.widest_blocker(level.collision.blockers) \
+			if not level.collision.blockers.is_empty() else AABB()
+		_tell_overlay.set_level(lot, level.zones, own_spawn, enemy_spawn)
+	_tell_overlay.own_team = team
+	_tell_overlay.camera = _active_camera()
+	var bodies: Array[TeamTellOverlay.Body] = []
+	for entity_id: int in _actor_views:
+		var entity: SimEntity = truth.get_entity(entity_id)
+		if entity == null or not entity.is_actor():
+			continue
+		var view: MeshInstance3D = _actor_views[entity_id]
+		var body: TeamTellOverlay.Body = TeamTellOverlay.Body.new()
+		body.feet = view.position - Vector3(0.0, _view_heights.get(entity_id, ACTOR_HEIGHT) * 0.5, 0.0)
+		body.height = _figure_heights.get(entity_id, ACTOR_HEIGHT)
+		body.team = entity.team
+		body.mine = entity_id == mine
+		bodies.append(body)
+	bodies.append_array(_tell_extras)
+	_tell_overlay.bodies = bodies
+
+## Flips one team-tell option (F5-F8, the menu) and redraws whatever it changes:
+## the wristband and the kid swap are on the figures, so those rebuild them.
+func _toggle_tell(option: StringName) -> void:
+	var tell: TeamTell = TeamTell.current()
+	tell.toggle(option)
+	if option == &"wristband" or option == &"kid_swap":
+		_rebuild_views()
+		_previous = _snapshot()
+	_banner.text = "Team tell: %s" % tell.describe()
+	get_tree().create_timer(3.0).timeout.connect(func() -> void:
+		if _banner.text.begins_with("Team tell:"):
+			_banner.text = "")
 
 ## Drives every figure's animation (FigureAnimator, P2-3) after the bodies have
 ## been placed. Motion (stance, airborne, speed) comes from the world the body is
@@ -1364,10 +1449,11 @@ static var _actor_looked: Dictionary[StringName, bool] = {}
 func _figure_instance(team: StringName, model: PackedScene = null, slot: int = 0,
 		who: FamilyMember = null) -> Node3D:
 	var theme: ArtTheme = ArtTheme.current()
+	var tell: TeamTell = TeamTell.current()
 	# A model given outright is drawn as itself unless a member is named too.
 	var member: FamilyMember = who
 	if member == null and model == null:
-		member = theme.member_for(team, slot)
+		member = theme.member_for(team, slot, tell.kid_swap)
 	var figure: PackedScene = model
 	if figure == null and member != null:
 		figure = theme.member_scene(member)
@@ -1379,8 +1465,13 @@ func _figure_instance(team: StringName, model: PackedScene = null, slot: int = 0
 	ArtTheme.dress_whole(art, theme.figure_material(team))
 	if model != null or member != null or theme.figure_scene() != null:
 		theme.shape_figure(art, member)
+	# D3 (c): the one coloured thing on a figure (TeamTell, P2-4).
+	if tell.wristband and team != &"":
+		theme.add_wristband(art, team)
 	var holder: Node3D = Node3D.new()
 	holder.add_child(art)
+	holder.set_meta(&"drawn_height", minf(member.height, theme.figure_height)
+		if member != null else ACTOR_HEIGHT)
 	return holder
 
 func _actor_model(team: StringName) -> PackedScene:
@@ -1428,6 +1519,7 @@ func _rebuild_views() -> void:
 	_view_heights.clear()
 	_facings.clear()
 	_body_opacity.clear()
+	_figure_heights.clear()
 
 	if _reach_marker == null:
 		_reach_marker = MeshInstance3D.new()
@@ -1459,6 +1551,7 @@ func _rebuild_views() -> void:
 			# figure material (STYLE.md §2.3), a copy per body for the fade.
 			var art: Node3D = _figure_instance(entity.team, null, entity.slot)
 			if art != null:
+				_figure_heights[entity_id] = float(art.get_meta(&"drawn_height", ACTOR_HEIGHT))
 				# The model's origin is its FEET and the capsule's is its
 				# middle, so the figure drops half a body to stand in it.
 				art.position = Vector3(0.0, -ACTOR_HEIGHT * 0.5, 0.0)
@@ -1654,6 +1747,12 @@ func _build_hud() -> void:
 	_headline.add_theme_constant_override("outline_size", 10)
 	_headline.add_theme_color_override("font_outline_color", Color.BLACK)
 	_text_layer.add_child(_headline)
+	_tell_layer = CanvasLayer.new()
+	add_child(_tell_layer)
+	_tell_overlay = TeamTellOverlay.new()
+	_tell_overlay.tell = TeamTell.current()
+	_tell_overlay.colours = ArtTheme.current().family_colours
+	_tell_layer.add_child(_tell_overlay)
 
 # ---- HUD ----
 
@@ -1736,6 +1835,8 @@ func _update_hud() -> void:
 	lines.append("jump SPACE or A    crouch SHIFT or LS (hold)")
 	lines.append("seize / free ally E or B    grab-drop LMB / X    throw RMB / RB")
 	lines.append("[F1] hide this    [F4] bot paths %s" % ("on" if _show_paths else "off"))
+	lines.append("team tell: %s    [F5] marker  [F6] minimap  [F7] wristband  [F8] kid swap"
+		% TeamTell.current().describe())
 	lines.append("[F10] leave to menu    [F2] split-screen debug    [F3] bots %s    [F12] save a frame    [Esc] release mouse"
 		% ("on" if _bots_enabled else "off"))
 	if _split_screen and Input.get_connected_joypads().size() < 2:
@@ -1810,6 +1911,10 @@ func _unhandled_input(event: InputEvent) -> void:
 				_rematch_asked = true
 		KEY_F1:
 			_debug_hud_visible = not _debug_hud_visible
+		KEY_F5, KEY_F6, KEY_F7, KEY_F8:
+			# The D3 team tell, one option a key, combinable (TeamTell.OPTIONS order:
+			# marker, minimap, wristband, kid swap). Saved for next time.
+			_toggle_tell(TeamTell.OPTIONS[key.keycode - KEY_F5])
 		KEY_1:
 			# Switching variant rebuilds the session. Only a local match can do
 			# that - a host would be re-opening a port it already holds, and a

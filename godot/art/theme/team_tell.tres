@@ -1,0 +1,10 @@
+[gd_resource type="Resource" script_class="TeamTell" load_steps=2 format=3]
+
+[ext_resource type="Script" path="res://game/art/team_tell.gd" id="1_tell"]
+
+[resource]
+script = ExtResource("1_tell")
+marker = false
+minimap = true
+wristband = true
+kid_swap = false

@@ -39,11 +39,22 @@ const DEFAULT_PATH: String = "res://art/theme/default_theme.tres"
 ## every body is the one `figure_model`, as before P2-1.
 @export var family: Array[FamilyMember] = []
 ## Which member each roster slot is drawn as (slot 0 first; a slot past the end
-## wraps). The same for both families unless `family_order_by_team` overrides a
-## team (the D3 d kid swap, P2-4).
+## wraps). The same for both families unless the kid swap is on.
 @export var family_order: PackedStringArray = PackedStringArray(
 	["dad", "mom", "elder_girl", "younger_boy"])
+## Per team, the order used INSTEAD while the D3 (d) kid swap is on (TeamTell,
+## P2-4): family B's children are the other way round.
 @export var family_order_by_team: Dictionary[StringName, PackedStringArray] = {}
+## D3 (c) wristband (TeamTell, P2-4; STYLE §2.4): a band on the left wrist in
+## the family colour, the one coloured thing on a figure. Width along the arm in
+## model units; its radius is measured from the forearm's own vertices, plus
+## `wristband_clearance`, so it hugs a thin kid's wrist and an adult's alike.
+@export var wristband_width: float = 7.0
+@export var wristband_clearance: float = 0.6
+## Where along the forearm the band sits, 0 = elbow, 1 = the wrist joint.
+@export_range(0.0, 1.0) var wristband_along: float = 0.86
+## Used when the radius cannot be measured (no skin, no forearm vertices).
+@export var wristband_radius: float = 4.0
 
 @export_group("Imported materials")
 ## Materials replaced BY NAME when a model is dressed (`dress`): the name the
@@ -203,11 +214,14 @@ func figure_scene() -> PackedScene:
 	return _figure_scene
 
 ## The member drawn for roster `slot` of `team`; null when the theme has no
-## family (every body is then `figure_model`).
-func member_for(team: StringName, slot: int) -> FamilyMember:
+## family (every body is then `figure_model`). `kid_swap` (D3 d) uses the team's
+## own order from `family_order_by_team` where it has one.
+func member_for(team: StringName, slot: int, kid_swap: bool = false) -> FamilyMember:
 	if family.is_empty():
 		return null
-	var order: PackedStringArray = family_order_by_team.get(team, family_order)
+	var order: PackedStringArray = family_order
+	if kid_swap:
+		order = family_order_by_team.get(team, family_order)
 	if order.is_empty():
 		return family[0]
 	return member(StringName(order[posmod(slot, order.size())]))
@@ -338,6 +352,123 @@ func prop_instance(path: String) -> Node3D:
 		return null
 	dress(made, prop)
 	return made
+
+## Puts the D3 (c) wristband on a shaped figure: a short ring on the left
+## forearm just above the wrist joint, riding the `lowerarm_l` bone so it follows
+## every clip, in a satin copy of the figure material tinted the family colour.
+## Returns the band, or null when the figure has no skin or no such bones.
+## Drawn only, like the figure.
+func add_wristband(art: Node3D, team: StringName) -> MeshInstance3D:
+	for found: Node in art.find_children("*", "MeshInstance3D", true, false):
+		var body: MeshInstance3D = found as MeshInstance3D
+		if body.mesh == null or body.skin == null:
+			continue
+		var bones: Skeleton3D = body.get_node_or_null(body.skeleton) as Skeleton3D
+		if bones == null:
+			continue
+		# The skinned mesh is in the source's metres under a scaled armature: how
+		# many model units one mesh unit is, so width and clearance convert.
+		var per_unit: float = _chain(art, body).basis.get_scale().x
+		if per_unit <= 0.0:
+			per_unit = 1.0
+		var fit: Dictionary = _wrist_fit(body, wristband_width / per_unit)
+		if fit.is_empty():
+			return null
+		var attach: BoneAttachment3D = BoneAttachment3D.new()
+		attach.bone_name = "lowerarm_l"
+		bones.add_child(attach)
+		var band: MeshInstance3D = MeshInstance3D.new()
+		var ring: CylinderMesh = CylinderMesh.new()
+		var widest: float = fit["widest"]
+		var radius: float = widest + wristband_clearance / per_unit if widest > 0.0 \
+			else wristband_radius / per_unit
+		ring.top_radius = radius
+		ring.bottom_radius = radius
+		ring.height = wristband_width / per_unit
+		ring.radial_segments = 14
+		ring.rings = 1
+		band.mesh = ring
+		# The ring is built in the mesh's bind space (where it was measured) and
+		# carried into the bone's own space by the bone's bind pose.
+		band.transform = fit["bind"] * fit["place"]
+		band.material_override = wristband_material(team)
+		band.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
+		attach.add_child(band)
+		return band
+	return null
+
+## The band's material for `team`: the figure's satin finish in the family colour.
+func wristband_material(team: StringName) -> StandardMaterial3D:
+	var made: StandardMaterial3D = StandardMaterial3D.new()
+	made.albedo_color = family_colour(team)
+	made.roughness = figure.roughness if figure != null else 0.7
+	if figure != null and figure.rim_enabled:
+		made.rim_enabled = true
+		made.rim = figure.rim
+		made.rim_tint = figure.rim_tint
+	return made
+
+var _wrist_fits: Dictionary[int, Dictionary] = {}
+
+## Where the band goes on `body`'s mesh and how big it is, measured once per
+## mesh, all in the mesh's own (bind) units: the ring's centre and axis on the
+## elbow->wrist line, and `widest`, the farthest forearm/hand vertex from that
+## axis within a slab `width` long (0 when none was found). Only vertices the
+## forearm or hand mostly carry are measured: the arms hang beside the hips in
+## the rest pose, so a slab alone would catch the thigh. Empty when the skin
+## lacks the bones.
+func _wrist_fit(body: MeshInstance3D, width: float) -> Dictionary:
+	var key: int = body.mesh.get_instance_id()
+	if _wrist_fits.has(key):
+		return _wrist_fits[key]
+	var skin: Skin = body.skin
+	var fore: int = -1
+	var hand: int = -1
+	for i: int in skin.get_bind_count():
+		var named: StringName = skin.get_bind_name(i)
+		if named == &"lowerarm_l":
+			fore = i
+		elif named == &"hand_l":
+			hand = i
+	if fore < 0 or hand < 0:
+		_wrist_fits[key] = {}
+		return {}
+	var elbow: Vector3 = skin.get_bind_pose(fore).affine_inverse().origin
+	var wrist: Vector3 = skin.get_bind_pose(hand).affine_inverse().origin
+	var axis: Vector3 = (wrist - elbow).normalized()
+	var centre: Vector3 = elbow.lerp(wrist, wristband_along)
+	var reach: float = width * 0.5
+	var widest: float = 0.0
+	for surface: int in body.mesh.get_surface_count():
+		var arrays: Array = body.mesh.surface_get_arrays(surface)
+		var points: PackedVector3Array = arrays[Mesh.ARRAY_VERTEX]
+		var joints: PackedInt32Array = arrays[Mesh.ARRAY_BONES] if arrays[Mesh.ARRAY_BONES] != null else PackedInt32Array()
+		var weights: PackedFloat32Array = arrays[Mesh.ARRAY_WEIGHTS] if arrays[Mesh.ARRAY_WEIGHTS] != null else PackedFloat32Array()
+		if joints.is_empty() or points.is_empty():
+			continue
+		var per: int = joints.size() / points.size()
+		for v: int in points.size():
+			var carried: float = 0.0
+			for k: int in per:
+				var joint: int = joints[v * per + k]
+				if joint == fore or joint == hand:
+					carried += weights[v * per + k]
+			if carried < 0.5:
+				continue
+			var off: Vector3 = points[v] - centre
+			var along: float = off.dot(axis)
+			if absf(along) > reach:
+				continue
+			widest = maxf(widest, (off - axis * along).length())
+	# Cylinder axis (+y) along the forearm.
+	var turn: Basis = Basis(Quaternion(Vector3.UP, axis))
+	var fit: Dictionary = {
+		"widest": widest,
+		"place": Transform3D(turn, centre),
+		"bind": skin.get_bind_pose(fore),
+	}
+	_wrist_fits[key] = fit
+	return fit
 
 ## Every mesh under `root` drawn in one material (a figure: STYLE §2.3 is a
 ## single material for the whole body). Through material_override, which the

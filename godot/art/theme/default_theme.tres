@@ -245,3 +245,6 @@ figure_bone_scales = Dictionary[StringName, Vector3]({
 })
 family = Array[ExtResource("2_member")]([SubResource("member_dad"), SubResource("member_mom"), SubResource("member_elder_girl"), SubResource("member_elder_boy"), SubResource("member_younger_girl"), SubResource("member_younger_boy")])
 family_order = PackedStringArray("dad", "mom", "elder_girl", "younger_boy")
+family_order_by_team = Dictionary[StringName, PackedStringArray]({
+&"team_b": PackedStringArray("dad", "mom", "elder_boy", "younger_girl")
+})

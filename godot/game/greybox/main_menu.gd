@@ -26,6 +26,7 @@ var _code: LineEdit = null
 var _note: Label = null
 var _error: Label = null
 var _root: Control = null
+var _tell_boxes: Dictionary[StringName, CheckBox] = {}
 
 func _ready() -> void:
 	layer = 10
@@ -34,6 +35,9 @@ func _ready() -> void:
 ## Shows the menu, optionally with the reason the last attempt failed.
 func open(problem: String = "") -> void:
 	visible = true
+	# F5-F8 in a match may have changed the team tell since the menu was built.
+	for option: StringName in _tell_boxes:
+		_tell_boxes[option].set_pressed_no_signal(TeamTell.current().is_on(option))
 	_error.text = problem
 	_error.visible = problem != ""
 
@@ -93,6 +97,24 @@ func _build() -> void:
 	_team_size.select(GreyBoxLevel.TEAM_SIZES.find(GreyBoxLevel.DEFAULT_TEAM_SIZE))
 	size_row.add_child(_team_size)
 	column.add_child(size_row)
+
+	# The D3 team tell (an experiment; TeamTell, P2-4): how you tell your own
+	# family from the other one. Any combination; saved on this machine, and
+	# F5-F8 flip the same four in a match.
+	var tell_label: Label = Label.new()
+	tell_label.text = "Team tell  (how you spot your own family)"
+	column.add_child(tell_label)
+	var tell_row: HBoxContainer = HBoxContainer.new()
+	var tell: TeamTell = TeamTell.current()
+	for option: StringName in TeamTell.OPTIONS:
+		var box: CheckBox = CheckBox.new()
+		box.text = String(option).replace("_", " ").capitalize()
+		box.button_pressed = tell.is_on(option)
+		box.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+		box.toggled.connect(func(on: bool) -> void: TeamTell.current().set_option(option, on))
+		tell_row.add_child(box)
+		_tell_boxes[option] = box
+	column.add_child(tell_row)
 
 	var solo: Button = _button("Play solo  (against bots)")
 	solo.pressed.connect(func() -> void: solo_chosen.emit(_chosen_size()))
