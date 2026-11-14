@@ -126,7 +126,7 @@ Aug 16–Oct 10 are in; an earlier version of this plan was written against the 
   D10 (same rig as the base characters). Needed: walk, panic-run with arms up, idle (completely
   still), jump and land, crouch-walk, carry-overhead walk and run, throw, jail run-in-place, free
   ally. Procedural wobble allowed but subtle. No ragdoll, stumble or get-up (D9).
-- [ ] **P2-3 Animation driver.** AnimationTree/state machine driven from simulation state
+- [x] **P2-3 Animation driver.** *(Done: `FigureAnimator` (AnimationTree: base Transition, stride-matched rate, arms-only one-shots) from sim state; one-shots from confirmed-state changes; contact sheets of live bodies for jog/walk, jump, crouch, grab/carry, throw, seize, free in `autobuild/frames/p2_3/`. Panic run waits for P4-1's speed boost, jail run-in-place for P4-3. See PROGRESS.md.)* AnimationTree/state machine driven from simulation state
   (read-only; presentation never mutates the sim). *Verify:* frames/gif-like contact sheets per state.
 - [ ] **P2-4 Team tell (D3 experiment).** Implement the data-driven team-tell setting from
   DECISIONS.md D3 with all four options, combinable and switchable at runtime (lobby/settings and a

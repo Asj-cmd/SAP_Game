@@ -23,6 +23,11 @@ extends RefCounted
 ## Horizontal speed (world units/s) under which a body counts as standing still.
 ## D9: standing still is fully motionless, so below this the idle frame holds.
 const STILL_SPEED: float = 20.0
+## How long a moving body must stay under STILL_SPEED before it is drawn still.
+## Bots stop for a single tick between errands; without this the clip flipped
+## to idle and back, and the jog restarted from its first frame (a hitch seen in
+## the P2-3 seize sheet).
+const STILL_GRACE: float = 0.1
 ## Below this fraction of move_speed a standing body walks; above, it jogs.
 ## Keyboard input goes 0 -> move_speed at once, so this is for slow drifts (a
 ## bot easing into a spot, a stick held half-way).
@@ -43,7 +48,16 @@ const MAX_RATE: float = 3.2
 ## One-shots: playback speed for each (interact is a 2 s clip; seize and free
 ## are instant in the sim, D9, so the reach is brief).
 const ACTION_SPEED: Dictionary[StringName, float] = {
-	&"throw": 1.2, &"grab": 1.6, &"interact": 2.2,
+	&"throw": 1.2, &"grab": 1.6, &"interact": 1.6,
+}
+## The part of the clip a one-shot plays, seconds (from, to); whole clip if
+## absent. The sim releases a thrown bundle on the tick of the command, so the
+## throw skips its wind-up (hands drawn back, 0-0.12 s) and starts as the hands
+## come forward: started at 0 the cash flew off ahead of hands still behind the
+## head. Interact's reach peaks at 0.8-1.2 s of 2 s; played whole at 2.2x it
+## was barely visible in the seize/free sheets.
+const ACTION_SPAN: Dictionary[StringName, Vector2] = {
+	&"throw": Vector2(0.2, 0.9), &"interact": Vector2(0.4, 1.6),
 }
 
 ## The base clips the Transition holds. Order is the input order.
@@ -74,6 +88,8 @@ var _jump_for: float = 0.0
 var _land_left: float = 0.0
 var _was_airborne: bool = false
 var _was_carrying: bool = false
+var _still_for: float = STILL_GRACE
+var _moving_speed: float = 0.0
 var _strides: Dictionary[StringName, float] = {}
 
 ## A driver for `art` (an instanced, shaped figure, already in the tree or about
@@ -186,6 +202,13 @@ func update(entity: SimEntity, carrying: bool, captured: bool, move_speed: float
 	if tree == null:
 		return
 	var speed: float = Vector2(entity.velocity.x, entity.velocity.z).length()
+	if speed < STILL_SPEED:
+		_still_for += delta
+		if _still_for < STILL_GRACE:
+			speed = _moving_speed
+	else:
+		_still_for = 0.0
+		_moving_speed = speed
 	var airborne: bool = not entity.is_grounded and not captured
 	if airborne:
 		_airborne_for += delta
@@ -222,6 +245,13 @@ func act(name: StringName) -> void:
 	if tree == null or not tree.has_animation(name):
 		return
 	_act_clip.animation = name
+	_act_clip.use_custom_timeline = ACTION_SPAN.has(name)
+	if ACTION_SPAN.has(name):
+		var span: Vector2 = ACTION_SPAN[name]
+		_act_clip.start_offset = span.x
+		_act_clip.timeline_length = span.y - span.x
+		_act_clip.stretch_time_scale = false
+		_act_clip.loop_mode = Animation.LOOP_NONE
 	tree.set(&"parameters/act_rate/scale", ACTION_SPEED.get(name, 1.0))
 	tree.set(&"parameters/action/request", AnimationNodeOneShot.ONE_SHOT_REQUEST_FIRE)
 

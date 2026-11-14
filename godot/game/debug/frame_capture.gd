@@ -147,7 +147,9 @@ func path_for(index: int) -> String:
 ##   --capture-follow=team:slot[,count[,every[,side|front|back[,distance]]]]
 ##                             watch one live body: `count` frames `every` s apart
 ##                             from beside it, written as one contact sheet
-##                             (<path stem>_sheet.png), each frame's clip printed
+##                             (<path stem>_sheet.png), each frame's clip printed.
+##                             `on:throw` (grab, seize, free) for team:slot waits
+##                             for that one-shot and follows whoever fires it
 ##   --capture-press=KEY@seconds[+hold]   during a follow, press KEY (Space, W,
 ##                             Shift ...) that long after the first shot; repeatable
 ##

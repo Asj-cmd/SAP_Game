@@ -110,7 +110,13 @@ cell shows. Godot is launched through node here (`autobuild/run_game.mjs`):
 ```bash
 node autobuild/run_game.mjs --timeout=300 -- --capture-follow=team_a:1,16,2.5,side,380 \
     --capture-delay=25 --capture-clean --capture-path=C:/abs/path/a1.png   # -> a1_sheet.png
+node autobuild/run_game.mjs -- --capture-follow=on:throw,12,0.08,side,340 \
+    --capture-clean --capture-path=C:/abs/path/throw.png   # whoever throws next (grab|seize|free too)
+node autobuild/run_game.mjs -- --anim-log --capture-follow=team_a:0,1 --capture-delay=90 ...   # print one-shots
 ```
+
+Bot matches drift apart between windowed runs, so a follow at a fixed time catches
+a different moment each run: use `on:<one-shot>` for verbs.
 
 The debug HUD is hidden by default (`[F1]` toggles it, `--debug-hud` starts
 with it on); `--capture-clean` also hides the hint line and banner.

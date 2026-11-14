@@ -2,6 +2,41 @@
 
 Newest first. One entry per task: date, task id, what changed, what the frames showed, numbers, what is left.
 
+## 2026-11-13 — P2-3 Animation driver
+- **Picked up a cut-off session.** The driver was committed as `P2-3 (part)` (8c7fe69). The working tree held `--capture-press` (keys injected during a follow) and five P2-3 decision rows. Both were finished work; committed as e97825b.
+- **The driver** is `FigureAnimator` (`game/art/figure_animator.gd`): one AnimationTree per figure, built in code and advanced by hand from `GreyBoxMain._render`.
+  - A Transition over 17 base clips, a TimeScale from each clip's stride speed × figure scale (feet do not slide), then an arms-only OneShot for throw / grab / interact.
+  - The clip choice is the static `base_clip`. Motion comes from the predicted world for your own body and the confirmed world for everyone else. Carrying and captured always come from the confirmed world.
+- **Fixed this session, from the sheets:**
+  - **Throw misfire.** A drop and a seized carrier's bundle also go `in_flight`, falling straight down. So the victim of a seize played a throw. The first scout run showed throws at the same instant as seizes (t=40.9 and t=75.5).
+    - A throw now needs the bundle moving sideways (> 1 unit/s).
+    - Re-scout: 3 throws in 95 s, all by the bot that was carrying, none at a seize.
+  - **Throw timing.** The sim releases the bundle on the command's tick. In `throw_sheet` cell 1 the cash was already flying low ahead of hands still held up behind the head.
+    - The one-shot now plays 0.2–0.9 s of the clip.
+    - `throw2_sheet`: cell 1 shows the arms coming over and forward. Cell 2 shows both hands pushed out at shoulder height, the bundle just past the fingertips. Cell 3 shows arms extended, bundle flying ahead. Then the jog arms return.
+  - **Seize/free reach barely visible.** Interact played the whole 2 s at ×2.2. It now plays 0.4–1.6 s at ×1.6.
+    - `seize3_sheet` cells 2–4: one arm held straight out at chest height through three cells (~0.25 s) while the legs keep jogging.
+  - **Stride hitch.** Bots stop for one tick between errands (`seize2_sheet` cell 4: speed 0, clip idle). The Transition then restarted the jog from frame 0.
+    - Added `STILL_GRACE` 0.1 s.
+    - `seize3_sheet` cell 3 has the same one-tick stop (speed 0) and the clip stays `jog`.
+- **New tools:**
+  - `--capture-follow=on:<throw|grab|seize|free>,…` waits for that one-shot and follows whoever fires it.
+  - `--anim-log` prints every one-shot.
+  - Why: windowed bot matches drift apart between runs. A fixed-time follow meant to catch a throw at t≈41 instead shot a body sitting in jail for all 24 cells (`a0_throw_sheet`).
+- **Contact sheets** (`autobuild/frames/p2_3/`, live 3v3 bot play unless noted; each cell's clip is printed by the run):
+  - `a1_side`, `b0_side`: jog everywhere at 440. Long strides with a flight phase on floors, stairs and lawn. Feet on the ground, no visible slide. Clip `jog` every cell.
+  - `me_jump_side` (own seat, W held + Space): jog → knees tucked in the air → a stoop on landing → upright → idle. Idle is motionless with arms at the sides.
+  - `me_crouch_side` (own seat, Shift + W): a low hunched crouch-walk, knees deep, arms hanging back. At ×3.0 the stills show no foot slide. Whether it looks frantic in motion is not visible in stills.
+  - `a1_grab_front` (elder girl): jog, then a grab reach, then both hands overhead with the bundle sitting on them, held through the carry jog.
+  - `throw2`, `seize3`, `free`: as above. In `free` the freer is seen beside the released teammate in cells 1–2, then jogs off with a small forward reach.
+- **Left:**
+  - Panic run (arms up) never shows yet: nothing moves faster than move_speed until P4-1's boost. The driver reads speed, so it needs no change.
+  - Jail run-in-place: a captured body plays idle (P4-3).
+  - On the release frame the bundle jumps from the hands to the sim's arc start at the body's centre (P4-5 tumble/bounce).
+  - The follow camera has no collision and ends up inside walls in some cells (tool only).
+  - The grab reaches to table height while cash lies on the floor.
+- Verify: `node autobuild/verify.mjs` healthy. 16 suites; symmetry 200/200; bot match 3v3 won by team_b in 439 s with 90 s of stalls (budget 400); 1v1 stalls 7 s; tick budget 3v3 0 of 600 over, 4v4 3 (not gated); net_smoke 1709 ticks agree.
+
 ## 2026-11-13 — P2-2 One skeleton, one animation set
 - **The set** is `godot/art/characters/figure_anims.res`: one `AnimationLibrary`, 24 clips, 348 KB, the same for all six family members. `figure_anims.json` beside it lists lengths and stride speeds.
   - Built by `node autobuild/run_tool.mjs build_figure_anims` (`tools/build_figure_anims.gd`). Godot reads `UAL1_Standard.glb` from the gitignored zip folder at runtime and resamples the chosen clips at 30 fps. A rebuild is byte-identical (same SHA-1).

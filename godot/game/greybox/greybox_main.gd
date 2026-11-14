@@ -106,6 +106,12 @@ var _anim_carrying: Dictionary[int, int] = {}
 var _anim_captured: Dictionary[int, bool] = {}
 var _anim_sentence: Dictionary[int, int] = {}
 var _anim_last_seen: Dictionary[int, Vector3] = {}
+## `--anim-log`: print every one-shot as it fires (who, which, sim time), to find
+## the moment a follow sheet should catch.
+var _anim_log: bool = OS.get_cmdline_user_args().has("--anim-log")
+## The last figure each one-shot fired on (`throw`, `grab`, `seize`, `free`), for
+## `--capture-follow=on:<one-shot>`.
+var _anim_fired: Dictionary[StringName, int] = {}
 ## How far from a seized or freed body the actor who did it may be, to be
 ## animated reaching for it. Generous: the victim's last confirmed spot lags.
 const INTERACT_REACH: float = 400.0
@@ -488,6 +494,17 @@ func _capture_follow(request: FrameCapture) -> void:
 	var team: StringName = StringName(parts[0])
 	var slot: int = int(parts[1]) if parts.size() > 1 else 0
 	var target: int = SimEntity.NO_ENTITY
+	if team == &"on":
+		# on:<one-shot>: wait for the next throw / grab / seize / free and follow
+		# whoever does it (bot matches drift between windowed runs, so a fixed
+		# time catches a different moment each run).
+		var what: StringName = StringName(parts[1]) if parts.size() > 1 else &"throw"
+		_anim_fired.clear()
+		var waited: float = 0.0
+		while not _anim_fired.has(what) and waited < 300.0:
+			await get_tree().process_frame
+			waited += get_process_delta_time()
+		target = _anim_fired.get(what, SimEntity.NO_ENTITY)
 	for entity_id: int in world.sorted_entity_ids():
 		var entity: SimEntity = world.entities[entity_id]
 		if entity.is_actor() and entity.team == team and entity.slot == slot:
@@ -535,9 +552,10 @@ func _capture_follow(request: FrameCapture) -> void:
 		cells.append(image)
 		var truth: SimEntity = link.outcome_world().get_entity(target)
 		var animator: FigureAnimator = _animators.get(target, null)
-		print("  cell %d  t=%.1f  clip=%s  motion=%d grounded=%s stance=%d speed=%.0f vy=%.0f carrying=%s captured=%s" % [
+		print("  cell %d  t=%.1f  clip=%s%s  motion=%d grounded=%s stance=%d speed=%.0f vy=%.0f carrying=%s captured=%s" % [
 			shot + 1, world.tick * SimWorld.SECONDS_PER_TICK,
 			animator.clip if animator != null else &"(none)",
+			" +arms" if animator != null and bool(animator.tree.get(&"parameters/action/active")) else "",
 			truth.motion_state, truth.is_grounded, truth.stance,
 			Vector2(truth.velocity.x, truth.velocity.z).length(), truth.velocity.y,
 			truth.is_carrying(), truth.is_captured])
@@ -1085,7 +1103,7 @@ func _render(alpha: float, delta: float) -> void:
 ## outcomes and always come from the confirmed world.
 ##
 ## One-shots are spotted from changes in that confirmed state between frames,
-## never from drawn positions: a bundle let go while in flight is a throw; an
+## never from drawn positions: a bundle let go and flying sideways is a throw; an
 ## actor that becomes captured was seized by the nearest enemy, one released
 ## before its sentence ran out was freed by the nearest teammate.
 func _animate(drawn: SimWorld, truth: SimWorld, mine: int, remote: bool, delta: float) -> void:
@@ -1107,8 +1125,16 @@ func _animate(drawn: SimWorld, truth: SimWorld, mine: int, remote: bool, delta: 
 		var was_carrying: int = _anim_carrying.get(entity_id, SimEntity.NO_ENTITY)
 		if was_carrying != SimEntity.NO_ENTITY and entity.carrying_id != was_carrying:
 			var bundle: SimEntity = truth.get_entity(was_carrying)
-			if bundle != null and bundle.in_flight:
-				animator.act(&"throw")
+			# A drop (or a seized carrier's bundle) also goes in_flight, but falls
+			# straight down: only a throw leaves the hand moving sideways.
+			if bundle != null and bundle.in_flight \
+					and Vector2(bundle.velocity.x, bundle.velocity.z).length() > 1.0:
+				_act(truth, entity_id, &"throw")
+		if was_carrying == SimEntity.NO_ENTITY and entity.is_carrying():
+			_anim_fired[&"grab"] = entity_id
+			if _anim_log:
+				print("anim grab  %s:%d  t=%.1f" % [entity.team, entity.slot,
+					truth.tick * SimWorld.SECONDS_PER_TICK])
 		_anim_carrying[entity_id] = entity.carrying_id
 		var was_captured: bool = _anim_captured.get(entity_id, entity.is_captured)
 		if entity.is_captured and not was_captured:
@@ -1145,7 +1171,17 @@ func _act_nearest(truth: SimWorld, victim: int, ally: bool) -> void:
 			best_distance = gap
 			best = entity_id
 	if best != SimEntity.NO_ENTITY:
-		_animators[best].act(&"interact")
+		_act(truth, best, &"free" if ally else &"seize")
+
+## Fires a one-shot on `entity_id`'s figure: `throw`, or `seize` / `free` (both
+## play `interact`). Logged under --anim-log.
+func _act(truth: SimWorld, entity_id: int, what: StringName) -> void:
+	_animators[entity_id].act(&"throw" if what == &"throw" else &"interact")
+	_anim_fired[what] = entity_id
+	if _anim_log:
+		var who: SimEntity = truth.get_entity(entity_id)
+		print("anim %s  %s:%d  t=%.1f" % [what, who.team, who.slot,
+			truth.tick * SimWorld.SECONDS_PER_TICK])
 
 ## A held bundle is drawn over its carrier's head.
 ##
