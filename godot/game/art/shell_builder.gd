@@ -51,9 +51,11 @@ const TREAD_RISE_MAX: float = 31.0
 const TREAD_RUN_MAX: float = 49.0
 const STAIR_MIN: float = 200.0
 const TINY: float = 0.5
-## The ground floor's finish above the lawn box it is laid on (the old floor
-## patches' 0.6, which showed no z-fighting at chase distances).
-const GROUND_LIFT: float = 0.6
+## The ground floor's finish above the lawn box it is laid on. Twice the
+## outdoor patches' 0.6 (greybox_main PATCH_THICKNESS): a yard patch carried
+## out to its zone edge reaches through an exterior doorway's sill, and at the
+## same height the two fought there in a sawtooth (P3-2 frames ext_a_east).
+const GROUND_LIFT: float = 1.2
 ## Vertex orders for a quad / triangle whose corners turn counter-clockwise
 ## seen from the front (Godot draws clockwise fronts), and for one that already
 ## turns clockwise.

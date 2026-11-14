@@ -150,7 +150,7 @@ Aug 16–Oct 10 are in; an earlier version of this plan was written against the 
   silliest bodies (D2) that fit the poly budget and take the existing animations
   (`art/characters/figure_anims.res`). Log the pick in DECISIONS.md as REVIEW; if a new pack wins,
   rebuild the family from it the way P2-1 did. Keep the zips out of git.
-- [ ] **P3-2 Shell dressing.** Visual shell from the existing blockout data (`godot/game/blockout`,
+- [x] **P3-2 Shell dressing.** *(Done: `ShellBuilder` generates the textured shell from the blockers at load: plaster/block/brick walls, tiled/oak/carpet floors, ceilings, oak treads with painted risers, casings, open family-colour french doors, skirting, a hipped roof; one mesh per house. Collision and zones untouched. Frames of all 16 rooms, 6 exteriors, 16 camera views. See PROGRESS.md.)* Visual shell from the existing blockout data (`godot/game/blockout`,
   `HOUSE_LAYOUT`/`WORLD_AUTHORING`): walls, floors, doors, windows, stairs, roof with reveal. Collision
   and zones unchanged. *Verify:* content validator + all tests green; frames of every room.
 - [ ] **P3-3 Interiors.** Furnish every room. Obey `WORLD_AUTHORING.md` §12 thresholds: anything the

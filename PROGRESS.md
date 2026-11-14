@@ -2,6 +2,29 @@
 
 Newest first. One entry per task: date, task id, what changed, what the frames showed, numbers, what is left.
 
+## 2026-11-14 — P3-2 Shell dressing
+- **Picked up a cut-off session's work.** The tree held an uncommitted, coherent P3-2: `game/art/shell_builder.gd` (new), theme materials and a `Shell` group in `art_theme.gd` / `default_theme.tres`, `greybox_main.gd` building the shell instead of blockout boxes, eight Poly Haven textures re-imported VRAM-compressed with mipmaps, and ASSETS.md rows saying where each is used. `verify --quick` was green, so I committed it as is (`003d604`, P3-2 part).
+- **What the shell is** (DECISIONS 2026-11-14 P3-2): generated at load from the blocker AABBs. Each face is cut where other boxes and room edges meet it. Covered cells are dropped. Each cell's material comes from what is in front of it. Stair treads get oak tops and painted risers. Openings get casings (family colour outside), and exterior ones get a pair of open glazed doors flat against the inside wall. Interior walls get skirting. Each house gets a hipped roof with an overhang, soffit and fascia. It is all merged into one mesh per house with a surface per material, using world UVs. No collision, no zone or `content/` change, and the bot match is bit-identical.
+- **Frames looked at** (`autobuild/frames/`, all 38 views in views.json re-shot):
+  - `room_a_gf_kitchen`: square-tiled floor, warm plaster walls, pale skirting, painted casings, two sage glazed doors standing open either side of the back opening. Through the opening there is lawn and the other house's brick.
+  - `room_a_gf_fronthall`: oak laminate floor; the stair enclosure wall is plaster with skirting. Two exterior openings: sage doors at one, and none at the other (the leaves would hit the stair or a corner, so they are left out, as designed).
+  - `room_a_gf_jail`: painted block walls (brownish), flat grey concrete floor, pale skirting. Plain but reads as a utility room.
+  - `room_a_up_bedroom`: flat tan carpet, plaster, two cash bundles. `room_a_up_study`: olive carpet; the escape window is a pair of open sage doors onto the drop.
+  - `cam_stair_a_climb`: oak treads with white risers, figure climbing. The landing slab's stairwell edge is a plain flat band with no railing.
+  - `cam_front_door_threshold`: brick, a sage casing, the hall and stair seen through the door. Reads like a house.
+  - `ext_a_south`, `ext_b_north`, `ext_a_east`: brick walls, cream fascia, grey tiled hipped roof. Casings are sage on House A and terracotta on House B. `yard_midline_top`: both roofs' four hips meet cleanly, with visible tiling repeat on the roof texture.
+  - Before/after: `ext_b_north` with `shell = false` is the old flat cream blockout box, blown out by the sun.
+- **Defect found and fixed:** a green sawtooth on every exterior doorway sill (`ext_a_east`, `room_a_gf_fronthall`). The yard patch reaches through the sill at 0.6, and the shell's indoor ground floor was also at 0.6. Raised the indoor floor to 1.2 (`GROUND_LIFT`). Re-shot: both sills are clean oak.
+- **Defects seen and left:**
+  - A dark grey gradient smudge in the sky at the right edge of `ext_b_north`. It is identical with the shell off, so it comes from the sky/backdrop, not the shell. For P3-4 (sky) to look at.
+  - A thin pale line across the lawn in `cam_garden_open` (a patch seam). Probably the same in the blockout; P3-4.
+  - Carpets, ceilings and the jail floor are flat colours. Roof texture repeat is visible from above.
+- **Numbers:** kitchen A seat GPU 8.39 ms median against the 9 ms budget (P1-4 had 7.7), 239 draws, 43.7k triangles. `ext_a_south` 6.84 ms GPU, 287 draws, 61k triangles. Both within `render_budget.json`.
+- Verify: `node autobuild/verify.mjs` healthy. 16 suites; symmetry 200/200.
+  - Bot match 3v3: team_b in 439 s, 90 s of stalls. 1v1: 7 s.
+  - Tick budget: 1v1 0, 3v3 1, 4v4 0 of 600 over. net_smoke: 1690 ticks agree.
+- **Left:** nothing for P3-2 itself. Furniture is P3-3. The kitchen GPU headroom is now 0.6 ms, so P3-3's props need watching (P3-6).
+
 ## 2026-11-14 — P2-1b Evaluate all character packs (finished)
 - **The face smudge, traced and fixed** (`tools/rerig_character.gd`, re-run by the new `node autobuild/rerig_family.mjs`; frames `autobuild/frames/p2_1b/rerig12–15_close.png`):
   - New `tools/head_probe.gd` checked the written head. Above the Head joint +9 cm: 80 vertices, every normal within 2° of the egg's, all white, none inside out. So the file was clean there, and the face lived lower down.
