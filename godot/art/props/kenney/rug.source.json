@@ -1,0 +1,10 @@
+{
+  "src": "autobuild/Incoming/kenney/furniture-kit/Models/GLTF format/rugRectangle.glb",
+  "url": "https://kenney.nl/assets/furniture-kit",
+  "licence": "CC0",
+  "flags": [
+    "--out=res://art/props/kenney/rug.glb",
+    "--units=260",
+    "--material=carpet:rug,carpetDarker:rug_border"
+  ]
+}

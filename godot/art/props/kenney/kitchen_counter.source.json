@@ -4,7 +4,7 @@
   "licence": "CC0",
   "flags": [
     "--out=res://art/props/kenney/kitchen_counter.glb",
-    "--height=120",
-    "--material=wood:painted,metal:painted,woodDark:wood"
+    "--units=260",
+    "--material=wood:wood,woodDark:worktop,metal:worktop"
   ]
 }

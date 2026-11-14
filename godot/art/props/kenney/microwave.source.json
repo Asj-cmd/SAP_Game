@@ -1,0 +1,10 @@
+{
+  "src": "autobuild/Incoming/kenney/furniture-kit/Models/GLTF format/kitchenMicrowave.glb",
+  "url": "https://kenney.nl/assets/furniture-kit",
+  "licence": "CC0",
+  "flags": [
+    "--out=res://art/props/kenney/microwave.glb",
+    "--units=260",
+    "--material=carpetWhite:enamel,metalMedium:enamel,glass:screen,metalDark:screen"
+  ]
+}

@@ -1,0 +1,10 @@
+{
+  "src": "autobuild/Incoming/kenney/furniture-kit/Models/GLTF format/dryer.glb",
+  "url": "https://kenney.nl/assets/furniture-kit",
+  "licence": "CC0",
+  "flags": [
+    "--out=res://art/props/kenney/dryer.glb",
+    "--units=260",
+    "--material=metalDark:worktop,metalLight:enamel,metalMedium:enamel"
+  ]
+}

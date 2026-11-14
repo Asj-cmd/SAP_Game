@@ -1,0 +1,10 @@
+{
+  "src": "autobuild/Incoming/kenney/furniture-kit/Models/GLTF format/sideTableDrawers.glb",
+  "url": "https://kenney.nl/assets/furniture-kit",
+  "licence": "CC0",
+  "flags": [
+    "--out=res://art/props/kenney/console.glb",
+    "--units=260",
+    "--material=wood:wood,_defaultMat:wood,metal:steel"
+  ]
+}

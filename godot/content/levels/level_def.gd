@@ -23,6 +23,12 @@ extends Resource
 @export var surface: WalkableSurfaceDef = null
 ## Which blockout scene produced this, so a stale bake can be traced back.
 @export var source_scene: String = ""
+## Furniture, for PRESENTATION only (P3-3): which model is drawn where. The sim
+## never reads this. A piece that blocks has its own box in `collision` as well
+## (baked from a `blocker_furniture_*` node), and `furniture` lists those boxes
+## so the shell does not draw them as walls.
+@export var props: Array[PropPlacement] = []
+@export var furniture: Array[AABB] = []
 
 ## Deep copy, for a caller that needs to vary something without editing the
 ## shared asset every other caller is reading.
@@ -33,6 +39,8 @@ func duplicated() -> LevelDef:
 	copy.source_scene = source_scene
 	copy.collision = collision
 	copy.surface = surface
+	copy.props = props
+	copy.furniture = furniture
 	var zone_copies: Array[ZoneDef] = []
 	for zone: ZoneDef in zones:
 		zone_copies.append(zone.duplicate())

@@ -1673,8 +1673,17 @@ func _build_geometry() -> void:
 		print("shell: %d meshes in %.0f ms" % [shells.size(),
 			float(Time.get_ticks_usec() - started) / 1000.0])
 
+	# Furniture (P3-3): drawn by FurnitureDresser from the level's props, never
+	# as a blockout box or shell. Its blockers still get camera bodies below.
+	var furniture: Dictionary[AABB, bool] = {}
+	if level.level != null:
+		for box: AABB in level.level.furniture:
+			furniture[box] = true
+		if not level.level.props.is_empty():
+			_geometry.add_child(FurnitureDresser.build(level.level.props, theme))
+
 	for blocker: AABB in blockers:
-		if not theme.shell or blocker == lot_ground:
+		if (not theme.shell or blocker == lot_ground) and not furniture.has(blocker):
 			_blockout_solid(blocker, theme, lot_ground, roof_top)
 		var body: StaticBody3D = StaticBody3D.new()
 		body.position = blocker.get_center()

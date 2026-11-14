@@ -179,6 +179,12 @@ const SPAWN_LOCAL: Array[Vector2] = [
 ]
 
 var _solids: Array[AABB] = []
+## P3-3 furniture: house-local collision boxes (stamped as
+## `blocker_furniture_*`, so the shell knows not to draw them as walls) and the
+## pieces drawn on them (stamped as `prop_*` markers). Both come from
+## `_furnish`, so a drawn piece and its collision are one entry, never two.
+var _furniture: Array[AABB] = []
+var _props: Array[Dictionary] = []
 ## While true, _solid writes lot-space blockers directly instead of house-local
 ## geometry awaiting the stamp.
 var _terrain_slab: bool = false
@@ -237,6 +243,169 @@ func _draw_house() -> void:
 	_ground()
 	_upper()
 	_stairs()
+	_furnish()
+
+# ---- furniture (P3-3) ----
+#
+# WORLD_AUTHORING §12 binds furniture as much as walls: every piece that stands
+# on a floor BLOCKS, and its top is exactly at a threshold - 120 (you jump onto
+# it: counters, tables, desks, beds, chests, the safes) or at least 210 (it
+# stops you: fridges, wardrobes, bookcases, the pen's bars). Nothing between.
+# That rules out seating for now: a sofa's seat or a chair's would sit between
+# 30 and 120, a ledge at a height the rules do not have.
+#
+# Pieces stand FLUSH against walls or at least 120 clear of them (three body
+# widths), never in between: a gap a body barely fits is where a bot wedges.
+# Doorways, the stair approaches, the cash markers and the pen's middle (the
+# prisoners' holding spot) are left clear.
+#
+# House-local, like everything here; `_stamp` places both houses' copies.
+# Faces: which way a piece's front looks, in degrees about +y (0 = +z, north).
+const FACE_N: float = 0.0
+const FACE_E: float = 90.0
+const FACE_S: float = 180.0
+const FACE_W: float = 270.0
+const TOP: float = 120.0 ## vault_height: every surface you can get onto
+const TALL: float = 230.0 ## above 210: every piece that stops you
+const PEN_HEIGHT: float = 220.0
+
+func _furnish() -> void:
+	var g: float = GROUND
+	var u: float = UPPER
+
+	# Kitchen (NE). Units along the blank north wall, a short run down the east
+	# wall to the side door, the fridge in the corner by the back-hall door, an
+	# island north of the west-east doorway line and a table you can get onto.
+	_piece(&"fridge", Rect2(MID_HIGH, 1940.0, 120.0, 120.0), g, TALL, FACE_S)
+	_run([&"kitchen_counter", &"kitchen_sink", &"kitchen_counter", &"kitchen_stove",
+		&"kitchen_counter", &"kitchen_drawers"] as Array[StringName],
+		Rect2(1180.0, 1960.0, HIGH - 1180.0, 100.0), g, TOP, FACE_S)
+	_run([&"kitchen_drawers", &"kitchen_counter"] as Array[StringName],
+		Rect2(1960.0, 1720.0, 100.0, 240.0), g, TOP, FACE_W)
+	_run([&"kitchen_drawers", &"kitchen_drawers"] as Array[StringName],
+		Rect2(1420.0, 1700.0, 280.0, 120.0), g, TOP, FACE_S)
+	_piece(&"dining_table", Rect2(1740.0, 1180.0, 200.0, 140.0), g, TOP, FACE_S)
+	_decor(&"microwave", Vector3(1850.0, g + TOP, 2010.0), FACE_S)
+	_decor(&"toaster", Vector3(1260.0, g + TOP, 2010.0), FACE_S)
+	_decor(&"plant_small", Vector3(1640.0, g + TOP, 1760.0), FACE_S)
+
+	# Front Hall (SE). A console beside the front door, a coat stand in the
+	# corner by the kitchen door, a mat and a runner.
+	_piece(&"console", Rect2(MID_HIGH, LOW, 280.0, 70.0), g, TOP, FACE_N)
+	_piece(&"coat_stand", Rect2(MID_HIGH, MID_LOW - 60.0, 60.0, 60.0), g, 210.0, FACE_E)
+	_decor(&"doormat", Vector3(FAR_MID, g, LOW + 50.0), FACE_N)
+	_decor(&"rug", Vector3(1420.0, g, 560.0), FACE_E)
+	_decor(&"table_lamp", Vector3(1130.0, g + TOP, 65.0), FACE_N)
+
+	# Back Hall (NW). A sideboard by the back door, a bookcase on the jail wall,
+	# coats on the kitchen wall.
+	_piece(&"sideboard", Rect2(730.0, HIGH - 70.0, MID_LOW - 730.0, 70.0), g, TOP, FACE_S)
+	_piece(&"bookcase", Rect2(790.0, MID_HIGH, MID_LOW - 790.0, 70.0), g, TALL, FACE_N)
+	_decor(&"doormat", Vector3(NEAR_MID, g, HIGH - 50.0), FACE_S)
+	_decor(&"coat_rack", Vector3(MID_LOW - 18.0, g + 150.0, 1860.0), FACE_W)
+	_decor(&"plant_small", Vector3(960.0, g + TOP, 2025.0), FACE_S)
+
+	# Jail (SW): a laundry. Washer and dryer on the west wall, open shelving in
+	# the corner, and the pen round the holding spot with its gate toward the
+	# front-hall door.
+	_run([&"washer", &"dryer"] as Array[StringName],
+		Rect2(LOW, 60.0, 110.0, 240.0), g, TOP, FACE_E)
+	_piece(&"shelf_open", Rect2(790.0, LOW, MID_LOW - 790.0, 70.0), g, TALL, FACE_N)
+	_pen(Rect2(400.0, 400.0, 260.0, 260.0), g, FACE_E)
+
+	# Landing A (SE, upstairs): a bookcase on the study wall, a runner.
+	_piece(&"bookcase", Rect2(MID_HIGH, LOW, 240.0, 70.0), u, TALL, FACE_N)
+	_decor(&"rug", Vector3(1420.0, u, 560.0), FACE_E)
+
+	# Master Bedroom (NE, cash). Bed on the north wall, wardrobes on the east,
+	# a chest of drawers on the landing-B wall, the safe in the corner.
+	_piece(&"bed_double", Rect2(1440.0, HIGH - 300.0, 240.0, 300.0), u, TOP, FACE_S)
+	_run([&"wardrobe", &"wardrobe"] as Array[StringName],
+		Rect2(HIGH - 80.0, 1100.0, 80.0, 300.0), u, TALL, FACE_W)
+	_piece(&"dresser", Rect2(MID_HIGH, 1100.0, 80.0, 260.0), u, TOP, FACE_E)
+	_piece(&"safe", Rect2(HIGH - 140.0, HIGH - 110.0, 140.0, 110.0), u, TOP, FACE_S)
+	_decor(&"table_lamp", Vector3(MID_HIGH + 40.0, u + TOP, 1160.0), FACE_E)
+
+	# Study (SW, cash). Desk on the south wall, bookcases on the north, the
+	# safe in the corner by the landing-A door.
+	_piece(&"desk", Rect2(300.0, LOW, 460.0, 110.0), u, TOP, FACE_N)
+	_run([&"bookcase", &"bookcase"] as Array[StringName],
+		Rect2(LOW, MID_LOW - 70.0, 320.0, 70.0), u, TALL, FACE_S)
+	_piece(&"safe", Rect2(MID_LOW - 140.0, LOW, 140.0, 110.0), u, TOP, FACE_N)
+	_decor(&"screen", Vector3(530.0, u + TOP, LOW + 40.0), FACE_N)
+	_decor(&"table_lamp", Vector3(360.0, u + TOP, LOW + 50.0), FACE_N)
+
+	# Landing B (NW, upstairs): a sideboard on the north wall with a plant.
+	_piece(&"sideboard", Rect2(730.0, HIGH - 70.0, MID_LOW - 730.0, 70.0), u, TOP, FACE_S)
+	_decor(&"plant_small", Vector3(960.0, u + TOP, 2025.0), FACE_S)
+	_decor(&"rug", Vector3(700.0, u, 1300.0), FACE_N)
+
+## One blocking piece filling `rect` (x, z, width, depth) from `base` up to
+## `base + height`; its model is fitted to that box.
+func _piece(model: StringName, rect: Rect2, base: float, height: float, face: float) -> void:
+	var box: AABB = AABB(Vector3(rect.position.x, base, rect.position.y),
+		Vector3(rect.size.x, height, rect.size.y))
+	_furniture.append(box)
+	_props.append({"model": model, "box": box, "face": face, "fit": true})
+
+## A run of units side by side: ONE collision box for the whole run (fewer
+## blockers, no seams to catch on) and one fitted model per equal share of it,
+## along the run's long side, in order from low x / low z.
+func _run(models: Array[StringName], rect: Rect2, base: float, height: float,
+		face: float) -> void:
+	var box: AABB = AABB(Vector3(rect.position.x, base, rect.position.y),
+		Vector3(rect.size.x, height, rect.size.y))
+	_furniture.append(box)
+	var along_x: bool = rect.size.x >= rect.size.y
+	var share: float = (rect.size.x if along_x else rect.size.y) / float(models.size())
+	for i: int in models.size():
+		var part: AABB = box
+		if along_x:
+			part.position.x += share * float(i)
+			part.size.x = share
+		else:
+			part.position.z += share * float(i)
+			part.size.z = share
+		_props.append({"model": models[i], "box": part, "face": face, "fit": true})
+
+## Dressing that blocks nothing: a rug, a mat, a lamp on a counter, coats on a
+## wall. Kept at its own size, standing on `at`.
+func _decor(model: StringName, at: Vector3, face: float) -> void:
+	_props.append({"model": model, "box": AABB(at, Vector3.ZERO), "face": face, "fit": false})
+
+## The jail pen: bars on four sides, PropPlacement.PEN_BAR thick, PEN_HEIGHT
+## tall (it stops you), with a PEN_GATE-wide gap in the middle of the side
+## `face` looks toward. Several boxes of collision, one drawn piece.
+func _pen(rect: Rect2, base: float, face: float) -> void:
+	var bar: float = PropPlacement.PEN_BAR
+	var gate: float = PropPlacement.PEN_GATE
+	var x0: float = rect.position.x
+	var z0: float = rect.position.y
+	var x1: float = rect.end.x
+	var z1: float = rect.end.y
+	var sides: Array[Rect2] = []
+	# West and east sides run the full depth; south and north fit between them.
+	for at_x: float in [x0, x1 - bar]:
+		var open: bool = (face == FACE_W and at_x == x0) or (face == FACE_E and at_x != x0)
+		if open:
+			var mid: float = (z0 + z1) * 0.5
+			sides.append(Rect2(at_x, z0, bar, mid - gate * 0.5 - z0))
+			sides.append(Rect2(at_x, mid + gate * 0.5, bar, z1 - mid - gate * 0.5))
+		else:
+			sides.append(Rect2(at_x, z0, bar, z1 - z0))
+	for at_z: float in [z0, z1 - bar]:
+		var open_z: bool = (face == FACE_S and at_z == z0) or (face == FACE_N and at_z != z0)
+		if open_z:
+			var mid_x: float = (x0 + x1) * 0.5
+			sides.append(Rect2(x0 + bar, at_z, mid_x - gate * 0.5 - x0 - bar, bar))
+			sides.append(Rect2(mid_x + gate * 0.5, at_z, x1 - bar - mid_x - gate * 0.5, bar))
+		else:
+			sides.append(Rect2(x0 + bar, at_z, x1 - x0 - bar * 2.0, bar))
+	for side: Rect2 in sides:
+		_furniture.append(AABB(Vector3(side.position.x, base, side.position.y),
+			Vector3(side.size.x, PEN_HEIGHT, side.size.y)))
+	_props.append({"model": &"jail_pen", "face": face, "fit": true,
+		"box": AABB(Vector3(x0, base, z0), Vector3(rect.size.x, PEN_HEIGHT, rect.size.y))})
 
 ## §4. Front Hall (SE, front door + main stair), Kitchen (NE, side door),
 ## Back Hall (NW, back door + second stair), Jail (SW, no exterior opening).
@@ -491,6 +660,21 @@ func _at(centre: float, width: float) -> Vector2:
 func _stamp(turned: bool, team: StringName, side: String) -> void:
 	for box: AABB in _solids:
 		_blocker(_place(box, turned))
+	for box: AABB in _furniture:
+		_blocker(_place(box, turned), "blocker_furniture")
+	# Drawn pieces. The half turn turns every piece's facing with it.
+	for i: int in _props.size():
+		var prop: Dictionary = _props[i]
+		var box: AABB = prop["box"]
+		var placed: AABB = _place(box, turned)
+		var marker: Marker3D = Marker3D.new()
+		marker.name = "prop_%s_%d" % [side, i]
+		marker.position = placed.position + placed.size * 0.5
+		marker.set_meta(&"model", prop["model"])
+		marker.set_meta(&"box", placed)
+		marker.set_meta(&"yaw_deg", fmod(float(prop["face"]) + (180.0 if turned else 0.0), 360.0))
+		marker.set_meta(&"fit", prop["fit"])
+		_root.add_child(marker)
 
 	# §3 vertical stacking. Both floors share the same four quadrants.
 	var rooms: Array[Array] = [
@@ -684,11 +868,11 @@ func _box(node_name: String, at: Vector3, size: Vector3) -> MeshInstance3D:
 	_root.add_child(node)
 	return node
 
-func _blocker(box: AABB) -> void:
+func _blocker(box: AABB, prefix: String = "blocker") -> void:
 	if box.size.x < 0.5 or box.size.y < 0.5 or box.size.z < 0.5:
 		return
 	_count += 1
-	_box("blocker_%d" % _count, box.position + box.size * 0.5, box.size)
+	_box("%s_%d" % [prefix, _count], box.position + box.size * 0.5, box.size)
 
 func _zone(id: StringName, role: ZoneDef.Role, team: StringName, priority: int,
 		bounds: AABB, outdoor: bool) -> void:

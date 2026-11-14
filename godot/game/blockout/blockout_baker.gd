@@ -22,6 +22,12 @@ const BLOCKER_PREFIX: String = "blocker"
 const SHELL_NAME: String = "shell"
 const SPAWN_PREFIX: String = "spawn"
 const CASH_PREFIX: String = "cash"
+## A blocker that is a piece of furniture: collision like any other, listed in
+## LevelDef.furniture as well so the shell does not draw it as a wall.
+const FURNITURE_PREFIX: String = "blocker_furniture"
+## A drawn piece (LevelDef.props): presentation only, never collision. Its
+## model, box (lot space), facing and fit are node metadata.
+const PROP_PREFIX: String = "prop"
 
 var failures: PackedStringArray = PackedStringArray()
 
@@ -50,6 +56,8 @@ func bake(
 	var spawns: Dictionary[StringName, Array] = {}
 	var cash: Dictionary[StringName, Array] = {}
 	var found_shell: bool = false
+	var furniture: Array[AABB] = []
+	var props: Array[PropPlacement] = []
 
 	for placed: Dictionary in _walk(root, Transform3D.IDENTITY):
 		var node: Node = placed["node"]
@@ -77,6 +85,10 @@ func bake(
 				failures.append("%s is named as a blocker but is not a MeshInstance3D" % node_name)
 				continue
 			blockers.append(_box_bounds(solid, world))
+			if node_name.begins_with(FURNITURE_PREFIX):
+				furniture.append(_box_bounds(solid, world))
+		elif node_name.begins_with(PROP_PREFIX):
+			props.append(_prop(node, world))
 		elif node_name.begins_with(SPAWN_PREFIX):
 			_record_marker(node, world, SPAWN_PREFIX, spawns)
 		elif node_name.begins_with(CASH_PREFIX):
@@ -93,6 +105,10 @@ func bake(
 	zones.sort_custom(_compare_zones)
 	blockers.sort_custom(_compare_boxes)
 	level.collision.blockers = blockers
+	furniture.sort_custom(_compare_boxes)
+	level.furniture = furniture
+	props.sort_custom(_compare_props)
+	level.props = props
 	level.zones = zones
 	level.teams = _build_teams(spawns, cash)
 
@@ -194,6 +210,22 @@ func _points(markers: Array) -> Array[Vector3]:
 
 func _compare_markers(a: Dictionary, b: Dictionary) -> bool:
 	return String(a["name"]) < String(b["name"])
+
+## A `prop_*` marker as a PropPlacement. The box is stored as metadata in lot
+## space by the builder; a marker without one stands a model at its position.
+func _prop(node: Node, world: Transform3D) -> PropPlacement:
+	var placement: PropPlacement = PropPlacement.new()
+	placement.model = StringName(node.get_meta(&"model", &""))
+	var box: AABB = node.get_meta(&"box", AABB(world.origin, Vector3.ZERO))
+	placement.box = box
+	placement.yaw_deg = float(node.get_meta(&"yaw_deg", 0.0))
+	placement.fit = bool(node.get_meta(&"fit", true))
+	return placement
+
+func _compare_props(a: PropPlacement, b: PropPlacement) -> bool:
+	if a.box.position != b.box.position:
+		return _compare_boxes(a.box, b.box)
+	return String(a.model) < String(b.model)
 
 func _compare_zones(a: ZoneDef, b: ZoneDef) -> bool:
 	return NameOrder.compare(a.id, b.id)

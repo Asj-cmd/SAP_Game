@@ -116,6 +116,20 @@ const DEFAULT_PATH: String = "res://art/theme/default_theme.tres"
 @export var leaf_frame: float = 12.0
 @export var leaf_rail: float = 90.0
 
+@export_group("Furniture")
+## The model drawn for each furniture id in the level (LevelDef.props, P3-3):
+## id -> an imported prop under res://art/props/. An id not listed, or a file
+## that is missing, is drawn as a plain box of `prop` filling its collision box
+## (art stays optional). `safe` and `jail_pen` are built in code
+## (FurnitureDresser) from the three materials below.
+@export var furniture_models: Dictionary[StringName, String] = {}
+## Turn added to every furniture model so its front faces +z at yaw 0 (the
+## level's facings are "which way the front looks").
+@export var furniture_front_yaw: float = 0.0
+@export var safe_body: StandardMaterial3D = null
+@export var safe_trim: StandardMaterial3D = null
+@export var pen_bars: StandardMaterial3D = null
+
 @export_group("Daylight")
 @export var sky_top: Color = Color(0.33, 0.56, 0.86)
 @export var sky_horizon: Color = Color(0.78, 0.85, 0.92)

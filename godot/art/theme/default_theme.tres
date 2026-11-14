@@ -1,4 +1,4 @@
-[gd_resource type="Resource" script_class="ArtTheme" load_steps=27 format=3]
+[gd_resource type="Resource" script_class="ArtTheme" load_steps=37 format=3]
 
 [ext_resource type="Script" path="res://game/art/art_theme.gd" id="1_theme"]
 [ext_resource type="Script" path="res://game/art/family_member.gd" id="2_member"]
@@ -154,6 +154,59 @@ resource_name = "prop"
 albedo_color = Color(0.6, 0.57, 0.52, 1)
 roughness = 0.8
 
+[sub_resource type="StandardMaterial3D" id="prop_worktop"]
+resource_name = "worktop"
+albedo_color = Color(0.26, 0.25, 0.24, 1)
+roughness = 0.35
+
+[sub_resource type="StandardMaterial3D" id="prop_enamel"]
+resource_name = "enamel"
+albedo_color = Color(0.88, 0.88, 0.86, 1)
+roughness = 0.3
+
+[sub_resource type="StandardMaterial3D" id="prop_rug"]
+resource_name = "rug"
+albedo_color = Color(0.5, 0.41, 0.35, 1)
+roughness = 1.0
+
+[sub_resource type="StandardMaterial3D" id="prop_rug_border"]
+resource_name = "rug_border"
+albedo_color = Color(0.33, 0.28, 0.25, 1)
+roughness = 1.0
+
+[sub_resource type="StandardMaterial3D" id="prop_screen"]
+resource_name = "screen"
+albedo_color = Color(0.07, 0.07, 0.08, 1)
+roughness = 0.25
+
+[sub_resource type="StandardMaterial3D" id="prop_lampshade"]
+resource_name = "lampshade"
+albedo_color = Color(0.92, 0.87, 0.76, 1)
+roughness = 0.9
+
+[sub_resource type="StandardMaterial3D" id="prop_plant"]
+resource_name = "plant"
+albedo_color = Color(0.3, 0.36, 0.25, 1)
+roughness = 0.8
+
+[sub_resource type="StandardMaterial3D" id="safe_body"]
+resource_name = "safe_body"
+albedo_color = Color(0.17, 0.18, 0.2, 1)
+metallic = 0.7
+roughness = 0.4
+
+[sub_resource type="StandardMaterial3D" id="safe_trim"]
+resource_name = "safe_trim"
+albedo_color = Color(0.6, 0.55, 0.42, 1)
+metallic = 0.8
+roughness = 0.35
+
+[sub_resource type="StandardMaterial3D" id="pen_bars"]
+resource_name = "pen_bars"
+albedo_color = Color(0.3, 0.31, 0.33, 1)
+metallic = 0.8
+roughness = 0.45
+
 [sub_resource type="Resource" id="member_dad"]
 script = ExtResource("2_member")
 id = &"dad"
@@ -235,7 +288,14 @@ by_source_name = Dictionary[String, StandardMaterial3D]({
 "wood": SubResource("prop_wood"),
 "fabric": SubResource("prop_fabric"),
 "steel": SubResource("prop_steel"),
-"painted": SubResource("prop_painted")
+"painted": SubResource("prop_painted"),
+"worktop": SubResource("prop_worktop"),
+"enamel": SubResource("prop_enamel"),
+"rug": SubResource("prop_rug"),
+"rug_border": SubResource("prop_rug_border"),
+"screen": SubResource("prop_screen"),
+"lampshade": SubResource("prop_lampshade"),
+"plant": SubResource("prop_plant")
 })
 cash = SubResource("cash_note")
 prop = SubResource("prop_default")
@@ -268,6 +328,37 @@ trim = SubResource("trim")
 stair_tread = SubResource("floor_oak")
 roof = SubResource("roof_tile")
 glass = SubResource("glass")
+furniture_models = Dictionary[StringName, String]({
+&"fridge": "res://art/props/kenney/fridge.glb",
+&"kitchen_counter": "res://art/props/kenney/kitchen_counter.glb",
+&"kitchen_drawers": "res://art/props/kenney/kitchen_drawers.glb",
+&"kitchen_sink": "res://art/props/kenney/kitchen_sink.glb",
+&"kitchen_stove": "res://art/props/kenney/kitchen_stove.glb",
+&"dining_table": "res://art/props/kenney/table.glb",
+&"microwave": "res://art/props/kenney/microwave.glb",
+&"toaster": "res://art/props/kenney/toaster.glb",
+&"plant_small": "res://art/props/kenney/plant_small.glb",
+&"console": "res://art/props/kenney/console.glb",
+&"coat_stand": "res://art/props/kenney/coat_stand.glb",
+&"coat_rack": "res://art/props/kenney/coat_rack.glb",
+&"doormat": "res://art/props/kenney/doormat.glb",
+&"rug": "res://art/props/kenney/rug.glb",
+&"table_lamp": "res://art/props/kenney/table_lamp.glb",
+&"sideboard": "res://art/props/kenney/sideboard.glb",
+&"dresser": "res://art/props/kenney/sideboard.glb",
+&"bookcase": "res://art/props/kenney/bookcase.glb",
+&"shelf_open": "res://art/props/kenney/shelf_open.glb",
+&"washer": "res://art/props/kenney/washer.glb",
+&"dryer": "res://art/props/kenney/dryer.glb",
+&"bed_double": "res://art/props/kenney/bed_double.glb",
+&"wardrobe": "res://art/props/kenney/wardrobe.glb",
+&"desk": "res://art/props/kenney/desk.glb",
+&"screen": "res://art/props/kenney/screen.glb"
+})
+furniture_front_yaw = 0.0
+safe_body = SubResource("safe_body")
+safe_trim = SubResource("safe_trim")
+pen_bars = SubResource("pen_bars")
 sky_top = Color(0.33, 0.56, 0.86, 1)
 sky_horizon = Color(0.78, 0.85, 0.92, 1)
 grass = Color(0.36, 0.5, 0.3, 1)

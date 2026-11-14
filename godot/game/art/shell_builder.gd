@@ -90,8 +90,19 @@ static func build(level: GreyBoxLevel, theme: ArtTheme, skip: int) -> Array[Mesh
 
 func _build(level: GreyBoxLevel, theme: ArtTheme, skip: int) -> Array[MeshInstance3D]:
 	_theme = theme
-	_blockers = level.collision.blockers
-	_skip = skip
+	# Furniture is collision but not shell (P3-3): FurnitureDresser draws it. Left
+	# in, it would be drawn as plaster boxes and would cut the walls and floors
+	# it stands against, leaving holes wherever a model does not fill its box.
+	var furniture: Dictionary[AABB, bool] = {}
+	if level.level != null:
+		for box: AABB in level.level.furniture:
+			furniture[box] = true
+	var skip_box: AABB = level.collision.blockers[skip] if skip >= 0 else AABB()
+	_blockers = []
+	for box: AABB in level.collision.blockers:
+		if not furniture.has(box):
+			_blockers.append(box)
+	_skip = _blockers.find(skip_box) if skip >= 0 else -1
 	for zone: ZoneDef in ZoneDef.sorted_for_resolution(level.zones):
 		if not zone.outdoor:
 			_rooms.append(zone)
