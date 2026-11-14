@@ -39,6 +39,9 @@ file lands here.** Raw downloads stay in the gitignored `autobuild/Incoming/`.
 ```bash
 # 1. Download (Poly Haven; checks every file's md5). Other CC0 sites: by hand into Incoming/.
 node autobuild/fetch_polyhaven.mjs ArmChair_01
+#    Kenney packs (CC0; refuses a page without the CC0 line, unzips, writes the zip's sha256):
+node autobuild/fetch_kenney.mjs furniture-kit    # -> autobuild/Incoming/kenney/furniture-kit/Models/GLTF format/*.glb
+#    Kenney pieces are about half real size: import them at --units=260 (STYLE §3.3 "The kit").
 
 # 2. Look first: --dry reports size, triangles, materials and the budget, writes nothing.
 node autobuild/import_asset.mjs autobuild/Incoming/polyhaven/ArmChair_01/gltf/ArmChair_01_1k.gltf \

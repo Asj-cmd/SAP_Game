@@ -8,7 +8,9 @@ author, the title, the licence and a link, exactly as their licence asks.
 
 - **Characters:** based on *Universal Base Characters* by **Quaternius** (quaternius.com), CC0 1.0.
 - **Animation:** *Universal Animation Library* by **Quaternius** (quaternius.com), CC0 1.0.
-- **Furniture:** models from **Poly Haven** (polyhaven.com), CC0 1.0.
+- **Furniture:** *Furniture Kit* by **Kenney** (kenney.nl), CC0 1.0.
+- **Surfaces:** textures from **Poly Haven** (polyhaven.com) and **ambientCG** (ambientcg.com), CC0 1.0.
+  (Keep a line only for sources actually shipped when P7-3 builds the screen.)
 
 ## Engine
 

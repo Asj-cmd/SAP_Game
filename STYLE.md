@@ -182,6 +182,32 @@ albedo, roughness and baked vertex AO, not into lighting.
 - **Furniture packs that are stylised** (chunky bevels, toy proportions) are used only if their
   shapes pass for real furniture once re-materialed. Otherwise do not use them.
 
+**The kit (P3-1, REVIEW; DECISIONS.md has the reasons):**
+
+| What | Source | How |
+|---|---|---|
+| Furniture, appliances, lamps, rugs | **Kenney Furniture Kit** (CC0) | `fetch_kenney.mjs furniture-kit` → `import_asset.mjs` at `--units=260` or `--height=<threshold>` → `art/props/kenney/` |
+| Wall, floor, ceiling, tile, brick, roof surfaces | **Poly Haven textures** (CC0) | Tiled through the theme's materials on the generated shell |
+| Carpet, wallpaper, upholstery | **ambientCG** (CC0) | Same |
+| Shell: walls, floors, openings, frames, door leaves, stairs, roof | **Generated from the blockout data** (P3-2) | No modular kit: Kenney's wall pieces are half-real tiles and do not fit 240 × 240 openings, 30 walls or a 360 storey |
+| Safe/vault, jail pen and door, cash | **Our own** (procedural) | Each must have a shape nothing else in the house shares (§3.2) |
+
+Texture shortlist for P3-2 to try first (judge by frame, keep the theme's colour by tinting):
+wall paint `white_plaster_02` / `beige_wall_001`; oak floor `laminate_floor_02` / `wood_floor`;
+kitchen tile `interior_tiles` / `floor_tiles_06`; jail `concrete_floor_painted` (floor) and
+`concrete_block_wall` (walls); carpet ambientCG `Carpet0NN` (16 to pick from); study wallpaper
+ambientCG `Wallpaper001A`–`002C`, or plain paint if none is quiet enough; exterior
+`brick_wall_001` or render `white_plaster_rough_01`; roof `grey_roof_tiles`. Poly Haven has
+no clean carpet (only `dirty_carpet`).
+
+Kenney's UVs index a colour atlas, so furniture keeps flat theme colours until a texture is
+wanted there, and then gets it triplanar (world-space), never through the pack's UVs.
+
+Seen in the P3-1 trial (`autobuild/frames/p3_1/`): the counter's `wood` surface is its door-panel
+frames, not its top (P3-3 maps the top to a counter material); a table built to 120 has an
+underside well under 130, so it is a vault surface, not a crawl-under (P3-3 picks which a given
+table is).
+
 Palette (sRGB, a starting point the theme owns):
 
 | Material | Colour | Roughness | Notes |

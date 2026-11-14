@@ -1,0 +1,10 @@
+{
+  "src": "autobuild/Incoming/kenney/furniture-kit/Models/GLTF format/chair.glb",
+  "url": "https://kenney.nl/assets/furniture-kit",
+  "licence": "CC0",
+  "flags": [
+    "--out=res://art/props/kenney/chair.glb",
+    "--units=260",
+    "--material=wood"
+  ]
+}

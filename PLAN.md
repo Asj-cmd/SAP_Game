@@ -138,7 +138,7 @@ Aug 16–Oct 10 are in; an earlier version of this plan was written against the 
 
 ## Phase 3 — The house and the lot
 
-- [ ] **P3-1 Kit selection.** Choose wall/door/window/floor/roof/stair/furniture packs (Kenney,
+- [x] **P3-1 Kit selection.** *(Done: Kenney Furniture Kit for furniture and appliances; Poly Haven textures plus ambientCG for carpet/wallpaper; the shell generated from the blockout; safe, jail pen and cash our own. `autobuild/fetch_kenney.mjs`; 8 trial pieces in `art/props/kenney/`, seen in kitchen A and bedroom A. REVIEW. See PROGRESS.md.)* Choose wall/door/window/floor/roof/stair/furniture packs (Kenney,
   Quaternius, KayKit, others CC0). Log in ASSETS.md. Prefer one or two coherent packs over many.
 - [ ] **P3-2 Shell dressing.** Visual shell from the existing blockout data (`godot/game/blockout`,
   `HOUSE_LAYOUT`/`WORLD_AUTHORING`): walls, floors, doors, windows, stairs, roof with reveal. Collision

@@ -1,0 +1,10 @@
+{
+  "src": "autobuild/Incoming/kenney/furniture-kit/Models/GLTF format/bedDouble.glb",
+  "url": "https://kenney.nl/assets/furniture-kit",
+  "licence": "CC0",
+  "flags": [
+    "--out=res://art/props/kenney/bed_double.glb",
+    "--units=260",
+    "--material=carpetWhite:fabric,carpet:fabric,metal:wood,wood:wood"
+  ]
+}

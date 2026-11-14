@@ -1,0 +1,10 @@
+{
+  "src": "autobuild/Incoming/kenney/furniture-kit/Models/GLTF format/washer.glb",
+  "url": "https://kenney.nl/assets/furniture-kit",
+  "licence": "CC0",
+  "flags": [
+    "--out=res://art/props/kenney/washer.glb",
+    "--height=110",
+    "--material=_defaultMat:painted,metalLight:painted,glass:steel,metalDark:steel,metalMedium:steel,metal:steel"
+  ]
+}

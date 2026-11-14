@@ -1,0 +1,10 @@
+{
+  "src": "autobuild/Incoming/kenney/furniture-kit/Models/GLTF format/bookcaseClosedDoors.glb",
+  "url": "https://kenney.nl/assets/furniture-kit",
+  "licence": "CC0",
+  "flags": [
+    "--out=res://art/props/kenney/wardrobe.glb",
+    "--height=230",
+    "--material=wood:wood,metal:steel"
+  ]
+}

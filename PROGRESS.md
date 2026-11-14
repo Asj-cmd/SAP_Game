@@ -2,6 +2,51 @@
 
 Newest first. One entry per task: date, task id, what changed, what the frames showed, numbers, what is left.
 
+## 2026-11-13 — P3-1 Kit selection
+- **The pick (REVIEW; reasons in DECISIONS.md and STYLE §3.3 "The kit"):**
+  - Furniture and appliances: **Kenney Furniture Kit** (CC0, 140 models), the one furniture pack.
+  - Surfaces: **Poly Haven textures** (CC0), plus **ambientCG** (CC0) for carpet, wallpaper and upholstery only.
+  - Shell (walls, floors, openings, frames, door leaves, stairs, roof): **generated from the blockout** in P3-2. No modular kit.
+  - Safe/vault, jail pen and cash: **our own** procedural models (P3-3).
+- **Survey (measured, not remembered):**
+  - Poly Haven's API lists 522 models. Its 85 furniture pieces are almost all antique, gothic or industrial, and run 500–60k triangles. There is no kitchen unit, fridge, washer, modern bed or wardrobe.
+  - Poly Haven's textures cover every surface STYLE §3.3 lists except a clean carpet (only `dirty_carpet`).
+  - ambientCG has 16 carpets, 6 wallpapers and ~100 fabrics, and its licence page says CC0.
+  - Quaternius Ultimate House Interior is CC0 but rounded and stylised, FBX/OBJ only, and only on Google Drive.
+  - KayKit is toy-chunky and was ruled out by STYLE §3.3 without a download.
+- **New tool:** `node autobuild/fetch_kenney.mjs <slug>`.
+  - Reads the pack page, refuses it without the CC0 line, and downloads through the site's signed-link endpoint (a bare fetch got 403 in an earlier session).
+  - Unzips with node's zlib and refuses `..` or absolute entries.
+  - Writes `SOURCE.txt` with the zip's sha256. Furniture Kit: `e67652d0…46b0`, 5.1 MB, 1546 files, `License.txt` says CC0.
+- **Trial imports** (`godot/art/props/kenney/`, all through `import_asset.mjs`, each with a `.source.json`):
+
+  | Piece | Size (cm) | Triangles | Theme materials |
+  |---|---|---|---|
+  | kitchen_counter | 115 × 120 × 120 | 114 | painted, wood |
+  | fridge | 130 × 230 × 101 | 436 | painted |
+  | table | 309 × 120 × 164 | 120 | wood |
+  | chair | 52 × 122 × 52 | 170 | wood |
+  | washer | 91 × 110 × 91 | 720 | painted, steel |
+  | bed_double | 249 × 98 × 293 | 264 | fabric, wood |
+  | wardrobe | 108 × 230 × 68 | 296 | steel, wood |
+  | sofa | 255 × 120 × 107 | 128 | fabric, wood |
+
+  The Kenney pack is about half real size (door 101, fridge 92, counter 45), so the default is ×260, giving the house's 1.3× scale. Thresholds use `--height=`.
+- **Frames** (`autobuild/frames/p3_1/`, drawn-only props via `--capture-prop`):
+  - `kenney_kitchen.png` (kitchen A, from the SW corner): a run of three cream counters with framed door panels, a white side-by-side fridge with handles, and a big brown farmhouse table with a stretcher and two ladder-back chairs. A white front-loading washer with a dark round door stands on the far right. All read as plain real household furniture, not toys.
+    - The theme's `wood` landed on the counter's door-panel frames, not its top.
+    - My counter run stood in front of a bright doorway.
+  - `kenney_bedroom.png` (bedroom A, with a figure and two cash bundles on the floor): a two-door dark-wood wardrobe with steel handles, a double bed (low wood frame, grey duvet, two pillows) and a boxy grey fabric sofa.
+    - Beside the 180 figure they are a little large, as intended.
+    - The cash bundles stay the most saturated thing in view.
+  - Both rooms are otherwise the flat grey blockout (P3-2's job).
+- **Seen, left for P3-3:**
+  - Counter tops need their own material mapping.
+  - A Kenney table built to the 120 vault height has an underside well under 130, so it is a vault surface, not a crawl-under. P3-3 decides which each table is.
+  - Kenney UVs index a colour atlas, so furniture keeps flat theme colours, or gets textures triplanar (DECISIONS).
+- **Not placed in the level:** the trial pieces are seen only through `--capture-prop`. P3-3 furnishes the rooms.
+- Verify: see the end of this entry.
+
 ## 2026-11-13 — P2-5 Turnaround sheet
 - **Tool:** `node autobuild/turnaround.mjs [--members=...] [--clip=jog@0.2]` writes `autobuild/slice/turnaround_<member>.png` for dad, mom, elder_girl, elder_boy, younger_girl, younger_boy. Each sheet is one capture of four drawn-only copies of the member in a row.
   - Left to right: front, right side, back, left side.

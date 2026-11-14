@@ -1,0 +1,10 @@
+{
+  "src": "autobuild/Incoming/kenney/furniture-kit/Models/GLTF format/kitchenCabinet.glb",
+  "url": "https://kenney.nl/assets/furniture-kit",
+  "licence": "CC0",
+  "flags": [
+    "--out=res://art/props/kenney/kitchen_counter.glb",
+    "--height=120",
+    "--material=wood:painted,metal:painted,woodDark:wood"
+  ]
+}
