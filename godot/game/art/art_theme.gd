@@ -86,6 +86,36 @@ const DEFAULT_PATH: String = "res://art/theme/default_theme.tres"
 ## it (FloorTint). A zone kind not listed shows the slab's own floor colour.
 @export var floors: Dictionary[StringName, StandardMaterial3D] = {}
 
+@export_group("Shell")
+## The house drawn by `ShellBuilder` (P3-2): textured walls, floors, ceilings,
+## stairs, casings, open doors and a pitched roof, merged per house. Off = the
+## P1-4 vertex-coloured blockout boxes. Textures use world UVs in units, so a
+## material's `uv1_scale` is 1 / (the texture's size in cm).
+@export var shell: bool = true
+## Interior wall finish, and per room kind (the jail's painted block).
+@export var wall_inside: StandardMaterial3D = null
+@export var walls: Dictionary[StringName, StandardMaterial3D] = {}
+## Outside faces of the houses.
+@export var wall_outside: StandardMaterial3D = null
+@export var ceiling: StandardMaterial3D = null
+## Painted wood: skirting, casings, risers, fascia, soffit (STYLE §3.3 trim).
+## The family colour's paint on exterior casings and door leaves is a copy of it.
+@export var trim: StandardMaterial3D = null
+@export var stair_tread: StandardMaterial3D = null
+@export var roof: StandardMaterial3D = null
+@export var glass: StandardMaterial3D = null
+@export var roof_pitch_deg: float = 24.0
+@export var roof_overhang: float = 45.0
+@export var roof_fascia: float = 18.0
+@export var casing_width: float = 10.0
+@export var casing_depth: float = 2.0
+@export var skirting_height: float = 12.0
+@export var skirting_depth: float = 1.5
+@export var leaf_depth: float = 4.0
+## A door leaf's frame round its pane, and the bottom rail's height.
+@export var leaf_frame: float = 12.0
+@export var leaf_rail: float = 90.0
+
 @export_group("Daylight")
 @export var sky_top: Color = Color(0.33, 0.56, 0.86)
 @export var sky_horizon: Color = Color(0.78, 0.85, 0.92)
@@ -177,6 +207,20 @@ func _fill_missing() -> void:
 	blockout.vertex_color_use_as_albedo = true
 	# The face colours are palette (sRGB) values, like every albedo in STYLE.md.
 	blockout.vertex_color_is_srgb = true
+	if wall_inside == null:
+		wall_inside = _material(wall_colour, 0.9)
+	if wall_outside == null:
+		wall_outside = _material(Color(0.55, 0.33, 0.25), 0.85)
+	if ceiling == null:
+		ceiling = _material(ceiling_colour, 0.95)
+	if trim == null:
+		trim = _material(Color(0.9, 0.88, 0.83), 0.5)
+	if stair_tread == null:
+		stair_tread = _material(floor_colour, 0.6)
+	if roof == null:
+		roof = _material(roof_colour, 0.8)
+	if glass == null:
+		glass = _material(Color(0.32, 0.38, 0.42), 0.1)
 	if family_colours.is_empty():
 		family_colours = {&"team_a": Color(0.48, 0.58, 0.45), &"team_b": Color(0.7, 0.4, 0.3)}
 

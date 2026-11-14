@@ -2,6 +2,13 @@
 
 [ext_resource type="Script" path="res://game/art/art_theme.gd" id="1_theme"]
 [ext_resource type="Script" path="res://game/art/family_member.gd" id="2_member"]
+[ext_resource type="Texture2D" uid="uid://fpyo5a4cis23" path="res://art/textures/painted_plaster_wall/painted_plaster_wall_diff_1k.jpg" id="t_plaster"]
+[ext_resource type="Texture2D" uid="uid://cxcdeomy8fqkt" path="res://art/textures/brick_wall_001/brick_wall_001_diff_1k.jpg" id="t_brick"]
+[ext_resource type="Texture2D" uid="uid://byugl0sjqgset" path="res://art/textures/concrete_block_wall/concrete_block_wall_diff_1k.jpg" id="t_block"]
+[ext_resource type="Texture2D" uid="uid://rntxrq2tgpmu" path="res://art/textures/concrete_floor_painted/concrete_floor_painted_diff_1k.jpg" id="t_concrete"]
+[ext_resource type="Texture2D" uid="uid://dgblmw8hqvbwu" path="res://art/textures/interior_tiles/interior_tiles_diff_1k.jpg" id="t_tiles"]
+[ext_resource type="Texture2D" uid="uid://6p17ju3neiyi" path="res://art/textures/laminate_floor_02/laminate_floor_02_diff_1k.jpg" id="t_oak"]
+[ext_resource type="Texture2D" uid="uid://daku57hvg6x0e" path="res://art/textures/grey_roof_tiles/grey_roof_tiles_diff_1k.jpg" id="t_roof"]
 
 [sub_resource type="StandardMaterial3D" id="figure"]
 resource_name = "figure"
@@ -37,18 +44,64 @@ roughness = 0.9
 
 [sub_resource type="StandardMaterial3D" id="floor_oak"]
 resource_name = "floor_oak"
-albedo_color = Color(0.55, 0.4, 0.27, 1)
+albedo_texture = ExtResource("t_oak")
 roughness = 0.6
+uv1_scale = Vector3(0.005882, 0.005882, 1)
 
 [sub_resource type="StandardMaterial3D" id="floor_tile"]
 resource_name = "floor_tile"
-albedo_color = Color(0.85, 0.82, 0.74, 1)
+albedo_texture = ExtResource("t_tiles")
 roughness = 0.4
+uv1_scale = Vector3(0.005263, 0.005263, 1)
 
 [sub_resource type="StandardMaterial3D" id="floor_concrete"]
 resource_name = "floor_concrete"
 albedo_color = Color(0.55, 0.55, 0.53, 1)
 roughness = 0.9
+
+[sub_resource type="StandardMaterial3D" id="wall_plaster"]
+resource_name = "wall_plaster"
+albedo_color = Color(1.12, 1.09, 1.03, 1)
+albedo_texture = ExtResource("t_plaster")
+roughness = 0.9
+uv1_scale = Vector3(0.005, 0.005, 1)
+
+[sub_resource type="StandardMaterial3D" id="wall_block"]
+resource_name = "wall_block"
+albedo_color = Color(1.9, 1.9, 1.85, 1)
+albedo_texture = ExtResource("t_block")
+roughness = 0.9
+uv1_scale = Vector3(0.005, 0.005, 1)
+
+[sub_resource type="StandardMaterial3D" id="wall_brick"]
+resource_name = "wall_brick"
+albedo_color = Color(0.86, 0.88, 0.92, 1)
+albedo_texture = ExtResource("t_brick")
+roughness = 0.85
+uv1_scale = Vector3(0.003333, 0.003333, 1)
+
+[sub_resource type="StandardMaterial3D" id="ceiling"]
+resource_name = "ceiling"
+albedo_color = Color(0.92, 0.91, 0.88, 1)
+roughness = 0.95
+
+[sub_resource type="StandardMaterial3D" id="trim"]
+resource_name = "trim"
+albedo_color = Color(0.9, 0.88, 0.83, 1)
+roughness = 0.5
+
+[sub_resource type="StandardMaterial3D" id="roof_tile"]
+resource_name = "roof_tile"
+albedo_color = Color(0.62, 0.64, 0.7, 1)
+albedo_texture = ExtResource("t_roof")
+roughness = 0.8
+uv1_scale = Vector3(0.003333, 0.003333, 1)
+
+[sub_resource type="StandardMaterial3D" id="glass"]
+resource_name = "glass"
+albedo_color = Color(0.3, 0.36, 0.4, 1)
+roughness = 0.08
+metallic_specular = 0.9
 
 [sub_resource type="StandardMaterial3D" id="carpet_grey"]
 resource_name = "carpet_grey"
@@ -204,6 +257,17 @@ floors = Dictionary[StringName, StandardMaterial3D]({
 &"yard": SubResource("lawn"),
 &"lot": SubResource("path")
 })
+shell = true
+wall_inside = SubResource("wall_plaster")
+walls = Dictionary[StringName, StandardMaterial3D]({
+&"jail": SubResource("wall_block")
+})
+wall_outside = SubResource("wall_brick")
+ceiling = SubResource("ceiling")
+trim = SubResource("trim")
+stair_tread = SubResource("floor_oak")
+roof = SubResource("roof_tile")
+glass = SubResource("glass")
 sky_top = Color(0.33, 0.56, 0.86, 1)
 sky_horizon = Color(0.78, 0.85, 0.92, 1)
 grass = Color(0.36, 0.5, 0.3, 1)

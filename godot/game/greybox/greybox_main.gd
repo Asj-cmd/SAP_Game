@@ -1663,24 +1663,19 @@ func _build_geometry() -> void:
 	for blocker: AABB in blockers:
 		roof_top = maxf(roof_top, blocker.end.y)
 
-	for blocker: AABB in blockers:
-		var solid: MeshInstance3D = MeshInstance3D.new()
-		# Walls, floor and ceiling colours by face direction, in one material
-		# and one draw call per box (ArtTheme.blockout_box); the lot's ground
-		# box has a lawn on top, the highest boxes (the roofs) roof tile.
-		var top: Color = theme.floor_colour
-		if blocker == lot_ground:
-			top = theme.lawn_colour
-		elif is_equal_approx(blocker.end.y, roof_top):
-			top = theme.roof_colour
-		solid.mesh = theme.blockout_box(blocker.size, top)
-		solid.position = blocker.get_center()
-		if blocker == lot_ground:
-			# Out of the room lamps' reach: it fills the screen outdoors, and on
-			# Compatibility every lamp touching it draws it all again.
-			solid.layers = WorldBackdrop.OUTDOOR_LAYER
-		_geometry.add_child(solid)
+	# The textured shell (P3-2): every blocker but the lot's ground, merged per
+	# house and material. The ground keeps its lawn box below.
+	if theme.shell:
+		var started: int = Time.get_ticks_usec()
+		var shells: Array[MeshInstance3D] = ShellBuilder.build(level, theme, blockers.find(lot_ground))
+		for shell: MeshInstance3D in shells:
+			_geometry.add_child(shell)
+		print("shell: %d meshes in %.0f ms" % [shells.size(),
+			float(Time.get_ticks_usec() - started) / 1000.0])
 
+	for blocker: AABB in blockers:
+		if not theme.shell or blocker == lot_ground:
+			_blockout_solid(blocker, theme, lot_ground, roof_top)
 		var body: StaticBody3D = StaticBody3D.new()
 		body.position = blocker.get_center()
 		body.collision_layer = CAMERA_COLLISION_LAYER
@@ -1696,26 +1691,49 @@ func _build_geometry() -> void:
 	# `floors`, by room kind). Laid on the floor the SIMULATION found (the
 	# walkable surface), never the zone box's bottom - that once floated every
 	# patch 41 units up. Where else it goes, and why, is FloorTint. Who owns a
-	# room is not painted on the floor any more (STYLE.md §3.4).
+	# room is not painted on the floor any more (STYLE.md §3.4). One mesh
+	# indoors and one out (the outdoor render layer), a surface per finish, with
+	# world UVs so a textured finish is true size.
+	var indoor_patches: Array[FloorTint.Patch] = []
+	var outdoor_patches: Array[FloorTint.Patch] = []
 	for patch: FloorTint.Patch in FloorTint.patches(level):
-		var finish: StandardMaterial3D = theme.floors.get(ArtTheme.room_kind(patch.zone.id), null)
-		if finish == null:
-			continue
-		var tint: MeshInstance3D = MeshInstance3D.new()
-		var slab: BoxMesh = BoxMesh.new()
-		# Thin, and only just clear of the floor. A tint, not a rug: at two
-		# units thick and a unit up it read as a raised platform with a lip.
-		slab.size = Vector3(patch.footprint.size.x, PATCH_THICKNESS, patch.footprint.size.y)
-		tint.mesh = slab
-		var middle: Vector2 = patch.footprint.get_center()
-		tint.position = Vector3(middle.x, patch.floor_y + PATCH_THICKNESS * 0.5, middle.y)
-		tint.material_override = finish
 		if patch.zone.outdoor:
-			tint.layers = WorldBackdrop.OUTDOOR_LAYER
-		_geometry.add_child(tint)
+			outdoor_patches.append(patch)
+		elif not theme.shell:
+			# With the shell on, the shell lays every indoor floor itself, from
+			# the geometry (`ShellBuilder`: out to the walls, through the sills).
+			indoor_patches.append(patch)
+	for outdoor: bool in [false, true]:
+		var mesh: ArrayMesh = ShellBuilder.floor_mesh(
+			outdoor_patches if outdoor else indoor_patches, theme, PATCH_THICKNESS)
+		if mesh == null:
+			continue
+		var floors: MeshInstance3D = MeshInstance3D.new()
+		floors.mesh = mesh
+		if outdoor:
+			floors.layers = WorldBackdrop.OUTDOOR_LAYER
+		_geometry.add_child(floors)
 
 	for lamp: Node in WorldBackdrop.interior_lights(level.zones, theme, CEILING_LAMP_DROP):
 		_geometry.add_child(lamp)
+
+## One blocker as a P1-4 blockout box: walls, floor and ceiling colours by face
+## direction, in one material and one draw call (ArtTheme.blockout_box).
+func _blockout_solid(blocker: AABB, theme: ArtTheme, lot_ground: AABB, roof_top: float) -> void:
+	var solid: MeshInstance3D = MeshInstance3D.new()
+	# The lot's ground box has a lawn on top, the highest boxes (the roofs) roof tile.
+	var top: Color = theme.floor_colour
+	if blocker == lot_ground:
+		top = theme.lawn_colour
+	elif is_equal_approx(blocker.end.y, roof_top):
+		top = theme.roof_colour
+	solid.mesh = theme.blockout_box(blocker.size, top)
+	solid.position = blocker.get_center()
+	if blocker == lot_ground:
+		# Out of the room lamps' reach: it fills the screen outdoors, and on
+		# Compatibility every lamp touching it draws it all again.
+		solid.layers = WorldBackdrop.OUTDOOR_LAYER
+	_geometry.add_child(solid)
 
 func _build_hud() -> void:
 	_text_layer = CanvasLayer.new()
