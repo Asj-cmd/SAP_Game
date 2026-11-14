@@ -143,6 +143,16 @@ Aug 16–Oct 10 are in; an earlier version of this plan was written against the 
 - [ ] **P3-2 Shell dressing.** Visual shell from the existing blockout data (`godot/game/blockout`,
   `HOUSE_LAYOUT`/`WORLD_AUTHORING`): walls, floors, doors, windows, stairs, roof with reveal. Collision
   and zones unchanged. *Verify:* content validator + all tests green; frames of every room.
+- [ ] **P2-1b Evaluate all character packs.** P2-1 used only the Quaternius Universal Base
+  Characters. Evaluate ALL character packs in `autobuild/Incoming/`: the two Quaternius Ultimate
+  Modular packs (`Quaternius Ultimate Modular Men.zip`, `… Women.zip`) plus the two low-poly animated
+  men/women packs the user added (`Animated low poly men.zip`, `Animated low poly women.zip`).
+  For each pack, check the licence first: only CC0, CC-BY (credit it in CREDITS.md) or another
+  licence that clearly allows commercial use; reject anything unclear and say why in ASSETS.md.
+  Compare all candidates against the current figures in the same frames and pick the plainest,
+  silliest bodies (D2) that fit the poly budget and take the existing animations
+  (`art/characters/figure_anims.res`). Log the pick in DECISIONS.md as REVIEW; if a new pack wins,
+  rebuild the family from it the way P2-1 did. Keep the zips out of git.
 - [ ] **P3-3 Interiors.** Furnish every room. Obey `WORLD_AUTHORING.md` §12 thresholds: anything the
   rules let you climb must *look* climbable, anything that blocks must *look* tall. Distinct
   silhouettes for vault, cash bundle, jail/basement door, safe room.
