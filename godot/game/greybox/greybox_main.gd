@@ -505,6 +505,9 @@ func _capture_follow(request: FrameCapture) -> void:
 	eye.current = true
 	var cells: Array[Image] = []
 	const CELL: Vector2i = Vector2i(480, 270)
+	for i: int in request.presses.size():
+		_press_later(OS.find_keycode_from_string(request.presses[i]),
+			request.press_at[i], request.press_hold[i])
 	for shot: int in request.follow_count:
 		if shot > 0:
 			await get_tree().create_timer(request.follow_every).timeout
@@ -551,6 +554,29 @@ func _capture_follow(request: FrameCapture) -> void:
 	var to_path: String = "%s_sheet.png" % request.path.get_basename()
 	if sheet.save_png(to_path) == OK:
 		print("frame capture: %s" % ProjectSettings.globalize_path(to_path))
+
+## Presses `key` after `at` seconds and lets go `hold` seconds later (at least a
+## frame), through Input like the other injected captures. Not awaited: a follow
+## keeps shooting while it runs.
+func _press_later(key: Key, at: float, hold: float) -> void:
+	if key == KEY_NONE:
+		push_error("frame capture: unknown key for --capture-press")
+		return
+	if at > 0.0:
+		await get_tree().create_timer(at).timeout
+	var down: InputEventKey = InputEventKey.new()
+	down.keycode = key
+	down.physical_keycode = key
+	down.pressed = true
+	Input.parse_input_event(down)
+	if hold > 0.0:
+		await get_tree().create_timer(hold).timeout
+	else:
+		await get_tree().process_frame
+		await get_tree().process_frame
+	var up: InputEventKey = down.duplicate() as InputEventKey
+	up.pressed = false
+	Input.parse_input_event(up)
 
 ## A team_a body for chase shots: the model when it has been built, else the
 ## capsule the game falls back to. Origin at the feet either way.

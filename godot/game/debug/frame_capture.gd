@@ -101,6 +101,13 @@ var follow_every: float = 0.5
 ## "back" (behind, a little high, like the chase camera without the rig).
 var follow_view: String = "side"
 var follow_distance: float = 420.0
+## Keys pressed during a follow, through the ordinary input path, timed from the
+## first shot: key name (as OS.find_keycode_from_string reads it), when, and how
+## long held (0 = a tap). Lets a follow of your own seat show a verb (jump,
+## crouch, throw) as a sequence.
+var presses: PackedStringArray = PackedStringArray()
+var press_at: PackedFloat32Array = PackedFloat32Array()
+var press_hold: PackedFloat32Array = PackedFloat32Array()
 
 ## How many shots this request will write.
 func shot_count() -> int:
@@ -141,6 +148,8 @@ func path_for(index: int) -> String:
 ##                             watch one live body: `count` frames `every` s apart
 ##                             from beside it, written as one contact sheet
 ##                             (<path stem>_sheet.png), each frame's clip printed
+##   --capture-press=KEY@seconds[+hold]   during a follow, press KEY (Space, W,
+##                             Shift ...) that long after the first shot; repeatable
 ##
 ## Chase shots are numbered after any --capture-at shots.
 ## `--capture-at` may be repeated; each one is a separate shot, numbered
@@ -243,6 +252,14 @@ static func from_command_line(args: PackedStringArray) -> FrameCapture:
 				request.follow_view = bits[3]
 			if bits.size() > 4:
 				request.follow_distance = maxf(50.0, float(bits[4]))
+		elif arg.begins_with("--capture-press="):
+			# KEY@seconds[+hold], e.g. Space@1.0 or W@0+3
+			var spec: String = arg.trim_prefix("--capture-press=")
+			var at: int = spec.find("@")
+			var timing: PackedStringArray = (spec.substr(at + 1) if at >= 0 else "0").split("+")
+			request.presses.append(spec.substr(0, at) if at >= 0 else spec)
+			request.press_at.append(float(timing[0]))
+			request.press_hold.append(float(timing[1]) if timing.size() > 1 else 0.0)
 	return request
 
 ## The rig yaw that points the chase camera from `feet` toward `facing`.
