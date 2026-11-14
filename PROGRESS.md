@@ -44,8 +44,12 @@ Newest first. One entry per task: date, task id, what changed, what the frames s
   - Counter tops need their own material mapping.
   - A Kenney table built to the 120 vault height has an underside well under 130, so it is a vault surface, not a crawl-under. P3-3 decides which each table is.
   - Kenney UVs index a colour atlas, so furniture keeps flat theme colours, or gets textures triplanar (DECISIONS).
+- **Next:** P3-2 builds the shell from the blockout and tries the texture shortlist (STYLE §3.3). P3-3 imports the rest of the Kenney pieces each room needs (`import_asset.mjs` at `--units=260`).
 - **Not placed in the level:** the trial pieces are seen only through `--capture-prop`. P3-3 furnishes the rooms.
-- Verify: see the end of this entry.
+- Verify: `node autobuild/verify.mjs` healthy on the second run. 16 suites; symmetry 200/200.
+  - Bot match 3v3: team_b in 439 s with 90 s of stalls. 1v1: 7 s of stalls. These are bit-identical to P2-4/P2-5: nothing in the game changed.
+  - Tick budget: 1v1 0, 3v3 3 of 600 over, 4v4 3 (not gated). net_smoke: 1691 ticks agree.
+  - **The first run failed on two wall-clock checks only**: 3v3 7 of 600 (p99 47.8 ms) and net_smoke "only 750 ticks compared (need 852)". The machine was slow during that run (same bot-match numbers, same sim). The re-run passed both. If either gate flakes again with no sim change, its margin needs looking at, not the code.
 
 ## 2026-11-13 — P2-5 Turnaround sheet
 - **Tool:** `node autobuild/turnaround.mjs [--members=...] [--clip=jog@0.2]` writes `autobuild/slice/turnaround_<member>.png` for dad, mom, elder_girl, elder_boy, younger_girl, younger_boy. Each sheet is one capture of four drawn-only copies of the member in a row.
