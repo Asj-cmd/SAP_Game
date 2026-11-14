@@ -36,7 +36,10 @@ Newest first. One entry per task: date, task id, what changed, what the frames s
   3. Re-run `tools/build_figure_anims.gd` against the new male (it reads `FIGURE`; add a `--figure=` option). The leg ratio changes from 88.8 to 81.3, which changes stride speeds and the pelvis track.
   4. Re-check the bone nudges: the new head is already small and the neck long, so the shared Head ×1.08 / neck ×1.08 may want to change.
   5. Re-shoot `family_lineup.mjs` and `turnaround.mjs`, then a live contact sheet.
-- Nothing in the game changed: the theme still draws the P2-1 figures. Verify: see below.
+- Nothing in the game changed: the theme still draws the P2-1 figures.
+- Verify: `node autobuild/verify.mjs` healthy on the first run. 16 suites; symmetry 200/200.
+  - Bot match 3v3: team_b in 439 s, 90 s of stalls. 1v1: 7 s. Bit-identical to P3-1.
+  - Tick budget: 0 of 600 over at 1v1, 3v3 and 4v4. net_smoke: 1703 ticks agree.
 
 ## 2026-11-13 — P3-1 Kit selection
 - **The pick (REVIEW; reasons in DECISIONS.md and STYLE §3.3 "The kit"):**
