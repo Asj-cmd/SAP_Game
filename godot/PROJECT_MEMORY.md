@@ -526,6 +526,45 @@ tops) is invisible to them - including cash on a counter, which no one can
 pick up from the floor anyway (pickup range 70; a top is 100 above a standing
 body's centre).
 
+## 6c-iv. The "stairwell congestion" was one bot failing to step off a ledge (P3-3c)
+
+The 4v4 stalls at the two stairwells were filed as bodies jamming each other,
+with the give-way rule as the suspect. Asking each stalled body what it was up
+against (`bot_match` now prints it) said otherwise: in the worst match (seed 5,
+283 s) **247 stall seconds were a bot on its own**, 198 of them on PATROL.
+
+The route graph has DROP edges: off a landing into the stairwell, onto the
+flight that runs back underneath. Two things in the follower were wrong for
+them, and the second only showed once the first was fixed:
+
+1. **Arrival was judged flat.** At the lip, the landing spot (one cell out, a
+   long way down) and the waypoint after it (on the floor under the landing)
+   are both within the arrival radius, so both were ticked off before the body
+   had stepped off. It then turned for a waypoint on the floor below, could
+   not walk to it, re-planned from where it stood, got the same route, and
+   paced the landing for 70 s at a time. Now a waypoint more than two steps
+   BELOW the body is not reached (`_has_reached`). A waypoint above still
+   counts at any height: room centres are in mid-air.
+2. **Re-aiming at the landing spot every tick turns the body round.** With (1)
+   alone the stalls got WORSE (283 → 465 s): the body stepped past the spot,
+   fell 2 units, turned back for it, stepped back UP onto the landing (inside
+   the step-up allowance), every other tick. Now a body with a drop pending -
+   at the lip, or already in the air - says nothing, which keeps its latched
+   heading until it has fallen (`_drop_pending`).
+
+Seed 5 after both: 283 → 67 s of stalls, 800 → 23 s idle, undecided → decided.
+
+**What it cost to find, and the rule.** A first fix went in on a theory (the
+hall's patrol point is a stair tread) that a five-minute run then showed
+changed nothing; it was reverted. What found the cause was a per-tick trace of
+ONE stuck bot (position, velocity, intent, leg): the orbit is obvious in ten
+lines and invisible in any total. **A stall is a single body's story; read
+one before counting many.** (The trace probe is in `git stash`, message
+"P3-3c throwaway per-tick bot trace probe"; this session could not delete files.)
+
+Every one of House A's 332 drop edges was walked by a real body from the
+stance centre and all 332 land, so the edges themselves are sound.
+
 ## 6d. Multiplayer is reachable from a menu
 
 It was complete and unusable: hosting meant `CashGrab.exe -- --host

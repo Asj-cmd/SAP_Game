@@ -59,6 +59,10 @@ var _swap_houses: bool = false
 ## `--stall-log` prints every stall second as it happens (tick, body, place,
 ## task, leg, and what it was up against), not only the first six.
 var _stall_log: bool = false
+## `--why-idle` prints, for the first four bots that stand still this long, every
+## errand open to them and what each scored (see _print_options).
+var _why_idle: bool = false
+const WHY_IDLE_AFTER: int = 20
 ## Floor-to-floor height, to tell a body on a flight from one on a floor.
 const STOREY: float = 360.0
 const GROUND: float = 300.0
@@ -85,6 +89,7 @@ func _initialize() -> void:
 			_seed = int(arg.trim_prefix("--seed="))
 	_once = OS.get_cmdline_user_args().has("--once")
 	_stall_log = OS.get_cmdline_user_args().has("--stall-log")
+	_why_idle = OS.get_cmdline_user_args().has("--why-idle")
 	_swap_houses = OS.get_cmdline_user_args().has("--swap-houses")
 	var first: Dictionary = _play()
 	var second: Dictionary = first if _once else _play()
@@ -132,6 +137,13 @@ func _initialize() -> void:
 		return errands[a] > errands[b] if errands[a] != errands[b] else a < b)
 	for i: int in mini(8, worst.size()):
 		print("              %4d s  %s" % [errands[worst[i]], worst[i]])
+	var waits: Dictionary = first["idle_errands"]
+	var longest: Array = waits.keys()
+	longest.sort_custom(func(a: String, b: String) -> bool:
+		return waits[a] > waits[b] if waits[a] != waits[b] else a < b)
+	print("idle for    (the 8 longest)")
+	for i: int in mini(8, longest.size()):
+		print("              %4d s  %s" % [waits[longest[i]], longest[i]])
 	quit(0 if first["digest"] == second["digest"] else 1)
 
 ## Finds the first tick two runs disagreed on, and shows what differed.
@@ -250,6 +262,10 @@ func _play(stop_at: int = -1) -> Dictionary:
 	## What each stalled body was up against (see _stall_company).
 	var stall_why: Dictionary[String, int] = {}
 	var stall_errands: Dictionary[String, int] = {}
+	var idle_errands: Dictionary[String, int] = {}
+	## Consecutive idle samples per bot, for --why-idle.
+	var idle_run: Dictionary[int, int] = {}
+	var why_shown: int = 0
 
 	# Encounters. The layout metric that ways-in is blind to: a house nobody can
 	# camp is worth nothing if the two teams never meet in it.
@@ -345,6 +361,19 @@ func _play(stop_at: int = -1) -> Dictionary:
 				if anchor.has(actor_id) and anchor[actor_id].distance_to(body.position) < STALL_DISTANCE:
 					if not trying:
 						idles += 1
+						# What it is standing still FOR. A patroller at its post is
+						# fine; a bot with cash to fetch that is not moving is not.
+						var waiting: BotDirector = crew.director_for(actor_id)
+						var idle_for: String = "%s %s near (%d, %d, %d)  leg %d of %d" % [
+							BotTask.Kind.keys()[task.kind], task.zone_id,
+							int(body.position.x / STALL_BUCKET) * int(STALL_BUCKET), int(body.position.y),
+							int(body.position.z / STALL_BUCKET) * int(STALL_BUCKET),
+							waiting.leg(), waiting.route().size()]
+						idle_errands[idle_for] = idle_errands.get(idle_for, 0) + 1
+						idle_run[actor_id] = idle_run.get(actor_id, 0) + 1
+						if _why_idle and idle_run[actor_id] == WHY_IDLE_AFTER and why_shown < 4:
+							why_shown += 1
+							_print_options(world, crew, body, ticks)
 						anchor[actor_id] = body.position
 						continue
 					stalls += 1
@@ -411,6 +440,7 @@ func _play(stop_at: int = -1) -> Dictionary:
 		"stall_map": stall_map,
 		"stall_why": stall_why,
 		"stall_errands": stall_errands,
+		"idle_errands": idle_errands,
 		"stalls": stalls,
 		"stall_spots": stall_spots,
 		"hashes": hashes,
@@ -426,6 +456,34 @@ func _play(stop_at: int = -1) -> Dictionary:
 		"rescues": tally.get(CaptureEvent.KIND_RELEASED, 0),
 		"winner": world.match_winner,
 	}
+
+## Everything a bot could be doing and what each is worth to it, for a bot that
+## has stood still for WHY_IDLE_AFTER seconds (`--why-idle`). The same sum
+## UtilityScorer does, without the noise, with its parts shown: a bot standing
+## at a patrol post while there is cash to fetch has a reason, and it is one of
+## distance (-1 = no walk there), threats, or a team-mate's claim.
+func _print_options(world: SimWorld, crew: BotCrew, body: SimEntity, ticks: int) -> void:
+	var director: BotDirector = crew.director_for(body.id)
+	var profile: BotProfileDef = director.profile
+	var claims: Dictionary[String, int] = crew._claims()
+	print("why idle    t%d  #%d %s at %s, on %s %s" % [ticks, body.id, body.team, body.position.round(),
+		BotTask.Kind.keys()[director.current_task().kind], director.current_task().zone_id])
+	var lines: Array[String] = []
+	for task: BotTask in director._candidates(world, body):
+		var node: int = director.nav.stance_near(task.destination)
+		var distance: float = director.nav.distance_by_hops(director._hops, node)
+		var threats: int = director._threats(world, body, task)
+		var claimed: bool = claims.has(task.key()) and claims[task.key()] != body.id
+		var score: float = UtilityScorer.score(profile, task.kind, distance, threats,
+			task.matches(director.current_task()), claimed, 0.0)
+		if task.kind == BotTask.Kind.PATROL and not task.matches(director.current_task()):
+			continue
+		lines.append("              %-8s %-14s score %8.0f  distance %6.0f  threats %d  %s to %s (stance %s)" % [
+			BotTask.Kind.keys()[task.kind], task.zone_id, score, distance, threats,
+			"claimed by #%d" % claims[task.key()] if claimed else "unclaimed", task.destination.round(),
+			world.surface.nodes[node].round() if node >= 0 else Vector3.ZERO])
+	for line: String in lines:
+		print(line)
 
 ## What a stalled body is up against, tallied into `why` and returned as text.
 ##
