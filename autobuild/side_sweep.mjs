@@ -5,6 +5,10 @@
 // count should lean.
 //
 //   node autobuild/side_sweep.mjs [--sizes=2,3,4] [--seeds=8] [--first-seed=1] [--jobs=3]
+//       [--no-swap] [--mode.<field>=<value> ...]
+//
+// `--mode.*` arguments go to bot_match unchanged (a tuning sweep); `--no-swap`
+// plays each seed as-is only. The summary also says how rounds ended.
 //
 // A measuring tool, not a gate: a sweep is minutes of wall clock.
 import { spawn } from "node:child_process";
@@ -21,15 +25,17 @@ const sizes = arg("sizes", "2,3,4").split(",").map(Number);
 const seeds = Number(arg("seeds", "8"));
 const jobs = Number(arg("jobs", "3"));
 const firstSeed = Number(arg("first-seed", "1"));
+const noSwap = process.argv.includes("--no-swap");
+const modeArgs = process.argv.filter((a) => a.startsWith("--mode.") || a.startsWith("--tuning."));
 
 const runs = [];
 for (const size of sizes)
   for (let seed = firstSeed; seed < firstSeed + seeds; seed++)
-    for (const swapped of [false, true]) runs.push({ size, seed, swapped });
+    for (const swapped of noSwap ? [false] : [false, true]) runs.push({ size, seed, swapped });
 
 function play(run) {
   const args = ["--headless", "--path", path.join(ROOT, "godot"), "--script", "res://tools/bot_match.gd", "--",
-    `--team-size=${run.size}`, `--seed=${run.seed}`, "--once"];
+    `--team-size=${run.size}`, `--seed=${run.seed}`, "--once", ...modeArgs];
   if (run.swapped) args.push("--swap-houses");
   return new Promise((resolve) => {
     let out = "";
@@ -42,7 +48,13 @@ function play(run) {
       const raiding = (out.match(/^raiding\s+(.*)$/m) ?? [, "?"])[1].trim();
       const stalls = Number((out.match(/^stalls\s+(\d+)/m) ?? [, "NaN"])[1]);
       if (rounds === "?") console.log(`-- ${run.size}v${run.size} seed ${run.seed} gave no result:\n${out.split("\n").slice(-25).join("\n")}`);
-      resolve({ ...run, winner: winner.startsWith("team_") ? winner : "none", rounds, raiding, stalls });
+      // "  round 2  180 s  team_b  time_expired   cash team_a 1  team_b 6"
+      const ends = [...out.matchAll(/^\s+round\s+\d+\s+(\d+) s\s+(\S+)\s+(\S+)/gm)]
+        .map((m) => ({ seconds: Number(m[1]), winner: m[2], reason: m[3] }));
+      const seizures = Number((out.match(/^captures\s+(\d+) seizures/m) ?? [, "NaN"])[1]);
+      const rescues = Number((out.match(/(\d+) rescues/) ?? [, "NaN"])[1]);
+      const seconds = Math.round(Number((out.match(/^ticks\s+(\d+)/m) ?? [, "NaN"])[1]) / 30);
+      resolve({ ...run, winner: winner.startsWith("team_") ? winner : "none", rounds, raiding, stalls, ends, seizures, rescues, seconds });
     });
   });
 }
@@ -54,7 +66,7 @@ async function worker() {
     const run = runs[next++];
     const r = await play(run);
     results.push(r);
-    console.log(`${r.size}v${r.size} seed ${r.seed} ${r.swapped ? "swapped" : "as-is  "}  winner ${r.winner.padEnd(7)} rounds ${r.rounds}  stalls ${r.stalls} s  raiding ${r.raiding}`);
+    console.log(`${r.size}v${r.size} seed ${r.seed} ${r.swapped ? "swapped" : "as-is  "}  winner ${r.winner.padEnd(7)} rounds ${r.rounds}  ${r.seconds} s [${r.ends.map((e) => e.seconds + (e.reason === "target_reached" ? "T" : e.winner.startsWith("team_") ? "c" : "d")).join(" ")}]  seized ${r.seizures} freed ${r.rescues}  stalls ${r.stalls} s  raiding ${r.raiding}`);
   }
 }
 await Promise.all(Array.from({ length: jobs }, worker));
@@ -72,6 +84,16 @@ for (const size of sizes) {
     `house A ${count(list, houseOf, "A")}  house B ${count(list, houseOf, "B")}  undecided ${count(list, (r) => r.winner, "none")}  of ${list.length}`;
   const st = rows.map((r) => r.stalls).filter(Number.isFinite).sort((a, b) => a - b);
   console.log(`${size}v${size}  stalls ${st[0]}-${st[st.length - 1]} s, median ${st[Math.floor(st.length / 2)]}`);
+  // How rounds ended: T = a team reached the target, c = won on the clock, d = drawn.
+  const ends = rows.flatMap((r) => r.ends);
+  const onTarget = ends.filter((e) => e.reason === "target_reached").map((e) => e.seconds).sort((a, b) => a - b);
+  const drawn = ends.filter((e) => !e.winner.startsWith("team_")).length;
+  const sum = (f) => rows.reduce((n, r) => n + (f(r) || 0), 0);
+  const matchSecs = rows.map((r) => r.seconds).sort((a, b) => a - b);
+  console.log(`  rounds   ${ends.length}: ${onTarget.length} on target` +
+    (onTarget.length ? ` (${onTarget[0]}-${onTarget[onTarget.length - 1]} s, median ${onTarget[Math.floor(onTarget.length / 2)]})` : "") +
+    `, ${ends.length - onTarget.length - drawn} on the clock, ${drawn} drawn; match median ${matchSecs[Math.floor(matchSecs.length / 2)]} s; ` +
+    `seized ${sum((r) => r.seizures)}, freed ${sum((r) => r.rescues)}`);
   console.log(line("as-is", asIs));
   console.log(line("all", rows));
   total.team_a += count(asIs, (r) => r.winner, "team_a");

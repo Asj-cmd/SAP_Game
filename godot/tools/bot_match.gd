@@ -43,6 +43,9 @@ var _team_size: int = 0
 ## tuning sweep is a loop over arguments rather than an edit per try. Applied on
 ## top of the mode the team size loads.
 var _mode_overrides: Dictionary[String, String] = {}
+## `--tuning.<field>=<value>` does the same for one TuningDef number (P0-11:
+## `--tuning.move_speed=440` replays the old pace beside the new one).
+var _tuning_overrides: Dictionary[String, String] = {}
 ## `--seed=N` plays a different match. One seed is one match: tuning against it
 ## alone fits the numbers to that match, so a sweep runs several.
 var _seed: int = 20260802
@@ -69,6 +72,9 @@ func _initialize() -> void:
 		if arg.begins_with("--mode.") and arg.contains("="):
 			var pair: PackedStringArray = arg.trim_prefix("--mode.").split("=", true, 1)
 			_mode_overrides[pair[0]] = pair[1]
+		if arg.begins_with("--tuning.") and arg.contains("="):
+			var pair: PackedStringArray = arg.trim_prefix("--tuning.").split("=", true, 1)
+			_tuning_overrides[pair[0]] = pair[1]
 		if arg.begins_with("--seed="):
 			_seed = int(arg.trim_prefix("--seed="))
 	_once = OS.get_cmdline_user_args().has("--once")
@@ -161,6 +167,13 @@ func _play(stop_at: int = -1) -> Dictionary:
 			quit(1)
 			return {}
 		level.mode.set(field, type_convert(_mode_overrides[field], typeof(current)))
+	for field: String in _tuning_overrides:
+		var current: Variant = level.tuning.get(field)
+		if current == null:
+			print("no tuning field %s" % field)
+			quit(1)
+			return {}
+		level.tuning.set(field, type_convert(_tuning_overrides[field], typeof(current)))
 	var tick_limit: int = _regulation_ticks(level.mode)
 
 	var started: int = Time.get_ticks_msec()

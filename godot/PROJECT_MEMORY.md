@@ -24,6 +24,12 @@ method, the mistakes and what they cost, and where things actually stand.
 
 Target team sizes are 2v2 to 4v4 (DECISIONS.md D8). Since P0-5d the game starts 3v3 with bots in empty seats; the menu picks 1v1-4v4 for solo and hosting (`--team-size=N` on the command line), and a guest plays at the host's size. 1v1 is a test setup only.
 
+**Pace (P0-11).** `move_speed` is 540 (was 440) after the first human playtest
+found the game slow; crouch and carry are scales of it. To compare a number
+against another, sweep it as an argument: `node autobuild/side_sweep.mjs
+--tuning.move_speed=440` or `--mode.capture_seconds=24`. The summary says how
+rounds ended, which a winner count alone hides.
+
 **Complete and working.** The simulation layer — core, capture, movement,
 scoring, match flow, carry — all deterministic, all content-driven. Collision
 with swept segment tests and a broadphase. A walkable surface, nav graph and

@@ -2,6 +2,37 @@
 
 Newest first. One entry per task: date, task id, what changed, what the frames showed, numbers, what is left.
 
+## 2026-11-14 — P0-11 Faster movement
+- **Change:** `TuningDef.move_speed` 440 → 540 (+22.7 %). It is the only speed in the sim. Crouch (×0.55) goes 242 → 297 and carrying (×0.85) 374 → 459, so both keep their ratio. No level, zone or mode file changed.
+- **Still works at 540:**
+  - All 16 suites, the content validator and the symmetry probe (193 of 193) are green with no test edits.
+  - A step per tick is 18, under the body radius (20), the bots' arrival radius (30) and the grab/seize reach (70/80).
+  - A full jump now travels 486 along the ground (was 396); its height is unchanged, so every ledge and crouch-gap rule is as before.
+  - Bots seize and free at about the same rates (3v3: 400 seizures, 341 rescues over 16 matches).
+- **Sweeps** (seeds 1–8 per size; `side_sweep.mjs` now reports how rounds ended):
+
+  | | 440, as-is (24 matches) | 540, as-is + swapped (48 matches) |
+  |---|---|---|
+  | 2v2 decided | 7 of 8 | 16 of 16 |
+  | 2v2 rounds on target | 8 of 21, median 144 s | 29 of 42, median 115 s |
+  | 3v3 decided | 8 of 8 | 16 of 16 |
+  | 3v3 rounds on target | 15 of 20, median 126 s | 26 of 42, median 90 s |
+  | 4v4 decided | 8 of 8 | 15 of 16 |
+  | 4v4 rounds on target | 11 of 22, median 113 s | 36 of 46, median 86 s |
+  | match length, median | 512 / 319 / 370 s | 392 / 352 / 321 s |
+  | stalls, median | 63 / 61 / 125 s | 31 / 54 / 78 s |
+
+  - Side lean at 540, by house: A 21, B 26, 1 undecided of 48 (within P0-5b's target).
+  - The one undecided match is 4v4 seed 5 as-is: two drawn rounds with 283 s of stalls, which is the stairwell congestion already listed as P3-3c. 4v4 drew 5 of 46 rounds; 2v2 and 3v3 drew none.
+- **Round and jail times: unchanged.** A trial with jail scaled down by the speed ratio (2v2 20 s, 3v3/4v4 24 s; 24 matches) made 2v2 worse (1 of 8 undecided and 2 drawn rounds, against none) and changed nothing at 3v3 or 4v4. Round length was not tried shorter: rounds already end on target in 86–115 s at the median, and a shorter clock would only add clock-decided rounds. Logged REVIEW.
+- **Presentation:** the crouch-walk clip would need ×4.07 playback at 297/s, so `FigureAnimator.MAX_RATE` went 3.2 → 4.2 to keep the feet from sliding. I did not look at it in motion. The jog plays at ×1.03 for an adult (was ×0.84).
+- **Tools:** `bot_match --tuning.<field>=<value>`; `side_sweep.mjs --no-swap`, `--mode.*` / `--tuning.*` pass-through, and a per-size line of round endings, match length, seizures and rescues.
+- **Verify:** `node autobuild/verify.mjs` healthy.
+  - Bot match 3v3 (seed 1): team_b in 421 s, stalls 58 s. 1v1: team_b in 357 s, stalls 6 s. Both deterministic.
+  - Tick budget: 1v1 0, 3v3 2, 4v4 1 of 600 over. net_smoke: 1692 ticks agree.
+  - The 3v3 stall budget is tightened 120 → 100 (sweep range 20–83).
+- **Left:** nobody has looked at the new pace in a window: the camera at 540 and the ×4 crouch-walk want a human or P4-2. P4-1's panic run goes on top of 540.
+
 ## 2026-11-14 — P3-3b Furniture follow-ups
 - **(1) The 4v4 "study corner" stall was not about furniture.** I added the task's zone and the route's end point to bot_match's stall samples. The stuck bots were on `PATROL yard_b`, with a one-point route to (4075, 680, 2325).
   - That point is yard_b's box centre. The yard wraps the house, so its centre sits inside the house, in the upstairs wall between the study and landing B, at body height.

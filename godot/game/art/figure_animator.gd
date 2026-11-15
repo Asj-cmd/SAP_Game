@@ -44,7 +44,9 @@ const XFADE: float = 0.15
 ## Playback-rate limits, so a near-still drift does not freeze mid-stride and a
 ## clip is never driven absurdly fast.
 const MIN_RATE: float = 0.35
-const MAX_RATE: float = 3.2
+## 4.2 since P0-11: the crouch-walk's stride is 73/s and the sim crouches at
+## 297 (0.55 x 540), so it plays at x4.07; a 3.2 cap would slide the feet by a fifth.
+const MAX_RATE: float = 4.2
 ## One-shots: playback speed for each (interact is a 2 s clip; seize and free
 ## are instant in the sim, D9, so the reach is brief).
 const ACTION_SPEED: Dictionary[StringName, float] = {

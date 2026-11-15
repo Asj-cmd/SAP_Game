@@ -11,7 +11,10 @@ extends Resource
 ## different .tres swapped in here - never an edit to the scoring code.
 
 @export_group("Movement")
-@export var move_speed: float = 440.0
+## Units per second on foot. 540 since P0-11 (was 440): the first human playtest
+## found the old pace slow. Crouching and carrying are scales of this number, so
+## they moved by the same ratio.
+@export var move_speed: float = 540.0
 ## Multiplier applied to move_speed while carrying.
 ##
 ## Laden actors move slower than free ones, so grabbing a cash bundle costs
