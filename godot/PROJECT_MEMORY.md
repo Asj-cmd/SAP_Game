@@ -586,6 +586,22 @@ Longer rounds helped on a half sample (PLAN P3-3e). Sweep any of it as an
 argument: `side_sweep.mjs --bot.risk_weight=` / `--mode.round_seconds=`; the
 summary prints idle seconds.
 
+## 6c-vi. Rounds are 240 s at 3v3/4v4, and a slide gets the step-up (P3-3e)
+
+Longer rounds did settle the level matches: 5 of 32 at 180 s, 1 at 210, 0 at
+240 (1 after the fix below). `house_3v3.tres` / `house_4v4.tres` are at 240.
+
+The one 756 s stall in those sweeps was a MOVEMENT fault, found again by
+tracing one body: flush against a stair's side wall with an intent 0.000008
+into it, the whole move was refused by the wall (flat and lifted), and the
+axis-by-axis slide had no step-up, so the riser refused the rest. The slide
+now tries the step for a horizontal axis that is refused flat.
+
+**Open (PLAN P3-3f):** the sweep after that fix went team_a 23, team_b 8 by
+seat NAME (17-15 and 13-18 in the two sweeps before it). Unconfirmed: one
+sample. If it repeats on other seeds, the fix interacts with the id-ordered
+movement loop, and §6c-ii's twin probe is the tool.
+
 ## 6d. Multiplayer is reachable from a menu
 
 It was complete and unusable: hosting meant `CashGrab.exe -- --host

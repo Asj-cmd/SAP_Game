@@ -194,7 +194,7 @@ Aug 16–Oct 10 are in; an earlier version of this plan was written against the 
   patrol-post idling at 4v4 (`bot_match --why-idle`: STEAL scores about −3400 with 4 threats), or the clock?
   Change mode data, not rules; tuned against bots, so REVIEW. *Verify:* at most 2 of 32 undecided, and neither
   house above P0-5b's 15-of-24 rate; stalls stay within the P3-3c range.
-- [ ] **P3-3e Level matches, second attempt (the clock).** After P3-3d's bot fix, 5 of 32 sweep matches (3v3 + 4v4,
+- [~] **P3-3e Level matches, second attempt (the clock).** *(Partly done 2026-11-15: 3v3 and 4v4 rounds are 240 s (REVIEW); level matches 5 → 1 of 32. The one stall outlier was a movement fault (a body flush against a stair's side wall never got the step-up), fixed in `MovementSystem`. Not met: House A 20 of 32 (at the limit, not under it), stalls 13–125 s against 14–88, and a new lean by seat name, team_a 23 to 8. Left: P3-3f. See PROGRESS.md.)* After P3-3d's bot fix, 5 of 32 sweep matches (3v3 + 4v4,
   seeds 1–8, as-is and swapped) still end level in regulation: 35 of 88 rounds run to the clock and 6 of those are
   drawn, with 91 % of seizures rescued. A half-sweep at `--mode.round_seconds=240` with the OLD bots gave 1 of 16
   level (reference 4 of 16) but matches up to 735 s. Run the full sweep at 240 (and 210) with the new bots:
@@ -202,6 +202,15 @@ Aug 16–Oct 10 are in; an earlier version of this plan was written against the 
   without the match median going far past 400 s, put it in `house_3v3.tres` / `house_4v4.tres` (REVIEW); if not, log
   that level rounds are a rules question (a drawn round is replayed; the target is 7 of 8) for the user, and leave
   the numbers. *Verify:* at most 2 of 32 undecided, neither house above 15 of 24, stalls within the P3-3c range.
+- [ ] **P3-3f team_a wins by seat name.** The sweep after P3-3e (`node autobuild/side_sweep.mjs --sizes=3,4`, 240 s rounds,
+  with the step-up fix) gave team_a 23, team_b 8 by NAME (as-is 14 to 2, swapped 9 to 6) and House A 20, B 11. The same
+  sweep before the step-up fix, at `--mode.round_seconds=240`, gave 17 to 15 by name and A 19, B 13; at 210, 13 to 18. So
+  either the fix (`_apply_displacement`: a single-axis slide now tries `_try_step_up`) favours the lower entity ids, or it
+  is one unlucky sample (about 2.7 standard deviations). Measure first: run seeds 9–16 (`--first-seed=9`) to see whether
+  the lean repeats. If it does, PROJECT_MEMORY §6c-ii says where to look (seat-ordered loops: movement order, sidestep
+  side, capture loop) and `tools/twin_probe.gd` finds the first tick a match and its swapped twin part. Also re-measure
+  stalls per minute of match rather than per match (matches are a third longer at 240 s, and the range is 13–125 s
+  against P3-3c's 14–88). *Verify:* over 32 fresh matches neither name nor house above 15 of 24; at most 2 level.
 - [ ] **P3-4 Exterior.** Lot, fences, garden, trees, path, neutral strip, street, sky, sun.
 - [ ] **P3-5 Lighting and readability pass.** Lighting per room, shadow settings the Compatibility
   renderer can afford, contrast between floor/wall/characters/cash. *Verify:* frames at day-like

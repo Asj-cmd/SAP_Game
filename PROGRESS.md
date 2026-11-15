@@ -2,6 +2,27 @@
 
 Newest first. One entry per task: date, task id, what changed, what the frames showed, numbers, what is left.
 
+## 2026-11-15 — P3-3e Level matches: 240 s rounds, and a body that could not climb a stair along a wall (partly done)
+- **Question:** with the P3-3d bots, do longer rounds bring level matches from 5 of 32 down to 2 or fewer?
+- **Runs** (3v3 + 4v4, seeds 1–8, as-is and swapped, 32 matches each; `node autobuild/side_sweep.mjs --sizes=3,4`):
+
+  | run | what | level | rounds: target / clock / drawn | match median 3v3 / 4v4 | houses A / B | by name a / b | stalls |
+  |---|---|---|---|---|---|---|---|
+  | ref | 180 s (P3-3d runs 3 + 4) | 5 | 53 / 29 / 6 | — | 13 / 14 | — | 18–111 s |
+  | 1 | `--mode.round_seconds=240` | **0** | 63 / 21 / 1 | 419 / 384 s | 19 / 13 | 17 / 15 | 18–115 s, and one match at 756 |
+  | 2 | `--mode.round_seconds=210` | 1 | 60 / 25 / 3 | 389 / 370 s | 16 / 15 | 13 / 18 | 14–127 s |
+  | 3 | 240 s in the mode files + the step-up fix | **1** | 57 / 24 / 4 | 399 / 473 s | 20 / 11 | **23 / 8** | 13–125 s |
+
+- **The 756 s match (run 1, 4v4 seed 6 swapped) was not about the clock.** 672 of its stall seconds were at one spot, a bot alone on a stair tread carrying cash. A per-tick trace of that one bot: it stood at x 659.99994, flush against the stair's side wall (face at 680, radius 20), with an intent of (0.000008, −1). The whole move was refused by the wall, flat and lifted by the step allowance alike; the slide fallback then tried x alone (wall) and z alone (the riser), and the fallback never tried the step. Collision checks at the spot showed the lifted z-only move was free. A human pressing diagonally into a stair wall would have stuck the same way.
+- **Fix** (`sim/systems/movement_system.gd`, `_apply_displacement`): a horizontal single-axis slide that is refused flat now tries `_try_step_up` for that axis. Table case added to `movement_system_test` (a sill, body flush against the shell wall, intent a hair into it): failed before the fix, passes after; suite 86 → 88, baseline updated.
+- **Changed:** `house_3v3.tres` and `house_4v4.tres` `round_seconds` 180 → 240 (REVIEW). 240 over 210 because it had the margin (0 against 1 level, 1 against 3 drawn rounds) for 15–30 s more on the match median. Rounds that end on target are unaffected (median about 100–125 s).
+- **What run 3 says, honestly.** Level matches: 1 of 32, target met. Not met or not clean:
+  - House A won 20 of 32: exactly P0-5b's 15-of-24 rate, not under it (run 1 was 19, run 2 16).
+  - **By seat name team_a won 23, team_b 8** (as-is 14 to 2, swapped 9 to 6). Runs 1 and 2, before the step-up fix, were 17–15 and 13–18. Either the fix favours lower entity ids or this is one bad sample (about 2.7 standard deviations). Not investigated: three 30-minute sweeps used the session. Filed as **P3-3f**.
+  - Stalls 13–125 s (4v4 median 81) against P3-3c's 14–88 (median 56). Matches are about a third longer where rounds run to the clock, so part of that is more match, but it was not measured per minute.
+- **Verify:** `node autobuild/verify.mjs` healthy. 16 suites at pinned counts (movement 88); symmetry 193 of 193; bot match 3v3 team_a in 387 s, stalls 27 s, idle 17 s; 1v1 team_a in 250 s, stalls 4 s; tick budget 0 / 0 / 0 of 600 over; net_smoke 1679 ticks agree.
+- **Left:** P3-3f. Three throwaway stashes can be dropped by the user (`git stash list`: two copies of the P3-3e trace probe, one P3-3c); this session's permissions refuse file deletion, so the probe was stashed twice to get it off disk.
+
 ## 2026-11-15 — P3-3d Matches that end level: the idling was a bot standoff (partly done)
 - **Question:** 6 of 32 sweep matches ended level after P3-3c. Rescue rate, patrol-post idling, or the clock?
 - **Tools first:** `bot_match --bot.<field>=<value>` overrides one bot-profile number (like `--mode.*` / `--tuning.*`); `side_sweep.mjs` passes it through and now prints idle seconds per match and per size.
