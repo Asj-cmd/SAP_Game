@@ -46,6 +46,9 @@ var _mode_overrides: Dictionary[String, String] = {}
 ## `--tuning.<field>=<value>` does the same for one TuningDef number (P0-11:
 ## `--tuning.move_speed=440` replays the old pace beside the new one).
 var _tuning_overrides: Dictionary[String, String] = {}
+## `--bot.<field>=<value>` does the same for one BotProfileDef number (P3-3d:
+## `--bot.risk_weight=900` asks whether the bots, not the rules, cause a result).
+var _bot_overrides: Dictionary[String, String] = {}
 ## `--seed=N` plays a different match. One seed is one match: tuning against it
 ## alone fits the numbers to that match, so a sweep runs several.
 var _seed: int = 20260802
@@ -85,6 +88,9 @@ func _initialize() -> void:
 		if arg.begins_with("--tuning.") and arg.contains("="):
 			var pair: PackedStringArray = arg.trim_prefix("--tuning.").split("=", true, 1)
 			_tuning_overrides[pair[0]] = pair[1]
+		if arg.begins_with("--bot.") and arg.contains("="):
+			var pair: PackedStringArray = arg.trim_prefix("--bot.").split("=", true, 1)
+			_bot_overrides[pair[0]] = pair[1]
 		if arg.begins_with("--seed="):
 			_seed = int(arg.trim_prefix("--seed="))
 	_once = OS.get_cmdline_user_args().has("--once")
@@ -204,6 +210,13 @@ func _play(stop_at: int = -1) -> Dictionary:
 			quit(1)
 			return {}
 		level.tuning.set(field, type_convert(_tuning_overrides[field], typeof(current)))
+	for field: String in _bot_overrides:
+		var current: Variant = level.bot_profile.get(field)
+		if current == null:
+			print("no bot profile field %s" % field)
+			quit(1)
+			return {}
+		level.bot_profile.set(field, type_convert(_bot_overrides[field], typeof(current)))
 	var tick_limit: int = _regulation_ticks(level.mode)
 
 	var started: int = Time.get_ticks_msec()

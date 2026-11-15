@@ -5,9 +5,9 @@
 // count should lean.
 //
 //   node autobuild/side_sweep.mjs [--sizes=2,3,4] [--seeds=8] [--first-seed=1] [--jobs=3]
-//       [--no-swap] [--mode.<field>=<value> ...]
+//       [--no-swap] [--mode.<field>=<value> ...] [--tuning.<field>=<value> ...] [--bot.<field>=<value> ...]
 //
-// `--mode.*` arguments go to bot_match unchanged (a tuning sweep); `--no-swap`
+// `--mode.*`, `--tuning.*` and `--bot.*` arguments go to bot_match unchanged (a tuning sweep); `--no-swap`
 // plays each seed as-is only. The summary also says how rounds ended.
 //
 // A measuring tool, not a gate: a sweep is minutes of wall clock.
@@ -26,7 +26,7 @@ const seeds = Number(arg("seeds", "8"));
 const jobs = Number(arg("jobs", "3"));
 const firstSeed = Number(arg("first-seed", "1"));
 const noSwap = process.argv.includes("--no-swap");
-const modeArgs = process.argv.filter((a) => a.startsWith("--mode.") || a.startsWith("--tuning."));
+const modeArgs = process.argv.filter((a) => a.startsWith("--mode.") || a.startsWith("--tuning.") || a.startsWith("--bot."));
 
 const runs = [];
 for (const size of sizes)
@@ -47,6 +47,7 @@ function play(run) {
       const rounds = (out.match(/^rounds won\s+(.*)$/m) ?? [, "?"])[1].trim();
       const raiding = (out.match(/^raiding\s+(.*)$/m) ?? [, "?"])[1].trim();
       const stalls = Number((out.match(/^stalls\s+(\d+)/m) ?? [, "NaN"])[1]);
+      const idle = Number((out.match(/^idle\s+(\d+)/m) ?? [, "NaN"])[1]);
       if (rounds === "?") console.log(`-- ${run.size}v${run.size} seed ${run.seed} gave no result:\n${out.split("\n").slice(-25).join("\n")}`);
       // "  round 2  180 s  team_b  time_expired   cash team_a 1  team_b 6"
       const ends = [...out.matchAll(/^\s+round\s+\d+\s+(\d+) s\s+(\S+)\s+(\S+)/gm)]
@@ -54,7 +55,7 @@ function play(run) {
       const seizures = Number((out.match(/^captures\s+(\d+) seizures/m) ?? [, "NaN"])[1]);
       const rescues = Number((out.match(/(\d+) rescues/) ?? [, "NaN"])[1]);
       const seconds = Math.round(Number((out.match(/^ticks\s+(\d+)/m) ?? [, "NaN"])[1]) / 30);
-      resolve({ ...run, winner: winner.startsWith("team_") ? winner : "none", rounds, raiding, stalls, ends, seizures, rescues, seconds });
+      resolve({ ...run, winner: winner.startsWith("team_") ? winner : "none", rounds, raiding, stalls, idle, ends, seizures, rescues, seconds });
     });
   });
 }
@@ -66,7 +67,7 @@ async function worker() {
     const run = runs[next++];
     const r = await play(run);
     results.push(r);
-    console.log(`${r.size}v${r.size} seed ${r.seed} ${r.swapped ? "swapped" : "as-is  "}  winner ${r.winner.padEnd(7)} rounds ${r.rounds}  ${r.seconds} s [${r.ends.map((e) => e.seconds + (e.reason === "target_reached" ? "T" : e.winner.startsWith("team_") ? "c" : "d")).join(" ")}]  seized ${r.seizures} freed ${r.rescues}  stalls ${r.stalls} s  raiding ${r.raiding}`);
+    console.log(`${r.size}v${r.size} seed ${r.seed} ${r.swapped ? "swapped" : "as-is  "}  winner ${r.winner.padEnd(7)} rounds ${r.rounds}  ${r.seconds} s [${r.ends.map((e) => e.seconds + (e.reason === "target_reached" ? "T" : e.winner.startsWith("team_") ? "c" : "d")).join(" ")}]  seized ${r.seizures} freed ${r.rescues}  stalls ${r.stalls} s  idle ${r.idle} s  raiding ${r.raiding}`);
   }
 }
 await Promise.all(Array.from({ length: jobs }, worker));
@@ -83,7 +84,9 @@ for (const size of sizes) {
     `  ${label.padEnd(8)} team_a ${count(list, (r) => r.winner, "team_a")}  team_b ${count(list, (r) => r.winner, "team_b")}  ` +
     `house A ${count(list, houseOf, "A")}  house B ${count(list, houseOf, "B")}  undecided ${count(list, (r) => r.winner, "none")}  of ${list.length}`;
   const st = rows.map((r) => r.stalls).filter(Number.isFinite).sort((a, b) => a - b);
-  console.log(`${size}v${size}  stalls ${st[0]}-${st[st.length - 1]} s, median ${st[Math.floor(st.length / 2)]}`);
+  const idles = rows.map((r) => r.idle).filter(Number.isFinite).sort((a, b) => a - b);
+  console.log(`${size}v${size}  stalls ${st[0]}-${st[st.length - 1]} s, median ${st[Math.floor(st.length / 2)]}; ` +
+    `idle ${idles[0]}-${idles[idles.length - 1]} s, median ${idles[Math.floor(idles.length / 2)]}`);
   // How rounds ended: T = a team reached the target, c = won on the clock, d = drawn.
   const ends = rows.flatMap((r) => r.ends);
   const onTarget = ends.filter((e) => e.reason === "target_reached").map((e) => e.seconds).sort((a, b) => a - b);
