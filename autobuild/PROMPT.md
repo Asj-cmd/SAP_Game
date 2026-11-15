@@ -28,7 +28,7 @@ be cut off at 2 hours; uncommitted work is at risk.
 **Finish the game, not the bots.** (Set by the user 2026-11-15.)
 - Do not start bot-balance work, side sweeps or seed sweeps. A bot problem is only worth a session
   if `verify.mjs` fails because of it. Tasks marked `[-]` are deferred by the user: never start them.
-- `verify.mjs` is the only match gate. Never run a check longer than 10 minutes.
+- `verify.mjs` is the only match gate. Never run a check longer than 10 minutes, except verify.mjs. While working use verify.mjs --quick; run the full verify.mjs once, just before committing.
 - Prefer what a player sees or feels (art, house, verbs, UI) over metrics.
 - Fable is in use: for art and look tasks, judge the frames yourself and redo what looks bad
   before ticking a task.

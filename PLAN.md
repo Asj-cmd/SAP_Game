@@ -214,8 +214,9 @@ Aug 16–Oct 10 are in; an earlier version of this plan was written against the 
   against P3-3c's 14–88). *Verify:* over 32 fresh matches neither name nor house above 15 of 24; at most 2 level.
 - [ ] **P3-4 Exterior.** Lot, fences, garden, trees, path, neutral strip, street, sky, sun.
 - [ ] **P3-5 Lighting and readability pass.** Lighting per room, shadow settings the Compatibility
-  renderer can afford, contrast between floor/wall/characters/cash. *Verify:* frames at day-like
-  exposure; cash readable at 30 m.
+  renderer can afford, contrast between floor/wall/characters/cash. Stair banisters (railings) on
+  every flight, with collision matching the existing stair walls, checked from the stair cameras.
+  *Verify:* frames at day-like exposure; cash readable at 30 m.
 - [ ] **P3-6 Performance pass** against the budgets from P1-1. Merge meshes/instances where needed.
 
 ## Phase 4 — Verbs (DECISIONS.md D9; see `DESIGN_DIRECTION.md` §5)
@@ -225,12 +226,12 @@ location-gated) + tuning in `.tres` + a table-driven test for its *decisions* on
 frames + bot_match still deterministic. Crouch, jump and throw already exist in the sim; vault was
 removed on purpose (do not rebuild it). No ragdoll, knockback, slide, shove or drop-from-height in v1.
 
-- [ ] **P4-1 Panic run per D9:** sim tracks how long forward is held; speed boost from content data; deterministic; bot_match still green
+- [ ] **P4-1 Panic run per D9:** sim tracks how long forward is held; speed boost from content data; deterministic; bot_match still green (this means verify.mjs passes, nothing more)
 - [ ] **P4-2 Presentation for jump, crouch, carry and throw per D9**
 - [ ] **P4-3 Jail run-in-place per D9:** the jailed player's inputs drive animation and camera only, never position
 - [ ] **P4-4 Players block each other like walls** (check what the sim does now; make bodies block if they pass through)
 - [ ] **P4-5 Cash tumble and bounce after a throw or drop** (cosmetic; snaps to the sim's position)
-- [ ] **P4-6 Bots use panic run sensibly**
+- [ ] **P4-6 Bots and panic run.** Bots may use panic run, but only so they do not break or get stuck. No tuning, no sweeps; verify.mjs is the gate.
 - [ ] **P4-7 Verb readability audit by frames**
 
 ## Phase 5 — Game feel, UI, audio
