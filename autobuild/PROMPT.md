@@ -25,6 +25,14 @@ are fine, but plan them up front, note what each run is for, and stop when you h
 `node autobuild/verify.mjs --quick` is green, with a message like `P1-4 (part): ...`. A session can
 be cut off at 2 hours; uncommitted work is at risk.
 
+**Finish the game, not the bots.** (Set by the user 2026-11-15.)
+- Do not start bot-balance work, side sweeps or seed sweeps. A bot problem is only worth a session
+  if `verify.mjs` fails because of it. Tasks marked `[-]` are deferred by the user: never start them.
+- `verify.mjs` is the only match gate. Never run a check longer than 10 minutes.
+- Prefer what a player sees or feels (art, house, verbs, UI) over metrics.
+- Fable is in use: for art and look tasks, judge the frames yourself and redo what looks bad
+  before ticking a task.
+
 6. Before finishing: `node autobuild/verify.mjs` must be healthy; tick the task in `PLAN.md`;
    prepend an entry to `PROGRESS.md` (date, task id, what changed, what you saw, numbers, what
    is left); log decisions in `DECISIONS.md`; update `ASSETS.md` for any asset; commit with

@@ -11,6 +11,7 @@ add a line to `PROGRESS.md`, commit. Do not start another task in the same sessi
 roughly 60% of your turn budget.
 
 - `[ ]` open · `[x]` done · `[~]` partly done (say what is left in PROGRESS.md) · `[B]` blocked (see BLOCKED.md)
+  · `[-]` deferred by the user (never start it; see the Backlog sections)
 - **Verify** = what proves it. Visual tasks are not done until a frame has been opened and looked at.
 - Standing rules: `DECISIONS.md` (how to decide without asking), `godot/CLAUDE.md` (testing policy,
   look at the frame, conventions), `godot/DESIGN_DIRECTION.md` (settled design — do not reopen
@@ -172,7 +173,7 @@ Aug 16–Oct 10 are in; an earlier version of this plan was written against the 
 - [x] **P3-2 Shell dressing.** *(Done: `ShellBuilder` generates the textured shell from the blockers at load: plaster/block/brick walls, tiled/oak/carpet floors, ceilings, oak treads with painted risers, casings, open family-colour french doors, skirting, a hipped roof; one mesh per house. Collision and zones untouched. Frames of all 16 rooms, 6 exteriors, 16 camera views. See PROGRESS.md.)* Visual shell from the existing blockout data (`godot/game/blockout`,
   `HOUSE_LAYOUT`/`WORLD_AUTHORING`): walls, floors, doors, windows, stairs, roof with reveal. Collision
   and zones unchanged. *Verify:* content validator + all tests green; frames of every room.
-- [~] **P3-3 Interiors.** *(Partly done: every room furnished with real collision at the 120/≥210 thresholds from one table in `build_house.gd`; Kenney pieces fitted to their boxes; procedural safe and jail pen. Left: a 4v4 bot stall in the upstairs study corner, a team_a lean in the sweep, GPU timing, banisters. See PROGRESS.md.)* Furnish every room. Obey `WORLD_AUTHORING.md` §12 thresholds: anything the
+- [x] **P3-3 Interiors.** *(Closed 2026-11-15 by the user's re-plan: its bot items are in "Backlog: bots"; GPU timing was done in P3-3b. Banisters were not built.)* *(Partly done: every room furnished with real collision at the 120/≥210 thresholds from one table in `build_house.gd`; Kenney pieces fitted to their boxes; procedural safe and jail pen. Left: a 4v4 bot stall in the upstairs study corner, a team_a lean in the sweep, GPU timing, banisters. See PROGRESS.md.)* Furnish every room. Obey `WORLD_AUTHORING.md` §12 thresholds: anything the
   rules let you climb must *look* climbable, anything that blocks must *look* tall. Distinct
   silhouettes for vault, cash bundle, jail/basement door, safe room.
 - [x] **P3-3b Furniture follow-ups.** *(Done: the "study corner" stall was bots patrolling a zone's box centre (the yard's is inside the house wall, the lot's nearest stance is House A's bedroom, jail/kitchen centres are nearest furniture tops); `NavGraph.zone_point` now gives an on-foot stance in the zone. 4v4 seed 8 stalls 626 → 169 s; sweep side lean team_a 10 / team_b 13, house A 22 / B 20; kitchen GPU 8.7 ms; cash on a top is out of floor reach (pickup 70), so bots ignore it. 4v4 stairwell congestion left as P3-3c. See PROGRESS.md.)* With furniture in (P3-3): (1) 4v4 bot_match seeds 3 and 8
@@ -186,7 +187,7 @@ Aug 16–Oct 10 are in; an earlier version of this plan was written against the 
   63 % of 374 s in five spots at the two stairwells (House A local ~(250–370, 1450) by stair B, ~(1570–1690, 490)
   by stair A), DEPOSIT routes at legs 3–5, many bodies at once. Measure first (who is pressed against whom, which
   leg); the give-way rule in `BotDirector._steer` is the likely place. *Verify:* 4v4 sweep stalls within the 3v3 range.
-- [~] **P3-3d Matches that end level after the drop fix.** *(Partly done 2026-11-15: the patrol-post idling was a bot standoff; `risk_weight` 1400 → 800 in the bot profile ended it (idle median 10–24 s a match) and the house lean (A 13, B 14), drawn rounds 11 → 6, but 5 of 32 matches still end level (target 2). Mode files unchanged. Left: P3-3e. See PROGRESS.md.)* With bots no longer stuck on landings (P3-3c), the
+- [-] **P3-3d Matches that end level after the drop fix.** *(Deferred by the user, bot balance, 2026-11-15; see "Backlog: bots".)* *(Partly done 2026-11-15: the patrol-post idling was a bot standoff; `risk_weight` 1400 → 800 in the bot profile ended it (idle median 10–24 s a match) and the house lean (A 13, B 14), drawn rounds 11 → 6, but 5 of 32 matches still end level (target 2). Mode files unchanged. Left: P3-3e. See PROGRESS.md.)* With bots no longer stuck on landings (P3-3c), the
   3v3 + 4v4 sweep (seeds 1–8, as-is and swapped) left 6 of 32 matches undecided, against 1 of 32 at P0-11: 28 of
   85 rounds ended on the clock and 11 were drawn, and 91 % of seizures were rescued (85 % before). 3v3 also leaned
   to House B, 10 to 3 (4v4: A 8, B 5). Measure first (`node autobuild/side_sweep.mjs --sizes=3,4`, and
@@ -194,7 +195,7 @@ Aug 16–Oct 10 are in; an earlier version of this plan was written against the 
   patrol-post idling at 4v4 (`bot_match --why-idle`: STEAL scores about −3400 with 4 threats), or the clock?
   Change mode data, not rules; tuned against bots, so REVIEW. *Verify:* at most 2 of 32 undecided, and neither
   house above P0-5b's 15-of-24 rate; stalls stay within the P3-3c range.
-- [~] **P3-3e Level matches, second attempt (the clock).** *(Partly done 2026-11-15: 3v3 and 4v4 rounds are 240 s (REVIEW); level matches 5 → 1 of 32. The one stall outlier was a movement fault (a body flush against a stair's side wall never got the step-up), fixed in `MovementSystem`. Not met: House A 20 of 32 (at the limit, not under it), stalls 13–125 s against 14–88, and a new lean by seat name, team_a 23 to 8. Left: P3-3f. See PROGRESS.md.)* After P3-3d's bot fix, 5 of 32 sweep matches (3v3 + 4v4,
+- [-] **P3-3e Level matches, second attempt (the clock).** *(Deferred by the user, bot balance, 2026-11-15; see "Backlog: bots".)* *(Partly done 2026-11-15: 3v3 and 4v4 rounds are 240 s (REVIEW); level matches 5 → 1 of 32. The one stall outlier was a movement fault (a body flush against a stair's side wall never got the step-up), fixed in `MovementSystem`. Not met: House A 20 of 32 (at the limit, not under it), stalls 13–125 s against 14–88, and a new lean by seat name, team_a 23 to 8. Left: P3-3f. See PROGRESS.md.)* After P3-3d's bot fix, 5 of 32 sweep matches (3v3 + 4v4,
   seeds 1–8, as-is and swapped) still end level in regulation: 35 of 88 rounds run to the clock and 6 of those are
   drawn, with 91 % of seizures rescued. A half-sweep at `--mode.round_seconds=240` with the OLD bots gave 1 of 16
   level (reference 4 of 16) but matches up to 735 s. Run the full sweep at 240 (and 210) with the new bots:
@@ -202,7 +203,7 @@ Aug 16–Oct 10 are in; an earlier version of this plan was written against the 
   without the match median going far past 400 s, put it in `house_3v3.tres` / `house_4v4.tres` (REVIEW); if not, log
   that level rounds are a rules question (a drawn round is replayed; the target is 7 of 8) for the user, and leave
   the numbers. *Verify:* at most 2 of 32 undecided, neither house above 15 of 24, stalls within the P3-3c range.
-- [ ] **P3-3f team_a wins by seat name.** The sweep after P3-3e (`node autobuild/side_sweep.mjs --sizes=3,4`, 240 s rounds,
+- [-] **P3-3f team_a wins by seat name.** *(Deferred by the user, bot balance, 2026-11-15; see "Backlog: bots".)* The sweep after P3-3e (`node autobuild/side_sweep.mjs --sizes=3,4`, 240 s rounds,
   with the step-up fix) gave team_a 23, team_b 8 by NAME (as-is 14 to 2, swapped 9 to 6) and House A 20, B 11. The same
   sweep before the step-up fix, at `--mode.round_seconds=240`, gave 17 to 15 by name and A 19, B 13; at 210, 13 to 18. So
   either the fix (`_apply_displacement`: a single-axis slide now tries `_try_step_up`) favours the lower entity ids, or it
@@ -272,3 +273,16 @@ removed on purpose (do not rebuild it). No ragdoll, knockback, slide, shove or d
 Proximity voice chat · clip export (seed + input log) · lag compensation · defender prep phase
 (traps/locks) · loot variety (TV needing two people, piggy bank) · more maps · cosmetics/progression ·
 decoy mannequins/figures placed in the house (must be subtle, not obvious; try after v1).
+
+## Backlog: bots — revisit only when the user reports a problem
+
+Paused by the user on 2026-11-15 (DECISIONS.md log): finish Phases 3 to 5 first. Open items, with
+the measurements and leads in P3-3d, P3-3e and P3-3f above and in PROGRESS.md:
+
+- **Level matches.** Matches that end level in regulation: 1 of 32 at 240 s rounds after P3-3e
+  (5 of 32 before), with many rounds running to the clock.
+- **team_a winning by seat name**: 23 of 32 (team_b 8) in the sweep after P3-3e.
+- **House A winning 20 of 32** (House B 11) in the same sweep.
+
+A stash on this machine holds session 7's unfinished P3-3f sweep statistics (`git stash list`:
+"session 7 leftovers").
