@@ -365,6 +365,13 @@ func _apply_displacement(world: SimWorld, actor: SimEntity, delta: Vector3) -> b
 		if _can_traverse(world, actor, actor.position, actor.position + single_axis):
 			actor.position += single_axis
 			moved = true
+		elif axis != 1 and _try_step_up(world, actor, single_axis):
+			# The slide gets the step too. A body flush against a stair's side
+			# wall and leaning a hair into it has its whole move refused by the
+			# wall, flat and lifted alike, and the part along the wall refused by
+			# the riser: without this it stands on the tread for good (P3-3e: one
+			# bot, 650 s, intent 0.000008 into the wall).
+			moved = true
 	return moved
 
 ## Decides whether the actor is crouched this tick.

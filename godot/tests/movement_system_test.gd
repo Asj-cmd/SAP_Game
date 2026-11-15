@@ -401,6 +401,17 @@ func _test_kinematic_ground() -> void:
 	_close("ground/ends up standing on it", climber.position.y, STEP_TOP + GROUND_RADIUS, 0.5)
 	_check("ground/is grounded on the sill", climber.is_grounded, true)
 
+	# The same sill with the body flush against a side wall (the shell at z 100)
+	# and leaning a hair into it: the part of the move that slides along the
+	# wall must still get the step. A bot stood on a stair tread for 650 s
+	# because only the whole move was tried for it (P3-3e).
+	var world_flush: SimWorld = _build_ground_world()
+	var hugger: SimEntity = _add_actor(world_flush, Vector3(90, FLOOR_TOP + GROUND_RADIUS, 100.0 - GROUND_RADIUS))
+	for i: int in 2:
+		_step(world_flush, [MoveCommand.move(hugger.id, Vector3(1, 0, 0.00001))])
+	_check("ground/steps a sill while leaning into a side wall", hugger.position.x > 105.0, true)
+	_close("ground/and stands on it", hugger.position.y, STEP_TOP + GROUND_RADIUS, 0.5)
+
 	# ...but a wall too tall to step is not.
 	var world_wall: SimWorld = _build_ground_world()
 	var blocked: SimEntity = _add_actor(world_wall, Vector3(140, FLOOR_TOP + GROUND_RADIUS, 50))
