@@ -123,7 +123,12 @@ Aug 16–Oct 10 are in; an earlier version of this plan was written against the 
   Make both children available as a girl and a boy so D3 option (d) (kid swap) works. Unzip from
   `autobuild/incoming/` (keep the zips out of git), record in ASSETS.md. The old blocky
   `character_a/b.glb` stay in place until the new figures load (art stays optional via fallback).
-- [ ] **P2-1b Distinct family members in family outfits (DECISIONS.md D3, updated 2026-11-14).**
+- [x] **P2-1b Distinct family members in family outfits (DECISIONS.md D3, updated 2026-11-14).**
+  *(Done 2026-11-15: six bodies, one per member (dad Male_Shirt, mom Female_Dress, elder girl/boy
+  Female_Alternative/Male_LongSleeve, younger girl/boy Female_TankTop/Male_Casual), each with an
+  `outfit`; `family_palettes` in the theme (A green + denim, B rust + mustard); frames in
+  `autobuild/frames/p2_1b/teams_*.png`. At 40 m the teams read; members only as dad / mom / a child.
+  See PROGRESS.md.)*
   *(First pass done 2026-11-14: all four packs in `autobuild/Incoming/` checked CC0; pick =
   Quaternius Animated low poly men/women (REVIEW), re-rigged onto the figure skeleton by
   `tools/rerig_character.gd` (`autobuild/rerig_family.mjs`) with a clean egg head; the whole family

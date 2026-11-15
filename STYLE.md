@@ -67,6 +67,21 @@ are drawn as `family_order` = dad, mom, elder girl, younger boy (both families; 
 overrides one team through `family_order_by_team`). Each body is 5,000 triangles.
 Frames: `autobuild/frames/p2_1/lineup_*.png` (`node autobuild/family_lineup.mjs`).
 
+**As built since D3 (P2-1b second pass, REVIEW).** Each member is its own body from the two
+Quaternius low-poly packs, so cut and pieces differ, not only size (heights unchanged):
+
+| Member | Body (`art/characters/figure_lp_*.gltf`) | Build | Outfit (region → palette role) |
+|---|---|---|---|
+| Dad | `shirt` (Male_Shirt: front panel, sleeves) | 180, build widened ×1.2 / ×1.16, head kept its width | top main, front panel second, trousers dark |
+| Mom | `dress` (Female_Dress, bare legs) | 176, build narrowed ×0.93 | dress main |
+| Elder girl / boy | `alt` (Female_Alternative) / `male` (Male_LongSleeve) | 160, as P2-1 | long-sleeved top main, long trousers second |
+| Younger girl / boy | `tank` (Female_TankTop) / `casual` (Male_Casual) | 145, as P2-1 | short-sleeved top main, shorts second |
+
+Every member's top is the family's main colour front and back, so the team reads from any
+side; who it is reads from the legs (dark trousers, bare legs under a dress, light trousers,
+shorts) and the size. Frames: `autobuild/frames/p2_1b/teams_{9m,20m,40m}.png`
+(`node autobuild/family_teams.mjs`), `lineup_*.png`, `autobuild/slice/turnaround_*.png`.
+
 - "A touch" means **5 to 10 per cent** off normal, chosen so a still frame of one figure looks
   ordinary for a moment and wrong on a second look. If a nudge is noticeable on first glance in
   a chase-camera frame, halve it.
@@ -125,6 +140,14 @@ man 3,987, woman 3,027.
   teams read at a distance (REVIEW). The earlier rule "figures carry no team colour" and the
   goal "a still enemy is hard to tell from your own family" are retired (identical figures made
   the game confusing).
+- **As built (P2-1b, REVIEW).** Theme `family_palettes`, three roles per family. Family A:
+  main green `(0.27, 0.50, 0.33)`, second denim blue `(0.50, 0.66, 0.78)`, dark `(0.20, 0.26, 0.24)`.
+  Family B: main rust orange `(0.78, 0.33, 0.20)`, second mustard `(0.93, 0.74, 0.42)`, dark
+  brown `(0.30, 0.20, 0.17)`. Cool against warm, and stronger than the sage / terracotta of the
+  doors so a 15-pixel figure at 40 m still reads as its team. Each `FamilyMember.outfit` maps the
+  body's painted regions (shirt, trim, trousers, shoes) to a role; `ArtTheme.outfit_figure`
+  recolours a copy of the mesh, still one material and one draw per body. `family_outfits = false`
+  gives back the identical plain clothes.
 - The team tell is a data setting (P2-4), keeping the earlier ideas as **switchable options for
   later playtests, off by default**: (a) a marker over **your own** teammates only,
   (b) a minimap of your own teammates only, (c) one small detail differs (a wristband), (d) kid

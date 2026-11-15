@@ -2,6 +2,33 @@
 
 Newest first. One entry per task: date, task id, what changed, what the frames showed, numbers, what is left.
 
+## 2026-11-15 — P2-1b Distinct family members in family outfits
+- **Picked up a cut-off session.** The tree held five more re-rigged bodies and the outfit code (`ArtTheme.outfit_figure`, `FamilyMember.outfit`, a `trim` paint region), but no theme data, so nothing showed. This session wrote the data, looked at it, and fixed what the frames showed.
+- **Bodies, one per member** (all Quaternius low-poly, same skeleton, 2,991–3,975 triangles):
+  - Dad: `Male_Shirt`, widened (pelvis ×1.2 / ×1.16, head kept its width), 180.
+  - Mom: `Female_Dress`, narrowed ×0.93, 176.
+  - Elder girl / boy: `Female_Alternative` / `Male_LongSleeve`, 160.
+  - Younger girl / boy: `Female_TankTop` / `Male_Casual`, 145.
+- **Colours** (`family_palettes` in the theme): family A green with denim blue and dark green-grey; family B rust orange with mustard and dark brown. Every top is the family's main colour, front and back. The legs differ per member: dad dark trousers, mom bare legs under the dress, elder light long trousers, younger light shorts.
+- **What the frames showed** (`autobuild/frames/p2_1b/`, `node autobuild/family_teams.mjs`):
+  - `teams_9m`: six green figures on the left, six orange on the right. Dad is the widest, with a light front panel and dark legs. Mom is the only one in a dress. The elder pair have long blue (A) or yellow (B) trousers. The younger pair are a head shorter, with big heads and shorts.
+  - `teams_20m`: the two teams are plainly two colours. Dad, mom, elder and younger can each be picked out by legs and height; the girl and boy of one size cannot be told from each other.
+  - `teams_40m`: figures are about 15 px tall. A green group and an orange group, clearly. Dad stands out by his dark legs and size; the rest read as "an adult in a dress" and "children", and elder from younger only by height. So at 40 m the team reads and the individual member mostly does not.
+  - `lineup_back`: all six backs are green (family A). `live_spawn` (4v4, real game): the player's dad seen from the front, light panel, green sleeves, dark trousers. `live_mom_sheet`: mom jogging in the orange dress through 12 cells, the skirt follows the legs with no tearing; half the cells are blocked by walls between the follow camera and her.
+  - `teams_jog_9m`: all twelve in the jog pose, no broken skinning on any of the six bodies.
+- **Fixed after looking:**
+  - Light tops on the younger kids made family B's pair read as a third, yellow team. Tops are now always the main colour.
+  - A's second colour was first a pale cream (looked like bare legs), then a yellow-green (both families had yellow legs). It is denim blue now.
+  - Dad's and the elder girl's light region covered the whole back, so from behind they were not in their team's colour. Remapped.
+  - Mom's head was a loaf from the side: her bun stretched the head box to 1.77 deep per 1 wide. The egg's depth is now capped (1.27 for her, default 1.45, which changes no other body; the two committed bodies re-bake byte-identical).
+- **Tools:** `autobuild/family_teams.mjs`; `--capture-figure=...,team_b/elder_boy` stands a member in a family's colours; `rerig_family.mjs` takes per-body args and `--only=a,b`.
+- **Verify:** `node autobuild/verify.mjs` healthy. 16 suites at pinned counts; bot match 3v3 team_b in 421 s, stalls 58 s; 1v1 team_b in 357 s, stalls 6 s; tick budget 0 / 2 / 1 of 600 over at 1v1 / 3v3 / 4v4; net_smoke 1690 ticks agree. Nothing in `sim/` changed.
+- **Not done / left:**
+  - The shipped team tell is still minimap + wristband, so figures wear a wristband over their outfit (visible in the turnaround sheets). P2-4 changes the default and makes option (c) switch the outfits off.
+  - GPU time was not re-measured. Draw calls per body are unchanged (one); the lineup views report 501–629 draws.
+  - The colours are brighter than D2's muted house. Logged REVIEW.
+  - `Female_Casual` (`figure_lp_female`) is now drawn by no member; kept as a spare.
+
 ## 2026-11-14 — P0-11 Faster movement
 - **Change:** `TuningDef.move_speed` 440 → 540 (+22.7 %). It is the only speed in the sim. Crouch (×0.55) goes 242 → 297 and carrying (×0.85) 374 → 459, so both keep their ratio. No level, zone or mode file changed.
 - **Still works at 540:**
