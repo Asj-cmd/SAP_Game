@@ -370,6 +370,12 @@ func _arm_capture() -> void:
 		if as_body:
 			team = StringName(named.get_slice(":", 0))
 			slot = int(named.get_slice(":", 1))
+		elif named.begins_with("team_") and named.contains("/"):
+			# "team_b/elder_boy": that member in that family's outfit colours.
+			team = StringName(named.get_slice("/", 0))
+			who = ArtTheme.current().member(StringName(named.get_slice("/", 1)))
+			if who == null:
+				push_error("frame capture: no family member %s" % named)
 		elif named.begins_with("res://"):
 			if ResourceLoader.exists(named):
 				model = load(named) as PackedScene
@@ -1463,6 +1469,9 @@ func _figure_instance(team: StringName, model: PackedScene = null, slot: int = 0
 		return null
 	var art: Node3D = figure.instantiate() as Node3D
 	ArtTheme.dress_whole(art, theme.figure_material(team))
+	# D3 default: the member's outfit in its family's colours (P2-1b).
+	if team != &"":
+		theme.outfit_figure(art, team, member)
 	if model != null or member != null or theme.figure_scene() != null:
 		theme.shape_figure(art, member)
 	# D3 (c): the one coloured thing on a figure (TeamTell, P2-4).

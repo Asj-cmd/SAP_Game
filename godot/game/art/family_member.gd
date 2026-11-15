@@ -20,3 +20,8 @@ extends Resource
 ## `figure_bone_scales` bone by bone. A bone's scale carries to everything below
 ## it; its bone axis is +Y, so (1, s, 1) lengthens or shortens a limb.
 @export var bone_scales: Dictionary[StringName, Vector3] = {}
+## What this member wears (D3, P2-1b): painted region of its body ("shirt",
+## "trim", "trousers", "shoes"; ArtTheme.OUTFIT_REGIONS) -> a role in its
+## family's palette ("main", "second", "dark" ...; ArtTheme.family_palettes).
+## A region not listed keeps the body's baked plain colour.
+@export var outfit: Dictionary[StringName, StringName] = {}

@@ -45,6 +45,13 @@ const DEFAULT_PATH: String = "res://art/theme/default_theme.tres"
 ## Per team, the order used INSTEAD while the D3 (d) kid swap is on (TeamTell,
 ## P2-4): family B's children are the other way round.
 @export var family_order_by_team: Dictionary[StringName, PackedStringArray] = {}
+## Family outfits (D3 default since 2026-11-14, P2-1b): each family's colour
+## scheme, team id -> {role: Color}. A member's `outfit` says which role each
+## painted region of its body wears, so a family reads as one family in matching
+## clothes and each member as itself. Off, or a team with no palette, leaves the
+## bodies in their baked plain clothes (the same for everyone: D3 option c).
+@export var family_outfits: bool = true
+@export var family_palettes: Dictionary[StringName, Dictionary] = {}
 ## D3 (c) wristband (TeamTell, P2-4; STYLE §2.4): a band on the left wrist in
 ## the family colour, the one coloured thing on a figure. Width along the arm in
 ## model units; its radius is measured from the forearm's own vertices, plus
@@ -309,6 +316,87 @@ func member_scene(who: FamilyMember) -> PackedScene:
 		_member_scenes[who.model] = found
 	var scene: PackedScene = _member_scenes[who.model]
 	return scene if scene != null else figure_scene()
+
+## The colours the figure bakes paint each region of a body
+## (`tools/rerig_character.gd` PAINT, `autobuild/figure_bake.mjs`): how
+## `outfit_figure` knows which vertices are the shirt.
+const OUTFIT_REGIONS: Dictionary[StringName, Color] = {
+	&"bare": Color8(255, 255, 255),
+	&"shirt": Color8(160, 174, 190),
+	&"trim": Color8(200, 196, 160),
+	&"trousers": Color8(128, 122, 116),
+	&"shoes": Color8(80, 76, 72),
+}
+
+var _outfit_meshes: Dictionary[String, ArrayMesh] = {}
+
+## Dresses an instanced figure in `who`'s outfit in `team`'s colours (D3): each
+## skinned mesh is swapped for a copy whose painted regions carry the family
+## palette's colours. Still one mesh, one material and one draw per body; the
+## copies are made once per (body, team, member) and shared. `plain` (D3 option
+## c), a theme with outfits off, or a team with no palette leaves the baked
+## plain clothes. Drawn only.
+func outfit_figure(art: Node3D, team: StringName, who: FamilyMember, plain: bool = false) -> void:
+	if plain or not family_outfits or who == null or who.outfit.is_empty():
+		return
+	var palette: Dictionary = family_palettes.get(team, {})
+	if palette.is_empty():
+		return
+	for found: Node in art.find_children("*", "MeshInstance3D", true, false):
+		var body: MeshInstance3D = found as MeshInstance3D
+		if body.mesh == null or body.skin == null:
+			continue
+		var key: String = "%d|%s|%s" % [body.mesh.get_instance_id(), team, who.id]
+		if not _outfit_meshes.has(key):
+			_outfit_meshes[key] = _outfit_mesh(body.mesh, who.outfit, palette)
+		if _outfit_meshes[key] != null:
+			body.mesh = _outfit_meshes[key]
+
+## A copy of `source` with every vertex colour that is a region's paint replaced
+## by the colour that region wears. The figure material multiplies the vertex
+## colour (as sRGB) by its own putty albedo, so the stored colour is the wanted
+## one divided by the albedo in linear light, to come out on screen as asked.
+func _outfit_mesh(source: Mesh, outfit: Dictionary[StringName, StringName], palette: Dictionary) -> ArrayMesh:
+	var wear: Dictionary[StringName, Color] = {}
+	var under: Color = figure.albedo_color.srgb_to_linear() if figure != null else Color.WHITE
+	for region: StringName in outfit:
+		if not palette.has(outfit[region]) or not OUTFIT_REGIONS.has(region):
+			continue
+		var want: Color = (palette[outfit[region]] as Color).srgb_to_linear()
+		wear[region] = Color(minf(want.r / maxf(under.r, 0.01), 1.0), minf(want.g / maxf(under.g, 0.01), 1.0),
+			minf(want.b / maxf(under.b, 0.01), 1.0)).linear_to_srgb()
+	if wear.is_empty():
+		return null
+	var made: ArrayMesh = ArrayMesh.new()
+	for surface: int in source.get_surface_count():
+		var arrays: Array = source.surface_get_arrays(surface)
+		if arrays[Mesh.ARRAY_COLOR] != null:
+			var colours: PackedColorArray = arrays[Mesh.ARRAY_COLOR]
+			for i: int in colours.size():
+				var region: StringName = _outfit_region(colours[i])
+				if wear.has(region):
+					colours[i] = wear[region]
+			arrays[Mesh.ARRAY_COLOR] = colours
+		var keep: int = Mesh.ARRAY_FLAG_USE_8_BONE_WEIGHTS
+		if source is ArrayMesh:
+			keep &= (source as ArrayMesh).surface_get_format(surface)
+		else:
+			keep = 0
+		made.add_surface_from_arrays(Mesh.PRIMITIVE_TRIANGLES, arrays, [], {}, keep)
+		made.surface_set_material(surface, source.surface_get_material(surface))
+	return made
+
+## The painted region a baked vertex colour belongs to (the nearest paint).
+static func _outfit_region(colour: Color) -> StringName:
+	var best: StringName = &"bare"
+	var nearest: float = INF
+	for region: StringName in OUTFIT_REGIONS:
+		var paint: Color = OUTFIT_REGIONS[region]
+		var off: float = Vector3(colour.r - paint.r, colour.g - paint.g, colour.b - paint.b).length_squared()
+		if off < nearest:
+			nearest = off
+			best = region
+	return best
 
 ## Sizes an instanced figure and applies the bone nudges (the theme's shared
 ## ones times `who`'s own). Origin stays at the feet, also when a nudge shortens

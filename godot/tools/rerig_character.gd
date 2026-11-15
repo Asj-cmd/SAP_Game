@@ -7,7 +7,10 @@ extends SceneTree
 ##
 ##   node autobuild/run_tool.mjs rerig_character -- --src=<abs .fbx>
 ##        --rig=res://art/characters/figure_male.gltf --out=res://art/characters/x.gltf
-##        [--normal-smooth=4] [--egg=1]
+##        [--normal-smooth=4] [--egg=1] [--egg-depth-max=1.45] [--kinds=Jacket:trim,Shirt:shirt]
+##
+## --kinds overrides which paint region a source material becomes (exact
+## material name -> bare | shirt | trim | trousers | shoes | drop).
 ##
 ## In order:
 ##  1. Poses the source body, through its own skin, into the rig's rest stance:
@@ -27,6 +30,9 @@ extends SceneTree
 const PAINT: Dictionary[String, Color] = {
 	"bare": Color8(255, 255, 255),
 	"shirt": Color8(160, 174, 190),
+	# A second colour on the top (two-tone sleeves, a jacket over a shirt): its
+	# own region so the theme can colour it (ArtTheme.OUTFIT_REGIONS, P2-1b).
+	"trim": Color8(200, 196, 160),
 	"trousers": Color8(128, 122, 116),
 	"shoes": Color8(80, 76, 72),
 }
@@ -95,6 +101,12 @@ func _run() -> int:
 		return 1
 	var smooth_passes: int = int(_opts.get("normal-smooth", "4"))
 	var egg: bool = _opts.get("egg", "1") != "0"
+	var kinds: Dictionary[String, String] = {}
+	for pair: String in _opts.get("kinds", "").split(",", false):
+		kinds[pair.get_slice(":", 0)] = pair.get_slice(":", 1)
+		if not PAINT.has(pair.get_slice(":", 1)) and pair.get_slice(":", 1) != "drop":
+			push_error("--kinds: no paint region %s" % pair.get_slice(":", 1))
+			return 1
 
 	# --- The source: bones in bind space, to the scene root.
 	var s_view: MeshInstance3D = _find(src, "MeshInstance3D") as MeshInstance3D
@@ -175,7 +187,7 @@ func _run() -> int:
 	for s: int in s_view.mesh.get_surface_count():
 		var mat: Material = s_view.mesh.surface_get_material(s)
 		var mat_name: String = mat.resource_name if mat != null else "-"
-		var kind: String = _kind(mat_name)
+		var kind: String = kinds.get(mat_name, _kind(mat_name))
 		if has_scalp and mat_name.to_lower() == "hair":
 			kind = "drop"
 		if kind == "drop":
@@ -243,7 +255,7 @@ func _run() -> int:
 		# their jaw ~6 cm under the joint, and an egg fitted from the joint up
 		# left the chin crumpled under it like a goatee (P2-1b rerig14).
 		var base: float = float(_opts.get("egg-base", "0.035")) * r_height
-		var made: Dictionary = _egg_head(points, joint["Head"].y - base, r_height)
+		var made: Dictionary = _egg_head(points, joint["Head"].y - base, r_height, joint["Head"].z)
 		points = made["points"]
 		egg_normal = made["normals"]
 		egg_w = made["weights"]
@@ -465,7 +477,7 @@ func _pose_bone(bones: Skeleton3D, b: int, rest: Dictionary[int, Transform3D],
 ## joint, blended over `blend` below that; nothing under the joint moves.
 ## Returns {points, normals (the ellipsoid's), weights (0 = untouched)}: a
 ## packed array argument is a copy in GDScript, so nothing is changed in place.
-func _egg_head(source: PackedVector3Array, joint_y: float, height: float) -> Dictionary:
+func _egg_head(source: PackedVector3Array, joint_y: float, height: float, joint_z: float = 0.0) -> Dictionary:
 	var points: PackedVector3Array = source.duplicate()
 	var normals: PackedVector3Array = []
 	normals.resize(points.size())
@@ -490,6 +502,14 @@ func _egg_head(source: PackedVector3Array, joint_y: float, height: float) -> Dic
 		return result
 	var centre: Vector3 = (low + high) * 0.5
 	var radii: Vector3 = (high - low) * 0.5
+	# A bun or ponytail stretches the box backwards and the egg with it (the
+	# dress body: a head like a loaf from the side). The depth is capped at
+	# `egg-depth-max` times the width, about the Head joint.
+	var deepest: float = float(_opts.get("egg-depth-max", "1.45")) * radii.x
+	print("egg: radii %s, depth/width %.2f" % [radii, radii.z / radii.x])
+	if deepest > 0.0 and radii.z > deepest:
+		radii.z = deepest
+		centre.z = clampf(joint_z, low.z + radii.z, high.z - radii.z)
 	for i: int in points.size():
 		var w: float = smoothstep(joint_y + rise - blend, joint_y + rise, points[i].y)
 		if w <= 0.0:
@@ -624,6 +644,8 @@ func _kind(mat_name: String) -> String:
 		return "shoes"
 	if key.contains("pant") or key.contains("short"):
 		return "trousers"
+	if key.contains("jacket") or key.contains("shirt2") or key.contains("tie") or key.contains("detail"):
+		return "trim"
 	return "shirt"
 
 func _rig_name(src_name: String) -> String:
