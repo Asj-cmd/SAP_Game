@@ -15,15 +15,16 @@ Nobody will answer questions. Decide, log, and keep moving.
    and move on (see `DECISIONS.md`).
 
 **Testing budget.** While working, run only the single test suite related to what you changed
-(one `tests/*_test.gd` file with Godot). Run the full `node autobuild/verify.mjs` at most twice per
-task: once at the start and once before committing. Run `--frames` only for visual tasks, after the
+(one `tests/*_test.gd` file with Godot). Run the full `node autobuild/verify.mjs` once, just before
+committing; while working use `node autobuild/verify.mjs --quick`. Run `--frames` only for visual tasks, after the
 change is done. Do not write new test files except a table-driven test for a new simulation
 decision (`godot/CLAUDE.md` policy). Measurement runs that ARE the task (tuning sweeps, profiling)
 are fine, but plan them up front, note what each run is for, and stop when you have the answer.
 
 **Commit often.** Commit working progress at least every 45 minutes, whenever
 `node autobuild/verify.mjs --quick` is green, with a message like `P1-4 (part): ...`. A session can
-be cut off at 2 hours; uncommitted work is at risk.
+be cut off at 2 hours; uncommitted work is at risk. These part commits need only `--quick`; the one
+full `verify.mjs` run is just before the task's final commit (step 6).
 
 **Finish the game, not the bots.** (Set by the user 2026-11-15.)
 - Do not start bot-balance work, side sweeps or seed sweeps. A bot problem is only worth a session
@@ -33,7 +34,8 @@ be cut off at 2 hours; uncommitted work is at risk.
 - Fable is in use: for art and look tasks, judge the frames yourself and redo what looks bad
   before ticking a task.
 
-6. Before finishing: `node autobuild/verify.mjs` must be healthy; tick the task in `PLAN.md`;
+6. Before finishing: `node autobuild/verify.mjs` must be healthy (this is the one full run, just
+   before committing); tick the task in `PLAN.md`;
    prepend an entry to `PROGRESS.md` (date, task id, what changed, what you saw, numbers, what
    is left); log decisions in `DECISIONS.md`; update `ASSETS.md` for any asset; commit with
    a message starting with the task id. Do not push; the loop pushes.
