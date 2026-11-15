@@ -6,6 +6,7 @@
 //                            "resets Thu 9pm", "resets Nov 14, 9am", "resets in 2h"), or null
 //   planLimitWait({...})     when to wake up: 5 min after the stated reset, or a fallback wait
 //   isConnectionProblem(out) true when a failed session ended on a sign-in or network error
+//   isModelLimit(out, model) true when the limit message is for that model only ("Fable limit")
 
 const MIN = 60_000;
 const HOUR = 60 * MIN;
@@ -62,6 +63,23 @@ export const MAX_CONNECTION_WAITS = 6; // 15+30+60+60+60+60 min, about 4.75 h
 
 export function connectionWaitMin(waitsSoFar) {
   return CONNECTION_WAITS_MIN[Math.min(waitsSoFar, CONNECTION_WAITS_MIN.length - 1)];
+}
+
+// A usage limit for one model only (e.g. "You've hit your Fable limit · resets 3pm"), when the loop
+// runs with CLAUDE_MODEL. True only if the end of the output is a limit message AND it names that
+// model, by the value given or by its family word (fable/opus/sonnet/haiku). A general limit
+// ("You've hit your 5-hour limit") names no model and keeps the normal wait.
+const FAMILY_RE = /fable|opus|sonnet|haiku/i;
+export function modelFamily(model) {
+  const m = String(model ?? "").match(FAMILY_RE);
+  return m ? m[0][0].toUpperCase() + m[0].slice(1).toLowerCase() : String(model ?? "");
+}
+export function isModelLimit(output, model, tailLines = 10) {
+  if (!model || !isLimitMessage(output, tailLines)) return false;
+  const tail = String(output).split(/\r?\n/).filter((l) => l.trim() !== "").slice(-tailLines).join("\n");
+  const esc = (s) => s.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+  const names = [String(model).trim(), modelFamily(model)].filter(Boolean).map(esc);
+  return new RegExp(`(?<![a-z0-9])(?:${names.join("|")})(?![a-z0-9])`, "i").test(tail);
 }
 
 function validZone(tz) {

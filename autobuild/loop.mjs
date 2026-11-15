@@ -18,14 +18,18 @@
 // waits 15 min, 30 min, then 60 min at a time and retries; these are not sessions or stalls either.
 // After 6 such waits in a row (about 4.75 h) it stops and tells you to run claude.cmd and /login.
 //
+// Model: set CLAUDE_MODEL (e.g. $env:CLAUDE_MODEL = "fable") to start every session with --model.
+// If that model's own limit is hit ("Fable limit"), the loop does not wait: it drops --model for
+// the rest of the run and starts again at once on the default model. Other limits wait as above.
+//
 // Env: MAX_TURNS (default 200)  ITER_TIMEOUT_MIN (default 120)  BACKOFF_MIN (default 30)
-//      STALL_LIMIT (default 3)  GODOT_BIN (required, passed through to Claude's shell)
+//      STALL_LIMIT (default 3)  CLAUDE_MODEL (optional)  GODOT_BIN (required, passed through to Claude's shell)
 
 import { spawnSync } from "node:child_process";
 import { appendFileSync, existsSync, mkdirSync, readFileSync, writeFileSync } from "node:fs";
 import { dirname, join, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
-import { isLimitMessage, planLimitWait, isConnectionProblem, connectionWaitMin, MAX_CONNECTION_WAITS } from "./limits.mjs";
+import { isLimitMessage, planLimitWait, isConnectionProblem, connectionWaitMin, MAX_CONNECTION_WAITS, isModelLimit, modelFamily } from "./limits.mjs";
 
 const HERE = dirname(fileURLToPath(import.meta.url));
 const ROOT = resolve(HERE, "..");
@@ -42,6 +46,7 @@ const BACKOFF_MIN = Number(process.env.BACKOFF_MIN ?? 30);
 const STALL_LIMIT = Number(process.env.STALL_LIMIT ?? 3);
 const TRUST_RE = /Ignoring\b.*\bpermissions?\b|has not been trusted/i;
 const MAX_LIMIT_WAIT_MS = 8 * 24 * 60 * 60_000; // weekly limit plus a day of slack
+let model = process.env.CLAUDE_MODEL?.trim() || null; // dropped for the rest of the run if its own limit is hit
 
 const sh = (cmd, args, opts = {}) =>
   spawnSync(cmd, args, { cwd: ROOT, encoding: "utf8", shell: process.platform === "win32", ...opts });
@@ -99,8 +104,9 @@ for (let i = 1; i <= MAX_ITERS; i++) {
   const before = git("rev-parse", "HEAD");
   const prompt = readFileSync(join(HERE, "PROMPT.md"), "utf8");
   const args = ["-p", "--max-turns", String(MAX_TURNS), "--output-format", "text"];
+  if (model) args.push("--model", model);
   if (flag("--skip-permissions")) args.push("--dangerously-skip-permissions");
-  log(`session ${i}: starting (HEAD ${before.slice(0, 8)})`);
+  log(`session ${i}: starting (HEAD ${before.slice(0, 8)}, model ${model ?? "default"})`);
   const started = Date.now();
   const r = sh("claude", args, { input: prompt, timeout: ITER_TIMEOUT_MIN * 60_000, maxBuffer: 256 * 1024 * 1024 });
   const seconds = (Date.now() - started) / 1000;
@@ -141,6 +147,13 @@ for (let i = 1; i <= MAX_ITERS; i++) {
   // Wait for the reset; the wait is not a session and not a "no commits" stall.
   if (!progressed && isLimitMessage(out)) {
     connectionWaits = 0; // a limit message means Claude did connect and sign in
+    // The chosen model's own limit: switch to the default model now instead of waiting.
+    if (isModelLimit(out, model)) {
+      log(`session ${i}: ${modelFamily(model)} limit reached, switching to the default model (no --model for the rest of this run). Not counted as a session.`);
+      model = null;
+      i--; // the same session number runs again, at once
+      continue;
+    }
     const now = Date.now();
     const plan = planLimitWait({ text: out, now, lastTarget, step: fallbackStep + 1, backoffMin: BACKOFF_MIN });
     if (plan.target === null) fallbackStep++; else lastTarget = plan.target;
