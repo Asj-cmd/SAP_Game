@@ -14,7 +14,8 @@ specific game's characters, art or look.
 
 **Plain people in a real house.** The house is the straight man: an ordinary, believable
 suburban home, lit warmly, furnished like someone lives there. The family members are the
-joke: identical, featureless, slightly wrong-shaped figures who do absurd things (sprint with
+joke: featureless, slightly wrong-shaped figures, each family in matching outfits like a family
+in matching sweaters, who do absurd things (sprint with
 their arms up, carry a cash brick over their heads, get teleported to jail) with no reaction at
 all. Nothing in the world winks at the player. No outlines, no cartoon effects, no confetti, no
 squash-and-stretch, no faces. If a frame would work as a still from an estate agent's listing
@@ -27,9 +28,12 @@ with some odd mannequins in it, it is on style.
 - **Blank.** No eyes, eyebrows, mouth, nose detail, ears modelled out, hair, beards or
   fingernails. The head is a smooth rounded form. Hands are mitten-simple (fingers may stay on
   the mesh if the rig needs them, but smoothed so they read as one shape at chase distance).
-- **Identical.** Every dad is the same dad, in both families. Members differ in **size and
-  shape only** (2.2), never in colour, clothes or accessories, except the one optional team
-  detail D3 (c) adds (2.4).
+- **Distinct members, matching families** (D3, updated after the user's playtest 2026-11-14;
+  this replaces "identical"). Dad, mom, elder child and younger child each have a **clearly
+  different body shape and outfit**, readable at a distance. Each family wears **matching
+  outfits in its own colour scheme** (2.4), so teams are obvious. Only clothes, colours and body
+  shapes differ: the figures stay blank-faced and deadpan per D2 (no faces, hair or acting). The
+  old identical look survives only as team-tell option (c).
 - **Slightly off.** Proportions are plausibly human and then nudged, never caricatured (2.2).
   The aim is "something is not quite right about these people", not "cartoon character".
 - **Not crash-test dummies** (D2). So: no yellow/black, no quadrant target discs on the head or
@@ -66,8 +70,10 @@ Frames: `autobuild/frames/p2_1/lineup_*.png` (`node autobuild/family_lineup.mjs`
 - "A touch" means **5 to 10 per cent** off normal, chosen so a still frame of one figure looks
   ordinary for a moment and wrong on a second look. If a nudge is noticeable on first glance in
   a chase-camera frame, halve it.
-- **Silhouette first.** Each of the four sizes must be told apart by outline alone at 20 m
-  (P2-4 checks this from 20 m and 40 m). Never by colour.
+- **Silhouette first.** Each of the four members must be told apart by outline alone at 20 m
+  (P2-4 checks this from 20 m and 40 m), by build as well as height (D3, 2026-11-14): clearly
+  different shapes, not one body scaled. The outfit then confirms who it is; the family colour
+  scheme says which team.
 - Kid swap (D3 d) needs a girl and a boy at each child size: the elder and younger children are
   each built from both the male and the female base body.
 - **Why the kids are not much smaller:** the crouch gap is 130 (`WORLD_AUTHORING` §12). Every
@@ -90,6 +96,10 @@ modelling clay or a matt vinyl toy, not skin and not glossy plastic.
 | Rim | A faint rim term (StandardMaterial3D `rim`, about 0.2, tint 0.5) so a figure separates from a dark wall without an outline. P1-4 checks by frame that Compatibility draws it; if not, drop it and rely on value contrast (3.4) |
 | Vertex colour | Allowed for **baked ambient occlusion** only (armpits, under the chin), to keep the form readable without shadows |
 
+**Since D3 (2026-11-14):** clothes differ per member (each has its own outfit) and per family
+(each family's outfits share its colour scheme, 2.4). P2-1b builds this; the paragraph below
+is the first pass, kept as the look of team-tell option (c).
+
 Clothes: **painted, not modelled** (P1-5 STYLE-PICK, REVIEW; this replaces "none" above).
 Every figure wears the same plain clothes through baked vertex colour in the one material: a
 muted blue-grey long-sleeved shirt, grey-brown trousers, dark shoes, with bare putty head and
@@ -106,21 +116,26 @@ the same way (`PAINT` in that tool). Plain, straight, slightly lanky, big mitten
 hands ×1.06 nudge was dropped. The head is a smooth egg from the chin to the crown. Triangles:
 man 3,987, woman 3,027.
 
-### 2.4 Team identity (D3 is an experiment)
+### 2.4 Team identity (D3, updated after the user's playtest 2026-11-14)
 
-- **Figures carry no team colour.** The blockout's red/blue bodies (`greybox_main.gd`, team
-  base colour) are a placeholder and go when the D2 figures arrive (P2-1). The game is built so
-  that a still enemy is hard to tell from your own family (D3).
-- The team tell is a data setting (P2-4): (a) a marker over **your own** teammates only,
+- **Default: matching family outfits.** Each family wears matching outfits in its own colour
+  scheme, like a family in matching sweaters, so teams are obvious at a glance and at 40 m.
+  Each member's outfit is its own (cut and pieces differ), but all four share the family's
+  colours. The family colours below are the base of each scheme and may be strengthened so the
+  teams read at a distance (REVIEW). The earlier rule "figures carry no team colour" and the
+  goal "a still enemy is hard to tell from your own family" are retired (identical figures made
+  the game confusing).
+- The team tell is a data setting (P2-4), keeping the earlier ideas as **switchable options for
+  later playtests, off by default**: (a) a marker over **your own** teammates only,
   (b) a minimap of your own teammates only, (c) one small detail differs (a wristband), (d) kid
   swap. When (c) is on, the wristband is the only coloured thing on a figure: a 6–8 wide band on
   the left wrist, in the family colour below, same satin material.
 - **Family colours** (REVIEW, logged in DECISIONS): Family A **sage** `Color(0.48, 0.58, 0.45)`,
   Family B **terracotta** `Color(0.70, 0.40, 0.30)`. Muted on purpose, both mid-value, so neither
-  shouts. They are used for: the D3 (c) wristband, the HUD/minimap, and each house's **front
-  door and window frames** (so you know whose house you are in, without telling you who a person
-  is). Nowhere else. The blockout's red/blue floor tints are debug, not art.
-- **As built (P2-4, REVIEW).** `TeamTell` (`game/art/team_tell.gd`, default
+  shouts. They are used for: each family's **outfits** (D3 default, 2026-11-14), the D3 (c)
+  wristband, the HUD/minimap, and each house's **front door and window frames** (so you know
+  whose house you are in). Nowhere else. The blockout's red/blue floor tints are debug, not art.
+- **As built (P2-4 first pass, REVIEW; superseded as the default by D3 2026-11-14, P2-4 reopened).** `TeamTell` (`game/art/team_tell.gd`, default
   `art/theme/team_tell.tres`): **minimap + wristband** on, marker and kid swap off. Switch in the
   menu (four checkboxes) or in a match with F5 marker / F6 minimap / F7 wristband / F8 kid swap;
   `--team-tell=` on the command line. Wristband: 7 long on the left forearm cuff, radius measured

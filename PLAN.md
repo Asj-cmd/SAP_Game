@@ -76,6 +76,7 @@ Aug 16–Oct 10 are in; an earlier version of this plan was written against the 
   headless variant to `verify.mjs` if it is stable. *Verify:* log excerpt in PROGRESS.md.
 - [x] **P0-10 Housekeeping.** *(Done: root CLAUDE.md points at `godot/` and the autobuild files; Three.js rules scoped to legacy `client/`/`server/`.)* Root `CLAUDE.md` still says the Three.js branch is the source of
   truth: point it at the Godot project, mark `client/` and `server/` legacy. Do not delete them.
+- [ ] **P0-11 Faster movement.** The user found movement too slow and boring. Raise walking and jogging speed by about 20-25 % and crouch speed by the same ratio; carriers keep their 0.85 factor. Speeds stay in content data. Re-check that jumps, ledges, crouch gaps and seize/free reach still work (validator, tests, bot match). Re-run the per-team-size tuning sweep from P0-2c, since faster movement ends rounds sooner, and adjust round and jail times so every size still ends with a winner. Log the new numbers in DECISIONS.md as REVIEW. Note for P4-1: the panic run boost is added on top of the new speed.
 
 ## Phase 1 — Art foundation (style, shader, asset pipeline)
 
@@ -122,34 +123,44 @@ Aug 16–Oct 10 are in; an earlier version of this plan was written against the 
   Make both children available as a girl and a boy so D3 option (d) (kid swap) works. Unzip from
   `autobuild/incoming/` (keep the zips out of git), record in ASSETS.md. The old blocky
   `character_a/b.glb` stay in place until the new figures load (art stays optional via fallback).
+- [ ] **P2-1b Distinct family members in family outfits (DECISIONS.md D3, updated 2026-11-14).**
+  *(First pass done 2026-11-14: all four packs in `autobuild/Incoming/` checked CC0; pick =
+  Quaternius Animated low poly men/women (REVIEW), re-rigged onto the figure skeleton by
+  `tools/rerig_character.gd` (`autobuild/rerig_family.mjs`) with a clean egg head; the whole family
+  and `figure_anims.res` use them. See PROGRESS.md.)*
+  **Reopened after the user's playtest: identical figures made the game confusing.** Build the
+  family to the new D3 default: dad, mom, elder child and younger child each have a clearly
+  different body shape and outfit, readable at a distance, and each family wears matching outfits
+  in its own colour scheme (like a family in matching sweaters), so teams are obvious. Figures stay
+  blank-faced and deadpan per D2: only clothes, colours and body shapes differ. Use the bodies and
+  outfits in the four packs already checked (any of their bodies, not only the two picked); stay
+  within the poly budget and keep the existing animations working. Keep a girl and a boy at each
+  child size so the kid swap option still works. Outfits and colour schemes are data in the theme.
+  Log the result in DECISIONS.md as REVIEW. *Verify:* lineup and turnaround frames re-shot; both
+  families side by side from 20 m and 40 m, each member and each team told apart in the frame.
 - [x] **P2-2 One skeleton, one animation set** *(Done: `art/characters/figure_anims.res`, 24 clips built by `tools/build_figure_anims.gd`; deadpan picks and IK arm poses (carry overhead, panic arms, throw); stride speeds per loop; `anim_sheet.mjs` contact sheets. See PROGRESS.md.)* from the Quaternius Universal Animation Library per
   D10 (same rig as the base characters). Needed: walk, panic-run with arms up, idle (completely
   still), jump and land, crouch-walk, carry-overhead walk and run, throw, jail run-in-place, free
   ally. Procedural wobble allowed but subtle. No ragdoll, stumble or get-up (D9).
 - [x] **P2-3 Animation driver.** *(Done: `FigureAnimator` (AnimationTree: base Transition, stride-matched rate, arms-only one-shots) from sim state; one-shots from confirmed-state changes; contact sheets of live bodies for jog/walk, jump, crouch, grab/carry, throw, seize, free in `autobuild/frames/p2_3/`. Panic run waits for P4-1's speed boost, jail run-in-place for P4-3. See PROGRESS.md.)* AnimationTree/state machine driven from simulation state
   (read-only; presentation never mutates the sim). *Verify:* frames/gif-like contact sheets per state.
-- [x] **P2-4 Team tell (D3 experiment).** *(Done: `TeamTell` setting, all four options combinable; menu checkboxes, F5-F8, `--team-tell=`; default minimap + wristband (REVIEW); frames of every set close/20 m/40 m in `autobuild/frames/p2_4/`. See PROGRESS.md.)* Implement the data-driven team-tell setting from
-  DECISIONS.md D3 with all four options, combinable and switchable at runtime (lobby/settings and a
-  debug key, no code change): (a) marker over your own teammates only, never over enemies;
-  (b) minimap showing only your teammates (build a minimal minimap here; P5-2 makes it final);
-  (c) both families identical except one small detail such as a wristband colour; (d) kid swap.
-  Pick a default and log it as REVIEW. *Verify:* frames of each option, from 20 m and 40 m.
+- [ ] **P2-4 Team tell (DECISIONS.md D3, updated 2026-11-14).** *(First pass done 2026-11-13:
+  `TeamTell` setting, all four options combinable; menu checkboxes, F5-F8, `--team-tell=`; default
+  minimap + wristband; frames of every set close/20 m/40 m in `autobuild/frames/p2_4/`. See PROGRESS.md.)*
+  **Reopened after the user's playtest; do it after P2-1b.** The shipped default becomes the new D3
+  default: distinct family members in matching family outfits (from P2-1b), so teams are obvious
+  with no other tell. Keep the earlier ideas as switchable options for later playtests, data-driven,
+  combinable, from the settings and a debug key with no code change: (a) marker over your own
+  teammates only, never over enemies; (b) minimap showing only your teammates; (c) identical
+  families except one detail (this option switches the family outfits back to identical, plus the
+  wristband); (d) kid swap. They are off by default. Log the new default in DECISIONS.md as REVIEW.
+  *Verify:* frames of the default and of each option, from 20 m and 40 m.
 - [x] **P2-5 Turnaround sheet.** *(Done: `node autobuild/turnaround.mjs` → `autobuild/slice/turnaround_<member>.png`, the six family members, each one frame of four copies turned front/right/back/left against their own line of sight. See PROGRESS.md.)* One capture per character from 4 angles in `autobuild/slice/`.
 
 ## Phase 3 — The house and the lot
 
 - [x] **P3-1 Kit selection.** *(Done: Kenney Furniture Kit for furniture and appliances; Poly Haven textures plus ambientCG for carpet/wallpaper; the shell generated from the blockout; safe, jail pen and cash our own. `autobuild/fetch_kenney.mjs`; 8 trial pieces in `art/props/kenney/`, seen in kitchen A and bedroom A. REVIEW. See PROGRESS.md.)* Choose wall/door/window/floor/roof/stair/furniture packs (Kenney,
   Quaternius, KayKit, others CC0). Log in ASSETS.md. Prefer one or two coherent packs over many.
-- [x] **P2-1b Evaluate all character packs.** *(Done: all four packs CC0; pick = Quaternius Animated low poly men/women (REVIEW), re-rigged onto the figure skeleton by `tools/rerig_character.gd` (`autobuild/rerig_family.mjs`) with a clean egg head; the whole family and `figure_anims.res` now use them; lineup, turnarounds and clip sheets re-shot. See PROGRESS.md.)* P2-1 used only the Quaternius Universal Base
-  Characters. Evaluate ALL character packs in `autobuild/Incoming/`: the two Quaternius Ultimate
-  Modular packs (`Quaternius Ultimate Modular Men.zip`, `… Women.zip`) plus the two low-poly animated
-  men/women packs the user added (`Animated low poly men.zip`, `Animated low poly women.zip`).
-  For each pack, check the licence first: only CC0, CC-BY (credit it in CREDITS.md) or another
-  licence that clearly allows commercial use; reject anything unclear and say why in ASSETS.md.
-  Compare all candidates against the current figures in the same frames and pick the plainest,
-  silliest bodies (D2) that fit the poly budget and take the existing animations
-  (`art/characters/figure_anims.res`). Log the pick in DECISIONS.md as REVIEW; if a new pack wins,
-  rebuild the family from it the way P2-1 did. Keep the zips out of git.
 - [x] **P3-2 Shell dressing.** *(Done: `ShellBuilder` generates the textured shell from the blockers at load: plaster/block/brick walls, tiled/oak/carpet floors, ceilings, oak treads with painted risers, casings, open family-colour french doors, skirting, a hipped roof; one mesh per house. Collision and zones untouched. Frames of all 16 rooms, 6 exteriors, 16 camera views. See PROGRESS.md.)* Visual shell from the existing blockout data (`godot/game/blockout`,
   `HOUSE_LAYOUT`/`WORLD_AUTHORING`): walls, floors, doors, windows, stairs, roof with reveal. Collision
   and zones unchanged. *Verify:* content validator + all tests green; frames of every room.
