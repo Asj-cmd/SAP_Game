@@ -570,6 +570,22 @@ one before counting many.** (The trace probe is in `git stash`, message
 Every one of House A's 332 drop edges was walked by a real body from the
 stance centre and all 332 land, so the edges themselves are sound.
 
+## 6c-v. Bots stood watching each other: risk per threat was too high (P3-3d)
+
+After P3-3c, 6 of 32 sweep matches ended level. One suspect was idling at
+patrol posts. It was a standoff: a STEAL is worth 3000 and each enemy within
+840 of the bundle cost `risk_weight` 1400, so two defenders near their own cash
+made every steal score below a patrol post - for both teams at once, since
+both were at home. One 4v4 match spent 3023 of about 5900 body-seconds
+standing. `risk_weight` is 800 now: idle 10-24 s a match, drawn rounds 11 -> 6,
+houses A 13 / B 14 (the 3v3 lean to House B went with it).
+
+It did NOT settle the level matches (5 of 32): about 35 of 88 rounds still run
+to the clock and one in five of those is level, with 91 % of seizures rescued.
+Longer rounds helped on a half sample (PLAN P3-3e). Sweep any of it as an
+argument: `side_sweep.mjs --bot.risk_weight=` / `--mode.round_seconds=`; the
+summary prints idle seconds.
+
 ## 6d. Multiplayer is reachable from a menu
 
 It was complete and unusable: hosting meant `CashGrab.exe -- --host

@@ -50,7 +50,12 @@ extends Resource
 ## between errands, not veto the far ones.
 @export var cost_per_unit: float = 0.15
 ## Score lost per enemy within vision of the target. Higher means more cautious.
-@export var risk_weight: float = 1400.0
+##
+## 800 since P3-3d (was 1400). At 1400 two defenders near a bundle already
+## outweighed the steal (3000), so at 3v3 and 4v4 both teams stood at their
+## patrol posts watching each other: up to half of all body time in a match,
+## and rounds ran out level. Measured with `side_sweep.mjs --bot.risk_weight=`.
+@export var risk_weight: float = 800.0
 ## How far away an enemy registers as a threat at all.
 @export var vision_radius: float = 840.0
 ## Stickiness: the task already held wins ties and near-ties. Without it a bot

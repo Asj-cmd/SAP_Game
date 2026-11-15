@@ -2,6 +2,29 @@
 
 Newest first. One entry per task: date, task id, what changed, what the frames showed, numbers, what is left.
 
+## 2026-11-15 — P3-3d Matches that end level: the idling was a bot standoff (partly done)
+- **Question:** 6 of 32 sweep matches ended level after P3-3c. Rescue rate, patrol-post idling, or the clock?
+- **Tools first:** `bot_match --bot.<field>=<value>` overrides one bot-profile number (like `--mode.*` / `--tuning.*`); `side_sweep.mjs` passes it through and now prints idle seconds per match and per size.
+- **Runs** (3v3 + 4v4, as-is and swapped; a match is deterministic, so runs 3 and 4 together are one full sweep):
+
+  | run | what | matches | level | drawn rounds | clock rounds (incl. drawn) | idle per match |
+  |---|---|---|---|---|---|---|
+  | 1 | reference, seeds 1–8 | 32 | 6 | 11 of 85 | 39 | not printed yet |
+  | 1, seeds 1–4 only | reference subset | 16 | 4 | 7 | 21 of 46 | — |
+  | 2 | `--mode.round_seconds=240`, seeds 1–4 | 16 | 1 | 3 | 15 of 41 | 3v3 median 25 s; 4v4 median 57 s, two matches at 1697 and 3023 s |
+  | 3 | `--bot.risk_weight=800`, seeds 1–4 | 16 | 2 | 3 | 18 of 45 | 3v3 median 10 s, 4v4 21 s, max 49 s |
+  | 4 | `--bot.risk_weight=800`, seeds 5–8 | 16 | 3 | 3 | 17 of 43 | 3v3 median 10 s, 4v4 24 s, max 39 s |
+  | 3 + 4 | risk weight 800, seeds 1–8 | 32 | **5** | **6 of 88** | 35 | — |
+
+- **What it says.**
+  - The idling is a bot standoff, not a game property. A STEAL is worth 3000 and each enemy within 840 of the bundle cost 1400, so two defenders near their cash made every steal lose to a patrol post, on both sides at once. In run 2's 4v4 seed 4 swapped, 3023 of about 5900 body-seconds were spent standing. At 800 it is gone.
+  - Removing it halves the drawn rounds (11 → 6) and evens the houses: A 13, B 14 (was A 11, B 15, and 3 to 10 at 3v3). 3v3 alone is now A 6, B 8; 4v4 A 7, B 6.
+  - **It does not fix the level matches: 5 of 32, against a target of 2.** Rounds still run to the clock as often (35 of 88), and about one clock round in five is level. 91 % of seizures are rescued (1229 of 1346 over the 32), unchanged.
+  - Longer rounds (run 2, old bots) cut level matches on the half sample to 1 of 16, at the price of longer matches (median about 445 s, worst 735 s). Not combined with the bot change yet: no time left this session for another 30-minute sweep.
+- **Changed:** `BotProfileDef.risk_weight` 1400 → 800 (the profile .tres stores only differences from the script's defaults, so the default is the number). Mode files untouched: the game was not tuned to fix the bots.
+- **Verify:** `node autobuild/verify.mjs` healthy. 16 suites at pinned counts; symmetry 193 of 193; bot match 3v3 team_b in 425 s, stalls 47 s, idle 22 s; 1v1 team_a in 250 s, stalls 5 s; tick budget 0 / 0 / 0 of 600 over; net_smoke 1672 ticks agree. Sweep stalls at 800: 3v3 18–77 s, 4v4 23–111 s (one match, 4v4 seed 3 swapped, at 111; the rest at most 88, the P3-3c range was 14–88).
+- **Left:** P3-3e (filed): the full sweep at 240 s (and 210 s) rounds with the new bots. The stash `stash@{0}` (P3-3c trace probe) can still be dropped.
+
 ## 2026-11-15 — P3-3c 4v4 stairwell stalls: one bot failing to step off a landing
 - **Two sessions.** The first found the cause, fixed it and was cut off before the sweep and the write-up (commit `2147139`). This one ran the sweep, committed the leftover diagnostic and the PROJECT_MEMORY section, and closed the task.
 - **Cause (not congestion).** `bot_match` now says what each stalled body was up against. In the worst match (4v4 seed 5, 283 s of stalls) 247 s were a bot on its own, 198 of them on PATROL. Routes step off a landing into the stairwell onto the flight underneath. From the lip, the landing spot and the waypoint after it are both inside the arrival radius, so both were ticked off before the body stepped off; it then could not walk to the next waypoint, re-planned, and got the same route.

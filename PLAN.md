@@ -186,7 +186,7 @@ Aug 16–Oct 10 are in; an earlier version of this plan was written against the 
   63 % of 374 s in five spots at the two stairwells (House A local ~(250–370, 1450) by stair B, ~(1570–1690, 490)
   by stair A), DEPOSIT routes at legs 3–5, many bodies at once. Measure first (who is pressed against whom, which
   leg); the give-way rule in `BotDirector._steer` is the likely place. *Verify:* 4v4 sweep stalls within the 3v3 range.
-- [ ] **P3-3d Matches that end level after the drop fix.** With bots no longer stuck on landings (P3-3c), the
+- [~] **P3-3d Matches that end level after the drop fix.** *(Partly done 2026-11-15: the patrol-post idling was a bot standoff; `risk_weight` 1400 → 800 in the bot profile ended it (idle median 10–24 s a match) and the house lean (A 13, B 14), drawn rounds 11 → 6, but 5 of 32 matches still end level (target 2). Mode files unchanged. Left: P3-3e. See PROGRESS.md.)* With bots no longer stuck on landings (P3-3c), the
   3v3 + 4v4 sweep (seeds 1–8, as-is and swapped) left 6 of 32 matches undecided, against 1 of 32 at P0-11: 28 of
   85 rounds ended on the clock and 11 were drawn, and 91 % of seizures were rescued (85 % before). 3v3 also leaned
   to House B, 10 to 3 (4v4: A 8, B 5). Measure first (`node autobuild/side_sweep.mjs --sizes=3,4`, and
@@ -194,6 +194,14 @@ Aug 16–Oct 10 are in; an earlier version of this plan was written against the 
   patrol-post idling at 4v4 (`bot_match --why-idle`: STEAL scores about −3400 with 4 threats), or the clock?
   Change mode data, not rules; tuned against bots, so REVIEW. *Verify:* at most 2 of 32 undecided, and neither
   house above P0-5b's 15-of-24 rate; stalls stay within the P3-3c range.
+- [ ] **P3-3e Level matches, second attempt (the clock).** After P3-3d's bot fix, 5 of 32 sweep matches (3v3 + 4v4,
+  seeds 1–8, as-is and swapped) still end level in regulation: 35 of 88 rounds run to the clock and 6 of those are
+  drawn, with 91 % of seizures rescued. A half-sweep at `--mode.round_seconds=240` with the OLD bots gave 1 of 16
+  level (reference 4 of 16) but matches up to 735 s. Run the full sweep at 240 (and 210) with the new bots:
+  `node autobuild/side_sweep.mjs --sizes=3,4 --mode.round_seconds=240` (about 30 min). If it reaches at most 2 of 32
+  without the match median going far past 400 s, put it in `house_3v3.tres` / `house_4v4.tres` (REVIEW); if not, log
+  that level rounds are a rules question (a drawn round is replayed; the target is 7 of 8) for the user, and leave
+  the numbers. *Verify:* at most 2 of 32 undecided, neither house above 15 of 24, stalls within the P3-3c range.
 - [ ] **P3-4 Exterior.** Lot, fences, garden, trees, path, neutral strip, street, sky, sun.
 - [ ] **P3-5 Lighting and readability pass.** Lighting per room, shadow settings the Compatibility
   renderer can afford, contrast between floor/wall/characters/cash. *Verify:* frames at day-like
