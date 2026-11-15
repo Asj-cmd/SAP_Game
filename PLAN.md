@@ -181,11 +181,19 @@ Aug 16–Oct 10 are in; an earlier version of this plan was written against the 
   (2) Re-run `autobuild/side_sweep.mjs`: the decided matches leaned team_a 16 to 6. (3) GPU timing of the kitchen and
   bedroom views against the 9 ms budget (`render_stats.mjs`). (4) Check that bots can fetch cash lying on a
   120 top. *Verify:* 4v4 sweep stalls back near the 3v3 range, and side lean within P0-5b's target.
-- [ ] **P3-3c 4v4 stairwell congestion.** After P3-3b, 4 of 16 4v4 sweep matches still stall 228–374 s
+- [x] **P3-3c 4v4 stairwell congestion.** *(Done 2026-11-15: not congestion. One bot at a time failed to step off a landing onto the flight below: the route's drop waypoints were ticked off from the lip, and re-aiming at the landing spot turned the body back. Fixed in `BotDirector` (`_has_reached`, `_drop_pending`). 4v4 sweep stalls 16–69 s, median 56 (3v3: 14–88, median 42). Undecided matches went up; see P3-3d and PROGRESS.md.)* After P3-3b, 4 of 16 4v4 sweep matches still stall 228–374 s
   (median 125; 3v3 range 24–132), all with `--swap-houses`. `bot_match --team-size=4 --seed=4 --once --swap-houses`:
   63 % of 374 s in five spots at the two stairwells (House A local ~(250–370, 1450) by stair B, ~(1570–1690, 490)
   by stair A), DEPOSIT routes at legs 3–5, many bodies at once. Measure first (who is pressed against whom, which
   leg); the give-way rule in `BotDirector._steer` is the likely place. *Verify:* 4v4 sweep stalls within the 3v3 range.
+- [ ] **P3-3d Matches that end level after the drop fix.** With bots no longer stuck on landings (P3-3c), the
+  3v3 + 4v4 sweep (seeds 1–8, as-is and swapped) left 6 of 32 matches undecided, against 1 of 32 at P0-11: 28 of
+  85 rounds ended on the clock and 11 were drawn, and 91 % of seizures were rescued (85 % before). 3v3 also leaned
+  to House B, 10 to 3 (4v4: A 8, B 5). Measure first (`node autobuild/side_sweep.mjs --sizes=3,4`, and
+  `--mode.capture_seconds=` / `--mode.round_seconds=` as arguments): is it the rescue rate, the 1117 s of
+  patrol-post idling at 4v4 (`bot_match --why-idle`: STEAL scores about −3400 with 4 threats), or the clock?
+  Change mode data, not rules; tuned against bots, so REVIEW. *Verify:* at most 2 of 32 undecided, and neither
+  house above P0-5b's 15-of-24 rate; stalls stay within the P3-3c range.
 - [ ] **P3-4 Exterior.** Lot, fences, garden, trees, path, neutral strip, street, sky, sun.
 - [ ] **P3-5 Lighting and readability pass.** Lighting per room, shadow settings the Compatibility
   renderer can afford, contrast between floor/wall/characters/cash. *Verify:* frames at day-like

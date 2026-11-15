@@ -553,6 +553,11 @@ them, and the second only showed once the first was fixed:
    heading until it has fallen (`_drop_pending`).
 
 Seed 5 after both: 283 → 67 s of stalls, 800 → 23 s idle, undecided → decided.
+Sweep after both (seeds 1-8, as-is and swapped): 4v4 stalls 16-69 s, median 56
+(was median 125, up to 374); 3v3 14-88 s, median 42. But 6 of those 32 matches
+ended level inside regulation, against 1 before: bots that no longer get stuck
+rescue more (91 % of seizures) and more rounds run to the clock. That is
+PLAN.md P3-3d, a tuning question, not a routing one.
 
 **What it cost to find, and the rule.** A first fix went in on a theory (the
 hall's patrol point is a stair tread) that a five-minute run then showed

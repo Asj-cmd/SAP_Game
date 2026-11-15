@@ -2,6 +2,25 @@
 
 Newest first. One entry per task: date, task id, what changed, what the frames showed, numbers, what is left.
 
+## 2026-11-15 — P3-3c 4v4 stairwell stalls: one bot failing to step off a landing
+- **Two sessions.** The first found the cause, fixed it and was cut off before the sweep and the write-up (commit `2147139`). This one ran the sweep, committed the leftover diagnostic and the PROJECT_MEMORY section, and closed the task.
+- **Cause (not congestion).** `bot_match` now says what each stalled body was up against. In the worst match (4v4 seed 5, 283 s of stalls) 247 s were a bot on its own, 198 of them on PATROL. Routes step off a landing into the stairwell onto the flight underneath. From the lip, the landing spot and the waypoint after it are both inside the arrival radius, so both were ticked off before the body stepped off; it then could not walk to the next waypoint, re-planned, and got the same route.
+- **Fix** (`sim/ai/bot_director.gd`): a waypoint more than two steps below the body is not reached (`_has_reached`); a body at the lip or in the air over a drop keeps its latched heading instead of re-aiming (`_drop_pending`). The first half alone made it worse (283 → 465 s: the body stepped off, turned, stepped back up). Table test `_test_arrival` (20 checks; bot_director_test 26 → 46).
+- **Numbers.** Sweep, seeds 1–8, as-is and swapped, 32 matches (`node autobuild/side_sweep.mjs --sizes=4,3`):
+
+  | | before (P3-3b / P0-11 sweeps) | now |
+  |---|---|---|
+  | 4v4 stalls | median 125 s, 4 of 16 at 228–374 s | 16–69 s, median 56 |
+  | 3v3 stalls | 24–132 s | 14–88 s, median 42 |
+  | 4v4 seed 4 swapped (the task's case) | 374 s | 49 s, decided |
+  | 4v4 decided | 15 of 16 | 13 of 16 |
+  | 3v3 decided | 16 of 16 | 13 of 16 |
+
+- **The target is met** (4v4 stalls inside the 3v3 range). **Something else got worse:** 6 of 32 matches now end level inside regulation, against 1. Of 85 rounds, 46 ended on target, 28 on the clock, 11 drawn. Seizures were rescued 91 % of the time (979 of 1074; 85 % at P0-11). 3v3 leaned to House B 10 to 3; 4v4 went A 8, B 5; together A 11, B 15. Not investigated here: filed as **P3-3d**, the next task.
+- **New diagnostic:** `bot_match --why-idle` prints, for the first four bots that stand still 20 s, every errand open to them and its score; the report also lists what idle bots were on. 4v4 seed 4 swapped: 1117 body-seconds idle of about 4000, all at patrol posts, with every STEAL scoring about −3400 against a patrol's +840 (4 threats counted at the cash). That is the scorer working as written; whether it is too timid at 4v4 is part of P3-3d.
+- **Verify:** `node autobuild/verify.mjs` healthy. 16 suites at pinned counts; symmetry 193 of 193; bot match 3v3 team_a in 374 s, stalls 43 s (was 58), 1v1 team_a in 250 s, stalls 10 s; tick budget 0 / 2 / 1 of 600 over at 1v1 / 3v3 / 4v4; net_smoke 1669 ticks agree.
+- **Left:** P3-3d. The throwaway trace probe is still in `git stash` (`stash@{0}`); it can be dropped.
+
 ## 2026-11-15 — P2-4 Team tell: family outfits are the default
 - **Change:** `team_tell.tres` and the `TeamTell` defaults have all four options off, so the P2-1b outfits are the tell. Option (c) passes `plain` to `ArtTheme.outfit_figure`: everyone is back in the same baked plain clothes, plus the wristband. The menu row is now "Extra team tells (off = each family in its own colours)" and the wristband box reads "Identical + Wristband". With nothing on, the F5-F8 banner says "family outfits".
 - **Old saved choices are not read.** The setting moved to section `team_tell_2` of `user://settings.cfg`. The first playtest left minimap + wristband saved on the user's machine, and that would have switched the outfits straight back off.
