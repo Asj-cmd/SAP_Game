@@ -158,8 +158,10 @@ man 3,987, woman 3,027.
   shouts. They are used for: each family's **outfits** (D3 default, 2026-11-14), the D3 (c)
   wristband, the HUD/minimap, and each house's **front door and window frames** (so you know
   whose house you are in). Nowhere else. The blockout's red/blue floor tints are debug, not art.
-- **As built (P2-4 first pass, REVIEW; superseded as the default by D3 2026-11-14, P2-4 reopened).** `TeamTell` (`game/art/team_tell.gd`, default
-  `art/theme/team_tell.tres`): **minimap + wristband** on, marker and kid swap off. Switch in the
+- **As built (P2-4, REVIEW).** `TeamTell` (`game/art/team_tell.gd`, default
+  `art/theme/team_tell.tres`): since 2026-11-15 **all four options off**, so the family outfits
+  are the tell. Option (c) "identical + wristband" puts every figure back in the same plain
+  clothes and adds the band. (The first pass shipped minimap + wristband.) Switch in the
   menu (four checkboxes) or in a match with F5 marker / F6 minimap / F7 wristband / F8 kid swap;
   `--team-tell=` on the command line. Wristband: 7 long on the left forearm cuff, radius measured
   from the mesh, satin family colour (theme `wristband_*`). Marker: a small family-colour

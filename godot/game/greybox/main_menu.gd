@@ -102,13 +102,13 @@ func _build() -> void:
 	# family from the other one. Any combination; saved on this machine, and
 	# F5-F8 flip the same four in a match.
 	var tell_label: Label = Label.new()
-	tell_label.text = "Team tell  (how you spot your own family)"
+	tell_label.text = "Extra team tells  (off = each family in its own colours)"
 	column.add_child(tell_label)
 	var tell_row: HBoxContainer = HBoxContainer.new()
 	var tell: TeamTell = TeamTell.current()
 	for option: StringName in TeamTell.OPTIONS:
 		var box: CheckBox = CheckBox.new()
-		box.text = String(option).replace("_", " ").capitalize()
+		box.text = TeamTell.label(option).capitalize()
 		box.button_pressed = tell.is_on(option)
 		box.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 		box.toggled.connect(func(on: bool) -> void: TeamTell.current().set_option(option, on))

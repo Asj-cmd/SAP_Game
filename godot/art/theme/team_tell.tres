@@ -5,6 +5,6 @@
 [resource]
 script = ExtResource("1_tell")
 marker = false
-minimap = true
-wristband = true
+minimap = false
+wristband = false
 kid_swap = false

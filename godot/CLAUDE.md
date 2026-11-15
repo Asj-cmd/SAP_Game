@@ -109,7 +109,8 @@ godot --path godot -- --team-tell=marker,wristband --capture-clean --capture-hud
 ```
 
 The team tell (P2-4) is a per-machine setting (`TeamTell`): menu checkboxes, F5-F8 in a
-match, `--team-tell=`. Capture runs ignore the player's saved choice.
+match, `--team-tell=`. All four options are off by default: the family outfits are the tell,
+and `wristband` switches them back to identical plain clothes. Capture runs ignore the player's saved choice.
 
 To see the animation DRIVER (FigureAnimator, P2-3) in live play, follow one body
 with a free camera beside it; it writes one contact sheet and prints the clip each

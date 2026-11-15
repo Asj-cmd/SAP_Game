@@ -2,6 +2,20 @@
 
 Newest first. One entry per task: date, task id, what changed, what the frames showed, numbers, what is left.
 
+## 2026-11-15 — P2-4 Team tell: family outfits are the default
+- **Change:** `team_tell.tres` and the `TeamTell` defaults have all four options off, so the P2-1b outfits are the tell. Option (c) passes `plain` to `ArtTheme.outfit_figure`: everyone is back in the same baked plain clothes, plus the wristband. The menu row is now "Extra team tells (off = each family in its own colours)" and the wristband box reads "Identical + Wristband". With nothing on, the F5-F8 banner says "family outfits".
+- **Old saved choices are not read.** The setting moved to section `team_tell_2` of `user://settings.cfg`. The first playtest left minimap + wristband saved on the user's machine, and that would have switched the outfits straight back off.
+- **What the frames showed** (`autobuild/frames/p2_4/`, both families paired by slot in the strip between the houses, `node autobuild/team_tell_frames.mjs`):
+  - `default_close`: eight figures alternating orange and green, no wristbands, no HUD. Dads with light front panels and dark trousers, moms in dresses, elder kids in long yellow or blue trousers, younger kids in shorts.
+  - `default_20m`: the row is a strip of alternating orange and green figures about 40 px tall; each one's team is clear. Two live bots are also in shot, one orange by House B's corner and one green running past House A, both readable as their team.
+  - `default_40m`: the row is about 20 px tall; orange and green still separate, individual members do not.
+  - `wristband_close`: all eight in the same blue-grey tops and grey-brown bottoms, a small red or green band on each left wrist. The bodies still differ (dress, shorts, front panel), so members can be told apart but teams only by the band.
+  - `kid_swap_close`: as the default, except family B's elder child is the boy in the long-sleeved top and its younger child the girl.
+  - `all_20m`: plain figures, green triangles over the four family A figures and over two live teammates (one through a wall), minimap top right with green dots.
+  - `marker_*` and `minimap_*` were shot and not opened this session.
+- **Verify:** `node autobuild/verify.mjs` healthy after this change. Bot match unchanged (3v3 team_b in 421 s, stalls 58 s; 1v1 stalls 6 s); tick budget 0 / 0 / 1 of 600 over; net_smoke 1696 ticks agree.
+- **Left:** a human should say whether the colours are too loud and whether a minimap is wanted by default (P5-2).
+
 ## 2026-11-15 — P2-1b Distinct family members in family outfits
 - **Picked up a cut-off session.** The tree held five more re-rigged bodies and the outfit code (`ArtTheme.outfit_figure`, `FamilyMember.outfit`, a `trim` paint region), but no theme data, so nothing showed. This session wrote the data, looked at it, and fixed what the frames showed.
 - **Bodies, one per member** (all Quaternius low-poly, same skeleton, 2,991–3,975 triangles):

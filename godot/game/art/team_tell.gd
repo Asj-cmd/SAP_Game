@@ -1,16 +1,21 @@
 class_name TeamTell
 extends Resource
 ## How a player tells their own family from the other one (DECISIONS D3, an
-## EXPERIMENT; STYLE §2.4; PLAN P2-4). Four options, any combination:
+## EXPERIMENT; STYLE §2.4; PLAN P2-4). The shipped default since 2026-11-14 is
+## NONE of these: each family wears matching outfits in its own colours
+## (ArtTheme.family_palettes, P2-1b), so teams are obvious. Four options, any
+## combination, kept for later playtests:
 ##
 ##   marker     (a) a small mark over YOUR OWN teammates only, never over enemies
 ##   minimap    (b) a corner map that shows only your own teammates (and you)
 ##   wristband  (c) both families identical except a band on the left wrist in
-##                  the family colour
+##                  the family colour: this one turns the family outfits OFF
+##                  (everyone in the same plain clothes) and the band on
 ##   kid_swap   (d) family A's elder child is a girl and the younger a boy,
 ##                  family B the reverse (the theme's `family_order_by_team`)
 ##
-## The goal D3 sets: a STILL enemy should be hard to tell from your own family.
+## D3's first goal (a still enemy hard to tell from your own family) was
+## retired after the first playtest; options (c) and (d) are what is left of it.
 ##
 ## Presentation only, and per machine: nothing here reaches the simulation or
 ## the network, so two players in one match may use different settings. Where a
@@ -21,13 +26,15 @@ extends Resource
 
 const DEFAULT_PATH: String = "res://art/theme/team_tell.tres"
 const SETTINGS_PATH: String = "user://settings.cfg"
-const SECTION: String = "team_tell"
+## "team_tell" held choices saved under the old default (minimap + wristband);
+## read, they would undo the new default on a machine that had played before.
+const SECTION: String = "team_tell_2"
 ## Option names, in the order the menu and the debug keys list them.
 const OPTIONS: Array[StringName] = [&"marker", &"minimap", &"wristband", &"kid_swap"]
 
 @export var marker: bool = false
-@export var minimap: bool = true
-@export var wristband: bool = true
+@export var minimap: bool = false
+@export var wristband: bool = false
 @export var kid_swap: bool = false
 
 static var _current: TeamTell = null
@@ -92,13 +99,13 @@ func save() -> void:
 		saved.set_value(SECTION, String(option), is_on(option))
 	saved.save(SETTINGS_PATH)
 
-## "minimap + wristband", or "none".
+## "minimap + identical + wristband", or "family outfits" when none is on.
 func describe() -> String:
 	var on: PackedStringArray = PackedStringArray()
 	for option: StringName in OPTIONS:
 		if is_on(option):
 			on.append(label(option))
-	return " + ".join(on) if not on.is_empty() else "none"
+	return " + ".join(on) if not on.is_empty() else "family outfits"
 
 static func label(option: StringName) -> String:
 	match option:
@@ -106,4 +113,6 @@ static func label(option: StringName) -> String:
 			return "teammate marker"
 		&"kid_swap":
 			return "kid swap"
+		&"wristband":
+			return "identical + wristband"
 	return String(option)

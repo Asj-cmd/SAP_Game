@@ -149,7 +149,10 @@ Aug 16–Oct 10 are in; an earlier version of this plan was written against the 
   ally. Procedural wobble allowed but subtle. No ragdoll, stumble or get-up (D9).
 - [x] **P2-3 Animation driver.** *(Done: `FigureAnimator` (AnimationTree: base Transition, stride-matched rate, arms-only one-shots) from sim state; one-shots from confirmed-state changes; contact sheets of live bodies for jog/walk, jump, crouch, grab/carry, throw, seize, free in `autobuild/frames/p2_3/`. Panic run waits for P4-1's speed boost, jail run-in-place for P4-3. See PROGRESS.md.)* AnimationTree/state machine driven from simulation state
   (read-only; presentation never mutates the sim). *Verify:* frames/gif-like contact sheets per state.
-- [ ] **P2-4 Team tell (DECISIONS.md D3, updated 2026-11-14).** *(First pass done 2026-11-13:
+- [x] **P2-4 Team tell (DECISIONS.md D3, updated 2026-11-14).** *(Done 2026-11-15: default = family
+  outfits with all four options off; (c) switches the outfits back to identical plain clothes plus
+  the wristband; choices saved under the old default are not read. Frames of the default and each
+  option in `autobuild/frames/p2_4/`. See PROGRESS.md.)* *(First pass done 2026-11-13:
   `TeamTell` setting, all four options combinable; menu checkboxes, F5-F8, `--team-tell=`; default
   minimap + wristband; frames of every set close/20 m/40 m in `autobuild/frames/p2_4/`. See PROGRESS.md.)*
   **Reopened after the user's playtest; do it after P2-1b.** The shipped default becomes the new D3
