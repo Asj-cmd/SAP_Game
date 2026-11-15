@@ -56,6 +56,12 @@ var _once: bool = false
 ## room it owns - while the seating order stays by team name. A side bias that
 ## follows the name is seating; one that follows the house is the layout.
 var _swap_houses: bool = false
+## `--stall-log` prints every stall second as it happens (tick, body, place,
+## task, leg, and what it was up against), not only the first six.
+var _stall_log: bool = false
+## Floor-to-floor height, to tell a body on a flight from one on a floor.
+const STOREY: float = 360.0
+const GROUND: float = 300.0
 
 ## `--lone` seats one idle human and one bot, which is the shape the playtest
 ## actually reported: a single bot in a doorway with one person about. Bot
@@ -78,6 +84,7 @@ func _initialize() -> void:
 		if arg.begins_with("--seed="):
 			_seed = int(arg.trim_prefix("--seed="))
 	_once = OS.get_cmdline_user_args().has("--once")
+	_stall_log = OS.get_cmdline_user_args().has("--stall-log")
 	_swap_houses = OS.get_cmdline_user_args().has("--swap-houses")
 	var first: Dictionary = _play()
 	var second: Dictionary = first if _once else _play()
@@ -114,6 +121,17 @@ func _initialize() -> void:
 	for spot: String in first["stall_spots"]:
 		print("              %s" % spot)
 	_report_clustering(first["stall_map"], first["stalls"])
+	var why: Dictionary = first["stall_why"]
+	var notes: Array = why.keys()
+	notes.sort_custom(func(a: String, b: String) -> bool:
+		return why[a] > why[b] if why[a] != why[b] else a < b)
+	print("stalled     " + ", ".join(notes.map(func(note: String) -> String: return "%s %d" % [note, why[note]])))
+	var errands: Dictionary = first["stall_errands"]
+	var worst: Array = errands.keys()
+	worst.sort_custom(func(a: String, b: String) -> bool:
+		return errands[a] > errands[b] if errands[a] != errands[b] else a < b)
+	for i: int in mini(8, worst.size()):
+		print("              %4d s  %s" % [errands[worst[i]], worst[i]])
 	quit(0 if first["digest"] == second["digest"] else 1)
 
 ## Finds the first tick two runs disagreed on, and shows what differed.
@@ -229,6 +247,9 @@ func _play(stop_at: int = -1) -> Dictionary:
 	## Where stalls happen, bucketed. Clustered means doorways; scattered means
 	## something else entirely, and they should not be chased together.
 	var stall_map: Dictionary[Vector3i, int] = {}
+	## What each stalled body was up against (see _stall_company).
+	var stall_why: Dictionary[String, int] = {}
+	var stall_errands: Dictionary[String, int] = {}
 
 	# Encounters. The layout metric that ways-in is blind to: a house nobody can
 	# camp is worth nothing if the two teams never meet in it.
@@ -335,6 +356,21 @@ func _play(stop_at: int = -1) -> Dictionary:
 						int(body.position.z / STALL_BUCKET)
 					)
 					stall_map[bucket] = stall_map.get(bucket, 0) + 1
+					var why: String = _stall_company(world, crew, body, task, anchor, stall_why)
+					var walking: BotDirector = crew.director_for(actor_id)
+					var line: PackedVector3Array = walking.route()
+					# The same errand stalling at the same place, counted: the first
+					# six samples are whatever happened first, not what happened most.
+					var errand: String = "%s %s near (%d, %d, %d)  leg %d of %d  to %s" % [
+						BotTask.Kind.keys()[task.kind], task.zone_id,
+						bucket.x * int(STALL_BUCKET), int(body.position.y), bucket.z * int(STALL_BUCKET),
+						walking.leg(), line.size(),
+						line[line.size() - 1].round() if not line.is_empty() else Vector3.ZERO]
+					stall_errands[errand] = stall_errands.get(errand, 0) + 1
+					if _stall_log:
+						print("stall t%d  #%d %s  %s  %s %s leg %d/%d  %s" % [ticks, actor_id, body.team,
+							body.position.round(), BotTask.Kind.keys()[task.kind], task.zone_id,
+							walking.leg(), line.size(), why])
 					if stall_spots.size() < 6:
 						# The position alone says WHERE but not WHY. A bot with
 						# no route is a routing failure; one with a route it is
@@ -373,6 +409,8 @@ func _play(stop_at: int = -1) -> Dictionary:
 		"live_ticks": maxi(live_ticks, 1),
 		"idles": idles,
 		"stall_map": stall_map,
+		"stall_why": stall_why,
+		"stall_errands": stall_errands,
 		"stalls": stalls,
 		"stall_spots": stall_spots,
 		"hashes": hashes,
@@ -388,6 +426,58 @@ func _play(stop_at: int = -1) -> Dictionary:
 		"rescues": tally.get(CaptureEvent.KIND_RELEASED, 0),
 		"winner": world.match_winner,
 	}
+
+## What a stalled body is up against, tallied into `why` and returned as text.
+##
+## "Stalled at a stairwell" does not say whether the body is pushing at a wall,
+## at a team-mate going the same way, or at an enemy coming the other way, and
+## each of those has a different fix. Counted per stall second:
+##   alone / by a team-mate / by an enemy (the nearest body within 2.5 radii);
+##   whether that body is ALSO going nowhere (a mutual jam, not a queue);
+##   whether this body is the lower id of the pair (the give-way rule in
+##   BotDirector._steer has only the HIGHER id back off);
+##   three or more bodies in one knot; off the two floor levels (on a flight).
+func _stall_company(world: SimWorld, crew: BotCrew, body: SimEntity, task: BotTask,
+		anchor: Dictionary[int, Vector3], why: Dictionary[String, int]) -> String:
+	var reach: float = world.tuning.actor_radius * 2.5
+	var nearest: SimEntity = null
+	var nearest_gap: float = INF
+	var company: int = 0
+	for other_id: int in world.actor_ids():
+		var other: SimEntity = world.get_entity(other_id)
+		if other_id == body.id or other == null or other.is_captured:
+			continue
+		var gap: float = body.position.distance_to(other.position)
+		if gap > reach:
+			continue
+		company += 1
+		if gap < nearest_gap:
+			nearest_gap = gap
+			nearest = other
+	var notes: PackedStringArray = PackedStringArray()
+	notes.append("task " + String(BotTask.Kind.keys()[task.kind]))
+	notes.append("state " + String(SimEntity.MotionState.keys()[body.motion_state]))
+	var feet: float = body.position.y - world.tuning.actor_radius
+	if absf(fposmod(feet - GROUND + 0.5 * STOREY, STOREY) - 0.5 * STOREY) > 20.0:
+		notes.append("on a flight")
+	if nearest == null:
+		notes.append("alone")
+	else:
+		notes.append("by a team-mate" if nearest.team == body.team else "by an enemy")
+		notes.append("the lower id" if body.id < nearest.id else "the higher id")
+		# The other body's anchor is its position a window ago or (if already
+		# visited this pass) now; either way a body still within STALL_DISTANCE of
+		# it has gone nowhere.
+		if anchor.has(nearest.id) and anchor[nearest.id].distance_to(nearest.position) < STALL_DISTANCE:
+			notes.append("partner stuck too")
+		var partner: BotDirector = crew.director_for(nearest.id)
+		if partner != null and partner.current_task() != null:
+			notes.append("partner " + String(BotTask.Kind.keys()[partner.current_task().kind]))
+		if company >= 2:
+			notes.append("3+ bodies")
+	for note: String in notes:
+		why[note] = why.get(note, 0) + 1
+	return ", ".join(notes) + ("" if nearest == null else "  (#%d at %s)" % [nearest.id, nearest.position.round()])
 
 ## Which per-team counter an event feeds, or "" for none. The actor on a
 ## pick-up or drop is the carrier; on a capture it is the one seized.

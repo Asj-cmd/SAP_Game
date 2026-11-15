@@ -363,10 +363,23 @@ func _destination_of(world: SimWorld) -> Vector3:
 
 ## Follows the route, and reports travel as intent - never as a position.
 func _steer(world: SimWorld, me: SimEntity, tick: int) -> Array[SimCommand]:
-	while _leg < _route.size() and _flat_distance(me.position, _route[_leg]) <= profile.arrive_radius:
+	while _leg < _route.size() and _has_reached(me, _route[_leg]):
 		_leg += 1
 	if _leg >= _route.size():
 		return _stop_if_moving(tick)
+
+	# A drop still to make: keep walking the way it was going until it has fallen.
+	#
+	# The landing spot of a drop is one cell out from the lip and a long way
+	# down. Re-aiming at it every tick, as for any other waypoint, turns the
+	# body round the moment it has stepped past it: measured at the top of a
+	# stairwell, it stepped off, fell 2 units, turned, stepped back UP onto the
+	# landing (the fall was still inside the step-up allowance), and did that
+	# every other tick for as long as it held the errand. The heading it arrived
+	# with is the one that leads off the edge, and intent is latched, so saying
+	# nothing keeps it.
+	if _has_sent_intent and _last_intent != Vector3.ZERO and _drop_pending(me, _route[_leg]):
+		return []
 
 	# Aim at the FURTHEST waypoint the body could actually reach, not the next one.
 	#
@@ -537,6 +550,43 @@ func _crowded(world: SimWorld, me: SimEntity) -> bool:
 		if me.position.distance_to(other.position) <= reach:
 			return true
 	return false
+
+## Has the body got to this waypoint?
+##
+## Within the arrival radius horizontally (see _flat_distance for why height is
+## not part of the distance) - unless the waypoint is a DROP below the body. A
+## route may step off a ledge: off a landing into the stairwell, say, onto a
+## flight that runs back underneath. Standing at the lip, the landing spot is
+## within the radius and so is the waypoint after it, on the floor under the
+## landing. Judged flat, both were ticked off before the body had stepped off;
+## it then turned for the next waypoint, which is on the floor below and cannot
+## be walked to from above, re-planned from where it stood, got the same route,
+## and did it again. One bot paced a landing like that for 70 s at a time, on
+## its own (P3-3c: 198 of the 283 stall seconds of 4v4 seed 5, which had been
+## read as bodies jamming each other at the stairwells).
+##
+## More than two steps above a waypoint is not at it: the body has yet to
+## fall. Two rather than one because a flight is walked a tread or two ahead of
+## the body, and a tread is one step. A waypoint ABOVE the body still counts at
+## any height - a room's centre is in mid-air, and nothing can rise to it.
+func _has_reached(me: SimEntity, waypoint: Vector3) -> bool:
+	if _flat_distance(me.position, waypoint) > profile.arrive_radius:
+		return false
+	return not _is_above(me, waypoint)
+
+## More than two steps above the waypoint. Never on a surface without steps,
+## which has no ledges worth the name.
+func _is_above(me: SimEntity, waypoint: Vector3) -> bool:
+	var step: float = nav.surface.step_up_height
+	return step > 0.0 and me.position.y - waypoint.y > step * 2.0
+
+## Is the body over a drop it has yet to finish: above the waypoint and either
+## standing within arrival of it (at the lip) or already falling? Bots do not
+## jump, so a bot in the air has walked off something.
+func _drop_pending(me: SimEntity, waypoint: Vector3) -> bool:
+	if not _is_above(me, waypoint):
+		return false
+	return not me.is_grounded or _flat_distance(me.position, waypoint) <= profile.arrive_radius
 
 ## Horizontal only. A waypoint on the floor below a bot standing on a sill is
 ## still the waypoint it is heading for, and counting the height would leave it

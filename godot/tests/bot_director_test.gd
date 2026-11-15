@@ -13,7 +13,7 @@ extends SceneTree
 ##   3. Filling a lobby is FAIR. A bot may never be the reason one side is
 ##      bigger, and declining to add one is a legitimate outcome.
 
-const EXPECTED_CHECKS: int = 26
+const EXPECTED_CHECKS: int = 46
 
 const RADIUS: float = 10.0
 const FLOOR_TOP: float = 10.0
@@ -28,6 +28,7 @@ func _initialize() -> void:
 	_test_symmetric_fill()
 	_test_profile_drives_choice()
 	_test_decisions()
+	_test_arrival()
 	_test_takeover()
 	_test_intent_survives_a_countdown()
 
@@ -355,6 +356,37 @@ func _test_decisions() -> void:
 	)
 	idle.drain(jailed, jailed.tick, {})
 	_check("decide/a captured bot holds no task", idle.current_task().is_none(), true)
+
+## Has a body got to a waypoint, and is it over a drop it has yet to finish?
+##
+## Arrival is judged flat, except that a waypoint more than two steps BELOW the
+## body is a drop still to make (P3-3c: at a stairwell lip the landing spot and
+## the waypoint after it are both within the radius, underneath). `up` is how
+## far the body is above the waypoint, `out` how far from it on the flat.
+func _test_arrival() -> void:
+	var world: SimWorld = _world()
+	var me: SimEntity = world.get_entity(world.actor_ids()[0])
+	var director: BotDirector = BotDirector.for_actor(me.id, _profile(), NavGraph.of(world.surface), 5)
+	var radius: float = director.profile.arrive_radius
+	var step: float = world.surface.step_up_height
+	var waypoint: Vector3 = Vector3(200, FLOOR_TOP + RADIUS, 100)
+	var cases: Array[Dictionary] = [
+		{"name": "level, within the radius", "up": 0.0, "out": radius - 1.0, "grounded": true, "reached": true, "pending": false},
+		{"name": "level, outside the radius", "up": 0.0, "out": radius + 1.0, "grounded": true, "reached": false, "pending": false},
+		{"name": "waypoint in mid-air above", "up": -160.0, "out": 0.0, "grounded": true, "reached": true, "pending": false},
+		{"name": "one tread below", "up": step, "out": radius - 1.0, "grounded": true, "reached": true, "pending": false},
+		{"name": "two treads below", "up": step * 2.0, "out": radius - 1.0, "grounded": true, "reached": true, "pending": false},
+		{"name": "a drop below, at the lip", "up": step * 3.0, "out": radius - 1.0, "grounded": true, "reached": false, "pending": true},
+		{"name": "a drop below, directly over it", "up": step * 12.0, "out": 0.0, "grounded": true, "reached": false, "pending": true},
+		{"name": "a drop below, not there yet", "up": step * 3.0, "out": radius + 1.0, "grounded": true, "reached": false, "pending": false},
+		{"name": "falling toward it from further out", "up": step * 3.0, "out": radius * 3.0, "grounded": false, "reached": false, "pending": true},
+		{"name": "in the air level with it", "up": 0.0, "out": radius - 1.0, "grounded": false, "reached": true, "pending": false},
+	]
+	for case: Dictionary in cases:
+		me.position = waypoint + Vector3(case["out"], case["up"], 0.0)
+		me.is_grounded = case["grounded"]
+		_check("arrival/%s: reached" % case["name"], director._has_reached(me, waypoint), case["reached"])
+		_check("arrival/%s: drop pending" % case["name"], director._drop_pending(me, waypoint), case["pending"])
 
 # ---- 5. the two seats ----
 
