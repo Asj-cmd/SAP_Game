@@ -18,18 +18,26 @@
 // waits 15 min, 30 min, then 60 min at a time and retries; these are not sessions or stalls either.
 // After 6 such waits in a row (about 4.75 h) it stops and tells you to run claude.cmd and /login.
 //
-// Model: set CLAUDE_MODEL (e.g. $env:CLAUDE_MODEL = "fable") to start every session with --model.
-// If that model's own limit is hit ("Fable limit"), the loop does not wait: it drops --model for
-// the rest of the run and starts again at once on the default model. Other limits wait as above.
+// Planner and worker models (all optional; unset = Claude's default model):
+//   PLANNER_MODEL  e.g. "opus": before a worker session, if autobuild/BRIEF.md has no section for the
+//                  first open task, one short planner session (PLANNER_PROMPT.md, 40 turns) writes
+//                  briefs for the next 3 tasks. A planner session is not a worker session and does not
+//                  count toward the stall limit. It is tried at most once per task per run.
+//   WORKER_MODEL   e.g. "opus": the model for worker sessions (CLAUDE_MODEL still works the same way).
+//   If the worker model hits its OWN limit ("Opus limit reached") the workers switch to sonnet for the
+//   rest of the run, with no wait. If the planner model hits its own limit, planning is skipped for the
+//   rest of the run. Limits that are not model-specific (5-hour, weekly) wait as above.
 //
 // Env: MAX_TURNS (default 200)  ITER_TIMEOUT_MIN (default 120)  BACKOFF_MIN (default 30)
-//      STALL_LIMIT (default 3)  CLAUDE_MODEL (optional)  GODOT_BIN (required, passed through to Claude's shell)
+//      STALL_LIMIT (default 3)  PLANNER_MODEL  WORKER_MODEL / CLAUDE_MODEL  PLANNER_TIMEOUT_MIN (default 25)
+//      GODOT_BIN (required, passed through to Claude's shell)
 
 import { spawnSync } from "node:child_process";
 import { appendFileSync, existsSync, mkdirSync, readFileSync, writeFileSync } from "node:fs";
 import { dirname, join, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
-import { isLimitMessage, planLimitWait, isConnectionProblem, connectionWaitMin, MAX_CONNECTION_WAITS, isModelLimit, modelFamily } from "./limits.mjs";
+import { isLimitMessage, planLimitWait, isConnectionProblem, connectionWaitMin, MAX_CONNECTION_WAITS, limitAction } from "./limits.mjs";
+import { firstOpenTaskId, hasBriefFor, briefHeadings } from "./planning.mjs";
 
 const HERE = dirname(fileURLToPath(import.meta.url));
 const ROOT = resolve(HERE, "..");
@@ -42,11 +50,19 @@ const opt = (n, d) => { const i = argv.indexOf(n); return i >= 0 ? Number(argv[i
 const MAX_ITERS = opt("--max-iters", 200);
 const MAX_TURNS = Number(process.env.MAX_TURNS ?? 200);
 const ITER_TIMEOUT_MIN = Number(process.env.ITER_TIMEOUT_MIN ?? 120);
+const PLANNER_TIMEOUT_MIN = Number(process.env.PLANNER_TIMEOUT_MIN ?? 25);
+const PLANNER_TURNS = 40;
 const BACKOFF_MIN = Number(process.env.BACKOFF_MIN ?? 30);
 const STALL_LIMIT = Number(process.env.STALL_LIMIT ?? 3);
 const TRUST_RE = /Ignoring\b.*\bpermissions?\b|has not been trusted/i;
 const MAX_LIMIT_WAIT_MS = 8 * 24 * 60 * 60_000; // weekly limit plus a day of slack
-let model = process.env.CLAUDE_MODEL?.trim() || null; // dropped for the rest of the run if its own limit is hit
+const FALLBACK_WORKER = "sonnet";
+const BRIEF = join(HERE, "BRIEF.md");
+// null = the default model. workerModel becomes "sonnet" if its own limit is hit; plannerModel becomes
+// null (no planning) if its own limit is hit.
+let workerModel = process.env.WORKER_MODEL?.trim() || process.env.CLAUDE_MODEL?.trim() || null;
+let plannerModel = process.env.PLANNER_MODEL?.trim() || null;
+const plannerTried = new Set(); // task ids the planner has already had its one go at in this run
 
 const sh = (cmd, args, opts = {}) =>
   spawnSync(cmd, args, { cwd: ROOT, encoding: "utf8", shell: process.platform === "win32", ...opts });
@@ -63,7 +79,9 @@ function sleepUntil(untilMs) {
   }
   return existsSync(join(ROOT, "STOP"));
 }
-const openTasks = () => (readFileSync(join(ROOT, "PLAN.md"), "utf8").match(/^- \[[ ~]\] /gm) ?? []).length;
+const planText = () => readFileSync(join(ROOT, "PLAN.md"), "utf8");
+const briefText = () => (existsSync(BRIEF) ? readFileSync(BRIEF, "utf8") : "");
+const openTasks = () => (planText().match(/^- \[[ ~]\] /gm) ?? []).length;
 
 function writeReport(startSha, note) {
   const read = (f) => (existsSync(join(ROOT, f)) ? readFileSync(join(ROOT, f), "utf8") : "");
@@ -95,18 +113,126 @@ const startSha = git("rev-parse", "HEAD");
 let stalls = 0, attempt = 0;
 let limitWaitedMs = 0, fallbackStep = 0, lastTarget = null; // reset whenever a session runs without hitting a limit
 let connectionWaits = 0; // sign-in/network waits in a row; reset whenever Claude gets through
-log(`loop start on ${git("branch", "--show-current")} @ ${startSha.slice(0, 8)}; max ${MAX_ITERS} sessions, ${MAX_TURNS} turns each`);
+
+// A usage limit that is not specific to a model: wait for the reset. `label` names who hit it
+// ("session 4", "planner"); `last` is the last finished session number, for the report.
+// Returns "retry" (waited, try again), "stopped" (STOP file) or "giveup" (would pass 8 days).
+function waitForLimit(out, label, last) {
+  const now = Date.now();
+  const plan = planLimitWait({ text: out, now, lastTarget, step: fallbackStep + 1, backoffMin: BACKOFF_MIN });
+  if (plan.target === null) fallbackStep++; else lastTarget = plan.target;
+  const waitMs = plan.until - now;
+  if (limitWaitedMs + waitMs > MAX_LIMIT_WAIT_MS) {
+    const msg = `Usage limit: already waited ${(limitWaitedMs / 3_600_000).toFixed(1)} h in a row and the next wait ` +
+      `(until ${when(plan.until)}) would pass 8 days. Stopping. Check your plan's limits, then start the loop again.`;
+    log(msg);
+    writeReport(startSha, `Ended: ${msg}`);
+    return "giveup";
+  }
+  log(`${label}: usage limit (${plan.source}). Not counted as a session.`);
+  log(`waiting until ${when(plan.until)} (this PC's time; ${(waitMs / 3_600_000).toFixed(1)} h). Create a STOP file to end the wait.`);
+  writeReport(startSha, `Waiting for the usage limit to reset: until ${when(plan.until)}. Last session ${last}.`);
+  const stopped = sleepUntil(plan.until);
+  limitWaitedMs += Date.now() - now;
+  if (stopped) { log("STOP file found during the usage-limit wait, ending."); writeReport(startSha, "Stopped by STOP file (during a usage-limit wait)."); return "stopped"; }
+  log("usage-limit wait over, trying again");
+  return "retry";
+}
+
+// A sign-in or network problem: wait 15, 30, 60, 60... minutes, up to 6 times in a row.
+// Returns "retry", "stopped" or "giveup".
+function waitForConnection(label, logName, last) {
+  if (connectionWaits >= MAX_CONNECTION_WAITS) {
+    const msg = `${label}: Claude still cannot connect or sign in after ${MAX_CONNECTION_WAITS} waits in a row ` +
+      `(about 4.75 hours). Stopping. Fix: open PowerShell in this folder, run claude.cmd, type /login and sign in, ` +
+      `type /exit, then start the loop again. Full text in autobuild/logs/${logName}.`;
+    log(msg);
+    writeReport(startSha, `Ended: ${msg}`);
+    return "giveup";
+  }
+  const mins = connectionWaitMin(connectionWaits++);
+  const until = Date.now() + mins * 60_000;
+  log(`${label}: connection/sign-in problem (wait ${connectionWaits} of ${MAX_CONNECTION_WAITS}). Not counted as a session.`);
+  log(`connection/sign-in problem, waiting until ${when(until)} (this PC's time; ${mins} min). Create a STOP file to end the wait.`);
+  writeReport(startSha, `Connection/sign-in problem: waiting until ${when(until)}, then retrying. Last session ${last}.`);
+  if (sleepUntil(until)) { log("STOP file found during the connection wait, ending."); writeReport(startSha, "Stopped by STOP file (during a connection wait)."); return "stopped"; }
+  log("connection wait over, trying again");
+  return "retry";
+}
+
+// One short planner session: writes briefs for the next 3 open tasks into autobuild/BRIEF.md.
+// Never throws and never counts as a stall. Returns "done" (carry on to the worker), "retry" (it waited
+// out a limit or a connection problem; plan again) or "stop" (STOP file, or gave up waiting).
+function runPlanner(taskId, last) {
+  const promptFile = join(HERE, "PLANNER_PROMPT.md");
+  if (!existsSync(promptFile)) {
+    log("planner: autobuild/PLANNER_PROMPT.md is missing, skipping planning for the rest of this run");
+    plannerModel = null;
+    return "done";
+  }
+  const before = git("rev-parse", "HEAD");
+  const args = ["-p", "--max-turns", String(PLANNER_TURNS), "--output-format", "text", "--model", plannerModel];
+  if (flag("--skip-permissions")) args.push("--dangerously-skip-permissions");
+  log(`planner: starting (model ${plannerModel}, first open task ${taskId}, HEAD ${before.slice(0, 8)})`);
+  const started = Date.now();
+  const r = sh("claude", args, { input: readFileSync(promptFile, "utf8"), timeout: PLANNER_TIMEOUT_MIN * 60_000, maxBuffer: 256 * 1024 * 1024 });
+  const seconds = (Date.now() - started) / 1000;
+  const out = `${r.stdout ?? ""}\n${r.stderr ?? ""}${r.error && r.error.code !== "ETIMEDOUT" ? `\n[could not start claude: ${r.error.message}]` : ""}`;
+  const logName = `planner-${String(++attempt).padStart(3, "0")}.log`;
+  writeFileSync(join(LOGS, logName), out);
+  const progressed = git("rev-parse", "HEAD") !== before;
+  const failed = r.status !== 0 || Boolean(r.error);
+  log(`planner: exit ${r.status}${r.error?.code === "ETIMEDOUT" ? " (timed out)" : ""} after ${seconds.toFixed(1)} s, ${progressed ? "new commit" : "no new commit"}`);
+
+  if (!progressed && isLimitMessage(out)) {
+    const act = limitAction(out, { role: "planner", model: plannerModel, fallback: FALLBACK_WORKER });
+    if (act.kind === "skip-planner") {
+      log(`planner: ${act.family} limit reached, skipping planning for the rest of this run. Not counted as a session.`);
+      plannerModel = null;
+      return "done";
+    }
+    connectionWaits = 0;
+    return waitForLimit(out, "planner", last) === "retry" ? "retry" : "stop";
+  }
+  if (failed && !progressed && isConnectionProblem(out)) {
+    return waitForConnection("planner", logName, last) === "retry" ? "retry" : "stop";
+  }
+
+  plannerTried.add(taskId); // one go per task per run, whatever came of it
+  limitWaitedMs = 0; fallbackStep = 0; lastTarget = null; connectionWaits = 0;
+  const lines = out.split(/\r?\n/).filter((l) => l.trim() !== "");
+  for (const l of lines.slice(-4)) log(`  planner | ${l}`);
+  if (progressed) { const p = sh("git", ["push", "-u", "origin", "HEAD"]); log(p.status === 0 ? "planner: pushed" : `planner: push failed: ${(p.stderr ?? "").trim().slice(0, 200)}`); }
+  const ids = briefHeadings(briefText());
+  log(hasBriefFor(briefText(), taskId)
+    ? `planner: done. BRIEF.md has sections for ${ids.join(", ")}`
+    : `planner: done, but BRIEF.md has no section for ${taskId} (the worker runs without one). Full text in autobuild/logs/${logName}`);
+  return "done";
+}
+
+log(`loop start on ${git("branch", "--show-current")} @ ${startSha.slice(0, 8)}; max ${MAX_ITERS} sessions, ${MAX_TURNS} turns each; ` +
+  `planner ${plannerModel ?? "off"}, workers ${workerModel ?? "default model"}`);
 
 for (let i = 1; i <= MAX_ITERS; i++) {
   if (existsSync(join(ROOT, "STOP"))) { log("STOP file found, ending."); writeReport(startSha, "Stopped by STOP file."); break; }
   if (openTasks() === 0) { log("No open tasks left."); writeReport(startSha, "Plan complete or fully blocked."); break; }
 
+  // Planner first, when the first open task has no brief yet.
+  if (plannerModel) {
+    const taskId = firstOpenTaskId(planText());
+    if (taskId && !hasBriefFor(briefText(), taskId) && !plannerTried.has(taskId)) {
+      const res = runPlanner(taskId, i - 1);
+      if (res === "retry") { i--; continue; }
+      if (res === "stop") break;
+    }
+  }
+
   const before = git("rev-parse", "HEAD");
   const prompt = readFileSync(join(HERE, "PROMPT.md"), "utf8");
   const args = ["-p", "--max-turns", String(MAX_TURNS), "--output-format", "text"];
-  if (model) args.push("--model", model);
+  if (workerModel) args.push("--model", workerModel);
   if (flag("--skip-permissions")) args.push("--dangerously-skip-permissions");
-  log(`session ${i}: starting (HEAD ${before.slice(0, 8)}, model ${model ?? "default"})`);
+  log(`session ${i}: starting (HEAD ${before.slice(0, 8)}, model ${workerModel ?? "default"})`);
   const started = Date.now();
   const r = sh("claude", args, { input: prompt, timeout: ITER_TIMEOUT_MIN * 60_000, maxBuffer: 256 * 1024 * 1024 });
   const seconds = (Date.now() - started) / 1000;
@@ -144,58 +270,28 @@ for (let i = 1; i <= MAX_ITERS; i++) {
   }
 
   // Usage limit: checked BEFORE the fast-failure rule, so a limit is never treated as a broken install.
-  // Wait for the reset; the wait is not a session and not a "no commits" stall.
+  // The worker model's own limit switches the workers to sonnet at once; any other limit waits for the
+  // reset. Neither is a session or a "no commits" stall.
   if (!progressed && isLimitMessage(out)) {
     connectionWaits = 0; // a limit message means Claude did connect and sign in
-    // The chosen model's own limit: switch to the default model now instead of waiting.
-    if (isModelLimit(out, model)) {
-      log(`session ${i}: ${modelFamily(model)} limit reached, switching to the default model (no --model for the rest of this run). Not counted as a session.`);
-      model = null;
+    const act = limitAction(out, { role: "worker", model: workerModel, fallback: FALLBACK_WORKER });
+    if (act.kind === "switch-worker") {
+      log(`session ${i}: ${act.family} limit reached, switching workers to ${act.to} for the rest of this run. Not counted as a session.`);
+      workerModel = act.to;
       i--; // the same session number runs again, at once
       continue;
     }
-    const now = Date.now();
-    const plan = planLimitWait({ text: out, now, lastTarget, step: fallbackStep + 1, backoffMin: BACKOFF_MIN });
-    if (plan.target === null) fallbackStep++; else lastTarget = plan.target;
-    const waitMs = plan.until - now;
-    if (limitWaitedMs + waitMs > MAX_LIMIT_WAIT_MS) {
-      const msg = `Usage limit: already waited ${(limitWaitedMs / 3_600_000).toFixed(1)} h in a row and the next wait ` +
-        `(until ${when(plan.until)}) would pass 8 days. Stopping. Check your plan's limits, then start the loop again.`;
-      log(msg);
-      writeReport(startSha, `Ended: ${msg}`);
-      break;
-    }
-    log(`session ${i}: usage limit (${plan.source}). Not counted as a session.`);
-    log(`waiting until ${when(plan.until)} (this PC's time; ${(waitMs / 3_600_000).toFixed(1)} h). Create a STOP file to end the wait.`);
-    writeReport(startSha, `Waiting for the usage limit to reset: until ${when(plan.until)}. Last session ${i - 1}.`);
-    const stopped = sleepUntil(plan.until);
-    limitWaitedMs += Date.now() - now;
-    if (stopped) { log("STOP file found during the usage-limit wait, ending."); writeReport(startSha, "Stopped by STOP file (during a usage-limit wait)."); break; }
-    log("usage-limit wait over, trying again");
-    i--; // the same session number runs again
-    continue;
+    const w = waitForLimit(out, `session ${i}`, i - 1);
+    if (w === "retry") { i--; continue; } // the same session number runs again
+    break;
   }
 
   // Sign-in or network problem: also checked BEFORE the fast-failure rule. Wait and retry; the wait
   // is not a session and not a "no commits" stall.
   if (failed && !progressed && isConnectionProblem(out)) {
-    if (connectionWaits >= MAX_CONNECTION_WAITS) {
-      const msg = `Session ${i}: Claude still cannot connect or sign in after ${MAX_CONNECTION_WAITS} waits in a row ` +
-        `(about 4.75 hours). Stopping. Fix: open PowerShell in this folder, run claude.cmd, type /login and sign in, ` +
-        `type /exit, then start the loop again. Full text in autobuild/logs/${logName}.`;
-      log(msg);
-      writeReport(startSha, `Ended: ${msg}`);
-      break;
-    }
-    const mins = connectionWaitMin(connectionWaits++);
-    const until = Date.now() + mins * 60_000;
-    log(`session ${i}: connection/sign-in problem (wait ${connectionWaits} of ${MAX_CONNECTION_WAITS}). Not counted as a session.`);
-    log(`connection/sign-in problem, waiting until ${when(until)} (this PC's time; ${mins} min). Create a STOP file to end the wait.`);
-    writeReport(startSha, `Connection/sign-in problem: waiting until ${when(until)}, then retrying. Last session ${i - 1}.`);
-    if (sleepUntil(until)) { log("STOP file found during the connection wait, ending."); writeReport(startSha, "Stopped by STOP file (during a connection wait)."); break; }
-    log("connection wait over, trying again");
-    i--; // the same session number runs again
-    continue;
+    const w = waitForConnection(`Session ${i}`, logName, i - 1);
+    if (w === "retry") { i--; continue; }
+    break;
   }
   limitWaitedMs = 0; fallbackStep = 0; lastTarget = null; connectionWaits = 0;
 

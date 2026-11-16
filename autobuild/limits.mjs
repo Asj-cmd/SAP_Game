@@ -7,6 +7,7 @@
 //   planLimitWait({...})     when to wake up: 5 min after the stated reset, or a fallback wait
 //   isConnectionProblem(out) true when a failed session ended on a sign-in or network error
 //   isModelLimit(out, model) true when the limit message is for that model only ("Fable limit")
+//   limitAction(out, {role, model}) wait, or switch the workers to sonnet, or skip the planner
 
 const MIN = 60_000;
 const HOUR = 60 * MIN;
@@ -80,6 +81,21 @@ export function isModelLimit(output, model, tailLines = 10) {
   const esc = (s) => s.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
   const names = [String(model).trim(), modelFamily(model)].filter(Boolean).map(esc);
   return new RegExp(`(?<![a-z0-9])(?:${names.join("|")})(?![a-z0-9])`, "i").test(tail);
+}
+
+// What to do when a planner or worker session ended on a usage-limit message with no new commits.
+//   worker, limit names its own model  -> switch the workers to `fallback` (default "sonnet") for the
+//                                         rest of the run; no wait. If the worker is already on the
+//                                         fallback there is nothing to switch to, so it waits.
+//   planner, limit names its own model -> skip planning for the rest of the run
+//   any other limit (5-hour, weekly)   -> wait for the reset, as before
+export function limitAction(output, { role, model, fallback = "sonnet" }) {
+  if (!isLimitMessage(output)) return { kind: "none" };
+  if (!isModelLimit(output, model)) return { kind: "wait" };
+  const family = modelFamily(model);
+  if (role === "planner") return { kind: "skip-planner", family };
+  if (modelFamily(fallback) === family) return { kind: "wait" };
+  return { kind: "switch-worker", family, to: fallback };
 }
 
 function validZone(tz) {

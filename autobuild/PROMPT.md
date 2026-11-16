@@ -26,6 +26,13 @@ are fine, but plan them up front, note what each run is for, and stop when you h
 be cut off at 2 hours; uncommitted work is at risk. These part commits need only `--quick`; the one
 full `verify.mjs` run is just before the task's final commit (step 6).
 
+**Briefs.** `autobuild/BRIEF.md`, when it exists, holds a short brief per upcoming task, written by a
+planner session (heading `## <task id> — <title>`). If it has a section for your task, follow it and
+do not redesign: the decisions in it are made. Do any `REDO:` items first (they fix what an earlier
+task left looking wrong). Log the decisions it lists in `DECISIONS.md` like your own. If a fact in the
+brief turns out to be wrong, the code and `DECISIONS.md` win; say so in `PROGRESS.md`. When the task is
+ticked, delete its section from `BRIEF.md` in the same commit. If there is no section, work as usual.
+
 **Finish the game, not the bots.** (Set by the user 2026-11-15.)
 - Do not start bot-balance work, side sweeps or seed sweeps. A bot problem is only worth a session
   if `verify.mjs` fails because of it. Tasks marked `[-]` are deferred by the user: never start them.
