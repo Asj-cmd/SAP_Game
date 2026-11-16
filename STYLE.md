@@ -412,7 +412,7 @@ view in `autobuild/views.json` windowed through the real game and prints, per vi
 renderer's own counters for that frame (draw calls, triangles, objects) and N uncapped frames of
 timing (median / p95 frame interval, GPU time of the seat viewport). `verify.mjs --frames` prints
 the counters under each shot. The limits below are also in `autobuild/render_budget.json`, which
-the runner checks (not yet a verify gate; P3-6 makes it one). Counters are zero under
+the runner checks; since P3-6 the full verify gates draws and triangles of three views. Counters are zero under
 `--headless`, and frame time from a software renderer means nothing: measure windowed, here.
 
 **Target: 60 fps (16.7 ms) at 4v4 with bots, in the worst view**, with the 30 Hz simulation
@@ -480,3 +480,15 @@ Textures are imported VRAM-compressed; mipmaps on.
 
 So the budget is almost all headroom today, and it will be spent on three things in this order:
 interior lights (extra passes per lit object), merged-or-not art meshes, and shadows.
+
+### After the performance pass (P3-6, 2026-11-16, full art, sun shadow on, lamps off)
+
+- **Counters, 61 views, 3v3:** draws median 311, max 404 (`approach_from_south`); triangles
+  median 165k, max 233k. All within budget (before the pass: max 654 draws, 384k triangles, 38
+  views over 300k). Furniture, cash bundles and trees are merged at load (`MeshMerge`).
+- **Timing, 8 views at 4v4:** GPU median 7.3–8.3 ms, frame median 9.7–10.7 ms (before: 10.2–11.6
+  and 12.9–14.0). GPU time was a fixed per-frame cost, ~2 ms of it filling a 4096 sun shadow map;
+  the map is now 2048 (theme `sun_shadow_size`). Frame p95 ~19–21 ms is simulation ticks.
+- **Gate:** the full `verify.mjs` checks draws and triangles of three views against
+  `render_budget.json` `gate` (measured + ~10 %). Timings are not gated.
+- Room lamps still cost +4.2 ms (one shell mesh per house); the remaining headroom does not cover them.

@@ -189,6 +189,13 @@ const DEFAULT_PATH: String = "res://art/theme/default_theme.tres"
 ## 1 = one orthogonal shadow map (cheapest: the shadow pass draws each caster
 ## once), 2 or 4 = that many cascades (sharper near the camera, a pass each).
 @export_range(1, 4) var sun_shadow_splits: int = 1
+## The directional shadow map's side in texels (the engine default is 4096).
+## Over `sun_shadow_distance` this sets how sharp the sun's shadows are, and
+## filling it is a fixed GPU cost every frame (P3-6).
+@export var sun_shadow_size: int = 4096
+## Soft-shadow filter quality, RenderingServer.ShadowQuality: 0 hard, 1 very
+## soft low ... 5 ultra. The engine default is 2 (soft low).
+@export_range(0, 5) var sun_shadow_filter: int = 2
 @export var fill_colour: Color = Color(0.85, 0.9, 1.0)
 @export var fill_energy: float = 0.45
 ## Light from straight above, no shadow: the sky and the bounce off floors,
@@ -270,7 +277,24 @@ static func current() -> ArtTheme:
 		if _loaded == null:
 			_loaded = ArtTheme.new()
 		_loaded._fill_missing()
+		_loaded._apply_overrides(OS.get_cmdline_user_args())
 	return _loaded
+
+## `--theme.<field>=<value>` sets one plain field (bool, int, float) for this run
+## only, e.g. `--theme.sun_shadows=false`: a measurement compares settings as
+## arguments, without a theme file per variant (P3-6). Never saved.
+func _apply_overrides(args: PackedStringArray) -> void:
+	for arg: String in args:
+		if not arg.begins_with("--theme.") or not arg.contains("="):
+			continue
+		var field: String = arg.trim_prefix("--theme.").get_slice("=", 0)
+		var text: String = arg.get_slice("=", 1)
+		var now: Variant = get(field)
+		match typeof(now):
+			TYPE_BOOL: set(field, text == "true" or text == "1")
+			TYPE_INT: set(field, int(text))
+			TYPE_FLOAT: set(field, float(text))
+			_: push_error("art theme: --theme.%s is not a bool, int or float field" % field)
 
 func _fill_missing() -> void:
 	if figure == null:

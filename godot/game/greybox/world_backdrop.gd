@@ -64,6 +64,9 @@ static func environment(far: float, theme: ArtTheme) -> Array[Node]:
 			2: sun.directional_shadow_mode = DirectionalLight3D.SHADOW_PARALLEL_2_SPLITS
 			_: sun.directional_shadow_mode = DirectionalLight3D.SHADOW_PARALLEL_4_SPLITS
 		sun.directional_shadow_max_distance = theme.sun_shadow_distance
+		RenderingServer.directional_shadow_atlas_set_size(theme.sun_shadow_size, true)
+		RenderingServer.directional_soft_shadow_filter_set_quality(
+			theme.sun_shadow_filter as RenderingServer.ShadowQuality)
 
 	var fill: DirectionalLight3D = DirectionalLight3D.new()
 	# A directional light shines along its -Z, i.e. away from FILL_FROM.

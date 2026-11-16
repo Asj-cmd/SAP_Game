@@ -1,5 +1,5 @@
 {
-  "_note": "Per-view render budgets for the GT 730M dev laptop, Compatibility renderer, 1600x900 (STYLE.md §Budgets, P1-1). Checked by `node autobuild/render_stats.mjs`; keys are RENDER_STATS fields, a view over any of them is listed. Not a verify gate until P3-6. Frame times only count from a windowed run on the real GPU.",
+  "_note": "Per-view render budgets for the GT 730M dev laptop, Compatibility renderer, 1600x900 (STYLE.md §Budgets, P1-1). Checked by `node autobuild/render_stats.mjs`; keys are RENDER_STATS fields, a view over any of them is listed. `gate` (P3-6): views whose draw calls and triangles the full verify.mjs checks windowed, each limit the value measured at P3-6 (3v3 default, bots) plus about 10 %. Timings are never gated (laptop noise). Frame times only count from a windowed run on the real GPU.",
   "per_view": {
     "draw_calls": 1000,
     "triangles": 300000,
@@ -7,5 +7,10 @@
     "frame_ms_median": 12.0,
     "texture_mem_mb": 256,
     "video_mem_mb": 512
+  },
+  "gate": {
+    "approach_from_south": { "draw_calls": 445, "triangles": 257000 },
+    "cam_railing_backed": { "draw_calls": 436, "triangles": 252000 },
+    "room_b_gf_kitchen": { "draw_calls": 371, "triangles": 194000 }
   }
 }

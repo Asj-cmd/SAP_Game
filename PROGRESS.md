@@ -2,6 +2,111 @@
 
 Newest first. One entry per task: date, task id, what changed, what the frames showed, numbers, what is left.
 
+## 2026-11-16 — P3-6 Performance pass
+- **Measured first.** Counters over all 61 views from clean HEAD (`render_stats.mjs --timing=0`, 3v3 default): 38 of 61 over the 300k triangle budget, draws 65–654, none over 1000. GPU and frame time timed at 4v4 on 8 representative views (all 61 timed would take ~90 min): GPU 10.2–11.6 ms (budget 9) and frame median 12.9–14.0 ms (budget 12) in EVERY view, the 189-draw jail included. So GPU time was a fixed cost, not geometry.
+- **Where the draws came from** (new `--capture-breakdown`, kitchen, from HEAD): exterior `solid` 108k triangles in ONE mesh, drawn in every view and again in the shadow pass (96k of it tree crowns); furniture 69 pieces / 123 surfaces; cash bundles ~7 box nodes each (60 draws for 8 bundles); a transparent "invisible" scaffold capsule drawn under every dressed figure. The blockout boxes were already not drawn when the shell is on (brief 3a: nothing to do); the shell is 2 meshes; the exterior was 4 meshes plus a fence shadow copy.
+- **Changed:**
+  - `MeshMerge` (new, `game/art/mesh_merge.gd`): bakes static meshes into one mesh with a surface per material. Furniture is merged per 12 m square (7 meshes in the kitchen view instead of 69). Each cash bundle is one mesh with 3 surfaces.
+  - Trees moved out of `exterior_solid` into a mesh per 24 m square, so the view and the sun's shadow frustum each cull them.
+  - A dressed body's scaffold capsule is on render layer 0.
+  - **Sun shadow map 4096 → 2048** (theme `sun_shadow_size`, REVIEW). Measured at 4v4: kitchen GPU 10.4 → 8.3 ms, approach 9.8 → 7.7; shadows off entirely would be 6.3 / 5.8; a hard filter saved nothing.
+  - `--theme.<field>=` overrides for measuring, and `render_stats.mjs --views=a,b --args=`.
+  - Render-counter gate in the full `verify.mjs`.
+- **Counters, every view (3v3 default, before → after):** every view is now within draws and triangles. Worst view: `approach_from_south`, 654 → 404 draws and 384k → 233k triangles. Views that see little went UP in draws by 15–47: each tree square is 2 surfaces, drawn again in the shadow pass, where the one big mesh was 10. They are still at 101–215 draws.
+
+| view | draws before → after | triangles before → after |
+|---|---|---|
+| spawn_default | 170 → 183 | 279k → 124k |
+| stall_spot_a | 411 → 311 | 327k → 171k |
+| stall_spot_b | 422 → 322 | 319k → 172k |
+| lot_overview | 393 → 288 | 321k → 180k |
+| corridor_horizon | 171 → 201 | 264k → 111k |
+| yard_b_horizon | 65 → 101 | 235k → 84k |
+| approach_from_south | 654 → 404 | 384k → 233k |
+| cam_garden_open | 598 → 379 | 357k → 210k |
+| cam_garden_wall_backed | 101 → 140 | 262k → 113k |
+| cam_front_door_outside | 620 → 390 | 360k → 209k |
+| cam_front_door_threshold | 575 → 379 | 329k → 194k |
+| cam_doorway_turn | 501 → 348 | 331k → 191k |
+| cam_jail | 258 → 253 | 297k → 154k |
+| cam_jail_corner | 502 → 342 | 342k → 185k |
+| cam_kitchen_look_down | 391 → 264 | 321k → 159k |
+| cam_kitchen_look_up | 496 → 340 | 332k → 191k |
+| cam_stair_a_climb | 526 → 354 | 319k → 187k |
+| cam_stair_a_top_down | 381 → 280 | 327k → 168k |
+| cam_stair_b_climb | 322 → 263 | 301k → 155k |
+| cam_landing_a | 539 → 341 | 335k → 175k |
+| cam_study_vault_a | 180 → 203 | 280k → 134k |
+| cam_bedroom_vault_a | 543 → 326 | 336k → 171k |
+| cam_study_vault_b | 185 → 193 | 281k → 130k |
+| cam_stair_hb_climb | 579 → 353 | 354k → 195k |
+| cam_stair_b_side | 127 → 174 | 265k → 133k |
+| cash_30m_yard | 619 → 375 | 350k → 185k |
+| cash_6m_yard | 196 → 215 | 272k → 113k |
+| cash_19m_indoor | 458 → 331 | 315k → 165k |
+| room_a_gf_jail | 189 → 204 | 284k → 134k |
+| room_a_gf_fronthall | 378 → 311 | 308k → 166k |
+| room_a_gf_kitchen | 535 → 320 | 328k → 163k |
+| room_a_gf_backhall | 133 → 164 | 259k → 117k |
+| room_a_up_study | 186 → 204 | 280k → 131k |
+| room_a_up_landing_se | 351 → 296 | 305k → 154k |
+| room_a_up_bedroom | 537 → 324 | 328k → 164k |
+| room_a_up_landing_nw | 135 → 162 | 259k → 115k |
+| room_b_gf_jail | 188 → 190 | 281k → 124k |
+| room_b_gf_fronthall | 262 → 270 | 289k → 145k |
+| room_b_gf_kitchen | 532 → 337 | 327k → 176k |
+| room_b_gf_backhall | 201 → 213 | 280k → 129k |
+| room_b_up_study | 186 → 190 | 280k → 123k |
+| room_b_up_landing_se | 268 → 270 | 289k → 144k |
+| room_b_up_bedroom | 537 → 334 | 328k → 172k |
+| room_b_up_landing_nw | 167 → 200 | 278k → 127k |
+| ext_a_south | 651 → 396 | 371k → 223k |
+| ext_a_west | 543 → 355 | 352k → 203k |
+| ext_a_east | 349 → 228 | 308k → 145k |
+| ext_a_north | 533 → 329 | 336k → 174k |
+| yard_midline_top | 639 → 366 | 383k → 193k |
+| ext_b_north | 634 → 378 | 368k → 205k |
+| ext_street_south | 550 → 354 | 342k → 186k |
+| ext_street_along | 552 → 356 | 342k → 194k |
+| ext_gate_a | 641 → 394 | 368k → 212k |
+| ext_gravel_a | 325 → 228 | 305k → 145k |
+| ext_midline | 503 → 338 | 296k → 170k |
+| ext_upstairs_out | 127 → 158 | 255k → 115k |
+| cam_fence_west | 101 → 148 | 262k → 113k |
+| cam_fence_backed | 593 → 381 | 357k → 217k |
+| cam_railing_out | 136 → 184 | 266k → 120k |
+| cam_railing_backed | 626 → 396 | 368k → 229k |
+| cam_gravel | 283 → 222 | 310k → 155k |
+
+- **Timing at 4v4 (GT 730M, 120 frames, before → after):** all 8 timed views are now within all four budgets. Worst after: kitchen, GPU 8.3 ms and frame 10.7 ms.
+
+| view (4v4) | draws | triangles | GPU ms median | frame ms median | frame p95 |
+|---|---|---|---|---|---|
+| lot_overview | 397 → 290 | 336k → 187k | 10.2 → 7.4 | 12.9 → 9.9 | 20.2 → 20.3 |
+| approach_from_south | 660 → 408 | 412k → 248k | 10.6 → 7.7 | 13.3 → 10.3 | 30.3 → 21.1 |
+| cam_stair_hb_climb | 582 → 355 | 368k → 202k | 11.3 → 8.1 | 13.9 → 10.5 | 22.7 → 19.3 |
+| cash_30m_yard | 622 → 377 | 364k → 193k | 10.9 → 7.6 | 13.8 → 10.5 | 20.0 → 19.9 |
+| room_a_gf_jail | 189 → 204 | 284k → 135k | 11.1 → 7.8 | 13.4 → 10.0 | 21.1 → 20.5 |
+| room_a_gf_kitchen | 538 → 322 | 342k → 170k | 11.6 → 8.3 | 14.0 → 10.7 | 21.8 → 18.9 |
+| room_a_up_bedroom | 540 → 326 | 343k → 171k | 11.0 → 7.7 | 13.4 → 9.7 | 20.7 → 20.3 |
+| ext_a_south | 657 → 400 | 399k → 238k | 10.6 → 7.4 | 13.3 → 10.1 | 22.5 → 21.0 |
+
+- **What the frames show after** (`autobuild/frames/stats/`):
+  - `approach_from_south`: the same picture as P3-5's frame: brick side walls, the tree and its soft shadow on the lawn, the railings and the house across the street. No visible change from the 2048 shadow map at this distance.
+  - `lot_overview`: every neighbour, tree and hedge is there, with figures in both yards and tree shadows on the lawns.
+  - `cam_railing_backed`: the railing's striped shadow is still on the paving. A green figure in front of the brick wall, its door open on the stairs.
+  - `room_a_gf_kitchen` (merged furniture): units, island, sink, stove, microwave, fridge and the table are all in place, with no holes.
+  - `room_a_up_bedroom`: wardrobe, bed, the safe with its dial and wheel, and two cash bundles with their band and contact halos.
+  - `cam_stair_hb_climb`: the handrail on brackets, the figure on the treads with a contact shadow, and the hall below.
+  - `cash_6m_yard`: the merged bundle still shows the emerald notes and the pale band. The house's shadow lies on the gravel.
+- **Lamps:** not retried. The shell is not split per room, and the headroom (0.7–1.7 ms) is well under the +4.2 ms the lamps cost.
+- **Not done:** frame p95 (~19–21 ms) is the simulation ticks, as the brief says; not chased.
+- **Verify:** `node autobuild/verify.mjs` healthy:
+  - 16 suites at pinned counts; symmetry 193 of 193.
+  - Bot match 3v3 team_a in 387 s with 27 s of stalls, 1v1 250 s with 4 s, both unchanged.
+  - Tick budget 0 / 0 / 0 of 600; net_smoke 1656 ticks agree.
+  - Render gate: approach 404 / 233k, railing_backed 396 / 229k, room_b kitchen 337 / 176k, all within limits.
+
 ## 2026-11-16 — P3-5 Lighting and readability pass
 - **Starting point.** A cut-off session left P3-5 uncommitted in the working tree: contact shadows (`game/art/contact_shadows.gd`), four room lamps with an attenuation fix and drum-shade fittings, stair handrails and string boards in `ShellBuilder`, new cash / ceiling / jail / study-carpet colours, and two cash views. `--quick` was green, so it went in as a part commit first. The untracked `art/theme/_tmp_noshell.tres` is a leftover diagnostic theme; this session's permissions refused deleting it, so it is left untracked and unused.
 - **What the measurement said about the lamps.** With the four lamps on (kitchen, jail, study, bedroom): jail 15.4 ms GPU, front hall 15.1, kitchen 15.7, back hall 14.8. The back hall has no lamp of its own and still paid. Lamps off, kitchen: 11.5 ms, exactly HEAD before this task (P3-4: 11.5). So the lamps cost +4.2 ms in every indoor view: the shell is one mesh per house, so one lamp anywhere in a house redraws the whole shell. **Lamps are off**; the drum-shade fittings are still drawn (`interior_fittings`), warm in the kitchen and bedroom, cold white in the jail. Everything else this task adds costs nothing measurable (contact shadows are one MultiMesh draw; the handrails are part of the shell mesh).

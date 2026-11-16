@@ -217,7 +217,7 @@ Aug 16–Oct 10 are in; an earlier version of this plan was written against the 
   renderer can afford, contrast between floor/wall/characters/cash. Stair banisters (railings) on
   every flight, with collision matching the existing stair walls, checked from the stair cameras.
   *Verify:* frames at day-like exposure; cash readable at 30 m.
-- [ ] **P3-6 Performance pass** against the budgets from P1-1. Merge meshes/instances where needed.
+- [x] **P3-6 Performance pass** against the budgets from P1-1. Merge meshes/instances where needed. *(Done 2026-11-16: furniture, cash bundles and trees merged at load by `MeshMerge`; sun shadow map 2048 (REVIEW). All 61 views within draws/triangles (worst `approach_from_south` 404 / 233k, was 654 / 384k); 8 timed views at 4v4 all within GPU 9 ms and frame 12 ms (worst kitchen 8.3 / 10.7, was 11.6 / 14.0). Draws and triangles of three views gated in the full verify. See PROGRESS.md.)*
 
 ## Phase 4 — Verbs (DECISIONS.md D9; see `DESIGN_DIRECTION.md` §5)
 
