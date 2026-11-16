@@ -213,7 +213,7 @@ Aug 16–Oct 10 are in; an earlier version of this plan was written against the 
   stalls per minute of match rather than per match (matches are a third longer at 240 s, and the range is 13–125 s
   against P3-3c's 14–88). *Verify:* over 32 fresh matches neither name nor house above 15 of 24; at most 2 level.
 - [x] **P3-4 Exterior.** *(Done 2026-11-15: `ExteriorBuilder` (railings, timber fence, streets, neighbours, hedges, trees, gravel, paths); own sky shader with clouds that fade before the horizon, haze curve in the theme, outdoor textures mipmapped, tints and a softened brick at the right size. 22 exterior views opened. Exterior views measure 10.1–10.9 ms GPU and 255–383k triangles, over budget since the exterior went in: left to P3-6. See PROGRESS.md.)* Lot, fences, garden, trees, path, neutral strip, street, sky, sun.
-- [ ] **P3-5 Lighting and readability pass.** Lighting per room, shadow settings the Compatibility
+- [x] **P3-5 Lighting and readability pass.** *(Done 2026-11-16: contact shadows under figures and loose bundles; emerald cash; jail cold and dim through materials; ceiling fittings drawn but room lamps OFF (+4.2 ms GPU in every indoor view because the shell is one mesh per house); oak handrails on every flight's walled side, string boards on the open sides, which have no collision and stay open. Views are over the 9 ms GPU budget as before this task (kitchen 11.5): P3-6. See PROGRESS.md.)* Lighting per room, shadow settings the Compatibility
   renderer can afford, contrast between floor/wall/characters/cash. Stair banisters (railings) on
   every flight, with collision matching the existing stair walls, checked from the stair cameras.
   *Verify:* frames at day-like exposure; cash readable at 30 m.

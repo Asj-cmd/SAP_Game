@@ -139,7 +139,7 @@ static func environment(far: float, theme: ArtTheme) -> Array[Node]:
 ## (STYLE.md §4). No shadows: a shadowed spot is another pass over the scene.
 static func interior_lights(zones: Array[ZoneDef], theme: ArtTheme, ceiling_drop: float) -> Array[Node]:
 	var lights: Array[Node] = []
-	if not theme.interior_lamps:
+	if not theme.interior_lamps and not theme.interior_fittings:
 		return lights
 	for zone: ZoneDef in zones:
 		if zone.outdoor:
@@ -165,7 +165,10 @@ static func interior_lights(zones: Array[ZoneDef], theme: ArtTheme, ceiling_drop
 		lamp.spot_attenuation = theme.interior_attenuation
 		lamp.shadow_enabled = false
 		lamp.light_cull_mask = LAMP_CULL_MASK
-		lights.append(lamp)
+		# Fittings without lamps (P3-5): the shell is one mesh per house, so any
+		# lamp redraws the whole shell in every view of that house.
+		if theme.interior_lamps:
+			lights.append(lamp)
 		# The fitting the light comes from: a shallow drum shade on the ceiling,
 		# lit from inside (unshaded, so no lamp redraws it).
 		var shade: MeshInstance3D = MeshInstance3D.new()
@@ -186,6 +189,8 @@ static func interior_lights(zones: Array[ZoneDef], theme: ArtTheme, ceiling_drop
 		# that box's top, which is SHADE_ABOVE_LAMP + half the drum below the ceiling.
 		shade.position = lamp.position + Vector3(0.0, SHADE_ABOVE_LAMP, 0.0)
 		lights.append(shade)
+		if not theme.interior_lamps:
+			lamp.free()
 	return lights
 
 ## A flat plane just under the lot's ground, reaching past the far plane in

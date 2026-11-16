@@ -2,52 +2,13 @@
 
 Written by the planner from a quick read. If a fact here is wrong, the code and `DECISIONS.md` win.
 
-## P3-5 — Lighting and readability pass
-
-**Approach**
-1. Measure first: `node autobuild/render_stats.mjs --views=room_,cam_` and shoot `--frames-only --views=room_,cam_`. Open four or five (jail, kitchen, study, bedroom, a stair). Note where floor, wall, figure and cash sit close in brightness.
-2. Contact shadows (STYLE §4, mandatory): a soft dark disc under every figure and every cash bundle, a transparent quad on the floor under it, placed in `GreyBoxMain._render` from drawn positions, staying on the floor below when the body jumps. Grep first: if one already exists, only tune it.
-3. Room character without many lamps: per-room look from data. Start with what is nearly free: per-room ambient/tint is not available in Compatibility, so use at most ONE unshadowed spot per room, only in the rooms that need it (jail: one cold dim bulb; kitchen: one bright; study and bedroom: one warm). Turn on, measure the kitchen and a landing view. Keep it only if every view stays at or under 9 ms GPU; otherwise keep lamps for the jail and the two cash rooms only, or none, and log the numbers.
-4. Sun shadow: keep one orthogonal map. Try `sun_shadow_distance` lower (2500) and look at shadow edges in `approach_from_south` and a room with a window; keep the cheaper setting if the frame is no worse.
-5. Contrast: adjust theme materials so the order by brightness is ceiling < floor < wall in lit rooms, figures clearly off both, cash the most saturated thing in any room. Cash gets a material that reads at 30 m (a saturated banknote green with a pale band, slightly lower roughness); no glow, no outline, no floating marker.
-6. Cash at 30 m: add two views with a bundle on the floor 3000 units from the camera, one indoors down the longest sight line, one in a yard. Open them.
-7. Banisters: read `_stairs`, `_straight_flight`, `_stairwell` in `godot/tools/build_house.gd` to see which sides of each flight and stairwell already have a blocker. Draw a banister (newel posts, handrail, square balusters, painted trim + oak rail) in `ShellBuilder` on every such side, sized to the blocker. See "Already decided" for sides with no blocker.
-8. Re-shoot stairs (`cam_stair_a_climb`, `cam_stair_a_top_down`, `cam_stair_b_climb`, `cam_landing_a`, the four `room_*_landing_*`), all rooms, and the cash views. Open, describe.
-9. `render_stats` again; write before/after. Verify once; commit.
-
-**Already decided**
-- Tonemap stays Linear, sun energy stays low (P1-4 measured why). Do not retry Filmic.
-- No shadowed omni/spot lights, at most two lamps touching any object, at most one shadowed light (the sun). No SSAO, glow or other Forward+ features (D6).
-- Exposure is "day-like": a lit room's wall paint at about 75–80 % brightness. Jail coldest and dimmest, kitchen brightest (STYLE §4).
-- Banister collision: where a flight's or stairwell's open side ALREADY has a blocker (a stair wall), the banister is drawn on it and no collision changes. Where an open side has NO blocker, do not add one: a new blocker changes routes, the symmetry probe and every bot match, and bot work is paused. Leave that side open, with only a newel post at the top and bottom if it does not look walk-through-able, and write the open sides in `PROGRESS.md` for the user. Log as REVIEW.
-- Banister look: plain suburban, white-painted square balusters at about 12-unit spacing, oak handrail at about 110 above the tread line, square newel posts. Part of the house's single mesh (a surface per material), not separate nodes.
-- Contact shadow: a disc about 1.2× the body radius, alpha about 0.35 at the centre fading to 0, fading further with height above the floor; unshaded, no depth write, render-only. Numbers go in the theme.
-- Lamp choices and the cash material are REVIEW lines in `DECISIONS.md`.
-
-**Files likely touched**
-- `godot/art/theme/default_theme.tres`, `godot/game/art/art_theme.gd` (exist): lamp list/flags, shadow distance, material values, contact-shadow and banister numbers.
-- `godot/game/greybox/world_backdrop.gd` (exists): lamps (`interior_lamps` path, line ~134), sun shadow.
-- `godot/game/greybox/greybox_main.gd` (exists): contact-shadow quads in `_render`.
-- `godot/game/art/shell_builder.gd` (exists): banisters.
-- `godot/tools/build_house.gd` (exists): READ only, for the stair geometry.
-- `autobuild/views.json` (exists): two cash-at-30-m views; a stair view if a flight is not covered (House B has no stair camera views).
-- `godot/art/cash.glb` or the theme's cash material: check which one colours the bundle before changing.
-- `PROGRESS.md`, `PLAN.md`, `DECISIONS.md`, `STYLE.md` §4 "as built" paragraph.
-
-**Done means**
-- Frames opened and described: all 16 `room_*`, the `cam_stair_*` and `cam_landing_a` views plus one stair view in House B, the two new cash views, `approach_from_south`.
-- In them: a visible banister on every flight where a stair wall exists, not poking through walls or treads, not hiding the stairs from the stair cameras; a contact shadow under each figure and bundle; the jail visibly dimmer and cooler than the kitchen; a figure distinguishable from the wall behind it in the jail; the cash bundle found at a glance at 30 m in both cash views.
-- Numbers: every `room_` and `cam_` view at or under 9 ms GPU median and 1000 draws in `render_stats.mjs`, or the over-budget views listed with numbers for P3-6. Before/after table in `PROGRESS.md`.
-- `node autobuild/verify.mjs` healthy, once, before the commit; symmetry 193 of 193 and bot-match numbers unchanged.
-
-**Do NOT**
-- Add or move collision, re-bake the blockout, or edit `build_house.gd` (see the banister decision).
-- Turn all 16 ceiling spots back on and hope: that was measured at 10.2 ms.
-- Add outlines, glow, pulsing markers or beacons on cash (D2). Readable through colour and contrast only.
-- Re-style figures or outfits, re-texture furniture room by room, or redo the exterior.
-- Merge meshes for speed: P3-6. Touch bots, modes or sweeps. Write test files (presentation is verified by eye).
-
 ## P3-6 — Performance pass
+
+*(Note added by the P3-5 session, 2026-11-16: the room lamps are built but OFF because the shell
+is one mesh per house, so a single lamp redraws the whole house shell in every view (+4.2 ms GPU
+for four lamps per house). If this task splits the shell per room, lamps in the jail, kitchen and
+cash rooms become affordable again: measure `interior_lamps = true` after the split. Before this
+task, with lamps off: kitchen 11.5 ms GPU, 535 draws, 328k triangles; approach 10.6-11.0 ms.)*
 
 **Approach**
 1. Measure everything first: `node autobuild/render_stats.mjs --timing=120` over all views (about 15 min, windowed, on this machine). Save the table in `PROGRESS.md` as "before". List every view over a number in `autobuild/render_budget.json`.

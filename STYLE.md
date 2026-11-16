@@ -286,7 +286,7 @@ Palette (sRGB, a starting point the theme owns):
 | Roof tile | dark grey `(0.30, 0.30, 0.32)` | 0.8 | |
 | Steel (safe, jail bars) | `(0.30, 0.31, 0.33)` | 0.45, metallic 0.8 | The only metal surfaces of note |
 | Grass | `(0.36, 0.50, 0.30)` | 1.0 | Today's `world_backdrop.gd` value; keep |
-| Cash bundle | banknote green `(0.45, 0.62, 0.42)` + paper band | 0.7 | Must be the most saturated small object in any room (3.4) |
+| Cash bundle | emerald banknote green `(0.1, 0.62, 0.44)` + paper band (P3-5) | 0.55 | Must be the most saturated small object in any room (3.4) |
 
 **Saturation rule:** the house stays below about 35 per cent saturation everywhere except
 the cash and the two family colours. Then the eye goes to cash and doors without any effect.
@@ -348,6 +348,24 @@ cheap parts, each measured (P1-1's rule: run `render_stats.mjs --views=room_` be
   outside wall is near white; the warm ambient pushes the putty figures toward cream, and in the
   jail a figure sits close in value to the walls (P1-5 tries figure treatments); the rim term
   shows only as a thin highlight on sunlit edges.
+
+**As built in P3-5** (2026-11-16):
+
+- **Room lamps stay off; the fittings are drawn.** One unshadowed spot in each kitchen, jail,
+  study and bedroom cost +4.2 ms GPU in EVERY indoor view (kitchen 11.5 → 15.7, back hall with
+  no lamp of its own 14.8): since P3-2 the shell is one mesh per house, so any lamp in a house
+  redraws the whole shell. Lamps come back only if P3-6 splits the shell per room. The ceiling
+  fitting (a drum shade, unshaded, warm or cold white by room) is drawn anyway (`interior_fittings`).
+- **Room character from materials:** the jail has blue-grey painted block walls and a cool grey
+  concrete floor; the kitchen warm tiles; ceilings a step darker than walls (`ceiling` 0.8).
+- **Contact shadows** (`ContactShadows`, one MultiMesh): a soft disc on the floor under every
+  figure (radius 30 × height/180) and every loose bundle (radius 45, so it shows past the bundle),
+  alpha 0.35, widening and fading with height, on the floor below a jumping body.
+- **Cash:** an emerald banknote green `(0.1, 0.62, 0.44)` with a pale band, a cooler hue than the
+  lawn so it separates outdoors. At 30 m it is ~8 px; findable as a teal-and-white fleck.
+- **Sun shadow** distance stays 4000: 2500 cut ~40 draws but no GPU time.
+- **Stairs:** an oak handrail on brackets along every flight's walled side, a painted string
+  board along the open side. No banisters on open sides (they have no collision; see DECISIONS).
 
 ## 5. Motion, effects, sound (summary; the tasks own the detail)
 

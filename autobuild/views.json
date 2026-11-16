@@ -28,6 +28,7 @@
     { "name": "cam_stair_hb_climb", "chase": [3130, 510, 2890], "facing": [3130, 510, 2220] },
     { "name": "cam_stair_b_side", "chase": [1100, 300, 2000], "facing": [600, 300, 2200], "pitch": -5 },
     { "name": "cash_30m_yard", "at": [2700, 560, 3450], "look": [2620, 300, 450], "args": ["--capture-prop=res://art/models/cash.glb,2620,300,450,30"] },
+    { "name": "cash_6m_yard", "at": [2680, 420, 1050], "look": [2620, 300, 450], "args": ["--capture-prop=res://art/models/cash.glb,2620,300,450,30"] },
     { "name": "cash_19m_indoor", "at": [1990, 560, 2380], "look": [1990, 300, 500], "args": ["--capture-prop=res://art/models/cash.glb,1990,300,500,30"] },
 
     { "name": "room_a_gf_jail", "at": [1320, 560, 1320], "look": [480, 300, 480] },

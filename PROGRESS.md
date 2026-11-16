@@ -2,6 +2,40 @@
 
 Newest first. One entry per task: date, task id, what changed, what the frames showed, numbers, what is left.
 
+## 2026-11-16 — P3-5 Lighting and readability pass
+- **Starting point.** A cut-off session left P3-5 uncommitted in the working tree: contact shadows (`game/art/contact_shadows.gd`), four room lamps with an attenuation fix and drum-shade fittings, stair handrails and string boards in `ShellBuilder`, new cash / ceiling / jail / study-carpet colours, and two cash views. `--quick` was green, so it went in as a part commit first. The untracked `art/theme/_tmp_noshell.tres` is a leftover diagnostic theme; this session's permissions refused deleting it, so it is left untracked and unused.
+- **What the measurement said about the lamps.** With the four lamps on (kitchen, jail, study, bedroom): jail 15.4 ms GPU, front hall 15.1, kitchen 15.7, back hall 14.8. The back hall has no lamp of its own and still paid. Lamps off, kitchen: 11.5 ms, exactly HEAD before this task (P3-4: 11.5). So the lamps cost +4.2 ms in every indoor view: the shell is one mesh per house, so one lamp anywhere in a house redraws the whole shell. **Lamps are off**; the drum-shade fittings are still drawn (`interior_fittings`), warm in the kitchen and bedroom, cold white in the jail. Everything else this task adds costs nothing measurable (contact shadows are one MultiMesh draw; the handrails are part of the shell mesh).
+- **Sun shadow distance 2500** (brief step 4): kitchen 491 draws (was 535) but 12.0 ms GPU; approach 11.0 ms (P3-4: 10.6). That is noise, not a saving, and a shorter reach lets the sun light interiors seen through doorways from the yard. Kept at 4000.
+- **Changed this session:** cash green → emerald `(0.1, 0.62, 0.44)` (the previous yellow-green disappeared into the lawn); bundle contact shadow radius 20 → 45 (a 20-radius disc sat entirely under the 50-long bundle and could not be seen); lamps off with fittings on; new view `cash_6m_yard`.
+- **What the frames show** (lamps off, final):
+  - `room_a_gf_kitchen`: warm terracotta tiles, plaster walls, the fitting glowing warm on a taupe ceiling. Ceiling darkest, then floor, then walls.
+  - `room_a_gf_jail`, `room_b_gf_jail`: blue-grey block walls, a cool grey concrete floor, a cold white fitting, the dark steel pen. Visibly colder and dimmer than the kitchen.
+  - `cam_jail`: a green-shirted figure in the jail doorway stands out clearly against the grey wall and floor. There is a soft contact shadow under its feet.
+  - `room_a_up_study`, `room_b_up_bedroom`: emerald bundles with a pale band are the most saturated things in the room, each with a soft dark halo on the carpet. The safe is dark steel in its corner.
+  - `cash_6m_yard`: the bundle on the lawn reads as teal and white against yellow-green grass. No contact disc shows outdoors on the noisy lawn.
+  - `cash_30m_yard`: the same bundle at 30 m, down the corridor between the houses, is a fleck of about 8 px at the end of the stepping stones. You can find it if you know to look, but it does not jump out. The bundle is the sim's 50 units, and the brief rules out glow or markers.
+  - `cash_19m_indoor`, the longest indoor sight line: bundles show as a green fleck through two doorways.
+  - Stairs:
+    - `cam_stair_a_climb` / `cam_stair_hb_climb`: House B's twin is the same picture. An oak rail on dark brackets runs up the wall side with the flight. The open side has a thin painted string and drops to the hall.
+    - `cam_stair_a_top_down`: the rail is on the right wall. Steps and treads are not hidden.
+    - `cam_stair_b_side`: the rail is seen from the hall along the stair wall's top, with the string on the open edge.
+    - `cam_landing_a`, `room_a_up_landing_se`: the stairwell edge on the landing is an open floor edge with no rail.
+  - `approach_from_south`: the brick side walls, a tree and its shadow on the lawn. No change from P3-4.
+- **For the user (REVIEW): the open sides of every flight and every stairwell edge have no banister.** They have no collision (a body can step off them), the brief rules out new collision, and a banister drawn there would look like a barrier that isn't. If banisters are wanted, they need collision blockers in `build_house.gd`, which changes routes and every bot match.
+- **Numbers** (GT 730M, 120 timed frames):
+
+  | view | lamps on: GPU ms | lamps off: GPU ms | draws | triangles |
+  |---|---|---|---|---|
+  | room_a_gf_jail | 15.4 | — | 189 | 284k |
+  | room_a_gf_fronthall | 15.1 | — | 378 | 308k |
+  | room_a_gf_kitchen | 15.7 | 11.5 | 535 | 328k |
+  | room_a_gf_backhall | 14.8 | — | 133 | 259k |
+  | approach_from_south (shadow 2500) | — | 11.0 | 611 | 361k |
+
+  Every view is still over the 9 ms GPU budget, and most are over the 300k triangle budget, as they were before this task. The ~255k triangle floor indoors is the exterior. **Left for P3-6** (its brief now carries the lamp note). The full per-view render_stats run was stopped after four views: at ~1.5 min a view it would have taken 25 min and could not change the decision.
+- **Not done:** contact discs outdoors are not visible on the lawn (the sun shadow does that job there). No newel posts on the open sides.
+- **Verify:** `node autobuild/verify.mjs` healthy. 16 suites at pinned counts; symmetry 193 of 193; bot match 3v3 team_a in 387 s with 27 s of stalls, and 1v1 250 s with 4 s (both unchanged from P3-4); tick budget 0 / 0 / 1 (4v4, not gated) of 600 over; net_smoke 1652 ticks agree.
+
 ## 2026-11-15 — P3-4 Exterior (finished from the planner's brief)
 - **Starting point.** `ExteriorBuilder` was committed in `996d876` (railings, timber fences, streets, neighbours, hedges, trees, gravel, paths). The only exterior frames on disk were older than that commit, so all 22 views were re-shot first (`--frames-only --views=ext_,cam_fence,cam_railing,cam_gravel,cam_garden,lot_,approach,yard_`). Fresh frames still showed every REDO in the brief: a hard horizontal line where haze met sky in `lot_overview`, neighbours one plot away already milky, streaky blotchy clouds, peach pavement, cream kerb, orange gravel, loud oversized brick, a loud lawn. `ext_upstairs_out` looked at the bedroom's inside wall, not out of a window.
 - **Changed:**

@@ -216,7 +216,7 @@ const DEFAULT_PATH: String = "res://art/theme/default_theme.tres"
 ## The disc's radius under a 180-tall figure (scaled with a member's height),
 ## and under a bundle.
 @export var contact_shadow_radius: float = 30.0
-@export var contact_shadow_bundle_radius: float = 20.0
+@export var contact_shadow_bundle_radius: float = 45.0
 ## Gone at this height above the floor (a jump), widening and fading on the way.
 @export var contact_shadow_fade_height: float = 160.0
 
@@ -233,6 +233,9 @@ const DEFAULT_PATH: String = "res://art/theme/default_theme.tres"
 ## is warm through the ambient instead. P3-5 turns lamps on room by room once
 ## fittings and merged meshes exist (STYLE §4).
 @export var interior_lamps: bool = false
+## Draw the ceiling fitting (a lit drum shade) in the listed rooms even when
+## `interior_lamps` is off: it costs one small unshaded draw, a lamp a whole pass.
+@export var interior_fittings: bool = true
 ## Room kinds that get a lamp when `interior_lamps` is on; empty = every room.
 @export var interior_lamp_kinds: Array[StringName] = []
 @export var interior_colour: Color = Color(1.0, 0.84, 0.66)

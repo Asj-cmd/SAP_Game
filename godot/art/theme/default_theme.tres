@@ -128,12 +128,12 @@ vertex_color_is_srgb = true
 
 [sub_resource type="StandardMaterial3D" id="cash_note"]
 resource_name = "cash_note"
-albedo_color = Color(0.32, 0.7, 0.3, 1)
+albedo_color = Color(0.1, 0.62, 0.44, 1)
 roughness = 0.55
 
 [sub_resource type="StandardMaterial3D" id="cash_note_deep"]
 resource_name = "cash_note_deep"
-albedo_color = Color(0.16, 0.48, 0.18, 1)
+albedo_color = Color(0.05, 0.4, 0.29, 1)
 roughness = 0.6
 
 [sub_resource type="StandardMaterial3D" id="cash_band"]
@@ -557,7 +557,7 @@ ambient_energy = 0.75
 tonemap = 0
 exposure = 1.0
 tonemap_white = 1.0
-interior_lamps = true
+interior_lamps = false
 interior_lamp_kinds = Array[StringName]([&"kitchen", &"jail", &"study", &"bedroom"])
 interior_colour = Color(1, 0.84, 0.66, 1)
 interior_energy = 0.4
