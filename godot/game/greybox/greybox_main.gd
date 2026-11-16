@@ -1020,8 +1020,10 @@ func _track_cameras(delta: float) -> void:
 		_cameras[seat].follow(view.position - Vector3(0.0, ACTOR_HEIGHT * 0.5, 0.0), delta)
 		# The fade is for the chase camera's view; a free capture camera (a
 		# follow sheet) shoots the body as everyone else sees it.
+		var own: SimEntity = link.predicted_world().entities.get(players[seat].actor_id, null)
+		var jailed: bool = own != null and own.is_captured
 		_fade_body(players[seat].actor_id, view,
-			1.0 if _capture_camera != null else _cameras[seat].body_opacity())
+			1.0 if _capture_camera != null else _cameras[seat].body_opacity(jailed))
 
 ## Last opacity drawn per actor, so a body is only re-walked when it changes.
 var _body_opacity: Dictionary[int, float] = {}

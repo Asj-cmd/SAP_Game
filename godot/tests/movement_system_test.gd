@@ -27,6 +27,7 @@ func _initialize() -> void:
 	_test_jump()
 	_test_panic_run()
 	_test_held_actor()
+	_test_bodies_like_walls()
 
 	print("\n%d passed, %d failed" % [_passed, _failed])
 	if _failed > 0:
@@ -788,3 +789,168 @@ func _test_held_actor() -> void:
 			lifted = lifted or not prisoner.is_grounded or prisoner.velocity.y > 0.0
 		_check(label + " (no jump on release)", lifted, false)
 		_check(label + " (count cleared)", prisoner.held_jumps, 0)
+
+# ---- bodies block each other like walls (D9, P4-4) ----
+
+## Floor top in the crowd fixture; a standing body rests at CROWD_FLOOR + radius.
+const CROWD_FLOOR: float = 10.0
+
+## A big flat floor with the GAME's tuning (TuningDef defaults: radius 20, pace
+## 540, panic x1.2, jump 900, gravity 2000, a 180 body), so the rows measure the
+## numbers a player meets rather than a scaled-down rig.
+func _crowd_world() -> SimWorld:
+	var room: ZoneDef = ZoneDef.new()
+	room.id = &"room"
+	room.role = ZoneDef.Role.NEUTRAL
+	room.bounds = AABB(Vector3(0, 0, 0), Vector3(2000, 600, 400))
+	var collision: WorldCollisionDef = WorldCollisionDef.new()
+	collision.is_fixture = true
+	collision.bounds = AABB(Vector3(0, 0, 0), Vector3(2000, 600, 400))
+	collision.blockers = [AABB(Vector3(0, 0, 0), Vector3(2000, CROWD_FLOOR, 400))]
+	var world: SimWorld = SimWorld.new(1)
+	world.configure(GameModeDef.new(), TuningDef.new(), [room], [], collision)
+	world.add_system(MovementSystem.new())
+	world.match_phase = SimWorld.MatchPhase.PLAYING
+	return world
+
+## Feet and head of a body as the player sees it: feet one (stance) radius under
+## the centre, head the drawn height above the feet (crouch_gap when crouched).
+func _body_span(world: SimWorld, body: SimEntity) -> Vector2:
+	var crouched: bool = body.stance == SimEntity.Stance.CROUCHED
+	var radius: float = world.tuning.actor_radius * (MovementSystem.CROUCH_RADIUS_SCALE if crouched else 1.0)
+	var feet: float = body.position.y - radius
+	return Vector2(feet, feet + (world.tuning.crouch_gap if crouched else world.tuning.actor_height))
+
+## Two drawn bodies inside each other: closer than two radii on the floor plan
+## AND their feet-to-head spans overlapping.
+func _bodies_inside(world: SimWorld, a: SimEntity, b: SimEntity) -> bool:
+	var flat: float = Vector2(a.position.x - b.position.x, a.position.z - b.position.z).length()
+	if flat >= world.tuning.actor_radius * 2.0 - 0.5:
+		return false
+	var span_a: Vector2 = _body_span(world, a)
+	var span_b: Vector2 = _body_span(world, b)
+	return span_a.x < span_b.y and span_b.x < span_a.y
+
+## Nearest the floor-plan offset comes to zero while it moves from `from` to `to`.
+func _flat_gap_along(from: Vector3, to: Vector3) -> float:
+	var a: Vector2 = Vector2(from.x, from.z)
+	var b: Vector2 = Vector2(to.x, to.z)
+	var leg: Vector2 = b - a
+	var t: float = 0.0
+	if leg.length_squared() > 0.0:
+		t = clampf(-a.dot(leg) / leg.length_squared(), 0.0, 1.0)
+	return (a + leg * t).length()
+
+## Each row places bodies (x, z, height above rest; what each does from the first
+## tick) and runs it. Checked on EVERY tick for every free pair: never inside
+## each other, never swapped along x while within two radii across. A body with
+## no intent must end exactly where it stood: nobody is moved by a bump.
+func _test_bodies_like_walls() -> void:
+	var fwd: Vector3 = Vector3(1, 0, 0)
+	var back: Vector3 = Vector3(-1, 0, 0)
+	var cases: Array[Dictionary] = []
+	# (a) head-on at the panic pace, every gap from just over a diameter to 90.
+	for gap: int in range(41, 91):
+		cases.append({"name": "head-on panic runners %d apart" % gap, "group": "a", "ticks": 12,
+			"bodies": [{"x": 500.0, "intent": fwd, "panic": true},
+				{"x": 500.0 + gap, "intent": back, "panic": true}]})
+	cases.append_array([
+		{"name": "b: a panic runner into a standing body", "ticks": 30, "still": 1,
+		 "bodies": [{"x": 500.0, "intent": fwd, "panic": true}, {"x": 600.0}]},
+		{"name": "b: a panic runner glancing a standing body", "ticks": 30, "still": 1,
+		 "bodies": [{"x": 500.0, "intent": fwd, "panic": true}, {"x": 600.0, "z": 215.0}]},
+		{"name": "c: a running jump at a standing body from 60", "ticks": 30, "still": 1,
+		 "bodies": [{"x": 500.0, "intent": fwd, "jump": true}, {"x": 560.0}]},
+		{"name": "c: a running jump at a standing body from 120", "ticks": 30, "still": 1,
+		 "bodies": [{"x": 500.0, "intent": fwd, "jump": true}, {"x": 620.0}]},
+		{"name": "d: falling from 150 onto a standing body", "ticks": 40, "still": 1, "measure_only": true,
+		 "bodies": [{"x": 500.0, "dy": 150.0}, {"x": 500.0}]},
+		{"name": "e: walking into a crouched body", "ticks": 30, "still": 1,
+		 "bodies": [{"x": 500.0, "intent": fwd}, {"x": 600.0, "crouch": true}]},
+		{"name": "e: crouch-walking into a standing body", "ticks": 40, "still": 1,
+		 "bodies": [{"x": 500.0, "intent": fwd, "crouch": true}, {"x": 600.0}]},
+		{"name": "e: a held body is walked through", "ticks": 12, "reach": 1,
+		 "bodies": [{"x": 500.0, "intent": fwd}, {"x": 600.0, "held": true}]},
+	])
+	var failed_a: PackedStringArray = PackedStringArray()
+	for case: Dictionary in cases:
+		var world: SimWorld = _crowd_world()
+		var rest: float = CROWD_FLOOR + world.tuning.actor_radius
+		var bodies: Array[SimEntity] = []
+		var crouches: Array[SimCommand] = []
+		for spec: Dictionary in case["bodies"]:
+			var at: Vector3 = Vector3(spec["x"], rest + float(spec.get("dy", 0.0)), float(spec.get("z", 200.0)))
+			var body: SimEntity = _add_actor(world, at)
+			bodies.append(body)
+			if spec.get("crouch", false):
+				crouches.append(StanceCommand.crouch(body.id))
+		world.step(crouches)
+		if not case.has("measure_only"):
+			_settle(world) # the faller starts in the air: no settling for it
+		var starts: Array[Vector3] = []
+		for i: int in bodies.size():
+			var spec: Dictionary = case["bodies"][i]
+			bodies[i].is_captured = spec.get("held", false)
+			if spec.get("panic", false):
+				bodies[i].forward_ticks = SimWorld.seconds_to_ticks(world.tuning.panic_after_seconds)
+			starts.append(bodies[i].position)
+		var inside: bool = false
+		var through: bool = false
+		var closest: float = INF
+		for tick: int in int(case["ticks"]):
+			var commands: Array[SimCommand] = []
+			if tick == 0:
+				for i: int in bodies.size():
+					var spec: Dictionary = case["bodies"][i]
+					if spec.has("intent"):
+						commands.append(MoveCommand.move(bodies[i].id, spec["intent"], world.tick, spec.get("panic", false)))
+					if spec.get("jump", false):
+						commands.append(JumpCommand.jump(bodies[i].id))
+			var before: Array[Vector3] = []
+			for body: SimEntity in bodies:
+				before.append(body.position)
+			world.step(commands)
+			for i: int in bodies.size():
+				for j: int in range(i + 1, bodies.size()):
+					if bodies[i].is_captured or bodies[j].is_captured:
+						continue
+					inside = inside or _bodies_inside(world, bodies[i], bodies[j])
+					# Bodies move one at a time in id order, so within a tick the
+					# offset of j from i travels two legs: i's step, then j's.
+					# Either leg crossing the other's footprint is a pass-through,
+					# however far apart the two end up.
+					var rel_start: Vector3 = before[j] - before[i]
+					var rel_mid: Vector3 = before[j] - bodies[i].position
+					var rel_end: Vector3 = bodies[j].position - bodies[i].position
+					var crossed: float = minf(_flat_gap_along(rel_start, rel_mid), _flat_gap_along(rel_mid, rel_end))
+					var tall: bool = absf(rel_end.y) < world.tuning.actor_height
+					through = through or (tall and crossed < world.tuning.actor_radius * 2.0 - 0.5)
+					closest = minf(closest, bodies[i].position.distance_to(bodies[j].position))
+		var label: String = "walls/%s" % case["name"]
+		var unmoved: bool = true
+		if case.has("still"):
+			var s: int = case["still"]
+			unmoved = bodies[s].position == starts[s]
+		print("  %s: inside=%s through=%s closest=%.1f unmoved=%s mover_end=%s" % [
+			label, inside, through, closest, unmoved, bodies[0].position])
+		if case.get("group", "") == "a":
+			if inside or through:
+				failed_a.append(str(case["name"]))
+			continue
+		if case.has("still"):
+			_check(label + " (the other is not moved)", unmoved, true)
+		if case.has("reach"):
+			var r: int = case["reach"]
+			# Straight through the pen's shared point and out the other side.
+			_check(label + " (walks through it)", bodies[0].position.x > bodies[r].position.x
+				and absf(bodies[0].position.z - bodies[r].position.z) < 0.001, true)
+			continue
+		if case.has("measure_only"):
+			# Nobody stands on a head: that would be a 180-high step onto
+			# balconies the threshold set never allows (D7's one-way drops).
+			var top: float = _body_span(world, bodies[1]).y
+			_check(label + " (not stood on the head)", _body_span(world, bodies[0]).x < top - 1.0, true)
+			continue
+		_check(label + " (never inside)", inside, false)
+		_check(label + " (never through)", through, false)
+	_check("walls/a: head-on panic runners never pass through (gaps 41-90)", failed_a, PackedStringArray())

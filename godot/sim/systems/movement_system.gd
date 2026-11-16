@@ -123,10 +123,16 @@ func _advance(world: SimWorld, actor: SimEntity) -> void:
 ## pen's single centre point, so making them solid would weld the whole pen into
 ## one lump and wall off the rescue they are waiting for.
 ##
-## Tested at the DESTINATION rather than swept. Two actors closing head-on cover
-## about 29 units a tick between them against a 40-unit diameter, so there is no
-## room to pass through each other; a swept body-versus-body test would cost
-## more than the case is worth. Revisit if bodies get faster or thinner.
+## Tested at the DESTINATION rather than swept. Bodies move one at a time against
+## the others' current positions, so passing through needs a SINGLE step of more
+## than gap + diameter (over 80); the fastest step is a panic run's 21.6 a tick.
+## Two panic runners close at about 43 a tick between them, which does not
+## matter, and movement_system_test measures every head-on gap from 41 to 90
+## (P4-4). A swept body-versus-body test would cost more than the case is worth.
+## Revisit if a single step ever nears a body's width.
+##
+## Sideways moves meet a body as a cylinder of its drawn height, vertical moves
+## as a sphere: see `_body_in_way`.
 func _blocked_by_actor(
 	world: SimWorld,
 	mover: SimEntity,
@@ -149,10 +155,15 @@ func _blocking_actor(
 	if span <= 0.0:
 		return null
 	var span_squared: float = span * span
+	var sideways: bool = to.x != from.x or to.z != from.z
 
 	for entity_id: int in world.sorted_entity_ids():
 		var other: SimEntity = world.entities[entity_id]
 		if entity_id == mover.id or not other.is_actor() or other.is_captured:
+			continue
+		if sideways:
+			if _body_in_way(world, mover, other, from, to, span_squared):
+				return other
 			continue
 		var closing: float = to.distance_squared_to(other.position)
 		if closing >= span_squared:
@@ -166,6 +177,56 @@ func _blocking_actor(
 			continue
 		return other
 	return null
+
+## A move with a sideways part meets `other` as an upright CYLINDER: blocked when
+## the two are closer than two radii on the floor plan AND the bodies a player
+## sees (feet to head) overlap in height. The sphere let a running jump sail
+## through the chest of a standing body, because two 40-tall marbles miss each
+## other once one has risen 40 (P4-4). Feet above the other's head pass, which is
+## jumping over someone, not through them.
+##
+## Purely vertical moves (falling, the jump's rise, step-up lift and settle) keep
+## the sphere in `_blocking_actor`: a cylinder there would stand a falling body
+## on top of a head, a 180-high ledge the threshold set never allows.
+##
+## Already overlapping (a fall onto someone, a spawn): anything that opens the
+## floor-plan gap is allowed, as for the sphere.
+func _body_in_way(
+	world: SimWorld,
+	mover: SimEntity,
+	other: SimEntity,
+	from: Vector3,
+	to: Vector3,
+	span_squared: float
+) -> bool:
+	var closing: float = _flat_distance_squared(to, other.position)
+	if closing >= span_squared:
+		return false
+	if not _heights_overlap(world, mover, to, other):
+		return false
+	var opening: float = _flat_distance_squared(from, other.position)
+	if opening < span_squared and _heights_overlap(world, mover, from, other) and closing > opening:
+		return false
+	return true
+
+static func _flat_distance_squared(a: Vector3, b: Vector3) -> float:
+	var dx: float = a.x - b.x
+	var dz: float = a.z - b.z
+	return dx * dx + dz * dz
+
+## Do the drawn bodies overlap in height, with the mover's centre at `at`?
+## Feet are one (stance) radius under the centre; a standing body is
+## actor_height tall and a crouched one crouch_gap, the opening it fits under.
+func _heights_overlap(world: SimWorld, mover: SimEntity, at: Vector3, other: SimEntity) -> bool:
+	var mover_feet: float = at.y - _radius_for(world, mover)
+	var other_feet: float = other.position.y - _radius_for(world, other)
+	return mover_feet < other_feet + _drawn_height(world, other) \
+		and other_feet < mover_feet + _drawn_height(world, mover)
+
+func _drawn_height(world: SimWorld, body: SimEntity) -> float:
+	if body.stance == SimEntity.Stance.CROUCHED:
+		return world.tuning.crouch_gap
+	return world.tuning.actor_height
 
 func _resolve(world: SimWorld, actor: SimEntity) -> SimEntity.MotionState:
 	if actor.is_captured:

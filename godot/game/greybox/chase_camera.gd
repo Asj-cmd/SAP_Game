@@ -60,6 +60,10 @@ const PROBE_RADIUS: float = 18.0
 const FADE_FROM: float = 200.0
 const FADE_TO: float = 90.0
 const FADE_FLOOR: float = 0.25
+## The floor while the body is jailed (P4-4 REDO, REVIEW). The 220 pen always
+## pushes the arm in, and a jailed player has nothing behind their body to see,
+## so at 0.25 they watched a ghost with its own inner faces showing.
+const JAILED_FADE_FLOOR: float = 0.6
 
 const PITCH_MIN: float = deg_to_rad(-60.0)
 const PITCH_MAX: float = deg_to_rad(25.0)
@@ -180,12 +184,14 @@ func world_position() -> Vector3:
 	return camera.global_position
 
 ## How opaque the followed body should be drawn, from how far the spring arm
-## actually reached this physics step (see FADE_FROM). 1.0 off-tree.
-func body_opacity() -> float:
+## actually reached this physics step (see FADE_FROM). 1.0 off-tree. A jailed
+## body fades no further than JAILED_FADE_FLOOR.
+func body_opacity(jailed: bool = false) -> float:
 	if _arm == null or not _arm.is_inside_tree():
 		return 1.0
 	var reach: float = _arm.get_hit_length()
-	return lerpf(FADE_FLOOR, 1.0, clampf((reach - FADE_TO) / (FADE_FROM - FADE_TO), 0.0, 1.0))
+	var floor_opacity: float = JAILED_FADE_FLOOR if jailed else FADE_FLOOR
+	return lerpf(floor_opacity, 1.0, clampf((reach - FADE_TO) / (FADE_FROM - FADE_TO), 0.0, 1.0))
 
 ## Ground-plane basis the player's movement is expressed in.
 ##
