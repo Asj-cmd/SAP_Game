@@ -125,7 +125,10 @@ node autobuild/run_game.mjs -- --anim-log --capture-follow=team_a:0,1 --capture-
 ```
 
 Bot matches drift apart between windowed runs, so a follow at a fixed time catches
-a different moment each run: use `on:<one-shot>` for verbs.
+a different moment each run: use `on:<one-shot>` for verbs. For your OWN body carrying
+(bots never jump, crouch or throw on cue), `--pilot=carry` walks it to a bundle in its
+own study and lifts it; `--capture-follow=on:grab:me,...` starts there, and
+`--capture-press` takes keys and `LMB` / `RMB` clicks (e.g. `RMB@2.0` throws).
 
 The debug HUD is hidden by default (`[F1]` toggles it, `--debug-hud` starts
 with it on); `--capture-clean` also hides the hint line and banner.

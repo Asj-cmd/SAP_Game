@@ -227,7 +227,7 @@ frames + bot_match still deterministic. Crouch, jump and throw already exist in 
 removed on purpose (do not rebuild it). No ragdoll, knockback, slide, shove or drop-from-height in v1.
 
 - [x] **P4-1 Panic run per D9:** sim tracks how long forward is held; speed boost from content data; deterministic; bot_match still green (this means verify.mjs passes, nothing more) *(Done 2026-11-16: `forward` flag on Move, `forward_ticks` count, ×1.2 after 2 s (REVIEW); snapshot format 3; 21 table cases; contact sheet `autobuild/frames/p4_1/panic_sheet.png`. See PROGRESS.md.)*
-- [ ] **P4-2 Presentation for jump, crouch, carry and throw per D9**
+- [x] **P4-2 Presentation for jump, crouch, carry and throw per D9** *(Done 2026-11-16: audit sheets in `autobuild/frames/p4_2/` (own body via `--pilot=carry`); landing settle dip 6 / 0.2 s (REVIEW), grab without fade-in, released bundle eased from the hands onto its arc, bodies face their drawn travel (no face in the wall on a slide); crouch-walk kept at ×4.07 (REVIEW); MeshMerge fallback fix. See PROGRESS.md.)*
 - [ ] **P4-3 Jail run-in-place per D9:** the jailed player's inputs drive animation and camera only, never position
 - [ ] **P4-4 Players block each other like walls** (check what the sim does now; make bodies block if they pass through)
 - [ ] **P4-5 Cash tumble and bounce after a throw or drop** (cosmetic; snaps to the sim's position)

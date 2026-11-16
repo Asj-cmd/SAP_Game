@@ -2,59 +2,6 @@
 
 Written by the planner from a quick read. If a fact here is wrong, the code and `DECISIONS.md` win.
 
-## P4-2 — Presentation for jump, crouch, carry and throw
-
-**Approach**
-Most of this was built in P2-2/P2-3 (`FigureAnimator`, the `carry_*` clips, the arms-only throw). This task is an
-audit by contact sheets of live bodies against D9, then fixes to what the sheets show.
-1. Shoot one sheet per verb into `autobuild/frames/p4_2/` with `--capture-follow` (see `godot/CLAUDE.md`):
-   jump (`--capture-press=SPACE@…`, standing and at a jog), crouch idle and crouch-walk (`SHIFT`), grab and carry
-   (idle, jog, crouch, jump), throw (`on:throw`), and the panic run from P4-1.
-2. Open every sheet with Read and write down what each shows against the D9 line for that verb.
-3. Fix in this order, re-shooting only the sheet concerned:
-   a. Landing: D9 wants a tiny wobble. Today `jump_land` plays only when the body lands and stays still. Add a
-      short procedural settle (a dip of the drawn body, no sim change) that also plays when landing at a run.
-   b. Crouch-walk plays at about ×4.07 since P0-11 (DECISIONS 2026-11-14 `MAX_RATE`). Judge it in the sheet.
-   c. Carry: the bundle must sit on both hands above the head in every carry clip, flat like a brick, with the
-      arms straight and still (`_hold_carried`, `hands_point`, `CARRY_HAND_LIFT` in `greybox_main.gd`).
-   d. Throw: both hands push forward as the bundle leaves; the bundle must not pop from the hands to the sim's
-      position on the first flight frame.
-4. Check the fallback bodies (capsule, `figure_model = ""`) still draw the crouch squash and the overhead bundle.
-
-**Already decided**
-- Presentation only: nothing in `sim/`, `content/` or `net/` changes. Motion is read from the predicted world for
-  the local body and the confirmed world for everyone else, as `_animate` does now.
-- Landing settle: the drawn figure dips 6 and returns over 0.2 s, once per landing, no overshoot, no squash and
-  stretch (D2: no cartoon acting). A theme or animator constant; log as **REVIEW**.
-- Crouch-walk: if ×4 reads as a fault (blurred legs, feet not readable), cap that clip's rate at 2.5 and accept
-  a small foot slide; say which in `DECISIONS.md` as **REVIEW**. Do not change the crouch speed.
-- Jump keeps one held air pose with stiff hanging arms; the carry jump keeps the cash overhead.
-- Standing still stays fully motionless (D9): the settle must end in the exact idle pose.
-- The bundle's tumble and bounce is P4-5, not this task.
-
-**Files likely touched** (all exist)
-- `godot/game/art/figure_animator.gd`, `godot/game/greybox/greybox_main.gd` (`_animate`, `_hold_carried`, `_drawn_height`)
-- `godot/tools/build_figure_anims.gd` and `godot/art/characters/figure_anims.res` only if a clip itself is wrong
-- `godot/art/theme/default_theme.tres` / `godot/game/art/art_theme.gd` if a number becomes theme data
-- `autobuild/frames/p4_2/` (new folder), `DECISIONS.md`, `PLAN.md`, `PROGRESS.md`
-
-**Done means**
-- Sheets in `autobuild/frames/p4_2/`, each opened and described in `PROGRESS.md` (what is seen, not what should be):
-  `jump_stand`, `jump_run`, `crouch`, `carry`, `carry_jump`, `throw`, `panic`.
-- In them: lift-off, one air pose and a landing dip are three different cells; a crouched body is clearly lower
-  than a standing one and its feet are on the floor; the bundle is above the head on the hands in every carry
-  cell, including crouched and in the air; in the throw sheet the hands are forward in the cell where the bundle
-  first leaves them.
-- One chase-camera frame of the local body carrying (`--capture-chase`), to confirm the bundle is visible from behind.
-- `node autobuild/verify.mjs` ends `VERIFY: healthy` (once, before committing).
-
-**Do NOT**
-- No sim, tuning or network change; no new sim events for presentation's sake.
-- No ragdoll, stumble, knockback, squash and stretch, dust puffs, trails or any effect (D2, D9).
-- No idle animation. No new facial or expressive acting.
-- No tests for presentation (`godot/CLAUDE.md`), no bot work, no sweeps.
-- Do not rebuild the animation set or swap clips unless a sheet shows the clip itself is the fault.
-
 ## P4-3 — Jail run-in-place
 
 **Approach**
