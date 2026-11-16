@@ -62,6 +62,19 @@ const ACTION_SPAN: Dictionary[StringName, Vector2] = {
 	&"throw": Vector2(0.2, 0.9), &"interact": Vector2(0.4, 1.6),
 }
 
+## Landing settle (P4-2, D9 "tiny landing wobble"): on every landing from a real
+## jump or fall, standing or running, the drawn figure dips this far and comes
+## back up over SETTLE_TIME, once, with no overshoot (D2: no squash and stretch).
+## Drawn only; it ends at exactly 0, so a body that stands still afterwards is in
+## its plain idle pose.
+const SETTLE_DEPTH: float = 6.0
+const SETTLE_TIME: float = 0.2
+## One-shot fade-in, seconds. The grab has none: the carry clip lifts the arms
+## (and the bundle drawn on the hands) the frame carrying begins, so a fade-in
+## showed the bundle overhead for a moment before the reach down to take it.
+const ACTION_FADE_IN: float = 0.1
+const NO_FADE_IN: Array[StringName] = [&"grab"]
+
 ## The base clips the Transition holds. Order is the input order.
 const BASE_CLIPS: Array[StringName] = [
 	&"idle", &"walk", &"jog", &"panic_run", &"crouch_idle", &"crouch_walk",
@@ -83,6 +96,8 @@ var skeleton: Skeleton3D = null
 var art: Node3D = null
 var clip: StringName = &"idle"
 var _act_clip: AnimationNodeAnimation = null
+var _action: AnimationNodeOneShot = null
+var _settle_left: float = 0.0
 var _hand_l: int = -1
 var _hand_r: int = -1
 var _airborne_for: float = 0.0
@@ -142,7 +157,8 @@ func _build_tree(clips: AnimationLibrary, skeleton_path: String) -> void:
 	root.add_node(&"act_rate", act_rate, Vector2(500, 400))
 	root.connect_node(&"act_rate", 0, &"act_clip")
 	var action: AnimationNodeOneShot = AnimationNodeOneShot.new()
-	action.fadein_time = 0.1
+	_action = action
+	action.fadein_time = ACTION_FADE_IN
 	action.fadeout_time = 0.2
 	action.filter_enabled = true
 	for bone: String in ARM_BONES:
@@ -220,10 +236,15 @@ func update(entity: SimEntity, carrying: bool, captured: bool, move_speed: float
 		# A real fall or jump just ended: play the landing (if it stays still).
 		if _was_airborne and _airborne_for >= AIR_GRACE:
 			_land_left = tree.get_animation(&"jump_land").length
+			_settle_left = SETTLE_TIME
 		_airborne_for = 0.0
 		_jump_for = 0.0
 	_was_airborne = airborne
 	_land_left = maxf(0.0, _land_left - delta)
+	if airborne:
+		_settle_left = 0.0
+	else:
+		_settle_left = maxf(0.0, _settle_left - delta)
 
 	var wanted: StringName = base_clip(entity, carrying, captured, speed, move_speed,
 		_airborne_for, _jump_for, _land_left)
@@ -254,8 +275,16 @@ func act(name: StringName) -> void:
 		_act_clip.timeline_length = span.y - span.x
 		_act_clip.stretch_time_scale = false
 		_act_clip.loop_mode = Animation.LOOP_NONE
+	_action.fadein_time = 0.0 if NO_FADE_IN.has(name) else ACTION_FADE_IN
 	tree.set(&"parameters/act_rate/scale", ACTION_SPEED.get(name, 1.0))
 	tree.set(&"parameters/action/request", AnimationNodeOneShot.ONE_SHOT_REQUEST_FIRE)
+
+## How far below its feet the figure is drawn this frame by the landing settle
+## (world units, >= 0): one half sine, 0 -> SETTLE_DEPTH -> 0 over SETTLE_TIME.
+func settle_dip() -> float:
+	if _settle_left <= 0.0:
+		return 0.0
+	return SETTLE_DEPTH * sin(PI * (1.0 - _settle_left / SETTLE_TIME))
 
 ## Where the carried bundle sits: between the two hands, in world space, as
 ## posed this frame. Null-safe: Vector3.INF when there is no skeleton.

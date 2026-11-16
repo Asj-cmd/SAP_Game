@@ -65,6 +65,8 @@ const CROUCH_VIEW_SPEED: float = 8.0
 ## a change of direction does not look like drifting, slow enough that the
 ## turn is visible rather than instant.
 const FACE_RATE: float = 12.0
+## Drawn speed (units/s) under which a body keeps its facing (`_face`).
+const FACE_MIN_SPEED: float = 40.0
 ## How proud of the floor a team's floor tint sits. Enough to win the depth
 ## test against the floor it is laid on, little enough not to be a step.
 const PATCH_THICKNESS: float = 0.6
@@ -73,6 +75,8 @@ const PATCH_THICKNESS: float = 0.6
 const CEILING_LAMP_DROP: float = 60.0
 
 const SNAP_DISTANCE: float = 400.0
+## How long a released bundle takes to go from the hands onto its sim arc (P4-2).
+const RELEASE_BLEND: float = 0.25
 ## Confirmed states kept for interpolating remote bodies. A second or so: enough
 ## to ride out a late packet, short enough that nothing stale is ever drawn.
 const CONFIRMED_HISTORY: int = 32
@@ -98,6 +102,10 @@ var _previous: Dictionary[int, SimEntity] = {}
 var _accumulator: float = 0.0
 
 var _actor_views: Dictionary[int, MeshInstance3D] = {}
+## Released-bundle blend (`_release_blend`): held last frame, gap, time left.
+var _bundle_was_held: Dictionary[int, bool] = {}
+var _release_gap: Dictionary[int, Vector3] = {}
+var _release_left: Dictionary[int, float] = {}
 ## Per drawn figure: its animation driver (P2-3), absent when the figure has no
 ## animation set (fallback models, capsules), and the confirmed state it was
 ## last driven from, to spot one-shots (_animate).
@@ -551,12 +559,18 @@ func _capture_follow(request: FrameCapture) -> void:
 		# whoever does it (bot matches drift between windowed runs, so a fixed
 		# time catches a different moment each run).
 		var what: StringName = StringName(parts[1]) if parts.size() > 1 else &"throw"
+		# on:<one-shot>:me waits for YOUR body to fire it (with --pilot=carry).
+		var only_mine: bool = parts.size() > 2 and parts[2] == "me"
 		_anim_fired.clear()
 		var waited: float = 0.0
-		while not _anim_fired.has(what) and waited < 300.0:
+		while waited < 300.0:
+			if _anim_fired.has(what) and (not only_mine or _anim_fired[what] == _local_actor()):
+				break
 			await get_tree().process_frame
 			waited += get_process_delta_time()
 		target = _anim_fired.get(what, SimEntity.NO_ENTITY)
+		if only_mine and target != _local_actor():
+			target = SimEntity.NO_ENTITY
 	for entity_id: int in world.sorted_entity_ids():
 		var entity: SimEntity = world.entities[entity_id]
 		if entity.is_actor() and entity.team == team and entity.slot == slot:
@@ -575,6 +589,10 @@ func _capture_follow(request: FrameCapture) -> void:
 	var cells: Array[Image] = []
 	const CELL: Vector2i = Vector2i(480, 270)
 	for i: int in request.presses.size():
+		if request.presses[i] == "LMB" or request.presses[i] == "RMB":
+			_click_later(MOUSE_BUTTON_LEFT if request.presses[i] == "LMB" else MOUSE_BUTTON_RIGHT,
+				request.press_at[i])
+			continue
 		_press_later(OS.find_keycode_from_string(request.presses[i]),
 			request.press_at[i], request.press_hold[i])
 	for shot: int in request.follow_count:
@@ -604,10 +622,11 @@ func _capture_follow(request: FrameCapture) -> void:
 		cells.append(image)
 		var truth: SimEntity = link.outcome_world().get_entity(target)
 		var animator: FigureAnimator = _animators.get(target, null)
-		print("  cell %d  t=%.1f  clip=%s%s  motion=%d grounded=%s stance=%d speed=%.0f vy=%.0f carrying=%s captured=%s" % [
+		print("  cell %d  t=%.1f  clip=%s%s%s  motion=%d grounded=%s stance=%d speed=%.0f vy=%.0f carrying=%s captured=%s" % [
 			shot + 1, world.tick * SimWorld.SECONDS_PER_TICK,
 			animator.clip if animator != null else &"(none)",
 			" +arms" if animator != null and bool(animator.tree.get(&"parameters/action/active")) else "",
+			" dip=%.1f" % animator.settle_dip() if animator != null and animator.settle_dip() > 0.0 else "",
 			truth.motion_state, truth.is_grounded, truth.stance,
 			Vector2(truth.velocity.x, truth.velocity.z).length(), truth.velocity.y,
 			truth.is_carrying(), truth.is_captured])
@@ -622,6 +641,7 @@ func _capture_follow(request: FrameCapture) -> void:
 		sheet.blit_rect(cells[i], Rect2i(Vector2i.ZERO, CELL),
 			Vector2i((i % across) * CELL.x, (i / across) * CELL.y))
 	var to_path: String = "%s_sheet.png" % request.path.get_basename()
+	DirAccess.make_dir_recursive_absolute(ProjectSettings.globalize_path(to_path.get_base_dir()))
 	if sheet.save_png(to_path) == OK:
 		print("frame capture: %s" % ProjectSettings.globalize_path(to_path))
 
@@ -647,6 +667,19 @@ func _press_later(key: Key, at: float, hold: float) -> void:
 	var up: InputEventKey = down.duplicate() as InputEventKey
 	up.pressed = false
 	Input.parse_input_event(up)
+
+## Clicks `button` after `at` seconds (`--capture-press=RMB@1.5`: throw, LMB:
+## grab / drop), held three frames like the pilot's click.
+func _click_later(button: MouseButton, at: float) -> void:
+	if at > 0.0:
+		await get_tree().create_timer(at).timeout
+	for down: bool in [true, false]:
+		var event: InputEventMouseButton = InputEventMouseButton.new()
+		event.button_index = button
+		event.pressed = down
+		Input.parse_input_event(event)
+		for frame: int in 3:
+			await get_tree().process_frame
 
 ## A team_a body for chase shots: the model when it has been built, else the
 ## capsule the game falls back to. Origin at the feet either way.
@@ -1139,9 +1172,13 @@ func _render(alpha: float, delta: float) -> void:
 			if earlier != null and earlier.position.distance_to(target) < SNAP_DISTANCE:
 				target = earlier.position.lerp(target, clampf(alpha, 0.0, 1.0))
 
-		view.position = target + _view_offset(
+		var placed: Vector3 = target + _view_offset(
 			entity, _drawn_height(entity_id, entity, view, delta))
-		_face(entity_id, entity, view, delta)
+		if entity.is_carriable():
+			placed += _release_blend(entity_id, entity, view.position, placed, delta)
+		var travelled: Vector3 = placed - view.position
+		view.position = placed
+		_face(entity_id, entity, view, travelled, delta)
 		# Held, carrying and captured are read from the CONFIRMED world on every
 		# role. A guest never guesses at an outcome.
 		view.visible = true
@@ -1151,6 +1188,36 @@ func _render(alpha: float, delta: float) -> void:
 	_show_reach(mine)
 	_update_tell(truth, mine)
 	_place_contact_shadows(truth)
+
+## A bundle let go (thrown, dropped, or shaken loose by a seizure) starts where the
+## sim puts it: the carrier's CENTRE, about a body's half-height below the hands
+## it was drawn on. Drawn straight there, it dropped that far in one frame. So
+## the gap between where it was last drawn (the hands) and where it is now is
+## carried and eased out over RELEASE_BLEND (P4-2), smoothstep, so it leaves the
+## hands moving with its arc and arrives on it without a kink. Drawn only; the
+## sim's bundle is untouched. Returns the offset to add this frame.
+func _release_blend(entity_id: int, entity: SimEntity, drawn_before: Vector3,
+		placed: Vector3, delta: float) -> Vector3:
+	var held: bool = entity.is_held()
+	var was_held: bool = _bundle_was_held.get(entity_id, held)
+	_bundle_was_held[entity_id] = held
+	if held:
+		_release_left.erase(entity_id)
+		return Vector3.ZERO
+	if was_held:
+		var gap: Vector3 = drawn_before - placed
+		if gap.length() < SNAP_DISTANCE:
+			_release_gap[entity_id] = gap
+			_release_left[entity_id] = RELEASE_BLEND
+	if not _release_left.has(entity_id):
+		return Vector3.ZERO
+	var left: float = _release_left[entity_id] - delta
+	if left <= 0.0:
+		_release_left.erase(entity_id)
+		return Vector3.ZERO
+	_release_left[entity_id] = left
+	var k: float = left / RELEASE_BLEND
+	return _release_gap[entity_id] * (k * k * (3.0 - 2.0 * k))
 
 ## A disc on the floor under every drawn body and every loose bundle, and under
 ## the capture's stand-ins. Read from where things are DRAWN this frame; a held
@@ -1377,11 +1444,19 @@ func _show_reach(mine: int) -> void:
 ##
 ## Falls back to holding the last facing when stopped, rather than snapping to
 ## a default: a body that has come to rest is still facing wherever it arrived.
-func _face(entity_id: int, entity: SimEntity, view: Node3D, delta: float) -> void:
-	if not entity.is_actor():
+##
+## Faces the way the body was DRAWN moving this frame (`travelled`), not its
+## velocity (P4-2). The sim's velocity is the intent times the speed, kept while
+## a wall turns the move into a slide along it, so a body run diagonally into a
+## wall faced into it and was drawn with its face and arm inside the brick.
+## Tiny drawn moves (under FACE_MIN_SPEED) and jumps of a teleport (a round reset,
+## a snap) keep the facing.
+func _face(entity_id: int, entity: SimEntity, view: Node3D, travelled: Vector3,
+		delta: float) -> void:
+	if not entity.is_actor() or delta <= 0.0:
 		return
-	var travel: Vector3 = Vector3(entity.velocity.x, 0.0, entity.velocity.z)
-	if travel.length_squared() < 1.0:
+	var travel: Vector3 = Vector3(travelled.x, 0.0, travelled.z)
+	if travel.length() < FACE_MIN_SPEED * delta or travel.length() > SNAP_DISTANCE:
 		return
 	var wanted: float = atan2(travel.x, travel.z)
 	var now: float = _facings.get(entity_id, wanted)
@@ -1465,12 +1540,15 @@ func _drawn_height(entity_id: int, entity: SimEntity, view: MeshInstance3D,
 	if _animators.has(entity_id):
 		# An animated figure crouches by its own pose (crouch_* clips), so it is
 		# not squashed; it stands with its feet on the sim's feet, which are half
-		# the drawn height below the view (_view_offset), crouched or not.
+		# the drawn height below the view (_view_offset), crouched or not. The
+		# landing settle (P4-2) dips it a few units for a moment after a landing;
+		# the view itself, its contact shadow and the camera do not move.
+		var dip: float = _animators[entity_id].settle_dip()
 		for child: Node in view.get_children():
 			var held: Node3D = child as Node3D
 			if held != null:
 				held.scale = Vector3.ONE
-				held.position = Vector3(0.0, -eased * 0.5, 0.0)
+				held.position = Vector3(0.0, -eased * 0.5 - dip, 0.0)
 		return eased
 	for child: Node in view.get_children():
 		var figure: Node3D = child as Node3D

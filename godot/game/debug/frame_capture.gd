@@ -154,9 +154,11 @@ func path_for(index: int) -> String:
 ##                             from beside it, written as one contact sheet
 ##                             (<path stem>_sheet.png), each frame's clip printed.
 ##                             `on:throw` (grab, seize, free) for team:slot waits
-##                             for that one-shot and follows whoever fires it
+##                             for that one-shot and follows whoever fires it;
+##                             `on:grab:me` waits for YOUR body (with --pilot=carry)
 ##   --capture-press=KEY@seconds[+hold]   during a follow, press KEY (Space, W,
-##                             Shift ...) that long after the first shot; repeatable
+##                             Shift ..., or LMB / RMB for a click) that long
+##                             after the first shot; repeatable
 ##
 ## Chase shots are numbered after any --capture-at shots.
 ## `--capture-at` may be repeated; each one is a separate shot, numbered

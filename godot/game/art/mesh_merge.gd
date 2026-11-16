@@ -35,8 +35,11 @@ static func _collect(node: Node, to_space: Transform3D, tools: Dictionary[Materi
 		order: Array[Material]) -> void:
 	var view: MeshInstance3D = node as MeshInstance3D
 	if view != null and view.mesh != null and view.skin == null and view.visible:
+		var arrays: ArrayMesh = view.mesh as ArrayMesh
 		for surface: int in view.mesh.get_surface_count():
-			if view.mesh.surface_get_primitive_type(surface) != Mesh.PRIMITIVE_TRIANGLES:
+			# Only an ArrayMesh can say; a PrimitiveMesh (the box fallbacks when a
+			# theme has no prop models) is always triangles.
+			if arrays != null and arrays.surface_get_primitive_type(surface) != Mesh.PRIMITIVE_TRIANGLES:
 				continue
 			var material: Material = view.get_active_material(surface)
 			if material == null:

@@ -74,6 +74,8 @@ func _ready() -> void:
 	DirAccess.make_dir_recursive_absolute(ProjectSettings.globalize_path(_out_dir))
 	if _role == "solo":
 		_run()
+	elif _role == "carry":
+		_run_carry()
 	else:
 		_run_network()
 
@@ -109,6 +111,31 @@ func _run() -> void:
 	await _step_rematch()
 	await _step_leave()
 	_finish()
+
+## `--pilot=carry` (P4-2): for contact sheets of your OWN body carrying. With a
+## capture flag the match starts without the menu; this walks to the nearest
+## bundle in one of our own cash rooms, lifts it, lets go of every key and does
+## nothing more, so `--capture-follow=on:grab:me` plus `--capture-press` drive
+## the carrier from there. The capture ends the run.
+func _run_carry() -> void:
+	if not await _until(_phase_live, 30.0):
+		print("PILOT carry: no live round")
+		return
+	_turn_by_mouse = Input.mouse_mode == Input.MOUSE_MODE_CAPTURED
+	var reach: float = _world().tuning.pickup_range * 0.6
+	for attempt: int in 4:
+		var target: int = _own_cash()
+		if target == SimEntity.NO_ENTITY:
+			break
+		if not await _walk_to(func() -> Vector3: return _entity(target).position, reach, 60.0):
+			continue
+		await _click(MOUSE_BUTTON_LEFT)
+		await _wait(0.4)
+		if _me().is_carrying():
+			print("PILOT carry: holding bundle %d in %s" % [
+				_me().carrying_id, _zone_name(_me().position)])
+			return
+	print("PILOT carry: never got a bundle into hand (me %s)" % _me_state())
 
 ## The menu's Host / Join path, between two windows on this machine.
 func _run_network() -> void:
@@ -556,6 +583,24 @@ func _enemy_cash() -> int:
 			continue
 		var zone: ZoneDef = _world().zone_at(cash.position)
 		if zone == null or zone.role != ZoneDef.Role.CASH_ROOM or zone.owner_team == team:
+			continue
+		var distance: float = _me().position.distance_to(cash.position)
+		if distance < best_distance:
+			best_distance = distance
+			best = entity_id
+	return best
+
+## The nearest loose bundle in one of OUR cash rooms (`--pilot=carry`).
+func _own_cash() -> int:
+	var team: StringName = _me().team
+	var best: int = SimEntity.NO_ENTITY
+	var best_distance: float = INF
+	for entity_id: int in _world().sorted_entity_ids():
+		var cash: SimEntity = _world().entities[entity_id]
+		if not cash.is_carriable() or cash.is_held() or cash.in_flight:
+			continue
+		var zone: ZoneDef = _world().zone_at(cash.position)
+		if zone == null or zone.role != ZoneDef.Role.CASH_ROOM or zone.owner_team != team:
 			continue
 		var distance: float = _me().position.distance_to(cash.position)
 		if distance < best_distance:
