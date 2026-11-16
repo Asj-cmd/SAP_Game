@@ -106,6 +106,12 @@ var _actor_views: Dictionary[int, MeshInstance3D] = {}
 var _bundle_was_held: Dictionary[int, bool] = {}
 var _release_gap: Dictionary[int, Vector3] = {}
 var _release_left: Dictionary[int, float] = {}
+## Loose-bundle tumble and bounce (P4-5): the spin/hop state, each bundle's drawn
+## box in its own view space (the spin is about its middle), and where a
+## tumbling bundle's resting point is drawn this frame (its contact shadow).
+var _tumble: BundleTumble = BundleTumble.new()
+var _bundle_boxes: Dictionary[int, AABB] = {}
+var _bundle_base: Dictionary[int, Vector3] = {}
 ## Per drawn figure: its animation driver (P2-3), absent when the figure has no
 ## animation set (fallback models, capsules), and the confirmed state it was
 ## last driven from, to spot one-shots (_animate).
@@ -117,6 +123,8 @@ var _anim_last_seen: Dictionary[int, Vector3] = {}
 ## `--anim-log`: print every one-shot as it fires (who, which, sim time), to find
 ## the moment a follow sheet should catch.
 var _anim_log: bool = OS.get_cmdline_user_args().has("--anim-log")
+## `--tumble-log`: print a tumbling bundle's sim point and drawn base every frame (P4-5).
+var _tumble_log: bool = OS.get_cmdline_user_args().has("--tumble-log")
 ## The last figure each one-shot fired on (`throw`, `grab`, `seize`, `free`), for
 ## `--capture-follow=on:<one-shot>`.
 var _anim_fired: Dictionary[StringName, int] = {}
@@ -588,6 +596,10 @@ func _capture_follow(request: FrameCapture) -> void:
 	eye.current = true
 	var cells: Array[Image] = []
 	const CELL: Vector2i = Vector2i(480, 270)
+	# View "bundle" (P4-5): the camera watches the bundle the body carries, and
+	# keeps watching it once let go, from a side fixed at the first shot.
+	var bundle_id: int = SimEntity.NO_ENTITY
+	var bundle_side: Vector3 = Vector3.ZERO
 	for i: int in request.presses.size():
 		if request.presses[i] == "LMB" or request.presses[i] == "RMB":
 			_click_later(MOUSE_BUTTON_LEFT if request.presses[i] == "LMB" else MOUSE_BUTTON_RIGHT,
@@ -618,6 +630,27 @@ func _capture_follow(request: FrameCapture) -> void:
 				away = left * 0.5
 				rise = request.follow_distance * 0.87
 		var middle: Vector3 = view.position
+		if request.follow_view.begins_with("bundle"):
+			var carrier: SimEntity = link.outcome_world().get_entity(target)
+			if carrier != null and carrier.is_carrying():
+				bundle_id = carrier.carrying_id
+			elif bundle_id == SimEntity.NO_ENTITY and carrier != null:
+				# Followed from a throw (on:throw): the bundle already flying
+				# nearest the thrower.
+				var nearest: float = INF
+				for cash_id: int in link.outcome_world().sorted_entity_ids():
+					var cash: SimEntity = link.outcome_world().entities[cash_id]
+					if cash.is_carriable() and cash.in_flight \
+							and cash.position.distance_to(carrier.position) < nearest:
+						nearest = cash.position.distance_to(carrier.position)
+						bundle_id = cash_id
+			if bundle_side == Vector3.ZERO:
+				# "bundle_r": from the body's right instead.
+				bundle_side = -left if request.follow_view == "bundle_r" else left
+			away = bundle_side
+			rise = 60.0
+			if _actor_views.has(bundle_id):
+				middle = _actor_views[bundle_id].position
 		eye.global_position = middle + away * request.follow_distance + Vector3(0.0, rise, 0.0)
 		eye.look_at(middle, Vector3.UP)
 		await get_tree().process_frame
@@ -636,6 +669,14 @@ func _capture_follow(request: FrameCapture) -> void:
 			truth.motion_state, truth.is_grounded, truth.stance,
 			Vector2(truth.velocity.x, truth.velocity.z).length(), truth.velocity.y,
 			truth.is_carrying(), truth.is_captured])
+		if bundle_id != SimEntity.NO_ENTITY:
+			var cash: SimEntity = link.outcome_world().get_entity(bundle_id)
+			var drawn_base: Vector3 = _bundle_base.get(bundle_id, Vector3.INF)
+			if cash != null:
+				print("        bundle %d sim=(%.1f,%.1f,%.1f) in_flight=%s held=%s drawn_base=%s" % [
+					bundle_id, cash.position.x, cash.position.y, cash.position.z, cash.in_flight,
+					cash.is_held(), "-" if drawn_base == Vector3.INF else "(%.1f,%.1f,%.1f)" % [
+						drawn_base.x, drawn_base.y, drawn_base.z]])
 	_capture_camera = null
 	eye.queue_free()
 	if target == _local_actor():
@@ -1194,6 +1235,8 @@ func _render(alpha: float, delta: float) -> void:
 			placed += _release_blend(entity_id, entity, view.position, placed, delta)
 		var travelled: Vector3 = placed - view.position
 		view.position = placed
+		if entity.is_carriable():
+			_tumble_bundle(entity_id, entity, view, placed, delta)
 		if entity.is_actor() and entity.is_captured:
 			# Jailed (P4-3): it runs in place, so it turns to the way its keys
 			# point, from the world its motion is drawn from; no keys, it holds.
@@ -1244,6 +1287,43 @@ func _release_blend(entity_id: int, entity: SimEntity, drawn_before: Vector3,
 	var k: float = left / RELEASE_BLEND
 	return _release_gap[entity_id] * (k * k * (3.0 - 2.0 * k))
 
+## A loose bundle in flight spins end over end, and on landing hops twice while
+## the spin eases to the nearest flat pose (P4-5, `BundleTumble`). The spin is
+## about the bundle's middle, so its drawn origin moves by the difference; it is
+## lifted (never sunk) so no corner goes under the floor beneath the sim's point.
+## x and z are the sim's (plus the P4-2 release blend); at rest it lies exactly
+## on the sim's point. A bundle with no tumble state is left as it was drawn.
+func _tumble_bundle(entity_id: int, entity: SimEntity, view: MeshInstance3D,
+		placed: Vector3, delta: float) -> void:
+	var tumble: Dictionary = _tumble.update(entity_id, entity, view.rotation.y, delta,
+		_release_left.has(entity_id))
+	if not tumble[&"active"]:
+		_bundle_base.erase(entity_id)
+		return
+	var spun: Basis = tumble[&"basis"]
+	var rest: Basis = Basis(Vector3.UP, _tumble.yaw_of(entity_id))
+	var box: AABB = _bundle_boxes.get(entity_id, AABB(Vector3(-CASH_SIZE, 0.0, -CASH_SIZE) * 0.5,
+		Vector3(CASH_SIZE, CASH_SIZE * 0.5, CASH_SIZE)))
+	var centre: Vector3 = box.get_center()
+	var base: Vector3 = placed + Vector3(0.0, tumble[&"lift"], 0.0)
+	var origin: Vector3 = base + rest * centre - spun * centre
+	if not tumble[&"resting"] and _contact_shadows != null:
+		var ground: float = _contact_shadows.floor_below(placed - _view_offset(entity, 0.0))
+		if ground > -INF:
+			var lowest: float = INF
+			for corner: int in 8:
+				lowest = minf(lowest, (origin + spun * box.get_endpoint(corner)).y)
+			if lowest < ground:
+				origin.y += ground - lowest
+				base.y += ground - lowest
+	view.position = origin
+	view.basis = spun
+	_bundle_base[entity_id] = base - _view_offset(entity, 0.0)
+	if _tumble_log:
+		print("tumble id=%d sim=(%.1f,%.1f,%.1f) drawn_base=(%.1f,%.1f,%.1f) lift=%.2f flight=%s resting=%s" % [
+			entity_id, placed.x, placed.y, placed.z, base.x, base.y, base.z,
+			base.y - placed.y, entity.in_flight, tumble[&"resting"]])
+
 ## A disc on the floor under every drawn body and every loose bundle, and under
 ## the capture's stand-ins. Read from where things are DRAWN this frame; a held
 ## bundle has none (its carrier's covers it).
@@ -1262,7 +1342,8 @@ func _place_contact_shadows(truth: SimWorld) -> void:
 			var feet: Vector3 = view.position - Vector3(0.0, _view_heights.get(entity_id, ACTOR_HEIGHT) * 0.5, 0.0)
 			_contact_shadows.add(feet, theme.contact_shadow_radius * tall / ACTOR_HEIGHT)
 		elif entity.is_carriable() and not entity.is_held():
-			_contact_shadows.add(view.position - _view_offset(entity, 0.0), theme.contact_shadow_bundle_radius)
+			_contact_shadows.add(_bundle_base.get(entity_id, view.position - _view_offset(entity, 0.0)),
+				theme.contact_shadow_bundle_radius)
 	for extra: Node3D in _shadow_extras:
 		if is_instance_valid(extra) and extra.is_inside_tree() and extra.visible:
 			_contact_shadows.add(extra.global_position, float(extra.get_meta(&"shadow_radius",
@@ -1679,6 +1760,10 @@ func _clear_animators() -> void:
 	_anim_captured.clear()
 	_anim_sentence.clear()
 	_anim_last_seen.clear()
+	# The loose-bundle tumble state goes with the views it drew (P4-5).
+	_tumble = BundleTumble.new()
+	_bundle_boxes.clear()
+	_bundle_base.clear()
 
 func _rebuild_views() -> void:
 	for view: MeshInstance3D in _actor_views.values():
@@ -1751,12 +1836,14 @@ func _rebuild_views() -> void:
 					one.transform = (bundle as Node3D).transform
 					bundle.free()
 					bundle = one
+					_bundle_boxes[entity_id] = one.transform * merged.get_aabb()
 				view.add_child(bundle)
 				dressed = true
 			else:
 				var box: BoxMesh = BoxMesh.new()
 				box.size = Vector3(CASH_SIZE, CASH_SIZE, CASH_SIZE)
 				view.mesh = box
+				_bundle_boxes[entity_id] = box.get_aabb()
 		# A dressed view keeps its model's own materials and hides the primitive
 		# it was built around; an undressed one is the flat team-coloured shape
 		# the game has always drawn. Hidden by a transparent material rather

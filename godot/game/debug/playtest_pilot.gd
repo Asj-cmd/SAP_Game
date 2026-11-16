@@ -76,6 +76,8 @@ func _ready() -> void:
 		_run()
 	elif _role == "carry":
 		_run_carry()
+	elif _role == "carry_out":
+		_run_carry_out()
 	elif _role == "jail":
 		_run_jail()
 	else:
@@ -138,6 +140,41 @@ func _run_carry() -> void:
 				_me().carrying_id, _zone_name(_me().position)])
 			return
 	print("PILOT carry: never got a bundle into hand (me %s)" % _me_state())
+
+## `--pilot=carry_out` (P4-5): as `carry`, then carries the bundle out to the
+## middle of our own yard, faces away from the house, lets go of every key and
+## marks the one-shot `ready` for this body, so `--capture-follow=on:ready:me`
+## starts there (a throw from the study only hits its wall).
+func _run_carry_out() -> void:
+	await _run_carry()
+	if not _me().is_carrying():
+		return
+	var home: Vector3 = _own_cash_room_point()
+	var yard: Vector3 = home
+	for zone: ZoneDef in _game.level.zones:
+		if zone.role == ZoneDef.Role.HOME and zone.owner_team == _me().team \
+				and String(zone.id).contains("yard"):
+			# On-foot ground nearest the yard's box centre (which is inside the
+			# house wall, P3-3b).
+			yard = _game.link.crew.nav.zone_point(_world(), zone, _me().position)
+	if not await _walk_to(func() -> Vector3: return yard, 120.0, 60.0):
+		print("PILOT carry_out: never reached the yard (me %s)" % _me_state())
+	var away: Vector3 = Vector3(yard.x - home.x, 0.0, yard.z - home.z).normalized()
+	# `--pilot-turn=deg` turns that much further (along a narrow yard strip).
+	for arg: String in OS.get_cmdline_user_args():
+		if arg.begins_with("--pilot-turn="):
+			away = away.rotated(Vector3.UP, deg_to_rad(float(arg.trim_prefix("--pilot-turn="))))
+		# `--pilot-aim=x,z`: face exactly this world direction instead.
+		if arg.begins_with("--pilot-aim="):
+			var xz: PackedFloat64Array = arg.trim_prefix("--pilot-aim=").split_floats(",")
+			if xz.size() == 2:
+				away = Vector3(xz[0], 0.0, xz[1]).normalized()
+	for turn: int in 12:
+		_face(_me().position + away * 1000.0)
+		await _frames(1)
+	await _wait(0.3)
+	print("PILOT carry_out: in %s, facing away from the house" % _zone_name(_me().position))
+	_game._anim_fired[&"ready"] = _game._local_actor()
 
 ## `--pilot=jail` (P4-3): for contact sheets of your OWN body in jail. Walks into
 ## the enemy house to one of their bundles and stands there (touching nothing)
