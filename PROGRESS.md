@@ -2,6 +2,51 @@
 
 Newest first. One entry per task: date, task id, what changed, what the frames showed, numbers, what is left.
 
+## 2026-11-16 — P4-5 Cash tumble and bounce after a throw or drop
+- **Followed the brief.** Presentation only: nothing in `sim/`, `net/`, `content/` or the snapshot changed.
+- **New `BundleTumble`** (`godot/game/art/bundle_tumble.gd`). It keeps per-bundle state, read from the confirmed world:
+  - While `in_flight`, the bundle spins end over end about the horizontal axis at right angles to its flat travel: 540°/s thrown, 135°/s for a drop or a seizure (about its own short side).
+  - On the frame the flight ends, it hops twice: first peak clamp(landing speed × 0.02, 4, 14) over 0.22 s, a drop's speed counted ×0.4; then 30 % of that over 0.12 s. Meanwhile the spin eases to the nearest multiple of 180°.
+  - A held bundle has no state: `_hold_carried` owns it.
+- **`greybox_main._tumble_bundle`:**
+  - Turns the bundle about its middle (its drawn box is recorded when the view is built).
+  - Lifts it, never sinks it, so no corner goes under the floor below the sim's point (`ContactShadows.floor_below`).
+  - Feeds the drawn resting point to the contact shadow.
+  - `_release_blend` (P4-2) is untouched. The tumble only adds to its result. A drop's landing waits for that blend to finish (DECISIONS).
+- **Tooling:**
+  - `--pilot=carry_out` (with `--pilot-aim=x,z`), firing `on:ready:me`.
+  - Follow views `bundle` / `bundle_r`.
+  - `--tumble-log`, and a per-cell print of the bundle's sim point and drawn base.
+  - Why: a throw goes where the camera looks, and from the study it only hit its wall (first two tries: the camera sat outside the brick wall for most of the sheet). Bots threw nothing in 300 s of 3v3 (`on:throw` timed out). Throws from the side yard at 45° and 135° hit the fence and the house.
+- **Frames, `autobuild/frames/p4_5/`:**
+  - `throw_sheet.png`: own body in yard A's side strip, thrown along +z, camera on the bundle's right at 180, 28 cells about 0.07 s apart.
+    - Cells 1–5: carried overhead.
+    - Cell 6: the two-handed push, the bundle leaving tilted.
+    - Cells 7–16: the bundle at a clearly different angle in every cell, end over end, its contact shadow on the lawn below it, darker as it comes down.
+    - Cell 17: just after contact, a visible gap between the tilted bundle and the lawn, the shadow under it (the hop).
+    - Cells 18–20: tilted on the lawn, easing towards flat.
+    - Cells 21–28: lying flat and still.
+  - `drop_sheet.png`: same place, LMB, camera at 150, 20 cells.
+    - Cells 6–8: it falls from the hands down the front of the body.
+    - Cell 9: tilted about 25°, just above the lawn, shadow under it.
+    - Cells 10–13: a tiny hop and settle, easing flat.
+    - Cells 14–20: flat and still between the feet. The first drop sheet (before the `settling` fix) spent the hop while the drawn bundle was still coming down from the hands, and showed only a tilt.
+  - `drop_chase.png` (seat's chase camera): the bundle lies flat on the lawn between the feet, long side showing. It is neither sunk into the grass nor floating.
+  - `throw_fence_chase.png`: a diagonal throw that hit the fence. The bundle is at the fence foot on the soil strip between two shrubs: small, flat, not tilted, not floating. The own body in the doorway is drawn faded over the right of the frame (P0-6).
+  - The throw's own `throw_chase.png` shows the body in the strip with the bundle hidden behind it, 650 ahead.
+- **Numbers (one throw, `throw` run):**
+  - x/z: the drawn base's x equals the sim's in every flight cell. z trails the latest sim tick by about 20 in flight. That is the ordinary render interpolation between the last two ticks, the same as for every body. The tumble itself never offsets x/z; in the first 0.25 s, P4-2's release blend still does, as before.
+  - At rest, the drawn base equals the sim point exactly, (306.4, 300.0, 2053.5), from 0.34 s after landing in every cell (lift 0).
+  - Lift after landing: 6.5 / 13.7 / 10.4 / 2.1 / 3.2 / 0.
+  - Drop: 5.6 (corner clamp while tilted) / 4.2 / 3.9 / 2.2 / 0.8 / 1.1 / 0.
+- **Verify:** `node autobuild/verify.mjs` healthy.
+  - 16 suites at their pinned counts (no tests added: presentation); symmetry 193 of 193.
+  - Bot match UNCHANGED from P4-4, as the brief required (nothing in the sim moved): 3v3 team_b in 228 s, 18 s of stalls, 19 captures; 1v1 team_a in 250 s, 5 s, 6 captures. Both deterministic.
+  - Tick budget 0 / 0 / 0 (4v4 not gated) of 600.
+  - net_smoke: 1665 ticks agree.
+  - Render counters: approach 404 / 233k, railing 396 / 229k, kitchen 337 / 176k, all within the gate.
+- **Left:** a bundle thrown against a wall slides down it in the sim; while it does, the drawn one keeps spinning and the corner clamp can lift it ~11 over a lower blocker under a window (seen in the study, `throw` try 1). Not fixed: rare and brief. On a drop, the body flings one arm out sideways for a few frames as `carry_idle` blends to `idle` (drop sheet cells 6–7): P4-7 to judge. `godot/art/theme/_tmp_noshell.tres` is still the untracked leftover.
+
 ## 2026-11-16 — P4-4 Players block each other like walls
 - **Followed the brief.** Measured first, with a new table function `_test_bodies_like_walls` in `movement_system_test.gd`. It uses a flat-floor fixture with the game's own tuning (radius 20, pace 540, panic ×1.2, jump 900, gravity 2000, a 180 body). On every tick, for every free pair, it checks two things. "Inside": closer than 40 on the floor plan while the feet-to-head spans overlap. "Through": either leg of the tick's sequential move crosses the other's footprint.
 - **Before any change:**

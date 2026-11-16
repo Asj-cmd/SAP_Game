@@ -2,66 +2,6 @@
 
 Written by the planner from a quick read. If a fact here is wrong, the code and `DECISIONS.md` win.
 
-## P4-5 — Cash tumble and bounce after a throw or drop
-
-**Approach**
-1. Read `godot/sim/systems/carry_system.gd` (`_try_throw`, `_advance_flight`, `_land`: a fixed arc,
-   "no bounce and no roll", `in_flight` goes false where it first hits) and, in
-   `godot/game/greybox/greybox_main.gd`, `_render`, `_release_blend`, `_face` (check whether it yaws
-   bundle views too), `_hold_carried`, `_place_contact_shadows`.
-2. New small class `godot/game/art/bundle_tumble.gd` (`BundleTumble`, RefCounted, typed): per bundle
-   id it keeps spin angle, spin axis, last in-flight velocity, and a bounce timer. One call per
-   frame per loose bundle from `_render`: `update(id, entity, delta) -> {lift: float, basis: Basis}`.
-3. While `in_flight` and not held: spin about the horizontal axis at right angles to the flat
-   velocity (it tumbles end over end, forward). A drop or a seized carrier's bundle (flat speed under
-   40) gets a quarter of the spin rate about a fixed axis.
-4. On the frame `in_flight` goes true → false (not picked up): start the bounce: a lift on a
-   parabola, then a second smaller one, while the rotation eases to the nearest FLAT pose (a multiple
-   of 180° about the spin axis) so it always ends lying flat exactly as it does today.
-5. Apply: `view.position.y += lift` (after `_release_blend`), `view.basis` = yaw × tumble. x and z
-   are never offset. When the bounce ends, lift is exactly 0 and the basis exactly the resting one.
-   Held or picked up mid-bounce: state cleared at once, `_hold_carried` owns the bundle.
-6. Shoot the sheets, open them, adjust numbers once, verify, PROGRESS, DECISIONS, tick, commit.
-
-**Already decided** (log the numbers as one REVIEW line)
-- Presentation only. The sim's "stops where it first hits" stays; the drawn bundle is at the sim's
-  x/z every frame and at the sim's y at rest. Read `in_flight` / held from the CONFIRMED world
-  (`truth`), as `_animate` does, so a guest draws the same.
-- Tumble: 540°/s on a throw (about 1.5 turns over a full arc); 135°/s on a drop.
-- Bounce: first lift peak = clamp(landing speed × 0.02, 4, 14) units over 0.22 s; second = 30 % of
-  that over 0.12 s; then nothing. Lift is never negative (never under the floor). A drop from the
-  hands gets the low end (about 4–6): "bounces a little" (D9), subtle and short.
-- No sound (P5-3), no dust or particles (D2), no squash and stretch, no roll along the floor.
-- The contact shadow already reads drawn positions and fades with height: leave it; check in the
-  sheet that it stays on the floor under the bouncing bundle.
-- Constants live in `BundleTumble` (`SPIN_THROW`, `SPIN_DROP`, `BOUNCE_*`); setting `BOUNCE_PEAK_MAX`
-  and the spins to 0 is the undo.
-- Bundles on a 120 furniture top bounce the same; nothing special-cased by location.
-
-**Files likely touched**
-- `godot/game/art/bundle_tumble.gd` — new
-- `godot/game/greybox/greybox_main.gd` (`_render`, a field for the tumble state)
-- `DECISIONS.md`, `PROGRESS.md`, `PLAN.md`
-
-**Done means**
-- Sheets in `autobuild/frames/p4_5/`, opened with the Read tool and described cell by cell:
-  - `throw_sheet.png`: own body, `--pilot=carry` + `--capture-follow=on:grab:me,<≥30 cells>,0.06,side,<dist>`
-    + `--capture-press=RMB@2.0` (as P4-2's throw sheet; widen the distance or use another view until the
-    landing is in frame). Must show: the bundle at a different angle in successive flight cells, a
-    visible small hop after first contact, then lying flat and still with its shadow under it.
-  - `drop_sheet.png`: same with `LMB@2.0`: a short fall, one tiny hop, flat.
-  - One chase frame of a bundle at rest after a throw: flat, not tilted, not sunk in or floating.
-- Print or note for one throw: the drawn x/z equals the sim's on every cell, and lift = 0 at rest.
-- `node autobuild/verify.mjs` healthy, with the bot match numbers UNCHANGED from P4-4 (nothing in
-  `sim/` moved; if they changed, something leaked into the sim).
-
-**Do NOT**
-- Touch `sim/`, `net/`, `content/`, the snapshot, or add a bounce to the rules.
-- Offset x/z, or let the drawn bundle rest anywhere but the sim's position.
-- Tests (presentation is verified by eye), new test files, bot work, sweeps.
-- RigidBody3D or any physics node; confetti, trails, glow, cartoon effects.
-- Rework `_release_blend` (P4-2) beyond adding to its result.
-
 ## P4-6 — Bots and panic run
 
 **Approach**

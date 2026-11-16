@@ -129,6 +129,16 @@ a different moment each run: use `on:<one-shot>` for verbs. For your OWN body ca
 (bots never jump, crouch or throw on cue), `--pilot=carry` walks it to a bundle in its
 own study and lifts it; `--capture-follow=on:grab:me,...` starts there, and
 `--capture-press` takes keys and `LMB` / `RMB` clicks (e.g. `RMB@2.0` throws).
+To watch a thrown or dropped bundle land (P4-5), `--pilot=carry_out` carries it out
+to our own yard first (`--pilot-aim=x,z` picks the way it faces) and the follow view
+`bundle` / `bundle_r` keeps the camera on the bundle; `--tumble-log` prints its sim
+point and drawn base every frame:
+
+```bash
+node autobuild/run_game.mjs -- --pilot=carry_out --pilot-aim=0,1 --team-size=1 \
+    --capture-follow=on:ready:me,28,0.05,bundle_r,180 --capture-press=RMB@0.3 \
+    --capture-clean --capture-path=C:/abs/path/throw.png
+```
 
 The debug HUD is hidden by default (`[F1]` toggles it, `--debug-hud` starts
 with it on); `--capture-clean` also hides the hint line and banner.
