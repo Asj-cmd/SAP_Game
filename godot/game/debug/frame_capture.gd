@@ -308,6 +308,9 @@ static func save(viewport: Viewport, to_path: String) -> String:
 	if image == null or image.is_empty():
 		push_error("frame capture: viewport produced no image")
 		return ""
+	# Every shot makes its own folder: a follow's chase frame is written before
+	# its sheet, and used to fail in a folder only the sheet created.
+	DirAccess.make_dir_recursive_absolute(ProjectSettings.globalize_path(to_path).get_base_dir())
 	var failure: Error = image.save_png(to_path)
 	if failure != OK:
 		push_error("frame capture: could not write %s (error %d)" % [to_path, failure])

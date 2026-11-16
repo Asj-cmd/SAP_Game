@@ -2,6 +2,33 @@
 
 Newest first. One entry per task: date, task id, what changed, what the frames showed, numbers, what is left.
 
+## 2026-11-16 — P4-4 Players block each other like walls
+- **Followed the brief.** Measured first, with a new table function `_test_bodies_like_walls` in `movement_system_test.gd`. It uses a flat-floor fixture with the game's own tuning (radius 20, pace 540, panic ×1.2, jump 900, gravity 2000, a 180 body). On every tick, for every free pair, it checks two things. "Inside": closer than 40 on the floor plan while the feet-to-head spans overlap. "Through": either leg of the tick's sequential move crosses the other's footprint.
+- **Before any change:**
+  - (a) Head-on panic runners at every gap from 41 to 90: never inside, never through. Closest centre distance was 40.1. They sidestep and go round. The P4-3 lead was a false alarm: a step is at most 21.6 and bodies move one at a time, so passing through would need a single step of more than 80.
+  - (b) A panic runner into a standing body, dead-on or glancing: slides round it (closest 41.3 / 41.5), and the standing body ends exactly where it stood.
+  - (c) A running jump at a standing body from 60 or from 120: **passes through its chest** (inside and through both true). The sphere has no height, so two 40-tall marbles miss each other once one has risen 40.
+  - (d) A fall from 150 onto a standing body (same x/z): comes to rest on the other's sphere at y 70 (feet 50), drawn inside it.
+  - (e) Walking into a crouched body: blocked, slides round. Crouch-walking into a standing body: grazed about 1 unit inside (sphere centres at different heights). A held body is walked straight through, as it should be.
+- **Changed (sim):** in `MovementSystem._blocking_actor`, a move with a sideways part now meets a body as an upright cylinder (`_body_in_way`). It is blocked when closer than 2 × radius on the floor plan AND the drawn bodies overlap in height: standing `actor_height`, crouched `crouch_gap`, feet one stance radius under the centre. Purely vertical moves keep the sphere. The "already overlapping, may open the gap" rule is kept for the cylinder. The stale "29 units a tick" comment is corrected. `_slide_past` stays, held bodies stay non-solid, there is no new panic reset, and the snapshot format and `actor_radius` are unchanged.
+- **After:**
+  - (a) and (b): unchanged.
+  - (c): the jumper is blocked in the air and slides round, from 60 and from 120. Never inside.
+  - (e): the crouch-walker no longer grazes (closest 41.8).
+  - (d): unchanged. It is checked only for "not stood on the head" and logged as a REVIEW lead.
+  - movement_system_test 127 → 149, baseline ratcheted.
+- **REDO from P4-3 (jail chase view):**
+  - At 0.6, `autobuild/frames/p4_4/jail_chase_0.6.png`: the body is still clearly see-through. Pen bars show through the green shirt and a pale shard shows at the collar.
+  - At 1.0 (no fade while jailed), `autobuild/frames/p4_4/jail_chase.png`: one solid figure from behind. The egg head is fully in frame under the top edge, with the green family shirt and collar, dark trousers and both hands. The pen bars are on three sides, with the washer and the wooden shelf in the laundry behind. No inner faces show. Kept at 1.0 (REVIEW).
+  - `jail_sheet.png` (above, 6 cells): the seized jog in cell 1, then still in the pen corner.
+  - Tooling fix: a follow's chase frame failed to save into a folder only the sheet created (`FrameCapture.save` now makes the folder).
+- **Verify:** `node autobuild/verify.mjs` healthy.
+  - 16 suites at their pinned counts; symmetry 193 of 193.
+  - Bot match **moved**, as the brief allowed: 3v3 is team_b in 228 s with 18 s of stalls and 19 captures (was team_a in 387 s, 27 s, 29). 1v1 is team_a in 250 s, 5 s of stalls, 6 captures (was 250 s, 4 s). Both deterministic and within budget.
+  - Tick budget 0 / 1 / 0 (4v4, not gated) of 600.
+  - net_smoke: 1667 ticks agree. Render counters are within the gate.
+- **Left:** (d), a body that lands on another rests inside it until one walks away (REVIEW lead in DECISIONS). The drawn shoulders are wider than 40, so two figures side by side overlap their arms a little: P4-7 to judge, no fix. `godot/art/theme/_tmp_noshell.tres` is still an untracked leftover, not committed.
+
 ## 2026-11-16 — P4-3 Jail run-in-place
 - **Picked up from a cut-off session.** The working tree held this task's sim, test and presentation changes. Quick verify was green, so they went in as a part commit first. Followed the brief.
 - **Sim (brief step 1–2):** confirmed by reading that `jump_intent` was set while held and never spent, so a jump pressed in jail fired on release. Now the captured branch of `MovementSystem._resolve` clears it and counts `SimEntity.held_jumps` (0–255, back to 0 when free and on `invalidate_intent`). Added to the digest, `duplicate_entity` and the snapshot (`FORMAT` 3 → 4). Table case `_test_held_actor` (3 rows: move+crouch+jump, three jumps counted, no jump), checked over 60 held ticks then 15 free: the body stays put and stands, no jump is kept, none fires on release, and the count clears. movement_system_test 109 → 127 (baseline ratcheted).

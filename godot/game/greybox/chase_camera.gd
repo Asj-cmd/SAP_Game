@@ -62,8 +62,10 @@ const FADE_TO: float = 90.0
 const FADE_FLOOR: float = 0.25
 ## The floor while the body is jailed (P4-4 REDO, REVIEW). The 220 pen always
 ## pushes the arm in, and a jailed player has nothing behind their body to see,
-## so at 0.25 they watched a ghost with its own inner faces showing.
-const JAILED_FADE_FLOOR: float = 0.6
+## so at 0.25 they watched a ghost with its own inner faces showing. 0.6 was
+## tried first and still drew the bars through the shirt and a pale shard at the
+## collar, so a jailed body is not faded at all.
+const JAILED_FADE_FLOOR: float = 1.0
 
 const PITCH_MIN: float = deg_to_rad(-60.0)
 const PITCH_MAX: float = deg_to_rad(25.0)
