@@ -8,7 +8,7 @@
   "greybox_level_test": 20,
   "identity_test": 15,
   "lobby_test": 42,
-  "movement_system_test": 109,
+  "movement_system_test": 127,
   "navigation_test": 28,
   "ordering_test": 6,
   "prediction_test": 28,

@@ -622,11 +622,12 @@ func _capture_follow(request: FrameCapture) -> void:
 		cells.append(image)
 		var truth: SimEntity = link.outcome_world().get_entity(target)
 		var animator: FigureAnimator = _animators.get(target, null)
-		print("  cell %d  t=%.1f  clip=%s%s%s  motion=%d grounded=%s stance=%d speed=%.0f vy=%.0f carrying=%s captured=%s" % [
+		print("  cell %d  t=%.1f  clip=%s%s%s%s  motion=%d grounded=%s stance=%d speed=%.0f vy=%.0f carrying=%s captured=%s" % [
 			shot + 1, world.tick * SimWorld.SECONDS_PER_TICK,
 			animator.clip if animator != null else &"(none)",
 			" +arms" if animator != null and bool(animator.tree.get(&"parameters/action/active")) else "",
 			" dip=%.1f" % animator.settle_dip() if animator != null and animator.settle_dip() > 0.0 else "",
+			" hop=%.0f" % animator.hop_lift() if animator != null and animator.hop_lift() > 0.0 else "",
 			truth.motion_state, truth.is_grounded, truth.stance,
 			Vector2(truth.velocity.x, truth.velocity.z).length(), truth.velocity.y,
 			truth.is_carrying(), truth.is_captured])
@@ -1178,6 +1179,15 @@ func _render(alpha: float, delta: float) -> void:
 			placed += _release_blend(entity_id, entity, view.position, placed, delta)
 		var travelled: Vector3 = placed - view.position
 		view.position = placed
+		if entity.is_actor() and entity.is_captured:
+			# Jailed (P4-3): it runs in place, so it turns to the way its keys
+			# point, from the world its motion is drawn from; no keys, it holds.
+			var keys: SimEntity = entity
+			if not remote or entity_id == mine:
+				var own: SimEntity = drawn.get_entity(entity_id)
+				if own != null:
+					keys = own
+			travelled = _held_heading(keys, delta)
 		_face(entity_id, entity, view, travelled, delta)
 		# Held, carrying and captured are read from the CONFIRMED world on every
 		# role. A guest never guesses at an outcome.
@@ -1340,11 +1350,14 @@ func _animate(drawn: SimWorld, truth: SimWorld, mine: int, remote: bool, delta: 
 		var was_captured: bool = _anim_captured.get(entity_id, entity.is_captured)
 		if entity.is_captured and not was_captured:
 			seized.append(entity_id)
+			# `--capture-follow=on:jailed` follows the one seized, not the seizer.
+			_anim_fired[&"jailed"] = entity_id
 		elif was_captured and not entity.is_captured and _anim_sentence.get(entity_id, 0) > 1:
 			freed.append(entity_id)
 		_anim_captured[entity_id] = entity.is_captured
 		_anim_sentence[entity_id] = entity.capture_ticks_remaining
-		animator.update(motion, entity.is_carrying(), entity.is_captured, move_speed, delta)
+		animator.update(motion, entity.is_carrying(), entity.is_captured, move_speed, delta,
+			level.tuning.crouch_speed_scale)
 	for victim: int in seized:
 		_act_nearest(truth, victim, false)
 	for victim: int in freed:
@@ -1466,6 +1479,14 @@ func _face(entity_id: int, entity: SimEntity, view: Node3D, travelled: Vector3,
 	_facings[entity_id] = turned
 	view.rotation = Vector3(0.0, turned, 0.0)
 
+## The "travel" a jailed body faces: its intent's direction, as a drawn step
+## just over `_face`'s minimum, or zero (facing held) below the deadzone.
+func _held_heading(entity: SimEntity, delta: float) -> Vector3:
+	var intent: Vector3 = Vector3(entity.move_intent.x, 0.0, entity.move_intent.z)
+	if intent.length() < MovementSystem.INTENT_DEADZONE:
+		return Vector3.ZERO
+	return intent.normalized() * FACE_MIN_SPEED * 2.0 * delta
+
 ## Lifts an actor's mesh so it stands ON the floor. The simulation's position
 ## is the centre of a body one radius tall; the capsule is taller than that.
 ##
@@ -1543,7 +1564,9 @@ func _drawn_height(entity_id: int, entity: SimEntity, view: MeshInstance3D,
 		# the drawn height below the view (_view_offset), crouched or not. The
 		# landing settle (P4-2) dips it a few units for a moment after a landing;
 		# the view itself, its contact shadow and the camera do not move.
-		var dip: float = _animators[entity_id].settle_dip()
+		# A jail hop (P4-3) lifts it the same way: drawn only, the sim's body
+		# stays on the holding spot, and so do its shadow and the camera.
+		var dip: float = _animators[entity_id].settle_dip() - _animators[entity_id].hop_lift()
 		for child: Node in view.get_children():
 			var held: Node3D = child as Node3D
 			if held != null:

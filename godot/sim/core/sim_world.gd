@@ -355,6 +355,7 @@ func invalidate_intent() -> void:
 			# never carries over a whistle into the next round.
 			entity.forward_held = false
 			entity.forward_ticks = 0
+			entity.held_jumps = 0
 
 ## Does this system run this tick? Dormant systems receive neither commands
 ## nor their per-tick update, so a rule cannot fire while play is stopped by

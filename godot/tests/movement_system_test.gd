@@ -26,6 +26,7 @@ func _initialize() -> void:
 	_test_stance()
 	_test_jump()
 	_test_panic_run()
+	_test_held_actor()
 
 	print("\n%d passed, %d failed" % [_passed, _failed])
 	if _failed > 0:
@@ -747,3 +748,43 @@ func _test_panic_run() -> void:
 		_close(label + " (pace)", runner.position.z - before, case["step"])
 		if case.has("airborne"):
 			_check(label + " (in the air)", runner.is_grounded, false)
+
+## A jailed actor (D9) may send anything: none of it moves the body, a jump is
+## counted rather than kept, and nothing asked for in jail fires after release.
+## Each row: commands sent on the given held ticks, 60 ticks held, then 15 free.
+func _test_held_actor() -> void:
+	var cases: Array[Dictionary] = [
+		{"name": "move, crouch and jump in jail move nothing",
+		 "sends": {0: ["move", "crouch", "jump"]}, "jumps": 1},
+		{"name": "every jump is counted",
+		 "sends": {0: ["jump"], 10: ["jump"], 20: ["move", "jump"]}, "jumps": 3},
+		{"name": "no jump, no count",
+		 "sends": {0: ["move"], 30: ["crouch"]}, "jumps": 0},
+	]
+	for case: Dictionary in cases:
+		var world: SimWorld = _verb_world()
+		var prisoner: SimEntity = _add_actor(world, Vector3(50, FLOOR + VERB_RADIUS, 100))
+		_settle(world)
+		var spot: Vector3 = prisoner.position
+		var sends: Dictionary = case["sends"]
+		prisoner.is_captured = true
+		for i: int in 60:
+			var commands: Array[SimCommand] = []
+			for what: String in sends.get(i, []):
+				match what:
+					"move": commands.append(MoveCommand.move(prisoner.id, Vector3(1, 0, 0), world.tick, true))
+					"crouch": commands.append(StanceCommand.crouch(prisoner.id))
+					"jump": commands.append(JumpCommand.jump(prisoner.id))
+			world.step(commands)
+		var label: String = "held/%s" % case["name"]
+		_check(label + " (stays put)", prisoner.position, spot)
+		_check(label + " (stands)", prisoner.stance, SimEntity.Stance.STANDING)
+		_check(label + " (jumps counted)", prisoner.held_jumps, case["jumps"])
+		_check(label + " (no jump kept)", prisoner.jump_intent, false)
+		prisoner.is_captured = false
+		var lifted: bool = false
+		for i: int in 15:
+			world.step([])
+			lifted = lifted or not prisoner.is_grounded or prisoner.velocity.y > 0.0
+		_check(label + " (no jump on release)", lifted, false)
+		_check(label + " (count cleared)", prisoner.held_jumps, 0)

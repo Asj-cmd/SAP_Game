@@ -76,6 +76,8 @@ func _ready() -> void:
 		_run()
 	elif _role == "carry":
 		_run_carry()
+	elif _role == "jail":
+		_run_jail()
 	else:
 		_run_network()
 
@@ -136,6 +138,26 @@ func _run_carry() -> void:
 				_me().carrying_id, _zone_name(_me().position)])
 			return
 	print("PILOT carry: never got a bundle into hand (me %s)" % _me_state())
+
+## `--pilot=jail` (P4-3): for contact sheets of your OWN body in jail. Walks into
+## the enemy house to one of their bundles and stands there (touching nothing)
+## until a defender seizes it, then lets go of every key and does nothing more,
+## so `--capture-follow=on:jailed:me` plus `--capture-press` drive the prisoner.
+func _run_jail() -> void:
+	if not await _until(_phase_live, 30.0):
+		print("PILOT jail: no live round")
+		return
+	_turn_by_mouse = Input.mouse_mode == Input.MOUSE_MODE_CAPTURED
+	var started: float = _now()
+	while _since(started) < 240.0 and not _me().is_captured:
+		var target: int = _enemy_cash()
+		if target != SimEntity.NO_ENTITY:
+			await _walk_to(func() -> Vector3: return _entity(target).position, 120.0, 40.0)
+		await _until(func() -> bool: return _me().is_captured, 12.0)
+	if _me().is_captured:
+		print("PILOT jail: seized, in %s" % _zone_name(_me().position))
+	else:
+		print("PILOT jail: never seized (me %s)" % _me_state())
 
 ## The menu's Host / Join path, between two windows on this machine.
 func _run_network() -> void:

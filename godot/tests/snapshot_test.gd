@@ -126,6 +126,7 @@ func _awkward_world() -> SimWorld:
 	# After invalidate_intent, which clears them. Added with the panic run (P4-1).
 	actor.forward_held = true
 	actor.forward_ticks = 37
+	actor.held_jumps = 201 # jailed hops (P4-3)
 	return world
 
 # ---- 1. completeness ----

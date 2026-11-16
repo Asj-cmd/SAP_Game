@@ -172,7 +172,14 @@ func _resolve(world: SimWorld, actor: SimEntity) -> SimEntity.MotionState:
 		actor.velocity = Vector3.ZERO
 		actor.stance = SimEntity.Stance.STANDING
 		actor.forward_ticks = 0
+		# A jump asked for in jail is spent here, never kept: left set, it fired
+		# by itself on the tick of release. Counted instead, so every machine
+		# agrees that a jailed body hopped in place (presentation only; D9).
+		if actor.jump_intent:
+			actor.jump_intent = false
+			actor.held_jumps = (actor.held_jumps + 1) % 256
 		return SimEntity.MotionState.HELD
+	actor.held_jumps = 0
 
 	_resolve_stance(world, actor)
 	_resolve_jump(world, actor)

@@ -75,6 +75,19 @@ const SETTLE_TIME: float = 0.2
 const ACTION_FADE_IN: float = 0.1
 const NO_FADE_IN: Array[StringName] = [&"grab"]
 
+## Jail (P4-3, D9): a jailed body runs, crouches and jumps IN PLACE. Its keys
+## reach the sim as intent, which never moves it; the clip is chosen from that
+## intent, played as if it moved at the pace the intent asks for. A jump asked
+## for in jail is counted by the sim (`SimEntity.held_jumps`); each new count is
+## a drawn-only hop of HOP_HEIGHT over HOP_TIME (a parabola), smaller than a real
+## jump (~200) so it stays inside the pen. The sim's y never moves.
+const HOP_HEIGHT: float = 60.0
+const HOP_TIME: float = 0.5
+## The part of a hop drawn with the lift-off clip; the rest is the air pose.
+const HOP_START: float = 0.18
+## Intent shorter than this is no intent (MovementSystem.INTENT_DEADZONE).
+const HELD_DEADZONE: float = 0.05
+
 ## The base clips the Transition holds. Order is the input order.
 const BASE_CLIPS: Array[StringName] = [
 	&"idle", &"walk", &"jog", &"panic_run", &"crouch_idle", &"crouch_walk",
@@ -108,6 +121,9 @@ var _was_carrying: bool = false
 var _still_for: float = STILL_GRACE
 var _moving_speed: float = 0.0
 var _strides: Dictionary[StringName, float] = {}
+var _held_jumps: int = 0
+## Time into the current jail hop, or -1 when not hopping.
+var _hop_for: float = -1.0
 
 ## A driver for `art` (an instanced, shaped figure, already in the tree or about
 ## to be). Null when the animation set is not built or the figure has no
@@ -182,16 +198,27 @@ func _build_tree(clips: AnimationLibrary, skeleton_path: String) -> void:
 ## The base clip for a body in `entity`'s state, moving at `speed` horizontally
 ## (world units/s), against the tuning's `move_speed`. `airborne_for` is how
 ## long it has been off the ground (AIR_GRACE), `jump_for` how long since it
-## left it upward, `land_left` how much of a landing is still to play.
+## left it upward, `land_left` how much of a landing is still to play, `hop_for`
+## how far into a jail hop it is (-1: none). For a jailed body `speed` is the
+## pace its intent asks for, not its velocity (which is zero).
 ## Static and pure: the whole choice in one place.
 static func base_clip(entity: SimEntity, carrying: bool, captured: bool, speed: float,
-		move_speed: float, airborne_for: float, jump_for: float, land_left: float) -> StringName:
+		move_speed: float, airborne_for: float, jump_for: float, land_left: float,
+		hop_for: float = -1.0) -> StringName:
 	var carry: String = "carry_" if carrying else ""
 	var crouched: bool = entity.stance == SimEntity.Stance.CROUCHED
 	if captured or entity.motion_state == SimEntity.MotionState.HELD:
-		# P4-3 drives a jailed body's run-in-place from its input; until then
-		# it stands.
-		return StringName(carry + "idle")
+		# In place, from the intent (D9). Never the panic run (the sim's count is
+		# 0 in jail) and never a carry clip (a seized carrier drops the cash).
+		if hop_for >= 0.0:
+			return &"jump_start" if hop_for < HOP_START else &"jump_air"
+		if land_left > 0.0 and speed < STILL_SPEED:
+			return &"jump_land"
+		if entity.crouch_intent:
+			return &"crouch_idle" if speed < STILL_SPEED else &"crouch_walk"
+		if speed < STILL_SPEED:
+			return &"idle"
+		return &"walk" if speed < move_speed * WALK_FRACTION else &"jog"
 	if not entity.is_grounded and airborne_for >= AIR_GRACE:
 		var rising: bool = entity.velocity.y > 0.0
 		if rising and jump_for < 0.33:
@@ -216,10 +243,27 @@ static func base_clip(entity: SimEntity, carrying: bool, captured: bool, speed: 
 ## once); `carrying` and `captured` are OUTCOMES and come from the confirmed
 ## world (GreyBoxMain._render: a guest never guesses at an outcome).
 func update(entity: SimEntity, carrying: bool, captured: bool, move_speed: float,
-		delta: float) -> void:
+		delta: float, crouch_scale: float = 0.55) -> void:
 	if tree == null:
 		return
 	var speed: float = Vector2(entity.velocity.x, entity.velocity.z).length()
+	if captured:
+		# Run in place: the pace the keys ask for, which the sim never grants.
+		var intent: float = minf(1.0, Vector2(entity.move_intent.x, entity.move_intent.z).length())
+		speed = 0.0 if intent < HELD_DEADZONE else intent * move_speed \
+			* (crouch_scale if entity.crouch_intent else 1.0)
+		# A new jailed jump (any change in the count; it wraps at 256).
+		if entity.held_jumps != _held_jumps and _hop_for < 0.0:
+			_hop_for = 0.0
+		elif _hop_for >= 0.0:
+			_hop_for += delta
+			if _hop_for >= HOP_TIME:
+				_hop_for = -1.0
+				_land_left = tree.get_animation(&"jump_land").length
+				_settle_left = SETTLE_TIME
+	else:
+		_hop_for = -1.0
+	_held_jumps = entity.held_jumps
 	if speed < STILL_SPEED:
 		_still_for += delta
 		if _still_for < STILL_GRACE:
@@ -247,7 +291,7 @@ func update(entity: SimEntity, carrying: bool, captured: bool, move_speed: float
 		_settle_left = maxf(0.0, _settle_left - delta)
 
 	var wanted: StringName = base_clip(entity, carrying, captured, speed, move_speed,
-		_airborne_for, _jump_for, _land_left)
+		_airborne_for, _jump_for, _land_left, _hop_for)
 	if wanted != clip:
 		clip = wanted
 		tree.set(&"parameters/loco/transition_request", String(wanted))
@@ -285,6 +329,14 @@ func settle_dip() -> float:
 	if _settle_left <= 0.0:
 		return 0.0
 	return SETTLE_DEPTH * sin(PI * (1.0 - _settle_left / SETTLE_TIME))
+
+## How far above its feet the figure is drawn this frame by a jail hop (world
+## units, >= 0): a parabola, 0 -> HOP_HEIGHT -> 0 over HOP_TIME.
+func hop_lift() -> float:
+	if _hop_for < 0.0:
+		return 0.0
+	var t: float = clampf(_hop_for / HOP_TIME, 0.0, 1.0)
+	return HOP_HEIGHT * 4.0 * t * (1.0 - t)
 
 ## Where the carried bundle sits: between the two hands, in world space, as
 ## posed this frame. Null-safe: Vector3.INF when there is no skeleton.
