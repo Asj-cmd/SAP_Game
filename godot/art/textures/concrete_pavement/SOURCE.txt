@@ -1,0 +1,5 @@
+source: https://polyhaven.com/a/concrete_pavement
+licence: CC0 (https://polyhaven.com/license)
+fetched: 2026-11-15
+real size (mm): [1800.0000715255737,1800.0000715255737]
+diff: https://dl.polyhaven.org/file/ph-assets/Textures/jpg/1k/concrete_pavement/concrete_pavement_diff_1k.jpg md5 b7a0d071a3406d55a1c3e9a73a06df03

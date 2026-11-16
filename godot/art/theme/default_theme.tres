@@ -10,6 +10,111 @@
 [ext_resource type="Texture2D" uid="uid://6p17ju3neiyi" path="res://art/textures/laminate_floor_02/laminate_floor_02_diff_1k.jpg" id="t_oak"]
 [ext_resource type="Texture2D" uid="uid://daku57hvg6x0e" path="res://art/textures/grey_roof_tiles/grey_roof_tiles_diff_1k.jpg" id="t_roof"]
 
+[ext_resource type="Texture2D" path="res://art/textures/generated/lawn_diff.png" id="t_lawn"]
+[ext_resource type="Texture2D" path="res://art/textures/generated/foliage_diff.png" id="t_foliage"]
+[ext_resource type="Texture2D" path="res://art/textures/asphalt_02/asphalt_02_diff_1k.jpg" id="t_asphalt"]
+[ext_resource type="Texture2D" path="res://art/textures/concrete_pavement/concrete_pavement_diff_1k.jpg" id="t_pavement"]
+[ext_resource type="Texture2D" path="res://art/textures/gravel_floor/gravel_floor_diff_1k.jpg" id="t_gravel"]
+[ext_resource type="Texture2D" path="res://art/textures/weathered_brown_planks/weathered_brown_planks_diff_1k.jpg" id="t_planks"]
+[ext_resource type="Texture2D" path="res://art/textures/bark_brown_02/bark_brown_02_diff_1k.jpg" id="t_bark"]
+
+[sub_resource type="StandardMaterial3D" id="ext_pavement"]
+resource_name = "ext_pavement"
+albedo_color = Color(1.25, 1.24, 1.2, 1)
+albedo_texture = ExtResource("t_pavement")
+roughness = 0.9
+uv1_scale = Vector3(0.005556, 0.005556, 1)
+
+[sub_resource type="StandardMaterial3D" id="ext_kerb"]
+resource_name = "ext_kerb"
+albedo_color = Color(0.66, 0.65, 0.62, 1)
+roughness = 0.9
+
+[sub_resource type="StandardMaterial3D" id="ext_asphalt"]
+resource_name = "ext_asphalt"
+albedo_color = Color(1.1, 1.1, 1.12, 1)
+albedo_texture = ExtResource("t_asphalt")
+roughness = 0.95
+uv1_scale = Vector3(0.003333, 0.003333, 1)
+
+[sub_resource type="StandardMaterial3D" id="ext_road_line"]
+resource_name = "ext_road_line"
+albedo_color = Color(0.8, 0.79, 0.74, 1)
+roughness = 0.8
+
+[sub_resource type="StandardMaterial3D" id="ext_gravel"]
+resource_name = "ext_gravel"
+albedo_color = Color(1.15, 1.12, 1.05, 1)
+albedo_texture = ExtResource("t_gravel")
+roughness = 1.0
+uv1_scale = Vector3(0.004444, 0.004444, 1)
+
+[sub_resource type="StandardMaterial3D" id="ext_soil"]
+resource_name = "ext_soil"
+albedo_color = Color(0.25, 0.19, 0.14, 1)
+roughness = 1.0
+
+[sub_resource type="StandardMaterial3D" id="ext_fence_wood"]
+resource_name = "ext_fence_wood"
+albedo_color = Color(1.35, 1.2, 1, 1)
+albedo_texture = ExtResource("t_planks")
+roughness = 0.9
+uv1_scale = Vector3(0.005556, 0.005556, 1)
+
+[sub_resource type="StandardMaterial3D" id="ext_fence_post"]
+resource_name = "ext_fence_post"
+albedo_color = Color(1, 0.88, 0.74, 1)
+albedo_texture = ExtResource("t_planks")
+roughness = 0.9
+uv1_scale = Vector3(0.005556, 0.005556, 1)
+
+[sub_resource type="StandardMaterial3D" id="ext_fence_steel"]
+resource_name = "ext_fence_steel"
+albedo_color = Color(0.1, 0.105, 0.11, 1)
+metallic = 0.3
+roughness = 0.5
+
+[sub_resource type="StandardMaterial3D" id="ext_fence_cap"]
+resource_name = "ext_fence_cap"
+albedo_color = Color(0.72, 0.69, 0.63, 1)
+roughness = 0.9
+
+[sub_resource type="StandardMaterial3D" id="ext_hedge"]
+resource_name = "ext_hedge"
+albedo_color = Color(0.95, 1, 0.9, 1)
+albedo_texture = ExtResource("t_foliage")
+roughness = 1.0
+uv1_scale = Vector3(0.008, 0.008, 1)
+
+[sub_resource type="StandardMaterial3D" id="ext_crown"]
+resource_name = "ext_crown"
+vertex_color_use_as_albedo = true
+albedo_color = Color(1.25, 1.3, 1.1, 1)
+albedo_texture = ExtResource("t_foliage")
+roughness = 1.0
+uv1_scale = Vector3(0.006, 0.006, 0.006)
+uv1_triplanar = true
+uv1_world_triplanar = true
+
+[sub_resource type="StandardMaterial3D" id="ext_bark"]
+resource_name = "ext_bark"
+albedo_color = Color(0.9, 0.85, 0.8, 1)
+albedo_texture = ExtResource("t_bark")
+roughness = 1.0
+uv1_scale = Vector3(0.01, 0.01, 1)
+
+[sub_resource type="StandardMaterial3D" id="ext_render"]
+resource_name = "ext_render"
+albedo_color = Color(1.02, 0.98, 0.9, 1)
+albedo_texture = ExtResource("t_plaster")
+roughness = 0.9
+uv1_scale = Vector3(0.005, 0.005, 1)
+
+[sub_resource type="StandardMaterial3D" id="ext_door"]
+resource_name = "ext_door"
+albedo_color = Color(0.2, 0.22, 0.25, 1)
+roughness = 0.5
+
 [sub_resource type="StandardMaterial3D" id="figure"]
 resource_name = "figure"
 albedo_color = Color(0.74, 0.71, 0.66, 1)
@@ -120,8 +225,10 @@ roughness = 1.0
 
 [sub_resource type="StandardMaterial3D" id="lawn"]
 resource_name = "lawn"
-albedo_color = Color(0.36, 0.5, 0.3, 1)
+albedo_color = Color(1.1, 1.05, 1.15, 1)
+albedo_texture = ExtResource("t_lawn")
 roughness = 1.0
+uv1_scale = Vector3(0.0025, 0.0025, 1)
 
 [sub_resource type="StandardMaterial3D" id="path"]
 resource_name = "path"
@@ -410,6 +517,26 @@ furniture_top_surface = Dictionary[StringName, String]({
 safe_body = SubResource("safe_body")
 safe_trim = SubResource("safe_trim")
 pen_bars = SubResource("pen_bars")
+exterior = true
+exterior_materials = Dictionary[StringName, StandardMaterial3D]({
+&"pavement": SubResource("ext_pavement"),
+&"kerb": SubResource("ext_kerb"),
+&"asphalt": SubResource("ext_asphalt"),
+&"road_line": SubResource("ext_road_line"),
+&"gravel": SubResource("ext_gravel"),
+&"soil": SubResource("ext_soil"),
+&"fence_wood": SubResource("ext_fence_wood"),
+&"fence_post": SubResource("ext_fence_post"),
+&"fence_steel": SubResource("ext_fence_steel"),
+&"fence_cap": SubResource("ext_fence_cap"),
+&"hedge": SubResource("ext_hedge"),
+&"crown": SubResource("ext_crown"),
+&"bark": SubResource("ext_bark"),
+&"render": SubResource("ext_render"),
+&"door": SubResource("ext_door")
+})
+fence_height = 210.0
+sky_clouds = 0.5
 sky_top = Color(0.33, 0.56, 0.86, 1)
 sky_horizon = Color(0.78, 0.85, 0.92, 1)
 grass = Color(0.36, 0.5, 0.3, 1)

@@ -83,6 +83,26 @@ static func environment(far: float, theme: ArtTheme) -> Array[Node]:
 	# no band or cut.
 	sky_material.ground_horizon_color = theme.sky_horizon
 	sky_material.ground_bottom_color = theme.sky_horizon
+	if theme.sky_clouds > 0.0:
+		# Soft cloud cover: seamless noise wrapped round the sky, thinned so most
+		# of it stays blue. One texture read in the sky pass.
+		var noise: FastNoiseLite = FastNoiseLite.new()
+		noise.noise_type = FastNoiseLite.TYPE_SIMPLEX_SMOOTH
+		noise.frequency = 0.006
+		noise.fractal_octaves = 4
+		noise.seed = 7
+		var ramp: Gradient = Gradient.new()
+		ramp.offsets = PackedFloat32Array([0.0, 0.52, 0.8, 1.0])
+		ramp.colors = PackedColorArray([Color(0, 0, 0, 1), Color(0, 0, 0, 1),
+			Color(0.75, 0.75, 0.75, 1), Color(1, 1, 1, 1)])
+		var cover: NoiseTexture2D = NoiseTexture2D.new()
+		cover.width = 1024
+		cover.height = 512
+		cover.seamless = true
+		cover.noise = noise
+		cover.color_ramp = ramp
+		sky_material.sky_cover = cover
+		sky_material.sky_cover_modulate = Color(1.0, 1.0, 1.0) * theme.sky_clouds
 	var sky: Sky = Sky.new()
 	sky.sky_material = sky_material
 
@@ -150,6 +170,14 @@ static func ground(blockers: Array[AABB], far: float, theme: ArtTheme) -> MeshIn
 	var material: StandardMaterial3D = StandardMaterial3D.new()
 	material.albedo_color = theme.grass
 	material.roughness = 1.0
+	# The yards' lawn carried on to the horizon: the same texture at the same
+	# true size (a plane's UVs run 0..1 across it), so the lot does not sit on
+	# a different green from the land round it.
+	var lawn: StandardMaterial3D = theme.floors.get(&"yard", null)
+	if lawn != null and lawn.albedo_texture != null:
+		material.albedo_color = lawn.albedo_color
+		material.albedo_texture = lawn.albedo_texture
+		material.uv1_scale = Vector3(reach * lawn.uv1_scale.x, reach * lawn.uv1_scale.y, 1.0)
 	var view: MeshInstance3D = MeshInstance3D.new()
 	view.mesh = plane
 	view.material_override = material

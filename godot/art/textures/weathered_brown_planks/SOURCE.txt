@@ -1,0 +1,5 @@
+source: https://polyhaven.com/a/weathered_brown_planks
+licence: CC0 (https://polyhaven.com/license)
+fetched: 2026-11-15
+real size (mm): [1799.9999523162842,1799.9999523162842]
+diff: https://dl.polyhaven.org/file/ph-assets/Textures/jpg/1k/weathered_brown_planks/weathered_brown_planks_diff_1k.jpg md5 e2fbdf7ed402e272e33e3f7ba707cf69

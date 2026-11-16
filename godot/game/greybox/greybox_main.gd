@@ -1683,6 +1683,12 @@ func _build_geometry() -> void:
 		print("shell: %d meshes in %.0f ms" % [shells.size(),
 			float(Time.get_ticks_usec() - started) / 1000.0])
 
+	# What surrounds the houses (P3-4): fences, streets, neighbours, trees, and
+	# the lot's flat finishes. Drawn only; the bounds are still the wall.
+	if theme.exterior and not blockers.is_empty() and level.collision.bounds.size.x > 0.0:
+		for part: Node3D in ExteriorBuilder.build(level, theme, lot_ground.end.y):
+			_geometry.add_child(part)
+
 	# Furniture (P3-3): drawn by FurnitureDresser from the level's props, never
 	# as a blockout box or shell. Its blockers still get camera bodies below.
 	var furniture: Dictionary[AABB, bool] = {}

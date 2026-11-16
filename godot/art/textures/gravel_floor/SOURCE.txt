@@ -1,0 +1,5 @@
+source: https://polyhaven.com/a/gravel_floor
+licence: CC0 (https://polyhaven.com/license)
+fetched: 2026-11-15
+real size (mm): [2250,2250]
+diff: https://dl.polyhaven.org/file/ph-assets/Textures/jpg/1k/gravel_floor/gravel_floor_diff_1k.jpg md5 4f055e1545dcf41f347600fbb01d9ac2

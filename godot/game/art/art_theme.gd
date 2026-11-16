@@ -141,6 +141,23 @@ const DEFAULT_PATH: String = "res://art/theme/default_theme.tres"
 @export var safe_trim: StandardMaterial3D = null
 @export var pen_bars: StandardMaterial3D = null
 
+@export_group("Exterior")
+## What is drawn round the houses (ExteriorBuilder, P3-4): the lot's fences,
+## paths and gravel, the two streets, the neighbours' houses, hedges and trees.
+## Off = the bare lawn out to the horizon.
+@export var exterior: bool = true
+## The exterior's materials by name: pavement, asphalt, road_line, kerb,
+## gravel, soil, fence_wood, fence_post, fence_steel, fence_cap, hedge, crown,
+## bark, render, door. A name not listed is a plain colour built into
+## ExteriorBuilder (art stays optional). Brick, roof tile, trim and glass are
+## the house's own (`wall_outside`, `roof`, `trim`, `glass`).
+@export var exterior_materials: Dictionary[StringName, StandardMaterial3D] = {}
+## Both boundary fences stand this tall: over the 210 "blocks, looks tall"
+## threshold (WORLD_AUTHORING §12), because the level's bounds stop a body there.
+@export var fence_height: float = 210.0
+## Soft cloud cover on the sky, 0 = clear.
+@export_range(0.0, 1.0) var sky_clouds: float = 0.5
+
 @export_group("Daylight")
 @export var sky_top: Color = Color(0.33, 0.56, 0.86)
 @export var sky_horizon: Color = Color(0.78, 0.85, 0.92)
