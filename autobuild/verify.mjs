@@ -1,7 +1,8 @@
 #!/usr/bin/env node
 // One command that answers "is the project still healthy?" for the autonomous loop.
 //
-//   node autobuild/verify.mjs              tests + bot match + tick budget + network (the default gate)
+//   node autobuild/verify.mjs              tests + bot match + tick budget + network + render
+//                                          counters for a few views (the default gate; windowed)
 //   node autobuild/verify.mjs --frames     also capture the views in views.json
 //   node autobuild/verify.mjs --quick      tests only
 //   node autobuild/verify.mjs --frames-only [--views=cam_]   only the frames (optionally the
@@ -188,6 +189,46 @@ if (!args.has("--quick") && !framesOnly) {
   if (!report) fail(`net_smoke: no report\n${tail(`${s.stdout ?? ""}\n${s.stderr ?? ""}`, 12)}`);
   else if (!report.ok) fail(`net_smoke: ${report.failures.join("; ")}`);
   else console.log(`  ok    net_smoke  two processes, ${report.compared} ticks agree, guest seated in ${report.guest_seated_ms} ms, moved ${report.guest_moved}`);
+}
+
+// ---- 2d. Render counters ------------------------------------------------
+// Draw calls and triangles for a few fixed views (render_budget.json `gate`), each
+// held to its own limit (the measured value plus ~10 %, P3-6) and to the per-view
+// budget. Windowed, so not in --quick. Frame and GPU time are NOT gated: they are
+// wall-clock on a laptop (same reasoning as the tick budget); render_stats.mjs
+// prints them.
+if (!args.has("--quick") && !framesOnly) {
+  console.log("\n== Render counters ==");
+  const rb = readJson(join(HERE, "render_budget.json"), {});
+  const all = readJson(VIEWS_PATH, { views: [] }).views;
+  for (const [name, limit] of Object.entries(rb.gate ?? {})) {
+    const v = all.find((x) => x.name === name);
+    if (!v) { fail(`render ${name}: not in views.json`); continue; }
+    const path = join(FRAMES_DIR, "stats", `${name}.png`);
+    mkdirSync(dirname(path), { recursive: true });
+    const a = ["--rendering-driver", "opengl3", "--path", GODOT_PROJECT, "--", "--capture", "--capture-clean", "--capture-stats",
+      `--capture-delay=${v.delay ?? 3}`, `--capture-path=${path}`];
+    if (v.chase) {
+      a.push(`--capture-chase=${v.chase.join(",")}`);
+      if (v.facing) a.push(`--capture-facing=${v.facing.join(",")}`);
+      if (v.pitch != null) a.push(`--capture-pitch=${v.pitch}`);
+    } else {
+      a.push(`--capture-at=${v.at.join(",")}`);
+      if (v.look) a.push(`--capture-look=${v.look.join(",")}`);
+    }
+    if (v.args) a.push(...v.args);
+    const r = godot(a, { timeoutSec: 120, wrap: true });
+    const rs = r.out.match(/^RENDER_STATS \S+ (\{.*\})\s*$/m);
+    if (!rs) { fail(`render ${name}: no RENDER_STATS line\n${tail(r.out, 6)}`); continue; }
+    const s = JSON.parse(rs[1]);
+    const over = ["draw_calls", "triangles"].filter((k) => {
+      const max = Math.min(limit[k] ?? Infinity, rb.per_view?.[k] ?? Infinity);
+      return s[k] > max;
+    });
+    const text = `${name}  draws ${s.draw_calls} (limit ${limit.draw_calls}), triangles ${s.triangles} (limit ${limit.triangles})`;
+    if (over.length) fail(`render ${text}: over on ${over.join(", ")}`);
+    else console.log(`  ok    ${text}`);
+  }
 }
 
 // ---- 3. Frames ----------------------------------------------------------

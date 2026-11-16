@@ -17,10 +17,19 @@ const BAR_SPACING: float = 14.0
 const POST: float = 8.0
 const RAIL: float = 6.0
 
-## One node holding every piece.
-static func build(props: Array[PropPlacement], theme: ArtTheme) -> Node3D:
+## Furniture is merged per square of this many units (P3-6): one mesh per
+## square, a surface per material. A square is about a room pair, so a view
+## still culls the far side of a house and the other house.
+const MERGE_CELL: float = 1200.0
+
+## One node holding every piece, merged (MeshMerge) into a mesh per MERGE_CELL
+## square by the centre of each piece's box. `merge = false` keeps one node per
+## piece (named by model), for looking at a single piece.
+static func build(props: Array[PropPlacement], theme: ArtTheme, merge: bool = true) -> Node3D:
 	var root: Node3D = Node3D.new()
 	root.name = "Furniture"
+	var cells: Dictionary[Vector2i, Array] = {}
+	var order: Array[Vector2i] = []
 	for placement: PropPlacement in props:
 		var piece: Node3D = null
 		match placement.model:
@@ -30,8 +39,29 @@ static func build(props: Array[PropPlacement], theme: ArtTheme) -> Node3D:
 				piece = _pen(placement, theme)
 			_:
 				piece = _model(placement, theme)
-		if piece != null:
+		if piece == null:
+			continue
+		if not merge:
 			root.add_child(piece)
+			continue
+		var centre: Vector3 = placement.box.get_center() if placement.box.size.x > 0.0 else placement.box.position
+		var cell: Vector2i = Vector2i(floori(centre.x / MERGE_CELL), floori(centre.z / MERGE_CELL))
+		if not cells.has(cell):
+			cells[cell] = []
+			order.append(cell)
+		cells[cell].append(piece)
+	for cell: Vector2i in order:
+		var pieces: Array[Node3D] = []
+		pieces.assign(cells[cell])
+		var mesh: ArrayMesh = MeshMerge.of_trees(pieces)
+		for piece: Node3D in pieces:
+			piece.free()
+		if mesh == null:
+			continue
+		var view: MeshInstance3D = MeshInstance3D.new()
+		view.name = "furniture_%d_%d" % [cell.x, cell.y]
+		view.mesh = mesh
+		root.add_child(view)
 	return root
 
 ## An imported model, turned to face `yaw_deg` and fitted to its box (or stood

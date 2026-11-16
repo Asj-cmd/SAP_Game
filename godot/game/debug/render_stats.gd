@@ -94,6 +94,85 @@ static func time_frames(tree: SceneTree, seat: Viewport, frames: int) -> Diction
 		"seat_cpu_ms_median": _round(_percentile(cpu, 0.5)),
 	}
 
+## Where a view's draws come from (`--capture-breakdown`, P3-6): every visible
+## mesh under `root` whose bounds touch `camera`'s frustum, grouped by the name
+## of its branch under `root` (two levels down, digits dropped), with surfaces
+## (= main-pass draws before lamps), triangles and how many of those cast a sun
+## shadow. An estimate from the scene, not the renderer's counters: the shadow
+## pass culls against the sun's own frustum, which this does not model.
+static func breakdown(root: Node, camera: Camera3D) -> String:
+	var planes: Array[Plane] = camera.get_frustum() if camera != null else []
+	var groups: Dictionary[String, PackedInt64Array] = {}
+	_tally(root, root, planes, groups)
+	var names: Array[String] = groups.keys()
+	names.sort_custom(func(a: String, b: String) -> bool: return groups[a][1] > groups[b][1])
+	var lines: PackedStringArray = PackedStringArray()
+	lines.append("%-44s %6s %7s %9s %9s" % ["branch", "nodes", "surf", "tris", "cast_tris"])
+	for name: String in names:
+		var g: PackedInt64Array = groups[name]
+		lines.append("%-44s %6d %7d %9d %9d" % [name, g[0], g[1], g[2], g[3]])
+	return "\n".join(lines)
+
+static func _tally(root: Node, node: Node, planes: Array[Plane],
+		groups: Dictionary[String, PackedInt64Array]) -> void:
+	var item: GeometryInstance3D = node as GeometryInstance3D
+	if item != null and item.is_visible_in_tree() and item.layers != 0:
+		var mesh: Mesh = null
+		var copies: int = 1
+		if item is MeshInstance3D:
+			mesh = (item as MeshInstance3D).mesh
+		elif item is MultiMeshInstance3D and (item as MultiMeshInstance3D).multimesh != null:
+			mesh = (item as MultiMeshInstance3D).multimesh.mesh
+			copies = (item as MultiMeshInstance3D).multimesh.visible_instance_count
+			if copies < 0:
+				copies = (item as MultiMeshInstance3D).multimesh.instance_count
+		if mesh != null and _in_frustum(item.global_transform * item.get_aabb(), planes):
+			var key: String = _branch(root, node)
+			if not groups.has(key):
+				groups[key] = PackedInt64Array([0, 0, 0, 0])
+			var tris: int = 0
+			for s: int in mesh.get_surface_count():
+				var arrays: Array = mesh.surface_get_arrays(s)
+				var indices: PackedInt32Array = arrays[Mesh.ARRAY_INDEX] if arrays[Mesh.ARRAY_INDEX] != null else PackedInt32Array()
+				tris += (indices.size() if not indices.is_empty() else (arrays[Mesh.ARRAY_VERTEX] as PackedVector3Array).size()) / 3
+			tris *= copies
+			var g: PackedInt64Array = groups[key]
+			g[0] += 1
+			g[1] += mesh.get_surface_count()
+			g[2] += tris
+			if item.cast_shadow != GeometryInstance3D.SHADOW_CASTING_SETTING_OFF:
+				g[3] += tris
+			groups[key] = g
+	for child: Node in node.get_children():
+		_tally(root, child, planes, groups)
+
+static func _branch(root: Node, node: Node) -> String:
+	var parts: PackedStringArray = PackedStringArray()
+	var at: Node = node
+	while at != null and at != root:
+		var label: String = String(at.name)
+		if label.begins_with("@"):
+			label = at.get_class()
+		parts.insert(0, label)
+		at = at.get_parent()
+	var digits: RegEx = RegEx.create_from_string("[0-9]+")
+	var kept: String = "/".join(parts.slice(0, 2))
+	var view: MeshInstance3D = node as MeshInstance3D
+	if view != null and view.mesh != null and view.mesh.resource_name == "":
+		kept += " [%s]" % view.mesh.get_class()
+	return digits.sub(kept, "#", true)
+
+static func _in_frustum(box: AABB, planes: Array[Plane]) -> bool:
+	for plane: Plane in planes:
+		# The box corner farthest along the plane's normal (planes face outward).
+		var p: Vector3 = Vector3(
+			box.position.x if plane.normal.x > 0.0 else box.end.x,
+			box.position.y if plane.normal.y > 0.0 else box.end.y,
+			box.position.z if plane.normal.z > 0.0 else box.end.z)
+		if plane.is_point_over(p):
+			return false
+	return true
+
 ## One line a runner can parse: the tag, the view name, then JSON.
 static func line(view: String, stats: Dictionary) -> String:
 	return "%s %s %s" % [TAG, view, JSON.stringify(stats)]

@@ -687,6 +687,8 @@ func _capture_frame(to_path: String) -> void:
 		if _capture_timing > 0:
 			stats.merge(await RenderStats.time_frames(get_tree(), seat, _capture_timing))
 		print(RenderStats.line(to_path.get_file().get_basename(), stats))
+		if OS.get_cmdline_user_args().has("--capture-breakdown"):
+			print(RenderStats.breakdown(self, _active_camera()))
 
 ## `--capture-stats` / `--capture-timing=N` (FrameCapture): print what the
 ## renderer did for each command-line shot. Off for F12 and the pilot.
@@ -1623,6 +1625,16 @@ func _rebuild_views() -> void:
 			if art != null:
 				var bundle: Node = art.instantiate()
 				theme.dress(bundle, theme.cash)
+				# The bundle model is several boxes: one mesh, a surface per
+				# material, so it is two draws and not seven (P3-6).
+				var merged: ArrayMesh = MeshMerge.of_tree(bundle as Node3D) if bundle is Node3D else null
+				if merged != null:
+					var one: MeshInstance3D = MeshInstance3D.new()
+					one.name = "cash"
+					one.mesh = merged
+					one.transform = (bundle as Node3D).transform
+					bundle.free()
+					bundle = one
 				view.add_child(bundle)
 				dressed = true
 			else:
@@ -1636,6 +1648,10 @@ func _rebuild_views() -> void:
 		# carry the crouch and a hidden node would stop being measured.
 		if dressed:
 			view.material_override = _invisible()
+			# Still a transparent draw per body and per bundle if it stays on a
+			# render layer; on none, it is measured but never drawn (P3-6).
+			view.layers = 0
+			view.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
 		elif entity.is_actor():
 			view.material_override = theme.figure_material(entity.team)
 		else:

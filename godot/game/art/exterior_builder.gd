@@ -64,6 +64,8 @@ const ROOF_OVERHANG: float = 45.0
 ## A tree near the lot keeps its crown above any camera that backs out through
 ## the fence (arm 350, pivot 120: at most ~430 up, and lower the further out).
 const NEAR_TRUNK: float = 400.0
+## Trees are merged per square of this many units (P3-6), not into `solid`.
+const TREE_CELL: float = 2400.0
 
 ## A lot edge: where it starts, which way it runs, and which way is out.
 class Frame:
@@ -558,6 +560,10 @@ func _decal(f: Frame, key: StringName, face: int, box: Rect2, from: float, to: f
 ## A tree at (along, out): a tapered trunk and a crown of a few lumps.
 func _tree(f: Frame, along: float, outward: float, trunk: float, radius: float) -> void:
 	var foot: Vector3 = f.at(along, 0.0, outward)
+	# Trees are most of the exterior's triangles: they go in a mesh per
+	# TREE_CELL square, so the view and the sun's shadow pass can each cull
+	# the ones they do not see (P3-6). Everything else stays in `solid`.
+	var group: StringName = StringName("trees_%d_%d" % [floori(foot.x / TREE_CELL), floori(foot.z / TREE_CELL)])
 	var girth: float = radius * 0.075 + 7.0
 	var sides: int = 8
 	var top: float = trunk + radius * 0.45
@@ -568,7 +574,7 @@ func _tree(f: Frame, along: float, outward: float, trunk: float, radius: float) 
 		var n1: Vector3 = Vector3(cos(a1), 0.0, sin(a1))
 		var corners: Array[Vector3] = [foot + n0 * girth * 1.25, foot + n1 * girth * 1.25,
 			foot + n1 * girth * 0.6 + Vector3.UP * top, foot + n0 * girth * 0.6 + Vector3.UP * top]
-		_quad(&"solid", &"bark", corners, ((n0 + n1) * 0.5).normalized())
+		_quad(group, &"bark", corners, ((n0 + n1) * 0.5).normalized())
 	var heart: Vector3 = foot + Vector3.UP * (trunk + radius * 0.8)
 	var tint: float = _rng.randf_range(0.86, 1.06)
 	var lumps: int = 5
@@ -581,7 +587,7 @@ func _tree(f: Frame, along: float, outward: float, trunk: float, radius: float) 
 			# The last lump is the top of the crown.
 			offset = Vector3(0.0, radius * 0.3, 0.0)
 			size = radius * 0.62
-		_blob(&"solid", &"crown", heart + offset, Vector3(size, size * 0.86, size), heart, 2, tint)
+		_blob(group, &"crown", heart + offset, Vector3(size, size * 0.86, size), heart, 2, tint)
 
 ## A lumpy ball: an icosphere pushed in and out by noise. Its normals lean
 ## toward `heart` -> surface (when given), so a crown of several lumps shades as
@@ -732,7 +738,7 @@ func _commit() -> Array[Node3D]:
 		view.name = "exterior_%s" % group
 		view.mesh = mesh
 		view.layers = WorldBackdrop.OUTDOOR_LAYER
-		if group != &"solid":
+		if group != &"solid" and not String(group).begins_with("trees_"):
 			view.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
 		nodes.append(view)
 		if group == &"fence":
@@ -759,7 +765,8 @@ const FALLBACK: Dictionary[StringName, Color] = {
 }
 
 func _material(group: StringName, key: StringName) -> Material:
-	var id: StringName = StringName("%s/%s" % [group, key])
+	# One material per key, except the fence's cut-away copies.
+	var id: StringName = StringName("%s/%s" % [group, key]) if group == &"fence" else key
 	if _materials.has(id):
 		return _materials[id]
 	var source: StandardMaterial3D = null

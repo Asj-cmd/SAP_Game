@@ -5,6 +5,7 @@
 //   node autobuild/render_stats.mjs                    every view, 120 timed frames each
 //   node autobuild/render_stats.mjs --views=room_      only views whose name starts so
 //   node autobuild/render_stats.mjs --timing=0         counters only (fast, no frame time)
+//   node autobuild/render_stats.mjs --views=a,b --args="--team-size=4"   several prefixes; extra game args
 //
 // Runs the game windowed (`--capture --capture-clean --capture-timing=N`): the counters are
 // zero under --headless, and frame time is only meaningful on the real GPU (STYLE.md §Budgets).
@@ -29,7 +30,9 @@ const opt = (name, fallback) => (argv.find((a) => a.startsWith(`--${name}=`)) ??
 const prefix = opt("views", "");
 const timing = Number(opt("timing", "120"));
 
-const views = JSON.parse(readFileSync(join(HERE, "views.json"), "utf8")).views.filter((v) => v.name.startsWith(prefix));
+const prefixes = prefix.split(",");
+const views = JSON.parse(readFileSync(join(HERE, "views.json"), "utf8")).views.filter((v) => prefixes.some((p) => v.name.startsWith(p)));
+const extra = (argv.find((a) => a.startsWith("--args=")) ?? "--args=").slice(7).split(" ").filter(Boolean);
 const budgetPath = join(HERE, "render_budget.json");
 const budget = existsSync(budgetPath) ? JSON.parse(readFileSync(budgetPath, "utf8")).per_view ?? {} : {};
 mkdirSync(OUT_DIR, { recursive: true });
@@ -50,6 +53,7 @@ for (const v of views) {
     if (v.look) a.push(`--capture-look=${v.look.join(",")}`);
   }
   if (v.args) a.push(...v.args);
+  a.push(...extra);
   const r = spawnSync(GODOT, a, { cwd: ROOT, encoding: "utf8", timeout: 180000, maxBuffer: 1 << 26 });
   const out = `${r.stdout ?? ""}\n${r.stderr ?? ""}`.replace(ANSI, "");
   const m = out.match(/^RENDER_STATS \S+ (\{.*\})\s*$/m);
