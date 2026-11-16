@@ -210,6 +210,8 @@ if (args.has("--frames") || framesOnly) {
       a.push(`--capture-at=${v.at.join(",")}`);
       if (v.look) a.push(`--capture-look=${v.look.join(",")}`);
     }
+    // Extra capture flags for this view (e.g. a --capture-prop cash bundle).
+    if (v.args) a.push(...v.args);
     const r = godot(a, { timeoutSec: 120, wrap: true });
     // A single shot is written at <name>.png; older runs numbered it <name>_1.png.
     const numbered = path.replace(/\.png$/, "_1.png");

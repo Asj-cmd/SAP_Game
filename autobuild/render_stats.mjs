@@ -49,6 +49,7 @@ for (const v of views) {
     a.push(`--capture-at=${v.at.join(",")}`);
     if (v.look) a.push(`--capture-look=${v.look.join(",")}`);
   }
+  if (v.args) a.push(...v.args);
   const r = spawnSync(GODOT, a, { cwd: ROOT, encoding: "utf8", timeout: 180000, maxBuffer: 1 << 26 });
   const out = `${r.stdout ?? ""}\n${r.stderr ?? ""}`.replace(ANSI, "");
   const m = out.match(/^RENDER_STATS \S+ (\{.*\})\s*$/m);

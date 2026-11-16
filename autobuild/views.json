@@ -25,6 +25,10 @@
     { "name": "cam_study_vault_a", "chase": [1250, 660, 1200], "facing": [630, 660, 880] },
     { "name": "cam_bedroom_vault_a", "chase": [1600, 660, 1600], "facing": [2200, 660, 2260] },
     { "name": "cam_study_vault_b", "chase": [4150, 660, 2520], "facing": [4770, 660, 2840] },
+    { "name": "cam_stair_hb_climb", "chase": [3130, 510, 2890], "facing": [3130, 510, 2220] },
+    { "name": "cam_stair_b_side", "chase": [1100, 300, 2000], "facing": [600, 300, 2200], "pitch": -5 },
+    { "name": "cash_30m_yard", "at": [2700, 560, 3450], "look": [2620, 300, 450], "args": ["--capture-prop=res://art/models/cash.glb,2620,300,450,30"] },
+    { "name": "cash_19m_indoor", "at": [1990, 560, 2380], "look": [1990, 300, 500], "args": ["--capture-prop=res://art/models/cash.glb,1990,300,500,30"] },
 
     { "name": "room_a_gf_jail", "at": [1320, 560, 1320], "look": [480, 300, 480] },
     { "name": "room_a_gf_fronthall", "at": [1470, 560, 1320], "look": [2310, 300, 480] },

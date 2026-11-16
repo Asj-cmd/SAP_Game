@@ -45,6 +45,12 @@ const LAMP_CULL_MASK: int = 1
 ## lot's top face (that would z-fight); one unit is invisible at any distance.
 const GROUND_DROP: float = 1.0
 
+## A room lamp's drum shade, centred this far above the lamp. The lamp hangs 60
+## below the top of the room's zone box (greybox_main CEILING_LAMP_DROP), and the
+## slab above takes the top 40 of that box (build_house SLAB), so the ceiling is
+## 20 above the lamp: the 14-tall drum's centre is 7 below it.
+const SHADE_ABOVE_LAMP: float = 13.0
+
 ## The sun, the sky, the haze and the ambient light.
 static func environment(far: float, theme: ArtTheme) -> Array[Node]:
 	var sun: DirectionalLight3D = DirectionalLight3D.new()
@@ -139,6 +145,10 @@ static func interior_lights(zones: Array[ZoneDef], theme: ArtTheme, ceiling_drop
 		if zone.outdoor:
 			continue
 		var kind: StringName = ArtTheme.room_kind(zone.id)
+		# Only the rooms listed get a lamp (P3-5: each lamp draws every object it
+		# touches again on Compatibility); an empty list lights every room.
+		if not theme.interior_lamp_kinds.is_empty() and not theme.interior_lamp_kinds.has(kind):
+			continue
 		var lamp: SpotLight3D = SpotLight3D.new()
 		var middle: Vector3 = zone.bounds.get_center()
 		lamp.position = Vector3(middle.x, zone.bounds.end.y - ceiling_drop, middle.z)
@@ -147,10 +157,35 @@ static func interior_lights(zones: Array[ZoneDef], theme: ArtTheme, ceiling_drop
 		lamp.light_energy = theme.interior_energy_by_kind.get(kind, theme.interior_energy)
 		lamp.spot_range = theme.interior_range
 		lamp.spot_angle = theme.interior_angle_deg
-		lamp.spot_attenuation = 0.6
+		# Godot divides a positional light by distance^attenuation in WORLD units,
+		# and a unit here is a centimetre: at 0.6 a floor 300 below the lamp got
+		# 3 % of its energy and no lamp showed at all (P3-5, an energy-6 red test
+		# light left the kitchen unchanged). The range window alone shapes the
+		# falloff at 0.
+		lamp.spot_attenuation = theme.interior_attenuation
 		lamp.shadow_enabled = false
 		lamp.light_cull_mask = LAMP_CULL_MASK
 		lights.append(lamp)
+		# The fitting the light comes from: a shallow drum shade on the ceiling,
+		# lit from inside (unshaded, so no lamp redraws it).
+		var shade: MeshInstance3D = MeshInstance3D.new()
+		var drum: CylinderMesh = CylinderMesh.new()
+		drum.top_radius = 26.0
+		drum.bottom_radius = 30.0
+		drum.height = 14.0
+		drum.radial_segments = 20
+		drum.rings = 1
+		shade.mesh = drum
+		var glow: StandardMaterial3D = StandardMaterial3D.new()
+		glow.shading_mode = BaseMaterial3D.SHADING_MODE_UNSHADED
+		glow.albedo_color = lamp.light_color.lerp(Color.WHITE, 0.6)
+		shade.material_override = glow
+		shade.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
+		# Its top against the ceiling, the lamp just inside it: the zone's box
+		# runs up into the slab above, and the lamp hangs `ceiling_drop` below
+		# that box's top, which is SHADE_ABOVE_LAMP + half the drum below the ceiling.
+		shade.position = lamp.position + Vector3(0.0, SHADE_ABOVE_LAMP, 0.0)
+		lights.append(shade)
 	return lights
 
 ## A flat plane just under the lot's ground, reaching past the far plane in

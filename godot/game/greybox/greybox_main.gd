@@ -152,6 +152,11 @@ var _tell_team: StringName = &""
 ## Drawn-only capture stand-ins (`--capture-figure=...,team_b:2`), shown by the
 ## team tell like live bodies.
 var _tell_extras: Array[TeamTellOverlay.Body] = []
+## The disc under every body and loose bundle (ContactShadows, P3-5), and the
+## drawn-only capture stand-ins and props that get one too (their feet are their
+## origin; meta `shadow_radius`).
+var _contact_shadows: ContactShadows = null
+var _shadow_extras: Array[Node3D] = []
 ## Drawn height per actor's figure (its family member's), for the marker.
 var _figure_heights: Dictionary[int, float] = {}
 ## Enter was pressed on the result screen; sent with the next tick.
@@ -396,6 +401,9 @@ func _arm_capture() -> void:
 		posed.position = Vector3(spot.x, spot.y, spot.z)
 		posed.rotation = Vector3(0.0, deg_to_rad(spot.w), 0.0)
 		add_child(posed)
+		posed.set_meta(&"shadow_radius", ArtTheme.current().contact_shadow_radius
+			* float(posed.get_meta(&"drawn_height", ACTOR_HEIGHT)) / ACTOR_HEIGHT)
+		_shadow_extras.append(posed)
 		var clip: String = request.figure_clips[i]
 		if clip != "":
 			# The holder's one child is the shaped model (_figure_instance).
@@ -414,6 +422,12 @@ func _arm_capture() -> void:
 		prop.position = Vector3(spot.x, spot.y, spot.z)
 		prop.rotation = Vector3(0.0, deg_to_rad(spot.w), 0.0)
 		add_child(prop)
+		if request.prop_models[i] == CASH_MODEL:
+			# A bundle stood for a shot (the cash-at-30-m views) is dressed and
+			# shadowed like a loose one in play.
+			ArtTheme.current().dress(prop, ArtTheme.current().cash)
+			prop.set_meta(&"shadow_radius", ArtTheme.current().contact_shadow_bundle_radius)
+			_shadow_extras.append(prop)
 	if not request.figures.is_empty() or not request.props.is_empty():
 		await get_tree().process_frame
 	if request.crouch:
@@ -496,6 +510,7 @@ func _capture_chase(request: FrameCapture) -> void:
 	var chase: ChaseCamera = _cameras[0]
 	var stand_in: Node3D = _stand_in()
 	add_child(stand_in)
+	_shadow_extras.append(stand_in)
 	_posing_chase = true
 	for i: int in request.chase_feet.size():
 		var feet: Vector3 = request.chase_feet[i]
@@ -1133,6 +1148,32 @@ func _render(alpha: float, delta: float) -> void:
 	_hold_carried(truth)
 	_show_reach(mine)
 	_update_tell(truth, mine)
+	_place_contact_shadows(truth)
+
+## A disc on the floor under every drawn body and every loose bundle, and under
+## the capture's stand-ins. Read from where things are DRAWN this frame; a held
+## bundle has none (its carrier's covers it).
+func _place_contact_shadows(truth: SimWorld) -> void:
+	if _contact_shadows == null:
+		return
+	var theme: ArtTheme = ArtTheme.current()
+	_contact_shadows.begin()
+	for entity_id: int in _actor_views:
+		var entity: SimEntity = truth.get_entity(entity_id)
+		var view: MeshInstance3D = _actor_views[entity_id]
+		if entity == null or not view.visible:
+			continue
+		if entity.is_actor():
+			var tall: float = _figure_heights.get(entity_id, ACTOR_HEIGHT)
+			var feet: Vector3 = view.position - Vector3(0.0, _view_heights.get(entity_id, ACTOR_HEIGHT) * 0.5, 0.0)
+			_contact_shadows.add(feet, theme.contact_shadow_radius * tall / ACTOR_HEIGHT)
+		elif entity.is_carriable() and not entity.is_held():
+			_contact_shadows.add(view.position - _view_offset(entity, 0.0), theme.contact_shadow_bundle_radius)
+	for extra: Node3D in _shadow_extras:
+		if is_instance_valid(extra) and extra.is_inside_tree() and extra.visible:
+			_contact_shadows.add(extra.global_position, float(extra.get_meta(&"shadow_radius",
+				theme.contact_shadow_radius)))
+	_contact_shadows.finish()
 
 ## Hands the team tell's overlay (marker, minimap) the bodies as drawn this
 ## frame, and turns its map for this machine's team. Your team is read from the
@@ -1741,6 +1782,9 @@ func _build_geometry() -> void:
 
 	for lamp: Node in WorldBackdrop.interior_lights(level.zones, theme, CEILING_LAMP_DROP):
 		_geometry.add_child(lamp)
+
+	_contact_shadows = ContactShadows.make(blockers, theme)
+	_geometry.add_child(_contact_shadows)
 
 ## One blocker as a P1-4 blockout box: walls, floor and ceiling colours by face
 ## direction, in one material and one draw call (ArtTheme.blockout_box).

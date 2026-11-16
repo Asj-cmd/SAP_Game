@@ -124,6 +124,7 @@ func _build(level: GreyBoxLevel, theme: ArtTheme, skip: int) -> Array[MeshInstan
 			if under.size.x > 0.0 and under.size.z > 0.0:
 				_face(_skip, under, house, Shape.SLAB, 1, 1.0, GROUND_LIFT)
 	_openings()
+	_banisters()
 	for house: House in _houses:
 		_roof(house)
 	var made: Array[MeshInstance3D] = []
@@ -453,6 +454,127 @@ static func _flush_behind(other: AABB, plane: float, thin: int, sign: float) -> 
 		return other.end[thin] <= plane + TINY
 	return other.position[thin] >= plane - TINY
 
+# ---- stairs: handrail and string ----
+
+## Each flight's two long sides (P3-5). A side that stands against a wall (the
+## house's outer wall, a blocker) gets an oak handrail on brackets, fixed to
+## that wall. The other side, the open flank, has NO blocker: a body can step
+## off it, so it gets no rail, which would look like a barrier it is not
+## (WORLD_AUTHORING §12, "looks like it blocks = blocks"). It gets a painted
+## string board along the nosings instead, which finishes the stepped edge.
+## Collision is untouched either way.
+func _banisters() -> void:
+	var flights: Dictionary[String, Array] = {}
+	for i: int in _blockers.size():
+		var box: AABB = _blockers[i]
+		if i == _skip or _shape(box) != Shape.TREAD:
+			continue
+		var along: int = 0 if box.size.x > box.size.z else 2
+		var key: String = "%d:%.1f:%.1f" % [along, box.position[along], box.end[along]]
+		if not flights.has(key):
+			flights[key] = []
+		flights[key].append(box)
+	var keys: Array[String] = flights.keys()
+	keys.sort()
+	for key: String in keys:
+		var treads: Array[AABB] = []
+		for box: AABB in flights[key]:
+			treads.append(box)
+		if treads.size() < 2:
+			continue
+		treads.sort_custom(func(a: AABB, b: AABB) -> bool: return a.end.y < b.end.y)
+		_flight_sides(treads)
+
+func _flight_sides(treads: Array[AABB]) -> void:
+	var first: AABB = treads[0]
+	var last: AABB = treads[treads.size() - 1]
+	var house: House = _house_of(first.get_center())
+	var along: int = 0 if first.size.x > first.size.z else 2
+	var run: int = 2 if along == 0 else 0
+	# Which way the flight climbs along `run`, and each tread's nosing (its
+	# downhill edge) on the line the rail and string follow.
+	var climb: float = signf(last.get_center()[run] - first.get_center()[run])
+	var low_nose: float = first.position[run] if climb > 0.0 else first.end[run]
+	var high_nose: float = last.position[run] if climb > 0.0 else last.end[run]
+	var half_run: float = first.size[run] * 0.5
+	var rise: float = (last.end.y - first.end.y) / float(treads.size() - 1)
+	var slope: float = rise / first.size[run]
+	for side: float in [-1.0, 1.0]:
+		var plane: float = first.end[along] if side > 0.0 else first.position[along]
+		var across: Vector3 = Vector3.ZERO
+		across[along] = side
+		# A wall flush against this side, at a height above the treads.
+		var probe: Vector3 = (first.get_center() + last.get_center()) * 0.5
+		probe[along] = plane + side * 5.0
+		probe.y = (first.end.y + last.end.y) * 0.5 + 100.0
+		var walled: bool = _solid_at(probe)
+		if walled:
+			var rail_h: float = _theme.handrail_height
+			var inset: float = _theme.handrail_wall_gap + _theme.handrail_width * 0.5
+			var line: float = plane - side * inset
+			# Past the bottom and top nosings by half a tread, on the slope.
+			var from: Vector3 = Vector3.ZERO
+			from[along] = line
+			from[run] = low_nose - climb * half_run
+			from.y = first.end.y + rail_h - slope * half_run
+			var to: Vector3 = Vector3.ZERO
+			to[along] = line
+			to[run] = high_nose + climb * half_run
+			to.y = last.end.y + rail_h + slope * half_run
+			_beam(house, &"tread", from, to, across, _theme.handrail_width, _theme.handrail_depth)
+			# Brackets from the wall to the rail's underside.
+			var length: float = absf(to[run] - from[run])
+			var count: int = maxi(2, int(length / maxf(_theme.handrail_bracket_spacing, 30.0)) + 1)
+			for k: int in count:
+				var t: float = (float(k) + 0.5) / float(count)
+				var at: Vector3 = from.lerp(to, t)
+				var bracket: AABB = AABB()
+				var lo: float = minf(plane, at[along])
+				bracket.position = Vector3.ZERO
+				bracket.position[along] = lo
+				bracket.position[run] = at[run] - 1.5
+				bracket.position.y = at.y - _theme.handrail_depth * 0.5 - 7.0
+				bracket.size = Vector3.ZERO
+				bracket.size[along] = absf(plane - at[along])
+				bracket.size[run] = 3.0
+				bracket.size.y = 7.0
+				_box(house, &"steel_dark", bracket, false)
+		else:
+			# The string: a painted board along the open side, its top a little
+			# above the nosing line, from the floor at the bottom (where the line
+			# meets it, one tread before the first nosing; the rest of the board is
+			# under the floor) to the top nosing, which is level with the floor above.
+			var board: float = _theme.string_height
+			var line_out: float = plane + side * 1.5
+			var from: Vector3 = Vector3.ZERO
+			from[along] = line_out
+			from[run] = low_nose - climb * first.size[run]
+			from.y = first.end.y - rise + 4.0 - board * 0.5
+			var to: Vector3 = Vector3.ZERO
+			to[along] = line_out
+			to[run] = high_nose
+			to.y = last.end.y + 4.0 - board * 0.5
+			_beam(house, &"trim", from, to, across, 3.0, board)
+
+## A straight bar from `a` to `b` whose section is `width` across (along
+## `across`, horizontal) and `height` tall, measured vertically: its sides stay
+## plumb on a slope, as a handrail's and a stair string's do.
+func _beam(house: House, key: StringName, a: Vector3, b: Vector3, across: Vector3,
+		width: float, height: float) -> void:
+	var w: Vector3 = across.normalized() * width * 0.5
+	var h: Vector3 = Vector3(0.0, height * 0.5, 0.0)
+	var dir: Vector3 = (b - a).normalized()
+	var top: Vector3 = dir.cross(across.normalized())
+	if top.y < 0.0:
+		top = -top
+	var flat: Vector3 = Vector3(dir.x, 0.0, dir.z).normalized()
+	_quad(house, key, [a + w + h, b + w + h, b - w + h, a - w + h], top)
+	_quad(house, key, [a + w - h, b + w - h, b - w - h, a - w - h], -top)
+	_quad(house, key, [a + w + h, b + w + h, b + w - h, a + w - h], w.normalized())
+	_quad(house, key, [a - w + h, b - w + h, b - w - h, a - w - h], -w.normalized())
+	_quad(house, key, [a + w + h, a - w + h, a - w - h, a + w - h], -flat)
+	_quad(house, key, [b + w + h, b - w + h, b - w - h, b + w - h], flat)
+
 # ---- roof ----
 
 ## A hipped roof over the house: four slopes from the eaves (the footprint
@@ -604,6 +726,7 @@ func _material(key: StringName, team: StringName) -> StandardMaterial3D:
 			"tread": made = _theme.stair_tread
 			"riser", "trim", "fascia": made = _theme.trim
 			"glass": made = _theme.glass
+			"steel_dark": made = _theme.pen_bars
 	if made == null:
 		made = _theme.trim
 	_materials[key] = made

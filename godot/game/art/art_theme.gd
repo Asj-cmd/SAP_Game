@@ -122,6 +122,15 @@ const DEFAULT_PATH: String = "res://art/theme/default_theme.tres"
 ## A door leaf's frame round its pane, and the bottom rail's height.
 @export var leaf_frame: float = 12.0
 @export var leaf_rail: float = 90.0
+## Stairs (P3-5): an oak handrail on brackets along a flight's walled side, its
+## top this far above the nosing line (about 1.3x a real 85-90, like the
+## furniture); a painted string board along the open side. No collision.
+@export var handrail_height: float = 110.0
+@export var handrail_width: float = 7.0
+@export var handrail_depth: float = 6.0
+@export var handrail_wall_gap: float = 7.0
+@export var handrail_bracket_spacing: float = 120.0
+@export var string_height: float = 28.0
 
 @export_group("Furniture")
 ## The model drawn for each furniture id in the level (LevelDef.props, P3-3):
@@ -200,6 +209,17 @@ const DEFAULT_PATH: String = "res://art/theme/default_theme.tres"
 ## mid-tone toward white (P1-4 frame: the sunlit lawn went lime); 4-6 is usual.
 @export var tonemap_white: float = 1.0
 
+@export_group("Contact shadows")
+## A soft dark disc on the floor under every figure and loose cash bundle
+## (ContactShadows, P3-5). Alpha at its centre; 0 = off.
+@export_range(0.0, 1.0) var contact_shadow_alpha: float = 0.35
+## The disc's radius under a 180-tall figure (scaled with a member's height),
+## and under a bundle.
+@export var contact_shadow_radius: float = 30.0
+@export var contact_shadow_bundle_radius: float = 20.0
+## Gone at this height above the floor (a jump), widening and fading on the way.
+@export var contact_shadow_fade_height: float = 160.0
+
 @export_group("Interior light")
 ## One warm ceiling light per indoor room, pointing down (STYLE §4: 2700-3000 K,
 ## no shadows, at most two touching any object). A spot rather than an omni so
@@ -213,9 +233,14 @@ const DEFAULT_PATH: String = "res://art/theme/default_theme.tres"
 ## is warm through the ambient instead. P3-5 turns lamps on room by room once
 ## fittings and merged meshes exist (STYLE §4).
 @export var interior_lamps: bool = false
+## Room kinds that get a lamp when `interior_lamps` is on; empty = every room.
+@export var interior_lamp_kinds: Array[StringName] = []
 @export var interior_colour: Color = Color(1.0, 0.84, 0.66)
 @export var interior_energy: float = 1.2
 @export var interior_range: float = 650.0
+## The spot's distance falloff exponent. Godot applies it to the distance in
+## units (cm), so anything much above 0 makes a lamp vanish at room scale.
+@export var interior_attenuation: float = 0.0
 @export var interior_angle_deg: float = 62.0
 ## Per room kind; a kind not listed gets `interior_energy`.
 @export var interior_energy_by_kind: Dictionary[StringName, float] = {}

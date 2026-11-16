@@ -128,18 +128,18 @@ vertex_color_is_srgb = true
 
 [sub_resource type="StandardMaterial3D" id="cash_note"]
 resource_name = "cash_note"
-albedo_color = Color(0.45, 0.66, 0.4, 1)
-roughness = 0.7
+albedo_color = Color(0.32, 0.7, 0.3, 1)
+roughness = 0.55
 
 [sub_resource type="StandardMaterial3D" id="cash_note_deep"]
 resource_name = "cash_note_deep"
-albedo_color = Color(0.32, 0.52, 0.31, 1)
-roughness = 0.75
+albedo_color = Color(0.16, 0.48, 0.18, 1)
+roughness = 0.6
 
 [sub_resource type="StandardMaterial3D" id="cash_band"]
 resource_name = "cash_band"
-albedo_color = Color(0.9, 0.87, 0.78, 1)
-roughness = 0.6
+albedo_color = Color(0.97, 0.94, 0.82, 1)
+roughness = 0.5
 
 [sub_resource type="StandardMaterial3D" id="blockout"]
 resource_name = "blockout"
@@ -161,7 +161,7 @@ uv1_scale = Vector3(0.005263, 0.005263, 1)
 
 [sub_resource type="StandardMaterial3D" id="floor_concrete"]
 resource_name = "floor_concrete"
-albedo_color = Color(0.55, 0.55, 0.53, 1)
+albedo_color = Color(0.46, 0.49, 0.52, 1)
 roughness = 0.9
 
 [sub_resource type="StandardMaterial3D" id="wall_plaster"]
@@ -173,7 +173,7 @@ uv1_scale = Vector3(0.005, 0.005, 1)
 
 [sub_resource type="StandardMaterial3D" id="wall_block"]
 resource_name = "wall_block"
-albedo_color = Color(1.9, 1.9, 1.85, 1)
+albedo_color = Color(1.6, 1.82, 2.1, 1)
 albedo_texture = ExtResource("t_block")
 roughness = 0.9
 uv1_scale = Vector3(0.005, 0.005, 1)
@@ -187,7 +187,7 @@ uv1_scale = Vector3(0.0069, 0.0069, 1)
 
 [sub_resource type="StandardMaterial3D" id="ceiling"]
 resource_name = "ceiling"
-albedo_color = Color(0.92, 0.91, 0.88, 1)
+albedo_color = Color(0.8, 0.79, 0.76, 1)
 roughness = 0.95
 
 [sub_resource type="StandardMaterial3D" id="trim"]
@@ -215,7 +215,7 @@ roughness = 1.0
 
 [sub_resource type="StandardMaterial3D" id="carpet_green"]
 resource_name = "carpet_green"
-albedo_color = Color(0.46, 0.5, 0.44, 1)
+albedo_color = Color(0.36, 0.4, 0.48, 1)
 roughness = 1.0
 
 [sub_resource type="StandardMaterial3D" id="carpet_beige"]
@@ -557,17 +557,18 @@ ambient_energy = 0.75
 tonemap = 0
 exposure = 1.0
 tonemap_white = 1.0
-interior_lamps = false
+interior_lamps = true
+interior_lamp_kinds = Array[StringName]([&"kitchen", &"jail", &"study", &"bedroom"])
 interior_colour = Color(1, 0.84, 0.66, 1)
-interior_energy = 1.2
+interior_energy = 0.4
 interior_range = 650.0
 interior_angle_deg = 62.0
 interior_energy_by_kind = Dictionary[StringName, float]({
-&"kitchen": 1.5,
-&"jail": 0.8
+&"kitchen": 0.55,
+&"jail": 0.3
 })
 interior_colour_by_kind = Dictionary[StringName, Color]({
-&"jail": Color(0.95, 0.93, 0.86, 1)
+&"jail": Color(0.82, 0.9, 1, 1)
 })
 figure_model = "res://art/characters/figure_lp_male.gltf"
 figure_height = 180.0
