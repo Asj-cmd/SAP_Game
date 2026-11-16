@@ -62,6 +62,7 @@ static func encode(command: SimCommand) -> PackedByteArray:
 			buffer.put_float(move.intent.x)
 			buffer.put_float(move.intent.y)
 			buffer.put_float(move.intent.z)
+			buffer.put_u8(1 if move.forward else 0)
 		CarryCommand.KIND_PICK_UP:
 			buffer.put_32((command as CarryCommand).target_id)
 		CaptureCommand.KIND_CAPTURE, CaptureCommand.KIND_RELEASE:
@@ -137,12 +138,12 @@ static func decode(bytes: PackedByteArray) -> SimCommand:
 
 	match kind:
 		MoveCommand.KIND_MOVE:
-			if buffer.get_available_bytes() < 12:
+			if buffer.get_available_bytes() < 13:
 				return null
 			var intent: Vector3 = Vector3(
 				buffer.get_float(), buffer.get_float(), buffer.get_float()
 			)
-			return MoveCommand.new(actor, intent, tick)
+			return MoveCommand.new(actor, intent, tick, buffer.get_u8() != 0)
 		CarryCommand.KIND_PICK_UP:
 			if buffer.get_available_bytes() < 4:
 				return null

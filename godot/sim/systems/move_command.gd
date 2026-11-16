@@ -12,17 +12,26 @@ const KIND_MOVE: StringName = &"Move"
 
 ## World-space direction, magnitude 0..1. Zero means "stop".
 var intent: Vector3 = Vector3.ZERO
+## The player is pushing FORWARD (W, or the stick mostly forward), as opposed to
+## strafing or backing off. Only this may earn the panic run (D9).
+##
+## A flag rather than something read from `intent`, because intent is a world
+## direction and cannot tell forward from sideways: the camera that defines
+## "forward" lives on the client. Bots never set it.
+var forward: bool = false
 
 func _init(
 	actor: int = SimEntity.NO_ENTITY,
 	direction: Vector3 = Vector3.ZERO,
-	tick: int = 0
+	tick: int = 0,
+	pushing_forward: bool = false
 ) -> void:
 	super(KIND_MOVE, actor, tick)
 	intent = direction
+	forward = pushing_forward
 
-static func move(actor: int, direction: Vector3, tick: int = 0) -> MoveCommand:
-	return MoveCommand.new(actor, direction, tick)
+static func move(actor: int, direction: Vector3, tick: int = 0, pushing_forward: bool = false) -> MoveCommand:
+	return MoveCommand.new(actor, direction, tick, pushing_forward)
 
 ## Explicit stop. Intent persists between ticks, so halting is a command in
 ## its own right rather than the absence of one.
@@ -30,9 +39,10 @@ static func stop(actor: int, tick: int = 0) -> MoveCommand:
 	return MoveCommand.new(actor, Vector3.ZERO, tick)
 
 func to_digest_string() -> String:
-	return "%s|d%d,%d,%d" % [
+	return "%s|d%d,%d,%d|f%d" % [
 		super(),
 		SimEntity.float_bits(intent.x),
 		SimEntity.float_bits(intent.y),
 		SimEntity.float_bits(intent.z),
+		1 if forward else 0,
 	]

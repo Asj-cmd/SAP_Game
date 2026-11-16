@@ -56,6 +56,19 @@ func headroom(clear_height: float) -> float:
 ## the cost, and it is what makes taking the crawl space a decision rather than
 ## the obvious move.
 @export var crouch_speed_scale: float = 0.55
+## Seconds of unbroken forward running before the panic run starts (D9).
+##
+## Counted in ticks by MovementSystem while the player holds forward, stands
+## upright and actually moves. Letting go, stopping, being walled off,
+## crouching or being seized starts the count again; a jump or a fall with
+## forward still held does not, so hopping a fence mid-run keeps the pace.
+@export var panic_after_seconds: float = 2.0
+## Multiplier on move_speed during the panic run.
+##
+## Modest on purpose (D9): a run you earn by committing to a straight line, not
+## a sprint key. It multiplies with the carry scale, so a carrier who panics is
+## still slower than an empty-handed one who panics.
+@export var panic_speed_scale: float = 1.2
 ## Upward speed given to a jump, in units per second.
 ##
 ## An IMPULSE, per WORLD_AUTHORING §5: one shove at takeoff, and the existing

@@ -123,6 +123,9 @@ func _awkward_world() -> SimWorld:
 	world.phase_ticks_remaining = 123
 	world.invalidate_intent() # moves the intent epoch off zero
 	world.rng.next_raw() # and the rng off its seed
+	# After invalidate_intent, which clears them. Added with the panic run (P4-1).
+	actor.forward_held = true
+	actor.forward_ticks = 37
 	return world
 
 # ---- 1. completeness ----

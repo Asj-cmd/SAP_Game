@@ -25,6 +25,7 @@ func _initialize() -> void:
 	_test_actors_are_solid()
 	_test_stance()
 	_test_jump()
+	_test_panic_run()
 
 	print("\n%d passed, %d failed" % [_passed, _failed])
 	if _failed > 0:
@@ -681,3 +682,68 @@ func _test_jump() -> void:
 	low.step([StanceCommand.crouch(croucher.id)] as Array[SimCommand])
 	low.step([JumpCommand.jump(croucher.id)] as Array[SimCommand])
 	_check("jump/refused while crouched", croucher.is_grounded, true)
+
+## The panic run (D9): forward held long enough, upright and actually moving,
+## multiplies the pace. Each row is a script of phases (a command on the phase's
+## first tick, then that many ticks), and what the last tick must show: the
+## count, and how far the body went on that tick against an unboosted 1 a tick.
+func _test_panic_run() -> void:
+	var probe: TuningDef = TuningDef.new()
+	var boost: float = probe.panic_speed_scale
+	var carry: float = probe.carry_speed_scale
+	var crouch: float = probe.crouch_speed_scale
+	var after: int = 6 # panic_after_seconds 0.2 at 30 ticks a second
+	var cases: Array[Dictionary] = [
+		{"name": "no boost on the tick the count reaches the threshold",
+		 "phases": [["fwd", after]], "count": after, "step": 1.0},
+		{"name": "boost on the tick after",
+		 "phases": [["fwd", after + 1]], "count": after, "step": boost},
+		{"name": "a move without the forward flag never boosts",
+		 "phases": [["side", 30]], "count": 0, "step": 1.0},
+		{"name": "letting go of forward resets",
+		 "phases": [["fwd", 10], ["side", 1]], "count": 0, "step": 1.0},
+		{"name": "stopping resets",
+		 "phases": [["fwd", 10], ["stop", 1], ["fwd", 1]], "count": 1, "step": 1.0},
+		{"name": "crouching resets, and the crouch gets no boost",
+		 "phases": [["fwd", 10], ["crouch", 1]], "count": 0, "step": crouch},
+		{"name": "a jump with forward held keeps the run",
+		 "phases": [["fwd", 10], ["jump", 8]], "count": after, "step": boost, "airborne": true},
+		{"name": "carrying multiplies with the boost",
+		 "phases": [["fwd", after + 1]], "count": after, "step": carry * boost, "carrying": true},
+		{"name": "walled off resets",
+		 "phases": [["fwd", 16]], "count": 0, "step": 0.0, "z": 180.0},
+		{"name": "being seized resets",
+		 "phases": [["fwd", 10], ["held", 1], ["none", 1]], "count": 1, "step": 1.0},
+	]
+	for case: Dictionary in cases:
+		var world: SimWorld = _verb_world()
+		world.tuning.move_speed = 30.0 # one unit a tick
+		world.tuning.panic_after_seconds = 0.2
+		var start_z: float = case.get("z", 10.0)
+		var runner: SimEntity = _add_actor(world, Vector3(50, FLOOR + VERB_RADIUS, start_z))
+		if case.get("carrying", false):
+			var cash: SimEntity = world.add_entity(SimEntity.new(SimEntity.NO_ENTITY, SimEntity.Kind.CARRIABLE))
+			runner.carrying_id = cash.id
+			cash.carried_by = runner.id
+		_settle(world)
+		var before: float = runner.position.z
+		for phase: Array in case["phases"]:
+			var what: String = phase[0]
+			for i: int in int(phase[1]):
+				var commands: Array[SimCommand] = []
+				if i == 0:
+					match what:
+						"fwd": commands.append(MoveCommand.move(runner.id, Vector3(0, 0, 1), world.tick, true))
+						"side": commands.append(MoveCommand.move(runner.id, Vector3(0, 0, 1), world.tick, false))
+						"stop": commands.append(MoveCommand.stop(runner.id, world.tick))
+						"crouch": commands.append(StanceCommand.crouch(runner.id))
+						"jump": commands.append(JumpCommand.jump(runner.id))
+				runner.is_captured = what == "held"
+				before = runner.position.z
+				world.step(commands)
+			runner.is_captured = false
+		var label: String = "panic/%s" % case["name"]
+		_check(label + " (count)", runner.forward_ticks, case["count"])
+		_close(label + " (pace)", runner.position.z - before, case["step"])
+		if case.has("airborne"):
+			_check(label + " (in the air)", runner.is_grounded, false)

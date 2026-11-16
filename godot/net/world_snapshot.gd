@@ -30,7 +30,8 @@ extends RefCounted
 ## world; there is no partial credit here.
 ## 2: stance, crouch/jump intent and in_flight (added with those verbs; a guest
 ## that adopted a keyframe with a bundle mid-throw diverged until the round reset).
-const FORMAT: int = 2
+## 3: forward_held and forward_ticks (the panic run, P4-1).
+const FORMAT: int = 3
 
 ## Captures everything step() can change. Content is NOT included - zones,
 ## teams, tuning and geometry are loaded locally from the same files, and
@@ -135,6 +136,8 @@ static func _put_entity(buffer: StreamPeerBuffer, entity: SimEntity) -> void:
 	buffer.put_u8(entity.stance)
 	buffer.put_u8(1 if entity.crouch_intent else 0)
 	buffer.put_u8(1 if entity.jump_intent else 0)
+	buffer.put_u8(1 if entity.forward_held else 0)
+	buffer.put_32(entity.forward_ticks)
 	_put_vector(buffer, entity.move_intent)
 	buffer.put_utf8_string(String(entity.zone_id))
 	buffer.put_32(entity.carrying_id)
@@ -164,6 +167,8 @@ static func _take_entity(buffer: StreamPeerBuffer) -> SimEntity:
 	entity.stance = buffer.get_u8() as SimEntity.Stance
 	entity.crouch_intent = buffer.get_u8() == 1
 	entity.jump_intent = buffer.get_u8() == 1
+	entity.forward_held = buffer.get_u8() == 1
+	entity.forward_ticks = buffer.get_32()
 	entity.move_intent = _take_vector(buffer)
 	entity.zone_id = StringName(buffer.get_utf8_string())
 	entity.carrying_id = buffer.get_32()

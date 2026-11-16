@@ -73,6 +73,8 @@ func handle(world: SimWorld, command: SimCommand) -> void:
 		return
 	# A held actor may keep sending intent - it simply does not get to use it.
 	actor.move_intent = _clamp_intent(move.intent)
+	# Intent too: whether it EARNS the panic run is decided in step().
+	actor.forward_held = move.forward
 
 ## Clamps to unit length, so an over-long vector buys no extra speed.
 ##
@@ -169,6 +171,7 @@ func _resolve(world: SimWorld, actor: SimEntity) -> SimEntity.MotionState:
 	if actor.is_captured:
 		actor.velocity = Vector3.ZERO
 		actor.stance = SimEntity.Stance.STANDING
+		actor.forward_ticks = 0
 		return SimEntity.MotionState.HELD
 
 	_resolve_stance(world, actor)
@@ -178,8 +181,18 @@ func _resolve(world: SimWorld, actor: SimEntity) -> SimEntity.MotionState:
 	# cannot fly by aiming upward.
 	var heading: Vector3 = Vector3(actor.move_intent.x, 0.0, actor.move_intent.z)
 	var state: SimEntity.MotionState = SimEntity.MotionState.IDLE
+	var travelling: bool = heading.length_squared() >= INTENT_DEADZONE_SQUARED
 
-	if heading.length_squared() >= INTENT_DEADZONE_SQUARED:
+	# The panic run's count (D9). Everything that ends a run and is known before
+	# the move ends it here, so the speed below never carries a boost into a
+	# crouch or a stop. A jump or a fall is NOT on the list: forward held through
+	# the air keeps the run.
+	var running: bool = travelling and actor.forward_held \
+		and actor.stance == SimEntity.Stance.STANDING
+	if not running:
+		actor.forward_ticks = 0
+
+	if travelling:
 		var speed: float = _speed_for(world, actor)
 		actor.velocity.x = heading.x * speed
 		actor.velocity.z = heading.z * speed
@@ -190,6 +203,10 @@ func _resolve(world: SimWorld, actor: SimEntity) -> SimEntity.MotionState:
 		if not moved:
 			actor.velocity.x = 0.0
 			actor.velocity.z = 0.0
+		if running:
+			# Walled off ends the run; otherwise count, stopping at the threshold
+			# so the number stays small and means the same under any tuning.
+			actor.forward_ticks = mini(actor.forward_ticks + 1, _panic_ticks(world)) if moved else 0
 	else:
 		actor.velocity.x = 0.0
 		actor.velocity.z = 0.0
@@ -274,7 +291,25 @@ func _speed_for(world: SimWorld, actor: SimEntity) -> float:
 		speed *= world.tuning.carry_speed_scale
 	if actor.stance == SimEntity.Stance.CROUCHED:
 		speed *= world.tuning.crouch_speed_scale
+	if is_panicking(world, actor):
+		speed *= world.tuning.panic_speed_scale
 	return speed
+
+## Is this actor in the panic run (D9)? Forward held, upright, and the count
+## has reached panic_after_seconds. Static so tools can ask without a system.
+static func is_panicking(world: SimWorld, actor: SimEntity) -> bool:
+	if world.tuning == null or not actor.forward_held or actor.is_captured:
+		return false
+	if actor.stance != SimEntity.Stance.STANDING:
+		return false
+	return actor.forward_ticks >= _panic_ticks(world)
+
+## The panic threshold in ticks; never below 1, so a zero authored delay still
+## needs one tick of real running rather than boosting anyone holding forward.
+static func _panic_ticks(world: SimWorld) -> int:
+	if world.tuning == null:
+		return 1
+	return maxi(1, SimWorld.seconds_to_ticks(world.tuning.panic_after_seconds))
 
 ## The collision radius this body presents right now.
 ##

@@ -74,6 +74,12 @@ var crouch_intent: bool = false
 ## cleared the moment it is spent, so a held button is one jump rather than a
 ## jump every tick - the same lesson the carry toggle taught.
 var jump_intent: bool = false
+## Whether the last move command said FORWARD (MoveCommand.forward). Intent,
+## standing like move_intent until the next move command.
+var forward_held: bool = false
+## Ticks of unbroken forward running, owned by MovementSystem. The panic run
+## starts when this reaches TuningDef.panic_after_seconds (D9).
+var forward_ticks: int = 0
 ## Desired direction of travel, magnitude 0..1, in world space.
 ##
 ## Persists until the actor sends a different one, rather than being consumed
@@ -185,6 +191,8 @@ func duplicate_entity() -> SimEntity:
 	copy.stance = stance
 	copy.crouch_intent = crouch_intent
 	copy.jump_intent = jump_intent
+	copy.forward_held = forward_held
+	copy.forward_ticks = forward_ticks
 	copy.move_intent = move_intent
 	copy.zone_id = zone_id
 	copy.carrying_id = carrying_id
@@ -225,12 +233,13 @@ static func float_bits(value: float) -> int:
 ## Canonical text form, fed into SimWorld's state digest. Floats appear as raw
 ## bits; use to_debug_string() when a human needs to read it.
 func to_digest_string() -> String:
-	return "E%d|k%d|t%s|s%d|p%d,%d,%d|v%d,%d,%d|m%d,%d|w%d,%d,%d|i%d,%d,%d|z%s|c%d|h%d|f%s,%d|g%d,%d,%d|x%d|r%d|o%d|n%d|S%s,%d,%d" % [
+	return "E%d|k%d|t%s|s%d|p%d,%d,%d|v%d,%d,%d|m%d,%d|w%d,%d,%d|F%d,%d|i%d,%d,%d|z%s|c%d|h%d|f%s,%d|g%d,%d,%d|x%d|r%d|o%d|n%d|S%s,%d,%d" % [
 		id, kind, team, slot,
 		float_bits(position.x), float_bits(position.y), float_bits(position.z),
 		float_bits(velocity.x), float_bits(velocity.y), float_bits(velocity.z),
 		motion_state, 1 if is_grounded else 0,
 		stance, 1 if crouch_intent else 0, 1 if jump_intent else 0,
+		1 if forward_held else 0, forward_ticks,
 		float_bits(move_intent.x), float_bits(move_intent.y), float_bits(move_intent.z),
 		zone_id, carrying_id, carried_by, scored_for_team,
 		1 if in_flight else 0,
