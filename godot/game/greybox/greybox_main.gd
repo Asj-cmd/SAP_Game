@@ -612,6 +612,11 @@ func _capture_follow(request: FrameCapture) -> void:
 			"back":
 				away = -ahead
 				rise = 160.0
+			"above":
+				# Down into an open-topped space (the jail pen): 60 degrees up,
+				# from the body's left, `distance` from its middle.
+				away = left * 0.5
+				rise = request.follow_distance * 0.87
 		var middle: Vector3 = view.position
 		eye.global_position = middle + away * request.follow_distance + Vector3(0.0, rise, 0.0)
 		eye.look_at(middle, Vector3.UP)
@@ -633,6 +638,11 @@ func _capture_follow(request: FrameCapture) -> void:
 			truth.is_carrying(), truth.is_captured])
 	_capture_camera = null
 	eye.queue_free()
+	if target == _local_actor():
+		# Your own body: one more frame, through the seat's own chase camera
+		# (what the player sees at the end of the sheet), as <path>_chase.png.
+		await get_tree().process_frame
+		await _capture_frame("%s_chase.png" % request.path.get_basename())
 	if cells.is_empty():
 		return
 	var across: int = 4
@@ -1008,7 +1018,10 @@ func _track_cameras(delta: float) -> void:
 		if view == null:
 			continue
 		_cameras[seat].follow(view.position - Vector3(0.0, ACTOR_HEIGHT * 0.5, 0.0), delta)
-		_fade_body(players[seat].actor_id, view, _cameras[seat].body_opacity())
+		# The fade is for the chase camera's view; a free capture camera (a
+		# follow sheet) shoots the body as everyone else sees it.
+		_fade_body(players[seat].actor_id, view,
+			1.0 if _capture_camera != null else _cameras[seat].body_opacity())
 
 ## Last opacity drawn per actor, so a body is only re-walked when it changes.
 var _body_opacity: Dictionary[int, float] = {}

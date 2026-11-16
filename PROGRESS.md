@@ -2,6 +2,25 @@
 
 Newest first. One entry per task: date, task id, what changed, what the frames showed, numbers, what is left.
 
+## 2026-11-16 — P4-3 Jail run-in-place
+- **Picked up from a cut-off session.** The working tree held this task's sim, test and presentation changes. Quick verify was green, so they went in as a part commit first. Followed the brief.
+- **Sim (brief step 1–2):** confirmed by reading that `jump_intent` was set while held and never spent, so a jump pressed in jail fired on release. Now the captured branch of `MovementSystem._resolve` clears it and counts `SimEntity.held_jumps` (0–255, back to 0 when free and on `invalidate_intent`). Added to the digest, `duplicate_entity` and the snapshot (`FORMAT` 3 → 4). Table case `_test_held_actor` (3 rows: move+crouch+jump, three jumps counted, no jump), checked over 60 held ticks then 15 free: the body stays put and stands, no jump is kept, none fires on release, and the count clears. movement_system_test 109 → 127 (baseline ratcheted).
+- **Presentation:** `FigureAnimator.base_clip` picks a jailed body's clip from its intent, played at the pace the keys ask for: jog (walk below 0.45), `crouch_idle` / `crouch_walk` while crouch is held, and idle with no keys. Each new `held_jumps` count plays a drawn-only hop: `jump_start` → `jump_air`, lifted on a parabola (peak 60, 0.5 s), then `jump_land` plus the P4-2 settle. The jailed body turns to its keys (`_held_heading`) and holds its facing with none. Own body from the predicted world, others from the confirmed one. **Camera (step 6):** neither `chase_camera.gd` nor `local_player_input.gd` checks capture state, so the mouse still turns the camera in jail. No change needed.
+- **Tooling:** `--pilot=jail`, `--capture-follow=on:jailed:me`, follow view `above`, a `<stem>_chase.png` at the end of a follow of your own body, and the own body opaque while a free capture camera shoots (DECISIONS).
+- **Frames, `autobuild/frames/p4_3/`:**
+  - First try at 3v3, side camera at 260: a bot teammate (mom, light-blue trousers) freed the pilot 2.7 s after the seizure, at sheet cell 16. Cells 5–13 showed the jog in place with the shadow on one spot, but through two layers of bars, with the own body drawn faded.
+  - Second try at 1v1, side 260: the camera was outside the pen, and all 36 cells were a wall of bars with a faint figure.
+  - `jail_sheet.png` (1v1, `above` at 230, 36 cells 0.18 s apart, W, Shift, Shift+W, Space ×2, D):
+    - Cells 5–12 jog: a different leg pose in each cell, arms swinging, the body against the same pen corner in every cell.
+    - Cell 13 idle, upright and still.
+    - Cells 14–22 crouch: low, knees bent, head forward. The crouch-walk cells (18–22) differ only a little in the legs seen from above (0.18 s sampling of a fast cycle).
+    - Cells 25–26 and 29–30 hop (`hop=41…57`): the body is visibly closer to the camera, head cropped at the top edge, with the contact shadow left on the floor below the feet. Cells 27 and 31 land (`dip=1.0` / `4.2`).
+    - After D (cells 32–34) the pen turns in the frame because the body has turned to its right, and it jogs in place facing there. Cells 35–36 idle, facing kept.
+    - The sim printed `motion=3` (HELD) and `speed=0` in every cell.
+  - `jail_chase.png` (seat's chase camera, end of the sheet): from inside the pen, bars on three sides, the laundry room behind (washer, wooden shelf, block walls). The own body stands in the middle, faded to about 0.25 by the P0-6 rule because the pen pushes the arm in, but clearly readable as the figure.
+- **Verify:** `node autobuild/verify.mjs` healthy. 16 suites at the pinned counts (movement 127); symmetry 193 of 193. Bot match unchanged from P4-2 (bots never jump): 3v3 team_a in 387 s, 27 s of stalls, 29 captures; 1v1 team_a in 250 s, 4 s. Tick budget 0 / 0 / 0 of 600. net_smoke 1659 ticks agree at snapshot format 4. Render counters within the gate.
+- **Left:** in the chase view a jailed player sees their own body mostly see-through (P0-6 fade inside the 220 pen). P4-7 may judge whether the fade floor should be higher in jail. `godot/art/theme/_tmp_noshell.tres` is an untracked leftover from the cut-off session (default theme with shell off and lamps on). This session's permissions refused deleting it; it is not committed.
+
 ## 2026-11-16 — P4-2 Presentation for jump, crouch, carry and throw
 - **Followed the brief.** Audit by contact sheets of live bodies, then fixes. Sheets are in `autobuild/frames/p4_2/` (gitignored like every frame folder). The own body is local seat team_a:0, spawned 150 west of House A's west wall.
 - **New tooling (debug):** bots never jump, crouch or throw on cue, so the own body had to carry. `--pilot=carry` walks it to the nearest bundle in its own study (anyone may lift any bundle) and lets go. `--capture-follow=on:grab:me` starts the sheet on that grab, and `--capture-press` now also clicks `LMB` / `RMB`. The follow makes its output folder, and each cell's print shows `dip=` while the landing settle runs.

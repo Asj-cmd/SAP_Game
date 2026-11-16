@@ -149,13 +149,17 @@ func path_for(index: int) -> String:
 ##   --capture-prop=res://model,x,y,z,yaw
 ##                             stand a drawn-only imported prop (its base at x,y,z),
 ##                             dressed by the ArtTheme, in every shot; repeatable
-##   --capture-follow=team:slot[,count[,every[,side|front|back[,distance]]]]
+##   --capture-follow=team:slot[,count[,every[,side|front|back|above[,distance]]]]
 ##                             watch one live body: `count` frames `every` s apart
 ##                             from beside it, written as one contact sheet
 ##                             (<path stem>_sheet.png), each frame's clip printed.
-##                             `on:throw` (grab, seize, free) for team:slot waits
-##                             for that one-shot and follows whoever fires it;
-##                             `on:grab:me` waits for YOUR body (with --pilot=carry)
+##                             `above` looks down at 60 degrees (into the pen).
+##                             `on:throw` (grab, seize, free, jailed) for team:slot
+##                             waits for that one-shot and follows whoever fires it;
+##                             `on:grab:me` waits for YOUR body (with --pilot=carry,
+##                             `on:jailed:me` with --pilot=jail). Following your own
+##                             body also writes <path stem>_chase.png at the end,
+##                             through your own chase camera
 ##   --capture-press=KEY@seconds[+hold]   during a follow, press KEY (Space, W,
 ##                             Shift ..., or LMB / RMB for a click) that long
 ##                             after the first shot; repeatable
