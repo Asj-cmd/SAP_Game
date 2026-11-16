@@ -226,7 +226,7 @@ location-gated) + tuning in `.tres` + a table-driven test for its *decisions* on
 frames + bot_match still deterministic. Crouch, jump and throw already exist in the sim; vault was
 removed on purpose (do not rebuild it). No ragdoll, knockback, slide, shove or drop-from-height in v1.
 
-- [ ] **P4-1 Panic run per D9:** sim tracks how long forward is held; speed boost from content data; deterministic; bot_match still green (this means verify.mjs passes, nothing more)
+- [x] **P4-1 Panic run per D9:** sim tracks how long forward is held; speed boost from content data; deterministic; bot_match still green (this means verify.mjs passes, nothing more) *(Done 2026-11-16: `forward` flag on Move, `forward_ticks` count, ×1.2 after 2 s (REVIEW); snapshot format 3; 21 table cases; contact sheet `autobuild/frames/p4_1/panic_sheet.png`. See PROGRESS.md.)*
 - [ ] **P4-2 Presentation for jump, crouch, carry and throw per D9**
 - [ ] **P4-3 Jail run-in-place per D9:** the jailed player's inputs drive animation and camera only, never position
 - [ ] **P4-4 Players block each other like walls** (check what the sim does now; make bodies block if they pass through)
