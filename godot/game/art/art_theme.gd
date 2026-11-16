@@ -157,6 +157,13 @@ const DEFAULT_PATH: String = "res://art/theme/default_theme.tres"
 @export var fence_height: float = 210.0
 ## Soft cloud cover on the sky, 0 = clear.
 @export_range(0.0, 1.0) var sky_clouds: float = 0.5
+## Distance haze in the sky's horizon colour: it starts this far from the eye
+## (units) and is complete just short of the camera's far plane.
+@export var haze_from: float = 5000.0
+## How the haze builds between the two: 1 = evenly, higher = clear for longer
+## and thick only near the far plane (the amount is the distance fraction to
+## this power).
+@export var haze_curve: float = 2.5
 
 @export_group("Daylight")
 @export var sky_top: Color = Color(0.33, 0.56, 0.86)

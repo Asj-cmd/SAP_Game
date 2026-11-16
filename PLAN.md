@@ -212,7 +212,7 @@ Aug 16–Oct 10 are in; an earlier version of this plan was written against the 
   side, capture loop) and `tools/twin_probe.gd` finds the first tick a match and its swapped twin part. Also re-measure
   stalls per minute of match rather than per match (matches are a third longer at 240 s, and the range is 13–125 s
   against P3-3c's 14–88). *Verify:* over 32 fresh matches neither name nor house above 15 of 24; at most 2 level.
-- [ ] **P3-4 Exterior.** Lot, fences, garden, trees, path, neutral strip, street, sky, sun.
+- [x] **P3-4 Exterior.** *(Done 2026-11-15: `ExteriorBuilder` (railings, timber fence, streets, neighbours, hedges, trees, gravel, paths); own sky shader with clouds that fade before the horizon, haze curve in the theme, outdoor textures mipmapped, tints and a softened brick at the right size. 22 exterior views opened. Exterior views measure 10.1–10.9 ms GPU and 255–383k triangles, over budget since the exterior went in: left to P3-6. See PROGRESS.md.)* Lot, fences, garden, trees, path, neutral strip, street, sky, sun.
 - [ ] **P3-5 Lighting and readability pass.** Lighting per room, shadow settings the Compatibility
   renderer can afford, contrast between floor/wall/characters/cash. Stair banisters (railings) on
   every flight, with collision matching the existing stair walls, checked from the stair cameras.

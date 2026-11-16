@@ -11,12 +11,12 @@ extends RefCounted
 ## are put together for the Compatibility renderer (D6): a procedural sky, a sun
 ## plus a shadowless fill, flat-colour ambient, depth fog.
 
-## Haze starts this far from the eye (world units, 1 = 1 cm) and is complete
-## just short of the camera's far plane, so the ground fades into the horizon
-## before it is clipped. Far enough out that both houses stay clear from
-## anywhere on the lot.
-const HAZE_FROM: float = 6000.0
+## Haze starts at the theme's `haze_from` (world units, 1 = 1 cm) and is
+## complete this far short of the camera's far plane, so the ground fades into
+## the horizon before it is clipped.
 const HAZE_SHORT_OF_FAR: float = 500.0
+
+const DAYLIGHT_SKY: Shader = preload("res://game/art/daylight_sky.gdshader")
 
 ## Where the sun's light travels: down, toward +x and -z (rotation -55, -40).
 ## It lights the faces turned +y, -x and +z; the other three get ambient only.
@@ -74,35 +74,34 @@ static func environment(far: float, theme: ArtTheme) -> Array[Node]:
 	sky_fill.light_specular = 0.0
 	sky_fill.shadow_enabled = false
 
-	var sky_material: ProceduralSkyMaterial = ProceduralSkyMaterial.new()
-	sky_material.sky_top_color = theme.sky_top
-	sky_material.sky_horizon_color = theme.sky_horizon
 	# Below the horizon the sky is never seen through the ground, except past
-	# the far plane where the ground is clipped. There, and in the haze,
-	# everything is the sky's own horizon colour, so grass fades into sky with
-	# no band or cut.
-	sky_material.ground_horizon_color = theme.sky_horizon
-	sky_material.ground_bottom_color = theme.sky_horizon
+	# the far plane where the ground is clipped. There, in the haze and at the
+	# horizon itself, everything is the sky's horizon colour, so the ground fades
+	# into sky with no band or cut from any height (daylight_sky.gdshader).
+	var sky_material: ShaderMaterial = ShaderMaterial.new()
+	sky_material.shader = DAYLIGHT_SKY
+	sky_material.set_shader_parameter(&"sky_top", theme.sky_top)
+	sky_material.set_shader_parameter(&"sky_horizon", theme.sky_horizon)
+	sky_material.set_shader_parameter(&"cloud_amount", theme.sky_clouds)
 	if theme.sky_clouds > 0.0:
-		# Soft cloud cover: seamless noise wrapped round the sky, thinned so most
-		# of it stays blue. One texture read in the sky pass.
+		# Soft cloud cover: seamless noise on a flat layer overhead, thinned so
+		# most of it stays blue. One texture read in the sky pass.
 		var noise: FastNoiseLite = FastNoiseLite.new()
 		noise.noise_type = FastNoiseLite.TYPE_SIMPLEX_SMOOTH
-		noise.frequency = 0.006
+		noise.frequency = 0.012
 		noise.fractal_octaves = 4
 		noise.seed = 7
 		var ramp: Gradient = Gradient.new()
-		ramp.offsets = PackedFloat32Array([0.0, 0.52, 0.8, 1.0])
+		ramp.offsets = PackedFloat32Array([0.0, 0.5, 0.78, 1.0])
 		ramp.colors = PackedColorArray([Color(0, 0, 0, 1), Color(0, 0, 0, 1),
-			Color(0.75, 0.75, 0.75, 1), Color(1, 1, 1, 1)])
+			Color(0.6, 0.6, 0.6, 1), Color(0.85, 0.85, 0.85, 1)])
 		var cover: NoiseTexture2D = NoiseTexture2D.new()
-		cover.width = 1024
+		cover.width = 512
 		cover.height = 512
 		cover.seamless = true
 		cover.noise = noise
 		cover.color_ramp = ramp
-		sky_material.sky_cover = cover
-		sky_material.sky_cover_modulate = Color(1.0, 1.0, 1.0) * theme.sky_clouds
+		sky_material.set_shader_parameter(&"cover", cover)
 	var sky: Sky = Sky.new()
 	sky.sky_material = sky_material
 
@@ -121,9 +120,9 @@ static func environment(far: float, theme: ArtTheme) -> Array[Node]:
 	settings.fog_mode = Environment.FOG_MODE_DEPTH
 	settings.fog_light_color = theme.sky_horizon
 	settings.fog_density = 1.0
-	settings.fog_depth_begin = HAZE_FROM
+	settings.fog_depth_begin = minf(theme.haze_from, far - HAZE_SHORT_OF_FAR - 1.0)
 	settings.fog_depth_end = far - HAZE_SHORT_OF_FAR
-	settings.fog_depth_curve = 1.0
+	settings.fog_depth_curve = theme.haze_curve
 	settings.fog_sky_affect = 0.0
 
 	var holder: WorldEnvironment = WorldEnvironment.new()

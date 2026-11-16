@@ -2,60 +2,6 @@
 
 Written by the planner from a quick read. If a fact here is wrong, the code and `DECISIONS.md` win.
 
-## P3-4 — Exterior
-
-REDO: The only exterior frames on disk (`autobuild/frames/ext_street_south.png`, `ext_street_along.png`, `lot_overview.png`, shot 18:27 on 2026-11-15) are OLDER than the committed code (`996d876`, 23:08). Re-shoot before judging anything: `node autobuild/verify.mjs --frames-only --views=ext_,cam_fence,cam_railing,cam_gravel,cam_garden,lot_,approach,yard_`. The REDO items below are what those three old frames show; skip any that the fresh frames no longer show.
-REDO: `lot_overview` has a hard horizontal line right across the frame where the fog meets the sky (pale fog band below, blue sky above, a straight edge at about a quarter of the way down). Make the sky's horizon colour and the fog colour the same and fade the sky into it, so there is no visible line from a high camera.
-REDO: Fog is far too thick. In `lot_overview` the neighbours' houses one plot away (60–80 m) are already milky white and the far street vanishes; in `ext_street_south` the street ends in white after about four houses. Push the fog start out so the game lot and the first ring of neighbours are clear and only the far street ends fade (`world_backdrop.gd` / theme fog numbers).
-REDO: The gravel on the neutral ground is a saturated orange-yellow (reads as sand or a sports pitch). Bring it to a muted grey-buff: drop the albedo tint toward neutral so the Poly Haven `gravel_floor` texture shows its own colour.
-REDO: The pavement is peach/salmon, not concrete. Same fix: neutral albedo on `pavement` so `concrete_pavement` reads grey. The kerb is a cream stripe; make it a slightly lighter grey than the pavement.
-REDO: Brick is loud: high-contrast, and the bricks look oversized against doors and windows in `ext_street_along`. Check the tile size (a brick should be about 28 × 10 units at the house's 1.3× scale) and lower the contrast (albedo toward the STYLE §3.3 brick `(0.55, 0.33, 0.25)`). It is the house's own `wall_outside` material, so check `ext_a_south` too after changing it.
-REDO: Clouds are blotchy smears with faint vertical streaks (`ext_street_south`, `ext_street_along`). Try `sky_clouds` 0.25 with a softer ramp; if it still smears, set it to 0 (clear sky) and log it.
-REDO: Lawn is a loud saturated green next to everything else. Mute it a little (albedo on the `yard` floor material; the backdrop plane follows it).
-REDO: Hedges are flat-topped dark boxes with knife edges (`ext_street_along`, right). Low priority: round the top edge or lump it with `_blob`, only if cheap.
-REDO: The 11 new views (`ext_street_*`, `ext_gate_a`, `ext_gravel_a`, `ext_midline`, `ext_upstairs_out`, `cam_fence_*`, `cam_railing_*`, `cam_gravel`) have never been opened, except the two street ones. Open every one.
-
-**Approach**
-1. Read `godot/game/art/exterior_builder.gd` (header comment explains the whole layout) and the `Exterior` group in `art_theme.gd` / `default_theme.tres`. The builder is committed and hooked up in `greybox_main.gd`; this task is now review and finish, not build.
-2. Shoot the views (command in the first REDO). Open each frame with Read. Write down what each shows.
-3. Fix the REDO items, cheapest first: theme numbers (fog, sky, albedo tints, cloud amount) before code.
-4. Check the camera cases specifically: `cam_fence_backed` and `cam_railing_backed` (player's back against the lot edge) must show the player and the yard, with the fence cut away, not a fence filling the screen; `cam_fence_west` / `cam_railing_out` must show a fence that looks too tall to climb.
-5. Check the items the plan lists are all present in frames: lot ground, fences, garden (soil border, hedges), trees, path from each front door to its gate, neutral strip (gravel), street, sky, sun (shadows of trees/fence on the ground).
-6. Check both houses' sides get the same thing (House B is House A turned half a circle): `ext_b_north` against `ext_a_south`.
-7. Run `node autobuild/render_stats.mjs --views=ext_,lot_,approach` once and record draws / triangles / GPU ms. Over budget is recorded for P3-6, not fixed here, unless a view is over 1000 draws because of the exterior alone.
-8. Re-shoot, open, describe in `PROGRESS.md`; tick; run verify once; commit.
-
-**Already decided**
-- The design in the builder's header stands: street sides = black railings on a brick plinth with piers and a gate; garden sides = close-board timber fence; neighbours = plain boxes under hipped roofs; gravel on neutral ground; stepping stones on the yard midline. Log as REVIEW (one line: the exterior layout and that it is point-symmetric by construction).
-- Exterior walls of both houses are brick (STYLE §3.3 left brick-or-render to P3-4): brick. Some neighbours are render for variety. Log REVIEW.
-- Fence height 210 (`fence_height`), drawn only; the level bounds stay the wall. No collision is added.
-- Textures: the five Poly Haven ones already in `godot/art/textures/` plus generated lawn/foliage. No more downloads unless a REDO cannot be met by tinting. All already in `ASSETS.md`.
-- Fog and sky colours are theme data; change numbers there, not constants in code.
-- Trees stay simple lumpy crowns (deadpan, cheap). No wind, no particles, no birds, no cars.
-
-**Files likely touched**
-- `godot/art/theme/default_theme.tres` (exists): exterior materials, fog/sky/cloud numbers, lawn and brick tints.
-- `godot/game/greybox/world_backdrop.gd` (exists): fog start/end, sky horizon blend.
-- `godot/game/art/exterior_builder.gd` (exists): hedge shape, kerb, any gap or z-fight seen in frames.
-- `godot/game/art/fence_cutaway.gdshader` (exists): only if the backed-against-fence views are wrong.
-- `autobuild/views.json` (exists): only to add a view that is missing.
-- `PROGRESS.md`, `PLAN.md`, `DECISIONS.md`.
-
-**Done means**
-- Fresh frames opened and described for: `lot_overview`, `approach_from_south`, `ext_a_south`, `ext_a_east`, `ext_a_north`, `ext_a_west`, `ext_b_north`, `ext_street_south`, `ext_street_along`, `ext_gate_a`, `ext_gravel_a`, `ext_midline`, `ext_upstairs_out`, `cam_fence_west`, `cam_fence_backed`, `cam_railing_out`, `cam_railing_backed`, `cam_gravel`, `cam_garden_open`, `cam_garden_wall_backed`.
-- Each shows: no horizon line, no black or grey void, neighbours one plot away not fogged out, grey pavement, muted gravel, no z-fighting or seams on the lot ground (the old "thin pale line across the lawn" in `cam_garden_open` gone or explained), a gate in line with each front door.
-- From inside (`ext_upstairs_out`, and one `room_` view with a window): the window shows fence, trees or a neighbour, not empty lawn to the horizon.
-- `render_stats` numbers for the exterior views written in `PROGRESS.md`.
-- `node autobuild/verify.mjs` healthy, run once just before the commit. Symmetry must stay 193 of 193 and bot-match numbers unchanged (nothing here touches the sim; if they move, something did).
-
-**Do NOT**
-- Add collision, move the bounds, change zones, spawns or `build_house.gd`. The exterior is drawn only.
-- Touch bots, modes, sweeps, or write test files.
-- Do the lighting pass (lamps, shadow settings, banisters): that is P3-5. Do the mesh merging: that is P3-6.
-- Add props for their own sake (cars, bins, street lamps, mailboxes). One coherent look over more content.
-- Copy a specific game's street or house design. Download anything not CC0.
-- Rebuild the builder from scratch. It is 800 lines that work; fix what the frames show.
-
 ## P3-5 — Lighting and readability pass
 
 **Approach**

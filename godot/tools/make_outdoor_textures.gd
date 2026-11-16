@@ -19,7 +19,43 @@ func _initialize() -> void:
 	DirAccess.make_dir_recursive_absolute(ProjectSettings.globalize_path(OUT_DIR))
 	_save(_lawn(), "lawn_diff.png")
 	_save(_foliage(), "foliage_diff.png")
+	var brick: Image = _brick()
+	if brick != null:
+		var path: String = "%s/brick_soft_diff.jpg" % OUT_DIR
+		var error: Error = brick.save_jpg(ProjectSettings.globalize_path(path), 0.9)
+		print("%s %s" % ["wrote" if error == OK else "FAILED", path])
 	quit(0)
+
+## Poly Haven's `brick_wall_001` (CC0) with its contrast cut: the source has
+## near-white and near-black bricks side by side, which read as loud and
+## patchy across a whole house front (P3-4 frames). Each pixel is pulled toward
+## the image's mean colour, then the mean is nudged toward STYLE §3.3's brick.
+const BRICK_SOURCE: String = "res://art/textures/brick_wall_001/brick_wall_001_diff_1k.jpg"
+const BRICK_CONTRAST: float = 0.55
+const BRICK_STYLE: Color = Color(0.55, 0.33, 0.25)
+const BRICK_STYLE_PULL: float = 0.35
+
+func _brick() -> Image:
+	var image: Image = Image.load_from_file(ProjectSettings.globalize_path(BRICK_SOURCE))
+	if image == null or image.is_empty():
+		print("FAILED to read %s" % BRICK_SOURCE)
+		return null
+	image.convert(Image.FORMAT_RGB8)
+	var width: int = image.get_width()
+	var height: int = image.get_height()
+	var sum: Vector3 = Vector3.ZERO
+	for y: int in height:
+		for x: int in width:
+			var c: Color = image.get_pixel(x, y)
+			sum += Vector3(c.r, c.g, c.b)
+	var mean: Vector3 = sum / float(width * height)
+	var target: Vector3 = mean.lerp(Vector3(BRICK_STYLE.r, BRICK_STYLE.g, BRICK_STYLE.b), BRICK_STYLE_PULL)
+	for y: int in height:
+		for x: int in width:
+			var c: Color = image.get_pixel(x, y)
+			var v: Vector3 = target + (Vector3(c.r, c.g, c.b) - mean) * BRICK_CONTRAST
+			image.set_pixel(x, y, Color(clampf(v.x, 0.0, 1.0), clampf(v.y, 0.0, 1.0), clampf(v.z, 0.0, 1.0)))
+	return image
 
 func _save(image: Image, file: String) -> void:
 	var path: String = "%s/%s" % [OUT_DIR, file]

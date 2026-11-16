@@ -3,7 +3,7 @@
 [ext_resource type="Script" path="res://game/art/art_theme.gd" id="1_theme"]
 [ext_resource type="Script" path="res://game/art/family_member.gd" id="2_member"]
 [ext_resource type="Texture2D" uid="uid://fpyo5a4cis23" path="res://art/textures/painted_plaster_wall/painted_plaster_wall_diff_1k.jpg" id="t_plaster"]
-[ext_resource type="Texture2D" uid="uid://cxcdeomy8fqkt" path="res://art/textures/brick_wall_001/brick_wall_001_diff_1k.jpg" id="t_brick"]
+[ext_resource type="Texture2D" path="res://art/textures/generated/brick_soft_diff.jpg" id="t_brick"]
 [ext_resource type="Texture2D" uid="uid://byugl0sjqgset" path="res://art/textures/concrete_block_wall/concrete_block_wall_diff_1k.jpg" id="t_block"]
 [ext_resource type="Texture2D" uid="uid://rntxrq2tgpmu" path="res://art/textures/concrete_floor_painted/concrete_floor_painted_diff_1k.jpg" id="t_concrete"]
 [ext_resource type="Texture2D" uid="uid://dgblmw8hqvbwu" path="res://art/textures/interior_tiles/interior_tiles_diff_1k.jpg" id="t_tiles"]
@@ -20,19 +20,19 @@
 
 [sub_resource type="StandardMaterial3D" id="ext_pavement"]
 resource_name = "ext_pavement"
-albedo_color = Color(1.25, 1.24, 1.2, 1)
+albedo_color = Color(0.92, 1.0, 1.15, 1)
 albedo_texture = ExtResource("t_pavement")
 roughness = 0.9
 uv1_scale = Vector3(0.005556, 0.005556, 1)
 
 [sub_resource type="StandardMaterial3D" id="ext_kerb"]
 resource_name = "ext_kerb"
-albedo_color = Color(0.66, 0.65, 0.62, 1)
+albedo_color = Color(0.55, 0.57, 0.6, 1)
 roughness = 0.9
 
 [sub_resource type="StandardMaterial3D" id="ext_asphalt"]
 resource_name = "ext_asphalt"
-albedo_color = Color(1.1, 1.1, 1.12, 1)
+albedo_color = Color(0.85, 0.92, 1.05, 1)
 albedo_texture = ExtResource("t_asphalt")
 roughness = 0.95
 uv1_scale = Vector3(0.003333, 0.003333, 1)
@@ -44,7 +44,7 @@ roughness = 0.8
 
 [sub_resource type="StandardMaterial3D" id="ext_gravel"]
 resource_name = "ext_gravel"
-albedo_color = Color(1.15, 1.12, 1.05, 1)
+albedo_color = Color(0.76, 0.9, 1.17, 1)
 albedo_texture = ExtResource("t_gravel")
 roughness = 1.0
 uv1_scale = Vector3(0.004444, 0.004444, 1)
@@ -183,7 +183,7 @@ resource_name = "wall_brick"
 albedo_color = Color(0.86, 0.88, 0.92, 1)
 albedo_texture = ExtResource("t_brick")
 roughness = 0.85
-uv1_scale = Vector3(0.003333, 0.003333, 1)
+uv1_scale = Vector3(0.0069, 0.0069, 1)
 
 [sub_resource type="StandardMaterial3D" id="ceiling"]
 resource_name = "ceiling"
@@ -225,7 +225,7 @@ roughness = 1.0
 
 [sub_resource type="StandardMaterial3D" id="lawn"]
 resource_name = "lawn"
-albedo_color = Color(1.1, 1.05, 1.15, 1)
+albedo_color = Color(1.0, 0.92, 1.1, 1)
 albedo_texture = ExtResource("t_lawn")
 roughness = 1.0
 uv1_scale = Vector3(0.0025, 0.0025, 1)
@@ -537,6 +537,8 @@ exterior_materials = Dictionary[StringName, StandardMaterial3D]({
 })
 fence_height = 210.0
 sky_clouds = 0.5
+haze_from = 5000.0
+haze_curve = 2.5
 sky_top = Color(0.33, 0.56, 0.86, 1)
 sky_horizon = Color(0.78, 0.85, 0.92, 1)
 grass = Color(0.36, 0.5, 0.3, 1)

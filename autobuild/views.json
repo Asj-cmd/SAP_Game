@@ -54,7 +54,7 @@
     { "name": "ext_gate_a", "at": [1910, 470, -420], "look": [1910, 420, 400] },
     { "name": "ext_gravel_a", "at": [2300, 560, 3560], "look": [900, 300, 2700] },
     { "name": "ext_midline", "at": [2700, 560, 700], "look": [2700, 300, 2400] },
-    { "name": "ext_upstairs_out", "at": [1900, 840, 1900], "look": [1900, 700, 6000] },
+    { "name": "ext_upstairs_out", "at": [900, 860, 530], "look": [-4000, 650, 530] },
     { "name": "cam_fence_west", "chase": [200, 300, 800], "facing": [-1000, 300, 600] },
     { "name": "cam_fence_backed", "chase": [60, 300, 1000], "facing": [1500, 300, 1000] },
     { "name": "cam_railing_out", "chase": [1500, 300, 200], "facing": [1700, 300, -1000] },

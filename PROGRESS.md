@@ -2,6 +2,48 @@
 
 Newest first. One entry per task: date, task id, what changed, what the frames showed, numbers, what is left.
 
+## 2026-11-15 — P3-4 Exterior (finished from the planner's brief)
+- **Starting point.** `ExteriorBuilder` was committed in `996d876` (railings, timber fences, streets, neighbours, hedges, trees, gravel, paths). The only exterior frames on disk were older than that commit, so all 22 views were re-shot first (`--frames-only --views=ext_,cam_fence,cam_railing,cam_gravel,cam_garden,lot_,approach,yard_`). Fresh frames still showed every REDO in the brief: a hard horizontal line where haze met sky in `lot_overview`, neighbours one plot away already milky, streaky blotchy clouds, peach pavement, cream kerb, orange gravel, loud oversized brick, a loud lawn. `ext_upstairs_out` looked at the bedroom's inside wall, not out of a window.
+- **Changed:**
+  - Sky: our own sky shader (`game/art/daylight_sky.gdshader`). It keeps ProceduralSkyMaterial's gradient, puts clouds on a flat layer overhead and fades them out by about 20° above the horizon, so the horizon is exactly the fog colour.
+  - Haze: `haze_from` 5000 and `haze_curve` 2.5 in the theme (was a linear ramp from a 6000 constant).
+  - Textures: the seven outdoor textures had been imported lossless with no mipmaps. They are now VRAM-compressed with mipmaps, like the house textures. Distant lawn, gravel and road no longer shimmer.
+  - Brick: a softened copy of Poly Haven's brick (`make_outdoor_textures.gd` → `generated/brick_soft_diff.jpg`), tiled at 145 cm instead of 300.
+  - Tints: pavement, kerb, asphalt, gravel and lawn (numbers in DECISIONS.md).
+  - View: `ext_upstairs_out` now looks out through the study's escape window.
+- **Two overshoots on the way.** The first set of tints turned the pavement light blue and the gravel lavender-pink, and the lawn went khaki. The mipmaps changed every texture's average colour at the same time, so each tint was set again from the new frames. The gravel took a third pass: salmon, then grey-buff.
+- **What the final frames show:**
+  - `lot_overview`: smooth haze from the lot out to the sky, no line. Wispy clouds overhead. The first ring of neighbours is clear; the second row north is faint. Grey road and pavement, grey-buff gravel, both families' figures small in the yards.
+  - `ext_street_south` / `ext_street_along`: grey cracked asphalt, light grey paving slabs, a pale grey kerb. The railings sit on a brick plinth with piers. The street fades to haze only after about six houses. Tree and railing shadows lie on the pavement.
+  - `ext_a_south` / `ext_b_north`: the same frame turned half a circle. Railings, piers and a gate in front of each house. The front door has a sage frame on A and terracotta on B, with a green or an orange figure in the yard.
+  - `ext_gate_a`: a straight path from the door to the pavement. The railing is not drawn because the camera stands just outside it (the cutaway), but its shadow is.
+  - `ext_gravel_a` / `cam_gravel`: grey-buff gravel with a pale paved edge to the lawn, the timber fence at the far end, a neighbour's two-storey house and trees over it.
+  - `ext_a_east` / `ext_a_north` / `ext_a_west`: plain brick faces, about 29 × 10 bricks, calm. They are large and windowless because the shell draws only the real openings (P3-2 decision).
+  - `ext_midline`: stepping stones down the corridor between the houses, grey aprons at the doors.
+  - `ext_upstairs_out`: the study's open french doors, sunlight on the floor, and a neighbour's brick side wall filling the opening with a crown at its edge.
+  - Fence frames:
+    - `cam_fence_west` / `yard_b_horizon`: the close-board fence stands over head height with crowns above it; it reads as too tall to climb.
+    - `cam_railing_out`: the railing tops are at about head height with the gate piers taller.
+    - `cam_fence_backed`, `cam_railing_backed`, `cam_garden_open`: the fence is cut away. Each shows the player, the yard and the house; the garden views also show the soil border with shrubs.
+    - `cam_garden_wall_backed`: back to the house, looking out at the fence and trees, with the body faded.
+  - No z-fighting or seams on the lot ground in any frame. The pale lines in `cam_garden_open` are the soil border's edges, not a seam.
+- **Render stats** (`render_stats.mjs`, GT 730M, 120 frames):
+
+  | view | draws | triangles | GPU ms | frame ms |
+  |---|---|---|---|---|
+  | ext_a_south | 638 | 369k | 10.5 | 13.3 |
+  | ext_b_north | 621 | 366k | 10.4 | 13.3 |
+  | ext_gate_a | 628 | 367k | 10.8 | 13.7 |
+  | ext_street_south | 539 | 341k | 10.2 | 12.8 |
+  | ext_midline | 492 | 295k | 10.9 | 13.8 |
+  | ext_upstairs_out | 124 | 255k | 10.1 | 12.5 |
+  | lot_overview | 381 | 320k | 10.1 | 12.7 |
+  | approach_from_south | 641 | 382k | 10.6 | 13.1 |
+
+  All exterior views are over the 9 ms GPU and 300k triangle budgets, and none is near 1000 draws. This did not come from this session. HEAD before it measured kitchen 11.6 / approach 11.1 ms (the kitchen was 8.7 ms at P3-3b); with these changes they are 11.5 / 10.6. The triangle floor of about 255k even indoors points at the exterior mesh and its shadow pass. **Left for P3-6.**
+- **Not done:** rounding the hedges' flat tops (low priority; see DECISIONS.md).
+- **Verify:** `node autobuild/verify.mjs` healthy. 16 suites at pinned counts; symmetry 193 of 193; bot match 3v3 team_a in 387 s, stalls 27 s (unchanged from P3-3e); 1v1 250 s, stalls 4 s; tick budget 0 / 0 / 0 of 600 over; net_smoke 1641 ticks agree.
+
 ## 2026-11-15 — P3-3e Level matches: 240 s rounds, and a body that could not climb a stair along a wall (partly done)
 - **Question:** with the P3-3d bots, do longer rounds bring level matches from 5 of 32 down to 2 or fewer?
 - **Runs** (3v3 + 4v4, seeds 1–8, as-is and swapped, 32 matches each; `node autobuild/side_sweep.mjs --sizes=3,4`):
