@@ -2092,7 +2092,7 @@ func _update_hud() -> void:
 	])
 	for team: TeamDef in level.teams:
 		lines.append("%s  cash %d  rounds %d" % [
-			team.display_name, world.score_for(team.id), world.round_wins_for(team.id),
+			FamilyNames.name_of(team.id), world.score_for(team.id), world.round_wins_for(team.id),
 		])
 
 	lines.append("")
@@ -2117,7 +2117,7 @@ func _update_hud() -> void:
 			if bot == null:
 				continue
 			lines.append("BOT %s  %s  %s%s" % [
-				bot.team,
+				FamilyNames.name_of(bot.team),
 				BotCrew.Seat.keys()[link.crew.seat_of(actor_id)],
 				BotTask.Kind.keys()[task.kind],
 				"  carrying" if bot.is_carrying() else "",

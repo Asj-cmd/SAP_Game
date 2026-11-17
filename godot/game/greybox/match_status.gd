@@ -16,7 +16,7 @@ static func line(world: SimWorld, level: GreyBoxLevel, mine: SimEntity) -> Strin
 	for team: TeamDef in level.teams:
 		teams.append("%s%s %d (rounds %d)" % [
 			"> " if mine != null and mine.team == team.id else "",
-			team.display_name, world.score_for(team.id), world.round_wins_for(team.id),
+			FamilyNames.name_of(team.id), world.score_for(team.id), world.round_wins_for(team.id),
 		])
 	parts.append("   ".join(teams))
 	parts.append("cash to win %d" % world.mode.score_to_win())
@@ -56,8 +56,6 @@ static func _rounds(world: SimWorld, level: GreyBoxLevel) -> String:
 		wins.append(str(world.round_wins_for(team.id)))
 	return "-".join(wins)
 
-static func _name(level: GreyBoxLevel, team_id: StringName) -> String:
-	for team: TeamDef in level.teams:
-		if team.id == team_id:
-			return team.display_name.to_upper()
-	return String(team_id).to_upper()
+## A team's display name (FamilyNames), never its internal id or TeamDef label.
+static func _name(_level: GreyBoxLevel, team_id: StringName) -> String:
+	return FamilyNames.name_of(team_id).to_upper()

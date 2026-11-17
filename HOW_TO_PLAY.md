@@ -19,6 +19,3 @@ match results) are written in **one small text file and nowhere else**:
 
 If a name is left empty, or the file is missing, the game shows "Family A" and "Family B" instead.
 The names are only for display, so two players can even have different names on their own PCs.
-
-*Until the task P5-0 is finished, the game still shows the old "Team A" and "Team B" text and does
-not read this file yet. (P5-0 deletes this note.)*

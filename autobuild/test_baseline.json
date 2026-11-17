@@ -5,6 +5,7 @@
   "carry_system_test": 33,
   "command_codec_test": 24,
   "content_validator_test": 37,
+  "family_names_test": 26,
   "greybox_level_test": 20,
   "identity_test": 15,
   "lobby_test": 42,
