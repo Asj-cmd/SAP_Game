@@ -1,26 +1,29 @@
 class_name ExteriorBuilder
 extends RefCounted
-## What surrounds the two houses (PLAN P3-4): the lot's own ground and fences,
-## and the suburb outside it.
+## What surrounds the two houses (PLAN P3-4, P3-7): the lot's own ground and
+## fences, and the hedges and trees that shut it in.
 ##
 ## Presentation only. Nothing here has collision or is read by a rule. Inside
 ## the lot it draws only FLAT things (gravel, paths, soil) a body walks over;
 ## everything with height stands on or outside the level's bounds, where no
 ## body can go, so nothing drawn can be walked through or bumped into.
 ##
-## THE PLACE. The lot is one block between two streets. House A fronts the
-## south street, House B the north one (it is A turned half a circle), so the
-## exterior is built once per side in a FRAME (along the lot edge, up, outward)
-## and the opposite side is the same thing in the turned frame: point symmetry
-## holds by construction, and neither team gets a landmark the other lacks.
+## THE PLACE (P3-7: the two houses stand alone, no other house anywhere). The
+## lot lies between two short streets. House A fronts the south street, House B
+## the north one (it is A turned half a circle), so the exterior is built once
+## per side in a FRAME (along the lot edge, up, outward) and the opposite side
+## is the same thing in the turned frame: point symmetry holds by construction,
+## and neither team gets a landmark the other lacks.
 ##
 ## - Street sides (the lot edges the houses' fronts face): black railings on a
 ##   brick plinth between brick piers, a gate where a front door's path meets
-##   it; then pavement, road, far pavement, low garden walls and a row of plain
-##   houses across the street.
-## - Garden sides: a close-board timber fence seen from its rail side; beyond
-##   it the neighbouring plots (two more houses each), hedges and trees whose
-##   crowns show over the fence.
+##   it; then pavement, road, far pavement and a tall hedge. Each street is a
+##   dead end: shut by the garden hedge at one end, at the other it runs out
+##   through a gap in the hedge, down a short hedged lane into the trees.
+## - Garden sides: a close-board timber fence seen from its rail side, a tall
+##   hedge right behind it (cut away for a camera backed out through it, like
+##   the fence).
+## - Beyond every hedge, a belt of trees whose crowns show over it.
 ## - Inside the lot: gravel on the neutral ground (the lot outside both yards),
 ##   a paved edge where gravel meets lawn, stepping stones down the line where
 ##   the two yards meet, a path from each front door to its gate, a paved apron
@@ -51,20 +54,22 @@ const F_NO_BOTTOM: int = F_SIDES | F_UP
 const GRAVEL_LIFT: float = 0.6
 const LAWN_LIFT: float = 0.3
 const PAVING_LIFT: float = 0.9
-## How far past the lot's ends the streets run: into the haze.
-const STREET_REACH: float = 9000.0
+## How far the open end of a street runs past the lot, down its lane.
+const STREET_EXIT: float = 2800.0
 const PAVEMENT_WIDTH: float = 220.0
 const PAVEMENT_RISE: float = 12.0
 const ROAD_WIDTH: float = 700.0
 const ROAD_LIFT: float = 2.0
-## A neighbour's house: the game house's footprint and height, as a plain box.
-const HOUSE_SIZE: float = 2090.0
-const HOUSE_WALL: float = 760.0
-const HOUSE_SETBACK: float = 560.0
-const ROOF_OVERHANG: float = 45.0
-## A tree near the lot keeps its crown above any camera that backs out through
-## the fence (arm 350, pivot 120: at most ~430 up, and lower the further out).
-const NEAR_TRUNK: float = 400.0
+## The enclosing hedges (P3-7): this tall (well over the 210 fence, under the
+## tree crowns), this deep, and this far out from the timber fence's line.
+const HEDGE_HEIGHT: float = 380.0
+const HEDGE_DEPTH: float = 160.0
+const HEDGE_IN: float = 30.0
+## The tree belts start this far out: past the garden hedge, and past the far
+## street hedge. Both clear every camera the views stand outside the lot
+## (`ext_a_west` 900 out, `approach_from_south` 2500 out at 700 up).
+const BELT_GARDEN: float = 1450.0
+const BELT_STREET: float = 2950.0
 ## Trees are merged per square of this many units (P3-6), not into `solid`.
 const TREE_CELL: float = 2400.0
 
@@ -134,7 +139,7 @@ func _build(level: GreyBoxLevel, theme: ArtTheme, ground_y: float) -> Array[Node
 	for garden: Frame in gardens:
 		_rng.seed = 72
 		_timber_fence(garden)
-		_neighbours(garden)
+		_garden_hedge(garden)
 	return _commit()
 
 static func _frame(origin: Vector3, dir: Vector3, out: Vector3, length: float) -> Frame:
@@ -492,8 +497,10 @@ func _railings(f: Frame, gates: Array[Vector2]) -> void:
 			5.0, 17.0, F_ALL)
 
 func _street(f: Frame) -> void:
-	var a0: float = -STREET_REACH
-	var a1: float = f.length + STREET_REACH
+	# The open end runs out along-low, down a short lane into the trees; the
+	# shut end stops at the garden hedge's face, along-high (P3-7).
+	var a0: float = -STREET_EXIT
+	var a1: float = f.length + HEDGE_IN
 	var kerb: float = PAVEMENT_WIDTH
 	var far_kerb: float = kerb + ROAD_WIDTH
 	var far_edge: float = far_kerb + PAVEMENT_WIDTH
@@ -505,47 +512,32 @@ func _street(f: Frame) -> void:
 	_box(f, &"ground", &"kerb", a0, a1, 0.0, PAVEMENT_RISE, far_kerb, far_kerb + 14.0, F_UP | F_IN, PAVEMENT_RISE + 0.3)
 	var middle: float = (kerb + far_kerb) * 0.5
 	var dash: float = a0
-	while dash < a1:
+	while dash < a1 - 300.0:
 		_surface(f, &"road_line", dash, dash + 300.0, middle - 6.0, middle + 6.0, ROAD_LIFT + 1.5)
 		dash += 900.0
 
-	# The neighbours' frontage on this side of the street: a hedge either side of the lot.
-	_box(f, &"solid", &"hedge", -2.0 * f.length, -6.0, 0.0, 125.0, -62.0, -4.0, F_NO_BOTTOM)
-	_box(f, &"solid", &"hedge", f.length + 6.0, 3.0 * f.length, 0.0, 125.0, -62.0, -4.0, F_NO_BOTTOM)
+	# Across the street: one tall hedge from the lane's end to the shut end's
+	# corner, where it meets the garden hedge.
+	var hedge_out: float = far_edge + HEDGE_IN
+	_box(f, &"solid", &"hedge", a0, a1 + HEDGE_DEPTH, 0.0, HEDGE_HEIGHT, hedge_out, hedge_out + HEDGE_DEPTH,
+		F_NO_BOTTOM)
+	# The lane's near side, from the garden hedge out to the lane's end.
+	_box(f, &"solid", &"hedge", a0, -HEDGE_IN, 0.0, HEDGE_HEIGHT, -HEDGE_DEPTH - 10.0, -10.0, F_NO_BOTTOM)
+	# The lane ends in trees across the road.
+	var out: float = -150.0
+	while out < hedge_out + HEDGE_DEPTH + 200.0:
+		_tree(f, a0 - _rng.randf_range(180.0, 320.0), out, _rng.randf_range(380.0, 440.0),
+			_rng.randf_range(300.0, 360.0))
+		out += _rng.randf_range(380.0, 460.0)
+	# The tree belt behind the far hedge, from past the lane's end to past the
+	# shut corner.
+	var along: float = a0 - 300.0
+	while along < a1 + BELT_GARDEN:
+		_tree(f, along, BELT_STREET + _rng.randf_range(0.0, 500.0), _rng.randf_range(380.0, 460.0),
+			_rng.randf_range(320.0, 390.0))
+		along += _rng.randf_range(560.0, 700.0)
 
-	# Across the street: a low garden wall, a row of houses, trees between and behind.
-	var pitch: float = f.length * 0.5
-	var front: float = far_edge + HOUSE_SETBACK
-	var wall_from: float = a0
-	for i: int in range(-4, 4):
-		var centre: float = f.length * 0.5 + (float(i) + 0.5) * pitch
-		var width: float = HOUSE_SIZE - 90.0 * float(posmod(i * 3, 4))
-		var box: Rect2 = Rect2(centre - width * 0.5, front, width, HOUSE_SIZE - 150.0 * float(posmod(i, 3)))
-		_house(f, box, 0, posmod(i, 3) == 1)
-		# The path from its door to the pavement, and the wall's gap for it.
-		_surface(f, &"pavement", centre - 75.0, centre + 75.0, far_edge, front, 1.0)
-		_garden_wall(f, wall_from, centre - 110.0, far_edge)
-		wall_from = centre + 110.0
-		_tree(f, centre + pitch * 0.5 + _rng.randf_range(-120.0, 120.0),
-			far_edge + _rng.randf_range(230.0, 330.0), _rng.randf_range(300.0, 380.0),
-			_rng.randf_range(230.0, 290.0))
-		for k: int in 2:
-			_tree(f, centre + (float(k) - 0.25) * pitch * 0.5 + _rng.randf_range(-150.0, 150.0),
-				front + HOUSE_SIZE + _rng.randf_range(350.0, 700.0), _rng.randf_range(330.0, 420.0),
-				_rng.randf_range(300.0, 400.0))
-	_garden_wall(f, wall_from, a1, far_edge)
-
-## A low brick garden wall with a cap, and a pier at each end.
-func _garden_wall(f: Frame, from: float, to: float, at: float) -> void:
-	if to - from < 60.0:
-		return
-	_box(f, &"solid", &"brick", from, to, 0.0, 72.0, at + 4.0, at + 26.0, F_SIDES)
-	_box(f, &"solid", &"cap", from - 1.0, to + 1.0, 72.0, 78.0, at + 2.0, at + 28.0, F_ALL)
-	for end: float in [from, to - 32.0]:
-		_box(f, &"solid", &"brick", end, end + 32.0, 0.0, 96.0, at, at + 32.0, F_SIDES)
-		_box(f, &"solid", &"cap", end - 2.0, end + 34.0, 96.0, 103.0, at - 2.0, at + 34.0, F_ALL)
-
-# ---- a garden side: the timber fence, then the neighbouring plots ----
+# ---- a garden side: the timber fence, then the hedge ----
 
 func _timber_fence(f: Frame) -> void:
 	_cut = Vector2(f.out.x, f.out.z)
@@ -562,91 +554,21 @@ func _timber_fence(f: Frame) -> void:
 		var at: float = clampf(f.length * float(i) / float(bays), 6.0, f.length - 6.0)
 		_box(f, &"fence", &"fence_post", at - 6.0, at + 6.0, 0.0, top + 7.0, 0.0, 12.0, F_NO_BOTTOM)
 
-func _neighbours(f: Frame) -> void:
-	# Two more plots like this one, each with its two houses where this lot's
-	# stand (seen from this side: one near the fence, one far).
-	var house_gap: float = _houses[0].position.x - _lot.position.x if not _houses.is_empty() else 350.0
-	var depth: float = _lot.size.x
-	for plot: int in 2:
-		var shift: float = float(plot) * depth
-		_house(f, Rect2(house_gap, shift + house_gap, HOUSE_SIZE, HOUSE_SIZE), 1, plot == 1)
-		_house(f, Rect2(f.length - house_gap - HOUSE_SIZE, shift + depth - house_gap - HOUSE_SIZE,
-			HOUSE_SIZE, HOUSE_SIZE), 2, plot == 0)
-		# The plot's far boundary: a tall hedge.
-		_box(f, &"solid", &"hedge", 0.0, f.length, 0.0, 190.0, shift + depth - 30.0, shift + depth + 30.0, F_NO_BOTTOM)
-	# Trees in the open corner of the nearest plot. Their crowns show over the
-	# fence; trunks stand clear of it and crowns start above the camera (NEAR_TRUNK).
-	var open_from: float = house_gap + HOUSE_SIZE
-	_tree(f, open_from + 330.0, 520.0, NEAR_TRUNK, 225.0)
-	_tree(f, f.length - 330.0, 600.0, NEAR_TRUNK + 30.0, 230.0)
-	_tree(f, open_from + 700.0, 1450.0, 380.0, 330.0)
-	_tree(f, f.length - 420.0, 2250.0, 360.0, 350.0)
-	_tree(f, house_gap * 0.5, 720.0, NEAR_TRUNK, 150.0)
-	_tree(f, open_from + 560.0, depth + 900.0, 380.0, 360.0)
-
-## A neighbour's house: a plain two-storey box under a hipped roof, a door on
-## `front` (0 = the face toward the lot edge, 1 = along-low, 2 = along-high,
-## 3 = the far face), windows on every face. `box` is (along, out).
-func _house(f: Frame, box: Rect2, front: int, rendered: bool) -> void:
-	var wall: StringName = &"render" if rendered else &"brick"
-	_box(f, &"solid", wall, box.position.x, box.end.x, 0.0, HOUSE_WALL, box.position.y, box.end.y, F_SIDES)
-	for face: int in 4:
-		var span: float = box.size.x if face == 0 or face == 3 else box.size.y
-		var bays: Array[float] = [span * 0.22, span * 0.78]
-		if face == front:
-			_decal(f, &"trim", face, box, span * 0.5 - 68.0, span * 0.5 + 68.0, 0.0, 226.0, 1.5)
-			_decal(f, &"door", face, box, span * 0.5 - 55.0, span * 0.5 + 55.0, 0.0, 215.0, 3.0)
-			_decal(f, &"trim", face, box, span * 0.5 - 150.0, span * 0.5 + 150.0, 262.0, 272.0, 14.0)
-		else:
-			bays.append(span * 0.5)
-		for storey: float in [95.0, 455.0]:
-			for bay: float in bays:
-				_decal(f, &"trim", face, box, bay - 84.0, bay + 84.0, storey - 9.0, storey + 159.0, 1.5)
-				_decal(f, &"glass", face, box, bay - 75.0, bay + 75.0, storey, storey + 150.0, 3.0)
-				_decal(f, &"trim", face, box, bay - 3.0, bay + 3.0, storey, storey + 150.0, 4.0)
-	# The roof: four slopes to a point, a fascia and a soffit round the eaves.
-	var grown: Rect2 = box.grow(ROOF_OVERHANG)
-	var rise: float = (minf(grown.size.x, grown.size.y) * 0.5) * tan(deg_to_rad(_theme.roof_pitch_deg))
-	var eaves: Array[Vector3] = [f.at(grown.position.x, HOUSE_WALL, grown.position.y),
-		f.at(grown.end.x, HOUSE_WALL, grown.position.y), f.at(grown.end.x, HOUSE_WALL, grown.end.y),
-		f.at(grown.position.x, HOUSE_WALL, grown.end.y)]
-	var inner: Array[Vector3] = [f.at(box.position.x, HOUSE_WALL - 18.0, box.position.y),
-		f.at(box.end.x, HOUSE_WALL - 18.0, box.position.y), f.at(box.end.x, HOUSE_WALL - 18.0, box.end.y),
-		f.at(box.position.x, HOUSE_WALL - 18.0, box.end.y)]
-	var centre: Vector2 = grown.get_center()
-	var apex: Vector3 = f.at(centre.x, HOUSE_WALL + rise, centre.y)
-	var middle: Vector3 = f.at(centre.x, HOUSE_WALL, centre.y)
-	for i: int in 4:
-		var a: Vector3 = eaves[i]
-		var b: Vector3 = eaves[(i + 1) % 4]
-		var outward: Vector3 = ((a + b) * 0.5 - middle).normalized()
-		var slope: Vector3 = (apex - (a + b) * 0.5)
-		var normal: Vector3 = (outward * rise + Vector3.UP * slope.length()).normalized()
-		var eave: float = a.distance_to(b)
-		_tri(&"solid", &"roof", [a, b, apex], [normal, normal, normal],
-			[Vector2(0.0, 0.0), Vector2(eave, 0.0), Vector2(eave * 0.5, -slope.length())], normal)
-		var drop: Vector3 = Vector3(0.0, 18.0, 0.0)
-		_quad(&"solid", &"trim", [a - drop, b - drop, b, a], outward)
-		_quad(&"solid", &"trim", [a - drop, inner[i], inner[(i + 1) % 4], b - drop], Vector3.DOWN)
-
-## A flat rectangle on one face of a house box, `lift` off the wall. `from`/`to`
-## run along the face from its low end.
-func _decal(f: Frame, key: StringName, face: int, box: Rect2, from: float, to: float,
-		low: float, high: float, lift: float) -> void:
-	var corners: Array[Vector3] = []
-	var normal: Vector3
-	for corner: Vector2 in [Vector2(from, low), Vector2(to, low), Vector2(to, high), Vector2(from, high)]:
-		match face:
-			0: corners.append(f.at(box.position.x + corner.x, corner.y, box.position.y - lift))
-			3: corners.append(f.at(box.position.x + corner.x, corner.y, box.end.y + lift))
-			1: corners.append(f.at(box.position.x - lift, corner.y, box.position.y + corner.x))
-			_: corners.append(f.at(box.end.x + lift, corner.y, box.position.y + corner.x))
-	match face:
-		0: normal = -f.out
-		3: normal = f.out
-		1: normal = -f.dir
-		_: normal = f.dir
-	_quad(&"solid", key, corners, normal)
+## The tall hedge right behind a garden fence (P3-7), and the tree belt beyond
+## it. Along-low (beyond the lot's along-0 corner) it runs on across the other
+## street and shuts it; along-high it stops at the lot's corner, where this
+## side's own street runs out through the gap. In the cut-away fence group, with
+## the fence's outward direction (`_timber_fence` set `_cut`): a camera backed
+## out through the fence stands in or just behind the hedge.
+func _garden_hedge(f: Frame) -> void:
+	var far_edge: float = PAVEMENT_WIDTH * 2.0 + ROAD_WIDTH
+	var from: float = -(far_edge + HEDGE_IN + HEDGE_DEPTH)
+	_box(f, &"fence", &"hedge", from, f.length, 0.0, HEDGE_HEIGHT, HEDGE_IN, HEDGE_IN + HEDGE_DEPTH, F_NO_BOTTOM)
+	var along: float = from - BELT_STREET
+	while along < f.length - 450.0:
+		_tree(f, along, BELT_GARDEN + _rng.randf_range(0.0, 450.0), _rng.randf_range(380.0, 460.0),
+			_rng.randf_range(310.0, 380.0))
+		along += _rng.randf_range(520.0, 640.0)
 
 ## A tree at (along, out): a tapered trunk and a crown of a few lumps.
 func _tree(f: Frame, along: float, outward: float, trunk: float, radius: float) -> void:
@@ -802,16 +724,6 @@ func _quad(group: StringName, key: StringName, corners: Array[Vector3], normal: 
 		if group == &"fence":
 			tool.set_uv2(_cut)
 		tool.add_vertex(corners[index])
-
-func _tri(group: StringName, key: StringName, points: Array[Vector3], normals: Array[Vector3],
-		uvs: Array[Vector2], facing: Vector3) -> void:
-	var tool: SurfaceTool = _tool(group, key)
-	var turning: float = (points[1] - points[0]).cross(points[2] - points[0]).dot(facing)
-	var order: Array[int] = ShellBuilder.TRI_TURNED if turning > 0.0 else ShellBuilder.TRI_AS_IS
-	for index: int in order:
-		tool.set_normal(normals[index])
-		tool.set_uv(uvs[index])
-		tool.add_vertex(points[index])
 
 func _commit() -> Array[Node3D]:
 	var nodes: Array[Node3D] = []

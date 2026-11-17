@@ -110,6 +110,10 @@ const DEFAULT_PATH: String = "res://art/theme/default_theme.tres"
 @export var trim: StandardMaterial3D = null
 @export var stair_tread: StandardMaterial3D = null
 @export var roof: StandardMaterial3D = null
+## P3-7: each family's roof is `roof` in its own colour (team id -> the tile's
+## albedo, which tints the texture). A team not listed keeps `roof` as it is.
+## The fascia round the eaves takes the family colour, like the door casings.
+@export var family_roof_colours: Dictionary[StringName, Color] = {}
 @export var glass: StandardMaterial3D = null
 @export var roof_pitch_deg: float = 24.0
 @export var roof_overhang: float = 45.0
@@ -158,7 +162,8 @@ const DEFAULT_PATH: String = "res://art/theme/default_theme.tres"
 
 @export_group("Exterior")
 ## What is drawn round the houses (ExteriorBuilder, P3-4): the lot's fences,
-## paths and gravel, the two streets, the neighbours' houses, hedges and trees.
+## paths and gravel, the two short streets, the enclosing hedges and trees
+## (P3-7: no other house).
 ## Off = the bare lawn out to the horizon.
 @export var exterior: bool = true
 ## The exterior's materials by name: pavement, asphalt, road_line, kerb,
@@ -336,6 +341,8 @@ func _fill_missing() -> void:
 			&"team_a/yard_shed": &"shed", &"team_b/yard_shed": &"outhouse",
 			&"team_a/yard_bin": &"compost_bin", &"team_b/yard_bin": &"planter",
 		}
+	if family_roof_colours.is_empty():
+		family_roof_colours = {&"team_a": Color(0.44, 0.6, 0.46), &"team_b": Color(0.92, 0.5, 0.36)}
 
 static func _material(colour: Color, roughness: float) -> StandardMaterial3D:
 	var made: StandardMaterial3D = StandardMaterial3D.new()

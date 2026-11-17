@@ -498,6 +498,10 @@ ceiling = SubResource("ceiling")
 trim = SubResource("trim")
 stair_tread = SubResource("floor_oak")
 roof = SubResource("roof_tile")
+family_roof_colours = Dictionary[StringName, Color]({
+&"team_a": Color(0.44, 0.6, 0.46, 1),
+&"team_b": Color(0.92, 0.5, 0.36, 1)
+})
 glass = SubResource("glass")
 furniture_models = Dictionary[StringName, String]({
 &"fridge": "res://art/props/kenney/fridge.glb",

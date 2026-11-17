@@ -302,7 +302,8 @@ func _key(box: AABB, house: House, shape: Shape, axis: int, sign: float,
 		if room != null:
 			return StringName("floor:%s" % kind)
 		if house != _lot and box.end.y >= house.top - TINY:
-			return &"roof"
+			# The same surface as the pitched roof over it (one draw, P3-7).
+			return StringName("roof:%s" % house.team) if house.team != &"" else &"roof"
 		return &"trim"
 	if axis == 1:
 		return &"ceiling" if room != null else &"trim"
@@ -594,6 +595,13 @@ func _roof(house: House) -> void:
 	var eave: Rect2 = foot.grow(_theme.roof_overhang)
 	var top: float = house.top
 	var fascia: float = _theme.roof_fascia
+	# Each family's roof tile and fascia are its own colour (P3-7); the soffit
+	# under the eaves stays the white trim.
+	var tile: StringName = &"roof"
+	var board: StringName = &"trim"
+	if house.team != &"":
+		tile = StringName("roof:%s" % house.team)
+		board = StringName("paint:%s" % house.team)
 	var run: float = minf(eave.size.x, eave.size.y) * 0.5
 	var apex: Vector3 = Vector3(eave.get_center().x, top + run * tan(pitch), eave.get_center().y)
 	var corners: Array[Vector3] = [
@@ -621,11 +629,11 @@ func _roof(house: House) -> void:
 		for p: Vector3 in [a, b, apex]:
 			var horizontal: Vector3 = Vector3(p.x - a.x, 0.0, p.z - a.z)
 			uvs.append(Vector2(p.dot(edge), horizontal.dot(outward) / cos(pitch)))
-		_triangle(house, &"roof", [a, b, apex], uvs, slope_normal)
+		_triangle(house, tile, [a, b, apex], uvs, slope_normal)
 		# Fascia: the eave's edge, a board facing out.
 		var low_a: Vector3 = a - Vector3(0.0, fascia, 0.0)
 		var low_b: Vector3 = b - Vector3(0.0, fascia, 0.0)
-		_quad(house, &"trim", [low_a, low_b, b, a], outward)
+		_quad(house, board, [low_a, low_b, b, a], outward)
 		# Soffit: the underside of the overhang, between the eave and the wall.
 		var c: Vector3 = inner[i]
 		var d: Vector3 = inner[(i + 1) % 4]
@@ -722,6 +730,12 @@ func _material(key: StringName, team: StringName) -> StandardMaterial3D:
 	elif text.begins_with("paint:"):
 		made = _theme.trim.duplicate() as StandardMaterial3D
 		made.albedo_color = _theme.family_colour(StringName(text.trim_prefix("paint:")))
+	elif text.begins_with("roof:"):
+		var family: StringName = StringName(text.trim_prefix("roof:"))
+		made = _theme.roof
+		if made != null and _theme.family_roof_colours.has(family):
+			made = _theme.roof.duplicate() as StandardMaterial3D
+			made.albedo_color = _theme.family_roof_colours[family]
 	else:
 		match text:
 			"wall_out": made = _theme.wall_outside
