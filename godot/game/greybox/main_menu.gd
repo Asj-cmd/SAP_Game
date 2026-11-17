@@ -26,6 +26,7 @@ var _code: LineEdit = null
 var _note: Label = null
 var _error: Label = null
 var _root: Control = null
+var _settings: SettingsPanel = null
 var _tell_boxes: Dictionary[StringName, CheckBox] = {}
 
 func _ready() -> void:
@@ -35,6 +36,8 @@ func _ready() -> void:
 ## Shows the menu, optionally with the reason the last attempt failed.
 func open(problem: String = "") -> void:
 	visible = true
+	if _settings != null and _settings.visible:
+		_settings.closed.emit()
 	# F5-F8 in a match may have changed the team tell since the menu was built.
 	for option: StringName in _tell_boxes:
 		_tell_boxes[option].set_pressed_no_signal(TeamTell.current().is_on(option))
@@ -58,10 +61,16 @@ func _build() -> void:
 	centre.set_anchors_preset(Control.PRESET_FULL_RECT)
 	_root.add_child(centre)
 
+	_settings = SettingsPanel.new()
+	_settings.visible = false
 	var column: VBoxContainer = VBoxContainer.new()
+	_settings.closed.connect(func() -> void:
+		_settings.visible = false
+		column.visible = true)
 	column.custom_minimum_size = Vector2(PANEL_WIDTH, 0.0)
 	column.add_theme_constant_override("separation", 14)
 	centre.add_child(column)
+	centre.add_child(_settings)
 
 	var title: Label = Label.new()
 	title.text = "CASH GRAB"
@@ -156,6 +165,13 @@ func _build() -> void:
 	var join: Button = _button("Join")
 	join.pressed.connect(_join)
 	column.add_child(join)
+
+	var settings_button: Button = _button("Settings")
+	settings_button.pressed.connect(func() -> void:
+		column.visible = false
+		_settings.refresh()
+		_settings.visible = true)
+	column.add_child(settings_button)
 
 	var quit_button: Button = _button("Quit")
 	quit_button.pressed.connect(func() -> void: get_tree().quit())

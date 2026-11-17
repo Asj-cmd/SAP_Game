@@ -154,7 +154,8 @@ func yaw_for_test() -> float:
 	return _yaw
 
 func aim_from_mouse(motion: Vector2) -> void:
-	aim(motion.x * MOUSE_SENSITIVITY, motion.y * MOUSE_SENSITIVITY)
+	var scale: float = MOUSE_SENSITIVITY * PlayerSettings.current().sensitivity
+	aim(motion.x * scale, motion.y * scale)
 
 func aim_from_stick(stick: Vector2, delta: float) -> void:
 	if stick.length() < STICK_DEADZONE:

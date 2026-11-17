@@ -50,6 +50,10 @@ static func _clock(world: SimWorld) -> String:
 	var seconds: int = ceili(SimWorld.ticks_to_seconds(world.phase_ticks_remaining))
 	return "%d:%02d" % [seconds / 60, seconds % 60]
 
+## "2-1": round wins, in team order.
+static func rounds_text(world: SimWorld, level: GreyBoxLevel) -> String:
+	return _rounds(world, level)
+
 static func _rounds(world: SimWorld, level: GreyBoxLevel) -> String:
 	var wins: PackedStringArray = PackedStringArray()
 	for team: TeamDef in level.teams:

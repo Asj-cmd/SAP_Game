@@ -214,6 +214,8 @@ var _backend: String = "enet"
 ## (it is told with its seat and rejoins if it guessed wrong, see _rejoin_at).
 var _team_size: int = GreyBoxLevel.DEFAULT_TEAM_SIZE
 var _menu: MainMenu = null
+var _pause: PauseMenu = null
+var _results: ResultsPanel = null
 ## Started from the menu rather than from flags, so a failure goes back there
 ## with its reason instead of leaving a dead screen behind a banner.
 var _from_menu: bool = false
@@ -231,6 +233,15 @@ func _ready() -> void:
 	_menu.solo_chosen.connect(_on_solo)
 	_menu.host_chosen.connect(_on_host)
 	_menu.join_chosen.connect(_on_join)
+	PlayerSettings.current().apply_audio()
+	_pause = PauseMenu.new()
+	add_child(_pause)
+	_pause.resumed.connect(func() -> void: _set_paused(false))
+	_pause.left.connect(func() -> void: _return_to_menu(""))
+	_results = ResultsPanel.new()
+	add_child(_results)
+	_results.play_again.connect(_ask_rematch)
+	_results.main_menu.connect(func() -> void: _return_to_menu(""))
 	# Plays this window through a whole session by injected input (debug).
 	if PlaytestPilot.requested(OS.get_cmdline_user_args()):
 		add_child(PlaytestPilot.new(self))
@@ -333,6 +344,8 @@ func _tear_down() -> void:
 	if _reach_marker != null:
 		_reach_marker.visible = false
 	_banner.text = ""
+	_set_paused(false)
+	_results.hide_panel()
 	# Nothing updates these without a match, so they would sit over the menu.
 	_status.visible = false
 	_headline.visible = false
@@ -2071,6 +2084,17 @@ func _update_hud() -> void:
 	# The debug HUD carries the same numbers, on the same rows of screen.
 	_status.visible = link.is_ready() and not _debug_hud_visible
 	_headline.visible = link.is_ready()
+	var ended: bool = link.is_ready() and truth.match_phase == SimWorld.MatchPhase.MATCH_END and not _split_screen
+	if ended:
+		_results.show_for(truth, level, link.role != MatchLink.Role.GUEST)
+		if _pause.is_open():
+			_set_paused(false)
+		_headline.visible = false  # the panel says it; the text stays for the pilot
+		_capture_mouse(false)
+	elif _results.visible:
+		_results.hide_panel()
+		if not _pause.is_open():
+			_capture_mouse(not _split_screen)
 	if link.is_ready():
 		_status.text = MatchStatus.line(truth, level, truth.get_entity(_local_actor()))
 		_headline.text = MatchStatus.headline(truth, level, link.role != MatchLink.Role.GUEST)
@@ -2240,7 +2264,10 @@ func _unhandled_input(event: InputEvent) -> void:
 			_capture_mouse(not _split_screen)
 			_build_seats()
 		KEY_ESCAPE:
-			_capture_mouse(Input.mouse_mode != Input.MOUSE_MODE_CAPTURED)
+			if _split_screen:
+				_capture_mouse(Input.mouse_mode != Input.MOUSE_MODE_CAPTURED)
+			elif not _results.visible and link.is_ready() and not _pause.is_rebinding():
+				_set_paused(not _pause.is_open())
 		KEY_F12:
 			_capture_frame(FrameCapture.DEFAULT_PATH)
 		KEY_F4:
@@ -2264,6 +2291,23 @@ func _unhandled_input(event: InputEvent) -> void:
 			else:
 				for actor_id: int in link.crew.actor_ids():
 					link.crew.release(world, actor_id)
+
+## Only the authority restarts a match; a guest is told it happened.
+func _ask_rematch() -> void:
+	if link != null and link.role != MatchLink.Role.GUEST and link.outcome_world().match_phase == SimWorld.MatchPhase.MATCH_END:
+		_rematch_asked = true
+
+## The pause panel. The sim keeps running; the local seats stand still.
+func _set_paused(paused: bool) -> void:
+	if _pause == null or paused == _pause.is_open():
+		return
+	if paused:
+		_pause.open()
+	else:
+		_pause.close()
+	for player: LocalPlayerInput in players:
+		player.suspended = paused
+	_capture_mouse(not paused and not _split_screen)
 
 func _capture_mouse(captured: bool) -> void:
 	Input.mouse_mode = Input.MOUSE_MODE_CAPTURED if captured else Input.MOUSE_MODE_VISIBLE

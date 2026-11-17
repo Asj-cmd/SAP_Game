@@ -2,6 +2,12 @@
 
 Newest first. One entry per task: date, task id, what changed, what the frames showed, numbers, what is left.
 
+## 2026-11-17 — P5-1 Menus (partly: lobby left)
+- **Done:** `PlayerSettings` (`user://settings.cfg`, sections `[controls]`, `[audio]`, `[keys]`; capture/pilot/net-smoke runs ignore it, as TeamTell does). `default_bus_layout.tres` with Master/SFX/Music. `SettingsPanel` (sensitivity 0.25-3, three volume sliders, click-then-press key rebinding with Esc cancel and a reset button), reachable from the main menu ("Settings") and the pause panel. `LocalPlayerInput` reads keyboard keys from the settings (mouse buttons and pad fixed); `ChaseCamera.aim_from_mouse` scales by the sensitivity. `PauseMenu` (Esc: Resume / Settings / Leave to menu; the sim keeps running, the seat gets `suspended` = zero intent, no verbs, no look). `ResultsPanel` at MATCH_END (winner family name, round score, banked cash last round, Play again for the authority / "Waiting for the host" for a guest, Main menu); the headline text is unchanged for the pilot but hidden under the panel. Enter and F10 still work.
+- **Audit of the old menu:** title, team size, team-tell boxes, Play solo, Host + address, Join + code, Quit; in game F10 menu, Enter rematch, Esc mouse release (Esc now pauses; the old release stays in the F2 debug split).
+- **Left (why `[~]`):** the lobby screen for menu-hosted games. Not started for budget; menu Host still starts the match at once. Next session: follow the brief's lobby item (the brief section was removed; it is: leave WAITING, show code/seats/mode/bots checkbox/Start/Cancel; guests wait).
+- **Checks:** `verify.mjs` healthy (17 suites at pinned counts, symmetry exact, bot 3v3 + 1v1, net_smoke in lockstep). Headless `--solo` run prints no errors. No frames (task says none), so the panels' looks are unseen.
+
 ## 2026-11-17 — P4-7 Verb readability audit by frames
 - Audit only: no captures, no code, no verify run (only docs changed). Judged against D2/D9 from frames earlier tasks made. Opened: `p4_8/panic_sheet`, `p4_2/{carry,crouch,jump_stand,throw}_sheet`, `p4_3/jail_sheet`, `p4_5/throw_chase`, `p2_3/{seize,free}_sheet`.
 

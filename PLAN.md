@@ -329,7 +329,7 @@ removed on purpose (do not rebuild it). No ragdoll, knockback, slide, shove or d
 
 ## Phase 5 — Game feel, UI, audio
 
-- [ ] **P5-1 Menus.** A basic main menu already exists (`main_menu.gd`): audit it, then build it out —
+- [~] **P5-1 Menus.** *(2026-11-17: settings (sensitivity, volumes, rebindable keys), SFX/Music buses, pause, results panel done. Left: the lobby screen (seats/mode/bots/Start before a menu-hosted match); the menu host still starts at once. See PROGRESS.md.)* A basic main menu already exists (`main_menu.gd`): audit it, then build it out —
   host/join (code field, later Steam invite), lobby screen with
   seats/teams/mode/bundles/bots, pause, settings (sensitivity, volume, keybinds), results screen.
 - [ ] **P5-2 HUD: a fighting-game style top bar** (the tug-of-war cash bar). ONE bar across the top:

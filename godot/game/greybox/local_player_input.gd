@@ -22,6 +22,8 @@ var device: Device = Device.KEYBOARD_MOUSE
 var pad_id: int = 0
 var actor_id: int = SimEntity.NO_ENTITY
 var camera: ChaseCamera = null
+## Held while a pause panel is up: the seat sends a zero intent and no verbs.
+var suspended: bool = false
 
 ## Buttons are edge-latched: a tap between two ticks must not be lost, and a
 ## 30 Hz tick is 33 ms - comfortably shorter than a deliberate press.
@@ -51,6 +53,10 @@ var _last_forward_sent: bool = false
 ## The world's intent epoch as of the last command sent.
 var _intent_epoch: int = -1
 
+## The keyboard key for an action, from the player's settings (defaults in a capture or pilot run).
+func _key(action: StringName) -> Key:
+	return PlayerSettings.current().key_for(action) as Key
+
 func _init(input_device: Device, joypad: int = 0) -> void:
 	device = input_device
 	pad_id = joypad
@@ -63,6 +69,21 @@ func add_mouse_motion(motion: Vector2) -> void:
 ## where it now points.
 func poll(delta: float) -> void:
 	if camera == null:
+		return
+	# A pause panel holds the seat: no look, no travel, no button. The sim keeps
+	# running; the body just stands still.
+	if suspended:
+		_mouse_motion = Vector2.ZERO
+		_intent = Vector3.ZERO
+		_forward = false
+		_crouch = false
+		# Keep the edge latches current so a key held through the panel is not
+		# read as a fresh press when it closes.
+		_read_button(_key(&"jump"), JOY_BUTTON_A)
+		_read_button(_key(&"seize"), JOY_BUTTON_B)
+		_read_button(_key(&"free"), JOY_BUTTON_Y)
+		_read_mouse(MOUSE_BUTTON_LEFT, JOY_BUTTON_X)
+		_read_mouse(MOUSE_BUTTON_RIGHT, JOY_BUTTON_RIGHT_SHOULDER)
 		return
 
 	if device == Device.KEYBOARD_MOUSE:
@@ -82,7 +103,7 @@ func poll(delta: float) -> void:
 
 	# SPACE is jump - where every player's thumb already goes for it, and the
 	# verb used most often by far.
-	if _read_button(KEY_SPACE, JOY_BUTTON_A):
+	if _read_button(_key(&"jump"), JOY_BUTTON_A):
 		_jump_pressed = true
 
 	# E is the one contextual button: seize an intruder, or free a team-mate who
@@ -93,11 +114,11 @@ func poll(delta: float) -> void:
 	# One button because the player already knows which they mean. Asking them to
 	# also know which key expresses it is a second decision with no content in
 	# it, and in a chase it is the one they get wrong.
-	var contextual: bool = _read_button(KEY_E, JOY_BUTTON_B)
+	var contextual: bool = _read_button(_key(&"seize"), JOY_BUTTON_B)
 	if contextual:
 		_capture_pressed = true
 		_rescue_pressed = true
-	if _read_button(KEY_R, JOY_BUTTON_Y):
+	if _read_button(_key(&"free"), JOY_BUTTON_Y):
 		_rescue_pressed = true
 
 	# Grab and drop on the left mouse button: the cash is the thing you reach
@@ -115,15 +136,15 @@ func poll(delta: float) -> void:
 	# feel of the verb is "stay down while I hold this", and a toggle would
 	# leave a player crawling because they tapped it once ten seconds ago.
 	# Sent only when it CHANGES, in drain(), like travel intent.
-	_crouch = Input.is_key_pressed(KEY_SHIFT) if device == Device.KEYBOARD_MOUSE 		else Input.is_joy_button_pressed(pad_id, JOY_BUTTON_LEFT_STICK)
+	_crouch = Input.is_key_pressed(_key(&"crouch") as Key) if device == Device.KEYBOARD_MOUSE 		else Input.is_joy_button_pressed(pad_id, JOY_BUTTON_LEFT_STICK)
 
 ## Screen-relative travel: +x right, -y forward. Turned into world space by
 ## the camera.
 func _read_travel() -> Vector2:
 	if device == Device.KEYBOARD_MOUSE:
 		var keyed: Vector2 = Vector2(
-			float(Input.is_key_pressed(KEY_D)) - float(Input.is_key_pressed(KEY_A)),
-			float(Input.is_key_pressed(KEY_S)) - float(Input.is_key_pressed(KEY_W))
+			float(Input.is_key_pressed(_key(&"right") as Key)) - float(Input.is_key_pressed(_key(&"left") as Key)),
+			float(Input.is_key_pressed(_key(&"back") as Key)) - float(Input.is_key_pressed(_key(&"forward") as Key))
 		)
 		# Normalised so a diagonal is not faster than a cardinal.
 		return keyed.normalized() if keyed.length_squared() > 1.0 else keyed
