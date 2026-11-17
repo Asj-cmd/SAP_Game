@@ -519,10 +519,9 @@ func _street(f: Frame) -> void:
 	# Across the street: one tall hedge from the lane's end to the shut end's
 	# corner, where it meets the garden hedge.
 	var hedge_out: float = far_edge + HEDGE_IN
-	_box(f, &"solid", &"hedge", a0, a1 + HEDGE_DEPTH, 0.0, HEDGE_HEIGHT, hedge_out, hedge_out + HEDGE_DEPTH,
-		F_NO_BOTTOM)
+	_hedge(f, &"solid", a0, a1 + HEDGE_DEPTH, hedge_out, hedge_out + HEDGE_DEPTH)
 	# The lane's near side, from the garden hedge out to the lane's end.
-	_box(f, &"solid", &"hedge", a0, -HEDGE_IN, 0.0, HEDGE_HEIGHT, -HEDGE_DEPTH - 10.0, -10.0, F_NO_BOTTOM)
+	_hedge(f, &"solid", a0, -HEDGE_IN, -HEDGE_DEPTH - 10.0, -10.0)
 	# The lane ends in trees across the road.
 	var out: float = -150.0
 	while out < hedge_out + HEDGE_DEPTH + 200.0:
@@ -554,6 +553,22 @@ func _timber_fence(f: Frame) -> void:
 		var at: float = clampf(f.length * float(i) / float(bays), 6.0, f.length - 6.0)
 		_box(f, &"fence", &"fence_post", at - 6.0, at + 6.0, 0.0, top + 7.0, 0.0, 12.0, F_NO_BOTTOM)
 
+## A clipped hedge (P4-8 REDO): a darker base band, the leafy sides, a chamfer
+## along both top edges and a lighter, yellower sun-lit top. A handful of quads
+## per hedge, no per-metre geometry.
+func _hedge(f: Frame, group: StringName, a0: float, a1: float, o0: float, o1: float) -> void:
+	var band: float = 60.0
+	var chamfer: float = 40.0
+	var shoulder: float = HEDGE_HEIGHT - chamfer
+	_box(f, group, &"hedge_base", a0, a1, 0.0, band, o0 - 2.0, o1 + 2.0, F_NO_BOTTOM)
+	_box(f, group, &"hedge", a0, a1, band, shoulder, o0, o1, F_SIDES)
+	# The narrower crown: end faces, the two slopes, the flat top.
+	_box(f, group, &"hedge_top", a0, a1, shoulder, HEDGE_HEIGHT, o0 + chamfer, o1 - chamfer, F_ALONG_LO | F_ALONG_HI | F_UP)
+	_quad(group, &"hedge_top", [f.at(a0, shoulder, o0), f.at(a1, shoulder, o0), f.at(a1, HEDGE_HEIGHT, o0 + chamfer),
+		f.at(a0, HEDGE_HEIGHT, o0 + chamfer)], (Vector3.UP - f.out).normalized())
+	_quad(group, &"hedge_top", [f.at(a0, shoulder, o1), f.at(a1, shoulder, o1), f.at(a1, HEDGE_HEIGHT, o1 - chamfer),
+		f.at(a0, HEDGE_HEIGHT, o1 - chamfer)], (Vector3.UP + f.out).normalized())
+
 ## The tall hedge right behind a garden fence (P3-7), and the tree belt beyond
 ## it. Along-low (beyond the lot's along-0 corner) it runs on across the other
 ## street and shuts it; along-high it stops at the lot's corner, where this
@@ -563,7 +578,7 @@ func _timber_fence(f: Frame) -> void:
 func _garden_hedge(f: Frame) -> void:
 	var far_edge: float = PAVEMENT_WIDTH * 2.0 + ROAD_WIDTH
 	var from: float = -(far_edge + HEDGE_IN + HEDGE_DEPTH)
-	_box(f, &"fence", &"hedge", from, f.length, 0.0, HEDGE_HEIGHT, HEDGE_IN, HEDGE_IN + HEDGE_DEPTH, F_NO_BOTTOM)
+	_hedge(f, &"fence", from, f.length, HEDGE_IN, HEDGE_IN + HEDGE_DEPTH)
 	var along: float = from - BELT_STREET
 	while along < f.length - 450.0:
 		_tree(f, along, BELT_GARDEN + _rng.randf_range(0.0, 450.0), _rng.randf_range(380.0, 460.0),
@@ -768,6 +783,7 @@ const FALLBACK: Dictionary[StringName, Color] = {
 	&"fence_wood": Color(0.45, 0.33, 0.23), &"fence_post": Color(0.36, 0.27, 0.19),
 	&"fence_steel": Color(0.1, 0.105, 0.11), &"fence_cap": Color(0.72, 0.69, 0.63),
 	&"cap": Color(0.72, 0.69, 0.63), &"hedge": Color(0.2, 0.33, 0.17),
+	&"hedge_base": Color(0.11, 0.2, 0.1), &"hedge_top": Color(0.42, 0.52, 0.2),
 	&"crown": Color(0.25, 0.4, 0.2), &"bark": Color(0.33, 0.27, 0.21),
 	&"render": Color(0.84, 0.81, 0.74), &"door": Color(0.2, 0.22, 0.25),
 	&"yard": Color(0.36, 0.5, 0.3),
