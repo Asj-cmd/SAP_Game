@@ -300,10 +300,11 @@ func _back_stair() -> void:
 # walls, doors, the back stair and the spawns.
 func _yard() -> void:
 	var g: float = GROUND
-	# East of the house, toward the fence, in front of the side door's line.
-	_yard_piece(&"yard_table", Rect2(2420.0, 520.0, 200.0, 120.0), g, TOP, FACE_W)
-	# Behind the kitchen, clear of the back stair's foot.
-	_yard_piece(&"yard_shed", Rect2(1560.0, 2700.0, 240.0, 180.0), g, TALL, FACE_S)
+	# East of the house, toward the fence, a little short of the side door's
+	# line to the gate.
+	_yard_piece(&"yard_table", Rect2(2500.0, 1100.0, 200.0, 120.0), g, TOP, FACE_W)
+	# The back yard's far west corner, well clear of the back door and stair.
+	_yard_piece(&"yard_shed", Rect2(100.0, 2900.0, 240.0, 180.0), g, TALL, FACE_E)
 	# The front garden's east corner, by the street railings.
 	_yard_piece(&"yard_bin", Rect2(2300.0, -230.0, 120.0, 120.0), g, TOP, FACE_N)
 

@@ -49,6 +49,7 @@ const F_NO_BOTTOM: int = F_SIDES | F_UP
 ## Flat finishes inside the lot, above the lawn box. The yard patches lie at
 ## 0.6 (greybox_main PATCH_THICKNESS) and the indoor ground floor at 1.2.
 const GRAVEL_LIFT: float = 0.6
+const LAWN_LIFT: float = 0.3
 const PAVING_LIFT: float = 0.9
 ## How far past the lot's ends the streets run: into the haze.
 const STREET_REACH: float = 9000.0
@@ -123,6 +124,7 @@ func _build(level: GreyBoxLevel, theme: ArtTheme, ground_y: float) -> Array[Node
 		Vector3.BACK, Vector3.RIGHT, _lot.size.y)
 
 	_lot_ground(south, north)
+	_middle_fence()
 	var streets: Array[Frame] = [south, north]
 	for i: int in streets.size():
 		_rng.seed = 71
@@ -165,7 +167,12 @@ func _find_yards_and_houses() -> void:
 # ---- inside the lot: flat finishes only ----
 
 func _lot_ground(south: Frame, north: Frame) -> void:
-	# Gravel on the neutral ground: the lot less both yards.
+	# The yards' own lawn under the whole lot, below the yard patches. The
+	# patches follow the walkable floor, so they have a hole round everything
+	# standing in a yard (yard props, the back stairs, P3-8); without this the
+	# plain lawn-coloured ground box showed through as a pale outline.
+	_flat(&"yard", _lot, LAWN_LIFT)
+	# Gravel on the neutral ground: the lot less both yards (none since P3-8).
 	var open: Array[Rect2] = [_lot]
 	for yard: Rect2 in _yards:
 		var left: Array[Rect2] = []
@@ -220,6 +227,97 @@ func _lot_ground(south: Frame, north: Frame) -> void:
 					_rng.randf_range(0.85, 1.05))
 				z += _rng.randf_range(55.0, 95.0)
 
+## The boundary fence between the two yards (P3-8): the territory line. Drawn
+## from its own collision boxes (tall furniture boxes on the lot's x middle,
+## outside both houses), so every board stands where a body is stopped and
+## every opening is where it is not. Close-board timber, the same on both
+## faces, with a post at each end of a panel and every bay. In `solid`, not
+## the cut-away fence group: the camera's arm collides with these boxes, so it
+## is never on the far side of them.
+##
+## The opening that holds the lot's middle is the main gate: a paved path runs
+## through it between the two houses' facing walls. The smaller openings get a
+## few stepping stones.
+func _middle_fence() -> void:
+	if _level.level == null:
+		return
+	var middle_x: float = _lot.get_center().x
+	var panels: Array[AABB] = []
+	for box: AABB in _level.level.furniture:
+		if box.position.x > middle_x or box.end.x < middle_x or box.size.y < 200.0:
+			continue
+		var outside: bool = true
+		for house: Rect2 in _houses:
+			if house.intersects(Rect2(box.position.x, box.position.z, box.size.x, box.size.z)):
+				outside = false
+		if outside:
+			panels.append(box)
+	if panels.is_empty():
+		return
+	panels.sort_custom(func(a: AABB, b: AABB) -> bool: return a.position.z < b.position.z)
+	for box: AABB in panels:
+		_fence_panel(box)
+	# The openings between panels (and between a panel and the lot's end).
+	var cursor: float = _lot.position.y
+	var openings: Array[Vector2] = []
+	for box: AABB in panels:
+		if box.position.z - cursor > 1.0:
+			openings.append(Vector2(cursor, box.position.z))
+		cursor = box.end.z
+	if _lot.end.y - cursor > 1.0:
+		openings.append(Vector2(cursor, _lot.end.y))
+	var middle_z: float = _lot.get_center().y
+	for opening: Vector2 in openings:
+		if opening.x < middle_z and opening.y > middle_z:
+			_gate_path(opening)
+		else:
+			var centre_z: float = (opening.x + opening.y) * 0.5
+			for k: int in [-1, 0, 1]:
+				_flat(&"pavement", Rect2(middle_x + float(k) * 110.0 - 31.0, centre_z - 32.0, 62.0, 64.0),
+					PAVING_LIFT)
+
+## One panel of the boundary fence filling `box` (x thickness, z length).
+func _fence_panel(box: AABB) -> void:
+	var f: Frame = _frame(Vector3(box.get_center().x, _ground, box.position.z),
+		Vector3.BACK, Vector3.RIGHT, box.size.z)
+	var top: float = box.end.y - _ground
+	var half: float = box.size.x * 0.5
+	# The boards, a gravel board under them, a capping rail over them.
+	_box(f, &"solid", &"fence_wood", 0.0, f.length, 15.0, top - 6.0, -6.0, 6.0,
+		F_SIDES | F_UP, 0.0, true)
+	_box(f, &"solid", &"fence_post", 0.0, f.length, 0.0, 15.0, -7.0, 7.0, F_SIDES | F_UP)
+	_box(f, &"solid", &"fence_post", 0.0, f.length, top - 6.0, top, -9.0, 9.0, F_ALL)
+	# Arris rails on both faces.
+	for side: float in [-1.0, 1.0]:
+		for rail: float in [38.0, 112.0, top - 30.0]:
+			var o0: float = 6.0 if side > 0.0 else -10.0
+			_box(f, &"solid", &"fence_post", 0.0, f.length, rail, rail + 10.0, o0, o0 + 4.0,
+				F_IN | F_OUT | F_UP | F_DOWN)
+	# Posts: the full thickness of the collision at each end (the gate posts),
+	# a slimmer one every bay between.
+	var bays: int = maxi(1, int(round(f.length / 240.0)))
+	for i: int in bays + 1:
+		var end_post: bool = i == 0 or i == bays
+		var width: float = 14.0 if end_post else 10.0
+		var at: float = clampf(f.length * float(i) / float(bays), width * 0.5, f.length - width * 0.5)
+		var depth: float = half if end_post else 11.0
+		_box(f, &"solid", &"fence_post", at - width * 0.5, at + width * 0.5, 0.0, top + 6.0,
+			-depth, depth, F_NO_BOTTOM)
+
+## The main gate's paved path: from one house's facing wall to the other's,
+## through the opening, as wide as the side doors that face it.
+func _gate_path(opening: Vector2) -> void:
+	if _houses.size() < 2:
+		return
+	var west: Rect2 = _houses[0] if _houses[0].position.x < _houses[1].position.x else _houses[1]
+	var east: Rect2 = _houses[1] if west == _houses[0] else _houses[0]
+	if west.end.x >= east.position.x:
+		return
+	var middle_z: float = (opening.x + opening.y) * 0.5
+	var width: float = minf(240.0, opening.y - opening.x)
+	_flat(&"pavement", Rect2(west.end.x, middle_z - width * 0.5, east.position.x - west.end.x, width),
+		PAVING_LIFT)
+
 ## `piece` less `hole`, as up to four rectangles.
 static func _minus(piece: Rect2, hole: Rect2) -> Array[Rect2]:
 	var cut: Rect2 = piece.intersection(hole)
@@ -273,14 +371,7 @@ func _yard_edge(yard: Rect2, edge: int) -> void:
 				var strip: Rect2 = Rect2(run_start, fixed - 8.0, run_end - run_start, 16.0) if along_x \
 					else Rect2(fixed - 8.0, run_start, 16.0, run_end - run_start)
 				_flat(&"kerb", strip, PAVING_LIFT)
-			elif run_kind == 2 and outward > 0.0 and run_end > run_start:
-				# Each shared edge is found from both yards; only one lays it.
-				var s: float = run_start + 50.0
-				while s + 60.0 <= run_end:
-					var stone: Rect2 = Rect2(s, fixed - 32.0, 62.0, 64.0) if along_x \
-						else Rect2(fixed - 32.0, s, 64.0, 62.0)
-					_flat(&"pavement", stone, PAVING_LIFT)
-					s += 100.0
+			# Where two yards meet stands the boundary fence (P3-8, `_middle_fence`).
 			run_start = at
 			run_kind = kind
 		at += step
@@ -762,6 +853,7 @@ const FALLBACK: Dictionary[StringName, Color] = {
 	&"cap": Color(0.72, 0.69, 0.63), &"hedge": Color(0.2, 0.33, 0.17),
 	&"crown": Color(0.25, 0.4, 0.2), &"bark": Color(0.33, 0.27, 0.21),
 	&"render": Color(0.84, 0.81, 0.74), &"door": Color(0.2, 0.22, 0.25),
+	&"yard": Color(0.36, 0.5, 0.3),
 }
 
 func _material(group: StringName, key: StringName) -> Material:
@@ -776,6 +868,7 @@ func _material(group: StringName, key: StringName) -> Material:
 		&"trim": source = _theme.trim
 		&"glass": source = _theme.glass
 		&"cap": source = _theme.exterior_materials.get(&"fence_cap", null)
+		&"yard": source = _theme.floors.get(&"yard", null)
 		_: source = _theme.exterior_materials.get(key, null)
 	if source == null:
 		source = _plain(FALLBACK.get(key, Color(0.6, 0.6, 0.6)), 0.9)

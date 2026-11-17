@@ -146,6 +146,12 @@ const DEFAULT_PATH: String = "res://art/theme/default_theme.tres"
 ## mattress, below the headboard): the surface whose top is fitted to the
 ## collision box's top. The rest of the model rises above the box.
 @export var furniture_top_surface: Dictionary[StringName, String] = {}
+## P3-8 yard props: what each family has in each yard slot, keyed
+## "<team>/<slot>" (slots from tools/build_house.gd `_yard`). The collision box
+## is the same in both yards; only the drawing differs, so each house is its
+## own. Kinds are built in code by FurnitureDresser (picnic_table, barbecue,
+## shed, outhouse, compost_bin, planter). Empty = the built-in table below.
+@export var yard_models: Dictionary[StringName, StringName] = {}
 @export var safe_body: StandardMaterial3D = null
 @export var safe_trim: StandardMaterial3D = null
 @export var pen_bars: StandardMaterial3D = null
@@ -324,6 +330,12 @@ func _fill_missing() -> void:
 		glass = _material(Color(0.32, 0.38, 0.42), 0.1)
 	if family_colours.is_empty():
 		family_colours = {&"team_a": Color(0.48, 0.58, 0.45), &"team_b": Color(0.7, 0.4, 0.3)}
+	if yard_models.is_empty():
+		yard_models = {
+			&"team_a/yard_table": &"picnic_table", &"team_b/yard_table": &"barbecue",
+			&"team_a/yard_shed": &"shed", &"team_b/yard_shed": &"outhouse",
+			&"team_a/yard_bin": &"compost_bin", &"team_b/yard_bin": &"planter",
+		}
 
 static func _material(colour: Color, roughness: float) -> StandardMaterial3D:
 	var made: StandardMaterial3D = StandardMaterial3D.new()
@@ -336,6 +348,10 @@ static func room_kind(zone_id: StringName) -> StringName:
 	var text: String = String(zone_id)
 	var cut: int = text.rfind("_")
 	return StringName(text.substr(0, cut)) if cut > 0 else zone_id
+
+## What `team` has in yard slot `slot` (P3-8); empty if the theme says nothing.
+func yard_kind(team: StringName, slot: StringName) -> StringName:
+	return yard_models.get(StringName("%s/%s" % [team, slot]), &"")
 
 func family_colour(team: StringName) -> Color:
 	return family_colours.get(team, wall_colour)

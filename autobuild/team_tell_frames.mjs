@@ -35,7 +35,7 @@ const SETS = {
 const wanted = arg("sets", Object.keys(SETS).join(",")).split(",");
 const ANSI = /\x1b\[[0-9;]*m/g;
 
-// The strip between House A (x <= 2440) and House B (x >= 2960), ground top y 300.
+// House A's east yard (House A x <= 2440, the boundary fence at x 3640, P3-8), ground top y 300.
 const Y = 300;
 const Z = 1000;
 const SPACING = 60;

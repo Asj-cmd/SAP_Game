@@ -35,7 +35,7 @@ if (process.argv.includes("--import")) {
   console.log(`import exit ${r.status}`);
 }
 
-// The strip between House A (x <= 2440) and House B (x >= 2960), ground top y 300.
+// House A's east yard (House A x <= 2440, the boundary fence at x 3640, P3-8), ground top y 300.
 const Y = 300;
 const Z = 1000;
 // Six fit inside the 520-wide strip; centred a little toward House B because a

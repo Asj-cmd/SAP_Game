@@ -295,6 +295,10 @@ func _key(box: AABB, house: House, shape: Shape, axis: int, sign: float,
 	if axis == 1 and sign > 0.0:
 		if shape == Shape.TREAD:
 			return &"tread"
+		# The only slab outside the houses is a back staircase's platform (P3-8):
+		# decked like the treads that lead to it.
+		if shape == Shape.SLAB and house == _lot:
+			return &"tread"
 		if room != null:
 			return StringName("floor:%s" % kind)
 		if house != _lot and box.end.y >= house.top - TINY:

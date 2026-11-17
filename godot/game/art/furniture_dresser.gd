@@ -32,13 +32,16 @@ static func build(props: Array[PropPlacement], theme: ArtTheme, merge: bool = tr
 	var order: Array[Vector2i] = []
 	for placement: PropPlacement in props:
 		var piece: Node3D = null
-		match placement.model:
-			&"safe":
-				piece = _safe(placement, theme)
-			&"jail_pen":
-				piece = _pen(placement, theme)
-			_:
-				piece = _model(placement, theme)
+		if placement.family != &"":
+			piece = _yard(theme.yard_kind(placement.family, placement.model), placement, theme)
+		else:
+			match placement.model:
+				&"safe":
+					piece = _safe(placement, theme)
+				&"jail_pen":
+					piece = _pen(placement, theme)
+				_:
+					piece = _model(placement, theme)
 		if piece == null:
 			continue
 		if not merge:
@@ -197,6 +200,114 @@ static func _pen(placement: PropPlacement, theme: ArtTheme) -> Node3D:
 	var mesh: ArrayMesh = tool.commit()
 	mesh.surface_set_material(0, theme.pen_bars if theme.pen_bars != null else theme.prop)
 	return _placed(mesh, placement, "jail_pen")
+
+## Plain colours for the yard pieces' materials the theme does not have.
+const YARD_FALLBACK: Dictionary[StringName, Color] = {
+	&"fence_wood": Color(0.45, 0.33, 0.23), &"fence_post": Color(0.36, 0.27, 0.19),
+	&"fence_steel": Color(0.1, 0.105, 0.11), &"fence_cap": Color(0.72, 0.69, 0.63),
+	&"soil": Color(0.25, 0.19, 0.14), &"hedge": Color(0.2, 0.33, 0.17),
+	&"bin": Color(0.16, 0.25, 0.17), &"door": Color(0.2, 0.22, 0.25),
+}
+
+## A yard prop (P3-8): plain household things built from boxes, each filling
+## its collision box exactly, so what you see is what you hit. The two
+## families get different things in the same box (`ArtTheme.yard_models`).
+## An unknown kind is the plain stand-in box.
+static func _yard(kind: StringName, placement: PropPlacement, theme: ArtTheme) -> Node3D:
+	var size: Vector3 = placement.box.size
+	var quarter: bool = absf(sin(deg_to_rad(placement.yaw_deg))) > 0.5
+	# Model space: front faces +z, width along x, floor at y 0.
+	var w: float = size.z if quarter else size.x
+	var d: float = size.x if quarter else size.z
+	var h: float = size.y
+	var parts: Array[Array] = [] # [material key, centre, size]
+	match kind:
+		&"picnic_table":
+			parts.append([&"fence_wood", Vector3(0.0, h - 4.0, 0.0), Vector3(w, 8.0, d * 0.6)])
+			for side: float in [-1.0, 1.0]:
+				parts.append([&"fence_wood", Vector3(0.0, 66.0, side * (d * 0.5 - 12.0)),
+					Vector3(w * 0.94, 6.0, 24.0)])
+			for end: float in [-1.0, 1.0]:
+				var x: float = end * (w * 0.5 - 24.0)
+				for side: float in [-1.0, 1.0]:
+					parts.append([&"fence_post", Vector3(x, (h - 8.0) * 0.5, side * d * 0.2),
+						Vector3(9.0, h - 8.0, 9.0)])
+				parts.append([&"fence_post", Vector3(x, 60.0, 0.0), Vector3(9.0, 6.0, d - 2.0)])
+		&"barbecue":
+			parts.append([&"brick", Vector3(0.0, 45.0, 0.0), Vector3(w, 90.0, d)])
+			parts.append([&"fence_cap", Vector3(0.0, 93.0, 0.0), Vector3(w, 6.0, d)])
+			parts.append([&"fence_steel", Vector3(0.0, 108.0, 0.0), Vector3(w * 0.5, 24.0, d * 0.75)])
+			parts.append([&"fence_steel", Vector3(0.0, 119.0, 0.0), Vector3(w * 0.54, 2.0, d * 0.8)])
+		&"shed":
+			parts.append([&"fence_wood", Vector3(0.0, 100.0, 0.0), Vector3(w - 10.0, 200.0, d - 10.0)])
+			parts.append([&"roof", Vector3(0.0, 215.0, 0.0), Vector3(w, 30.0, d)])
+			parts.append([&"fence_post", Vector3(0.0, 90.0, d * 0.5 - 4.0), Vector3(84.0, 180.0, 2.0)])
+		&"outhouse":
+			parts.append([&"brick", Vector3(0.0, 102.0, 0.0), Vector3(w - 8.0, 204.0, d - 8.0)])
+			parts.append([&"fence_cap", Vector3(0.0, 217.0, 0.0), Vector3(w, 26.0, d)])
+			parts.append([&"door", Vector3(0.0, 96.0, d * 0.5 - 3.0), Vector3(84.0, 192.0, 2.0)])
+		&"compost_bin":
+			parts.append([&"bin", Vector3(0.0, 55.0, 0.0), Vector3(w - 8.0, 110.0, d - 8.0)])
+			parts.append([&"bin", Vector3(0.0, 115.0, 0.0), Vector3(w, 10.0, d)])
+		&"planter":
+			parts.append([&"fence_wood", Vector3(0.0, 50.0, 0.0), Vector3(w, 100.0, d)])
+			parts.append([&"soil", Vector3(0.0, 100.5, 0.0), Vector3(w - 12.0, 1.0, d - 12.0)])
+			parts.append([&"hedge", Vector3(0.0, 110.0, 0.0), Vector3(w * 0.62, 20.0, d * 0.62)])
+		_:
+			return _stand_in(placement, theme)
+	var tools: Dictionary[StringName, SurfaceTool] = {}
+	var order: Array[StringName] = []
+	for part: Array in parts:
+		var key: StringName = part[0]
+		if not tools.has(key):
+			var tool: SurfaceTool = SurfaceTool.new()
+			tool.begin(Mesh.PRIMITIVE_TRIANGLES)
+			tools[key] = tool
+			order.append(key)
+		_sized_box_into(tools[key], part[1], part[2])
+	var mesh: ArrayMesh = null
+	for key: StringName in order:
+		mesh = tools[key].commit(mesh) if mesh != null else tools[key].commit()
+		mesh.surface_set_material(mesh.get_surface_count() - 1, _yard_material(key, theme))
+	return _placed(mesh, placement, String(kind))
+
+## A box whose UVs are its size in units (ShellBuilder's convention), so a
+## tiled theme texture (brick, boards, roof tile) shows at its true size.
+static func _sized_box_into(tool: SurfaceTool, centre: Vector3, size: Vector3) -> void:
+	var half: Vector3 = size * 0.5
+	for axis: int in 3:
+		for sign: float in [-1.0, 1.0]:
+			var u: int = (axis + 1) % 3
+			var w: int = (axis + 2) % 3
+			var normal: Vector3 = Vector3.ZERO
+			normal[axis] = sign
+			var corners: Array[Vector3] = []
+			for corner: Vector2 in [Vector2(-1, -1), Vector2(1, -1), Vector2(1, 1), Vector2(-1, 1)]:
+				var p: Vector3 = centre
+				p[axis] += sign * half[axis]
+				p[u] += corner.x * half[u]
+				p[w] += corner.y * half[w]
+				corners.append(p)
+			var turning: float = (corners[1] - corners[0]).cross(corners[2] - corners[0]).dot(normal)
+			var order: Array[int] = ShellBuilder.QUAD_TURNED if turning > 0.0 else ShellBuilder.QUAD_AS_IS
+			for index: int in order:
+				tool.set_normal(normal)
+				tool.set_uv(ShellBuilder._uv(corners[index], normal))
+				tool.add_vertex(corners[index])
+
+static func _yard_material(key: StringName, theme: ArtTheme) -> Material:
+	match key:
+		&"brick":
+			return theme.wall_outside
+		&"roof":
+			return theme.roof
+	var found: StandardMaterial3D = theme.exterior_materials.get(key, null)
+	if found != null:
+		return found
+	var made: StandardMaterial3D = StandardMaterial3D.new()
+	made.albedo_color = YARD_FALLBACK.get(key, Color(0.6, 0.6, 0.6))
+	made.roughness = 0.85
+	return made
 
 ## A model-space mesh (front +z, centred on x/z, floor at y 0) put at its box.
 static func _placed(mesh: ArrayMesh, placement: PropPlacement, label: String) -> Node3D:
