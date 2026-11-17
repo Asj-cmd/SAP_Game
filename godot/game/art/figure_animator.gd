@@ -32,10 +32,6 @@ const STILL_GRACE: float = 0.1
 ## Keyboard input goes 0 -> move_speed at once, so this is for slow drifts (a
 ## bot easing into a spot, a stick held half-way).
 const WALK_FRACTION: float = 0.45
-## Above this fraction of move_speed it is a panic run (arms up). The sim's
-## panic run (P4-1) is a real speed boost; reading the speed means it shows up
-## here with no change.
-const PANIC_FRACTION: float = 1.05
 ## A body off the ground for less than this is a step down a stair or a kerb,
 ## not a fall: the legs keep walking.
 const AIR_GRACE: float = 0.12
@@ -204,7 +200,7 @@ func _build_tree(clips: AnimationLibrary, skeleton_path: String) -> void:
 ## Static and pure: the whole choice in one place.
 static func base_clip(entity: SimEntity, carrying: bool, captured: bool, speed: float,
 		move_speed: float, airborne_for: float, jump_for: float, land_left: float,
-		hop_for: float = -1.0) -> StringName:
+		hop_for: float = -1.0, panicking: bool = false) -> StringName:
 	var carry: String = "carry_" if carrying else ""
 	var crouched: bool = entity.stance == SimEntity.Stance.CROUCHED
 	if captured or entity.motion_state == SimEntity.MotionState.HELD:
@@ -232,7 +228,7 @@ static func base_clip(entity: SimEntity, carrying: bool, captured: bool, speed: 
 		return StringName(carry + "idle")
 	if speed < move_speed * WALK_FRACTION:
 		return StringName(carry + "walk")
-	if speed > move_speed * PANIC_FRACTION and carry == "":
+	if panicking and carry == "":
 		# Carrying, the arms already hold the cash overhead (D9): a panicking
 		# carrier is a faster carry_jog.
 		return &"panic_run"
@@ -243,7 +239,7 @@ static func base_clip(entity: SimEntity, carrying: bool, captured: bool, speed: 
 ## once); `carrying` and `captured` are OUTCOMES and come from the confirmed
 ## world (GreyBoxMain._render: a guest never guesses at an outcome).
 func update(entity: SimEntity, carrying: bool, captured: bool, move_speed: float,
-		delta: float, crouch_scale: float = 0.55) -> void:
+		delta: float, crouch_scale: float = 0.55, panicking: bool = false) -> void:
 	if tree == null:
 		return
 	var speed: float = Vector2(entity.velocity.x, entity.velocity.z).length()
@@ -291,7 +287,7 @@ func update(entity: SimEntity, carrying: bool, captured: bool, move_speed: float
 		_settle_left = maxf(0.0, _settle_left - delta)
 
 	var wanted: StringName = base_clip(entity, carrying, captured, speed, move_speed,
-		_airborne_for, _jump_for, _land_left, _hop_for)
+		_airborne_for, _jump_for, _land_left, _hop_for, panicking)
 	if wanted != clip:
 		clip = wanted
 		tree.set(&"parameters/loco/transition_request", String(wanted))

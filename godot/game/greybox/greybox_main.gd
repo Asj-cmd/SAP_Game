@@ -1424,10 +1424,12 @@ func _animate(drawn: SimWorld, truth: SimWorld, mine: int, remote: bool, delta: 
 		if entity == null:
 			continue
 		var motion: SimEntity = entity
+		var motion_world: SimWorld = truth
 		if not remote or entity_id == mine:
 			var local: SimEntity = drawn.get_entity(entity_id)
 			if local != null:
 				motion = local
+				motion_world = drawn
 		var animator: FigureAnimator = _animators[entity_id]
 		var was_carrying: int = _anim_carrying.get(entity_id, SimEntity.NO_ENTITY)
 		if was_carrying != SimEntity.NO_ENTITY and entity.carrying_id != was_carrying:
@@ -1453,7 +1455,7 @@ func _animate(drawn: SimWorld, truth: SimWorld, mine: int, remote: bool, delta: 
 		_anim_captured[entity_id] = entity.is_captured
 		_anim_sentence[entity_id] = entity.capture_ticks_remaining
 		animator.update(motion, entity.is_carrying(), entity.is_captured, move_speed, delta,
-			level.tuning.crouch_speed_scale)
+			level.tuning.crouch_speed_scale, MovementSystem.is_panicking(motion_world, motion))
 	for victim: int in seized:
 		_act_nearest(truth, victim, false)
 	for victim: int in freed:

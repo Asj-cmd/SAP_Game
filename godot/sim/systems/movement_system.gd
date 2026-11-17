@@ -359,8 +359,11 @@ func _speed_for(world: SimWorld, actor: SimEntity) -> float:
 		speed *= world.tuning.carry_speed_scale
 	if actor.stance == SimEntity.Stance.CROUCHED:
 		speed *= world.tuning.crouch_speed_scale
-	if is_panicking(world, actor):
-		speed *= world.tuning.panic_speed_scale
+	# Defenders move faster at home (P4-8): the zone under the actor is its own
+	# team's (house, yard on its side of the fence). Multiplies with the rest.
+	var here: ZoneDef = world.zone_at(actor.position)
+	if here != null and here.is_owned_by(actor.team):
+		speed *= world.tuning.home_speed_scale
 	return speed
 
 ## Is this actor in the panic run (D9)? Forward held, upright, and the count

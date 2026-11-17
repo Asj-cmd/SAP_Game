@@ -26,6 +26,7 @@ func _initialize() -> void:
 	_test_stance()
 	_test_jump()
 	_test_panic_run()
+	_test_home_speed()
 	_test_held_actor()
 	_test_bodies_like_walls()
 
@@ -686,19 +687,19 @@ func _test_jump() -> void:
 	_check("jump/refused while crouched", croucher.is_grounded, true)
 
 ## The panic run (D9): forward held long enough, upright and actually moving,
-## multiplies the pace. Each row is a script of phases (a command on the phase's
+## drives the arms-up animation and gives no speed (P4-8). Each row is a script of phases (a command on the phase's
 ## first tick, then that many ticks), and what the last tick must show: the
 ## count, and how far the body went on that tick against an unboosted 1 a tick.
 func _test_panic_run() -> void:
 	var probe: TuningDef = TuningDef.new()
-	var boost: float = probe.panic_speed_scale
+	var boost: float = 1.0 # the panic run gives no speed (P4-8)
 	var carry: float = probe.carry_speed_scale
 	var crouch: float = probe.crouch_speed_scale
 	var after: int = 6 # panic_after_seconds 0.2 at 30 ticks a second
 	var cases: Array[Dictionary] = [
 		{"name": "no boost on the tick the count reaches the threshold",
 		 "phases": [["fwd", after]], "count": after, "step": 1.0},
-		{"name": "boost on the tick after",
+		{"name": "still no speed change on the tick after",
 		 "phases": [["fwd", after + 1]], "count": after, "step": boost},
 		{"name": "a move without the forward flag never boosts",
 		 "phases": [["side", 30]], "count": 0, "step": 1.0},
@@ -710,7 +711,7 @@ func _test_panic_run() -> void:
 		 "phases": [["fwd", 10], ["crouch", 1]], "count": 0, "step": crouch},
 		{"name": "a jump with forward held keeps the run",
 		 "phases": [["fwd", 10], ["jump", 8]], "count": after, "step": boost, "airborne": true},
-		{"name": "carrying multiplies with the boost",
+		{"name": "a carrier keeps the carry pace, no more",
 		 "phases": [["fwd", after + 1]], "count": after, "step": carry * boost, "carrying": true},
 		{"name": "walled off resets",
 		 "phases": [["fwd", 16]], "count": 0, "step": 0.0, "z": 180.0},
@@ -749,6 +750,45 @@ func _test_panic_run() -> void:
 		_close(label + " (pace)", runner.position.z - before, case["step"])
 		if case.has("airborne"):
 			_check(label + " (in the air)", runner.is_grounded, false)
+
+## Defenders are faster at home (P4-8): the zone under the body is owned by its
+## team. Each row: the zone's owner, the body's team, stance and cash, and the
+## step it must make on one tick against an unscaled 1 a tick.
+func _test_home_speed() -> void:
+	var probe: TuningDef = TuningDef.new()
+	var home: float = probe.home_speed_scale
+	var cases: Array[Dictionary] = [
+		{"name": "own ground", "owner": &"team_a", "team": &"team_a", "step": home},
+		{"name": "the other family's ground", "owner": &"team_b", "team": &"team_a", "step": 1.0},
+		{"name": "unowned ground", "owner": &"", "team": &"team_a", "step": 1.0},
+		{"name": "a body with no team on owned ground", "owner": &"team_a", "team": &"", "step": 1.0},
+		{"name": "carrier at home", "owner": &"team_a", "team": &"team_a", "carrying": true,
+		 "step": probe.carry_speed_scale * home},
+		{"name": "crouched at home", "owner": &"team_a", "team": &"team_a", "crouched": true,
+		 "step": probe.crouch_speed_scale * home},
+		{"name": "panicking at home gets only the home factor", "owner": &"team_a", "team": &"team_a",
+		 "panic": true, "step": home},
+	]
+	for case: Dictionary in cases:
+		var world: SimWorld = _verb_world()
+		world.tuning.move_speed = 30.0 # one unit a tick
+		world.zones[&"room"].owner_team = case["owner"]
+		var runner: SimEntity = _add_actor(world, Vector3(50, FLOOR + VERB_RADIUS, 10.0))
+		runner.team = case["team"]
+		if case.get("carrying", false):
+			var cash: SimEntity = world.add_entity(SimEntity.new(SimEntity.NO_ENTITY, SimEntity.Kind.CARRIABLE))
+			runner.carrying_id = cash.id
+			cash.carried_by = runner.id
+		_settle(world)
+		if case.get("crouched", false):
+			world.step([StanceCommand.crouch(runner.id)])
+		if case.get("panic", false):
+			runner.forward_ticks = SimWorld.seconds_to_ticks(world.tuning.panic_after_seconds)
+		var fwd: bool = case.get("panic", false)
+		world.step([MoveCommand.move(runner.id, Vector3(0, 0, 1), world.tick, fwd)])
+		var before: float = runner.position.z
+		world.step([MoveCommand.move(runner.id, Vector3(0, 0, 1), world.tick, fwd)])
+		_close("home/%s" % case["name"], runner.position.z - before, case["step"])
 
 ## A jailed actor (D9) may send anything: none of it moves the body, a jump is
 ## counted rather than kept, and nothing asked for in jail fires after release.
