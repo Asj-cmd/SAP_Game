@@ -227,7 +227,9 @@ then the fence rule and layout (which defines "own side"), then the isolation of
 (which encloses whatever layout P3-8 leaves), then the home-side speed that depends on the
 territory line. The parts of these tasks that were first missing (the gap, the back staircase,
 P3-7) were filled in on 2026-11-16. Milestone: a friends playtest, so a working, simple version
-beats a polished one. Tasks tagged `(worker: fable)` run on the Fable model (see `loop.mjs`).
+beats a polished one. A task line tagged with a worker model (the tag is the word "worker", a colon
+and a model name, in round brackets) runs on that model (see `loop.mjs`). No open task is tagged now:
+Fable needs paid usage credits (2026-11-17), so the tags were removed from the open tasks.
 
 - [x] **P5-0 Family display names.** *(Done 2026-11-16: `FamilyNames` in `game/greybox/family_names.gd` reads the `.cfg` once; status line, headlines and debug HUD use it; `family_names_test` 26 checks; the names are found only in the `.cfg`; export preset includes it. See PROGRESS.md.)* Each family gets a display name ("the family display names"),
   kept in ONE small text file, `godot/content/family_names.cfg`, two lines: `team_a_name=` and
@@ -294,7 +296,7 @@ beats a polished one. Tasks tagged `(worker: fable)` run on the Fable model (see
   bounds needs the same camera care as the fence. Update STYLE.md (the suburb is gone) and ASSETS.md
   for any new texture. *Verify:* the full `verify.mjs`; ONE set of every exterior view in
   `views.json` at the end, opened and judged (no third house in any of them), and at most one redo.
-- [ ] **P4-8 Panic run is animation only; defenders are faster at home.** (worker: fable)
+- [ ] **P4-8 Panic run is animation only; defenders are faster at home.**
   1. **The chased player's panic run is animation only (arms up), with no speed boost.** Remove the
      speed multiplier (`panic_speed_scale`, 1.2, in `content/tuning/tuning_def.gd` and the `.tres`
      files, and where `MovementSystem` applies it). Keep what drives the arms-up pose (the forward

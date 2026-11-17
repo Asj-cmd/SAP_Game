@@ -25,8 +25,10 @@
 //                  count toward the stall limit. It is tried at most once per task per run.
 //   WORKER_MODEL   e.g. "opus": the model for worker sessions (CLAUDE_MODEL still works the same way).
 //   A task line in PLAN.md that contains "(worker: fable)" runs its worker session with --model fable
-//   instead. If Fable's own limit is hit, the loop uses WORKER_MODEL (or the default) for every task
-//   for the rest of the run, with no wait.
+//   instead. If Fable's own limit is hit, or it says "Fable 5.2 requires usage credits", the loop
+//   uses WORKER_MODEL (or the default) for every task for the rest of the run, with no wait (and it
+//   is not mistaken for a failed start). If the planner model says that, planning is skipped for the
+//   rest of the run, and the log says why.
 //   If the worker model hits its OWN limit ("Opus limit reached") the workers switch to sonnet for the
 //   rest of the run, with no wait. If the planner model hits its own limit, planning is skipped for the
 //   rest of the run. Limits that are not model-specific (5-hour, weekly) wait as above.
@@ -41,7 +43,7 @@ import { dirname, join, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
 import { isLimitMessage, planLimitWait, isConnectionProblem, connectionWaitMin, MAX_CONNECTION_WAITS, limitAction } from "./limits.mjs";
 import { firstOpenTaskId, hasBriefFor, briefHeadings, pickWorkerModel } from "./planning.mjs";
-import { isModelLimit, modelFamily } from "./limits.mjs";
+import { isModelLimit, modelFamily, whyModelLimit, taggedFallback } from "./limits.mjs";
 
 const HERE = dirname(fileURLToPath(import.meta.url));
 const ROOT = resolve(HERE, "..");
@@ -192,7 +194,7 @@ function runPlanner(taskId, last) {
   if (!progressed && isLimitMessage(out)) {
     const act = limitAction(out, { role: "planner", model: plannerModel, fallback: FALLBACK_WORKER });
     if (act.kind === "skip-planner") {
-      log(`planner: ${act.family} limit reached, skipping planning for the rest of this run. Not counted as a session.`);
+      log(`planner: ${act.family} ${act.why}, skipping planning for the rest of this run (no briefs from now on; workers carry on). Not counted as a session.`);
       plannerModel = null;
       return "done";
     }
@@ -284,13 +286,15 @@ for (let i = 1; i <= MAX_ITERS; i++) {
     // A task tagged "(worker: fable)" whose Fable limit is hit: use WORKER_MODEL from now on, no wait.
     if (pick.tagged && isModelLimit(out, pick.model)) {
       tagOff.add(pick.model);
-      log(`session ${i}: ${modelFamily(pick.model)} limit reached, using ${workerModel ?? "the default model"} for every task for the rest of this run. Not counted as a session.`);
+      // If WORKER_MODEL is the very model that just failed, use sonnet rather than try it again.
+      workerModel = taggedFallback({ tag: pick.model, workerModel, fallback: FALLBACK_WORKER });
+      log(`session ${i}: ${modelFamily(pick.model)} ${whyModelLimit(out)}, using ${workerModel ?? "the default model"} for every task for the rest of this run (no wait, not a failed start). Not counted as a session.`);
       i--; // the same session number runs again, at once
       continue;
     }
     const act = limitAction(out, { role: "worker", model: pick.model, fallback: FALLBACK_WORKER });
     if (act.kind === "switch-worker") {
-      log(`session ${i}: ${act.family} limit reached, switching workers to ${act.to} for the rest of this run. Not counted as a session.`);
+      log(`session ${i}: ${act.family} ${act.why}, switching workers to ${act.to} for the rest of this run. Not counted as a session.`);
       workerModel = act.to;
       i--; // the same session number runs again, at once
       continue;

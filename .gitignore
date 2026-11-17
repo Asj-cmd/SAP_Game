@@ -45,3 +45,5 @@ autobuild/Incoming/
 autobuild/incoming/
 # P2-1b candidate previews, rebuilt from the zips by tools/convert_character.gd
 godot/art/characters/candidates/
+# throwaway theme copies a session made to test something (not shipped, not used); kept on disk
+godot/art/theme/_tmp_*.tres

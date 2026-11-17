@@ -21,6 +21,11 @@ const MONTH_RE = "(?:jan|feb|mar|apr|may|jun|jul|aug|sep|oct|nov|dec)[a-z]*\\.?"
 const RESETS_WITH_TIME =
   `\\bresets\\s+(?:in\\s+\\d|(?:on\\s+)?${DAY_RE}|${MONTH_RE}\\s+\\d|(?:at\\s+)?\\d{1,2}(?::\\d{2})?\\s*(?:am|pm)\\b|(?:at\\s+)?\\d{1,2}:\\d{2})`;
 
+// "Fable 5.2 requires usage credits. Switch to another model, or manage usage credits at ..." is not
+// a wait-for-reset limit: that model is closed to this account until credits are bought, so the loop
+// treats it as a limit of that one model and moves to another model at once.
+const CREDITS_RE_SRC = "\\brequires?\\s+(?:extra\\s+)?usage credits";
+
 export const LIMIT_RE = new RegExp(
   [
     "hit your\\b[^\\n]*\\blimit",
@@ -35,6 +40,7 @@ export const LIMIT_RE = new RegExp(
     "\\boverloaded",
     "\\b(?:error|status|code|http)\\b[^\\n]{0,20}\\b(?:429|529)\\b",
     "\\bquota\\b",
+    CREDITS_RE_SRC, // "Fable 5.2 requires usage credits": a model that needs paid credits
   ].join("|"),
   "i",
 );
@@ -75,9 +81,22 @@ export function modelFamily(model) {
   const m = String(model ?? "").match(FAMILY_RE);
   return m ? m[0][0].toUpperCase() + m[0].slice(1).toLowerCase() : String(model ?? "");
 }
+// True when the end of the output says a model "requires usage credits".
+export function isCreditsMessage(output, tailLines = 10) {
+  const lines = String(output).split(/\r?\n/).filter((l) => l.trim() !== "");
+  return new RegExp(CREDITS_RE_SRC, "i").test(lines.slice(-tailLines).join("\n"));
+}
+
 export function isModelLimit(output, model, tailLines = 10) {
   if (!model || !isLimitMessage(output, tailLines)) return false;
   const tail = String(output).split(/\r?\n/).filter((l) => l.trim() !== "").slice(-tailLines).join("\n");
+  // A credits message is always about one model. If its own line names a model family, that has to
+  // be ours; if it names none, it is about the model we asked for.
+  const creditsLine = tail.split("\n").find((l) => new RegExp(CREDITS_RE_SRC, "i").test(l));
+  if (creditsLine !== undefined) {
+    const named = creditsLine.match(FAMILY_RE)?.[0];
+    return !named || modelFamily(named) === modelFamily(model);
+  }
   const esc = (s) => s.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
   const names = [String(model).trim(), modelFamily(model)].filter(Boolean).map(esc);
   return new RegExp(`(?<![a-z0-9])(?:${names.join("|")})(?![a-z0-9])`, "i").test(tail);
@@ -89,13 +108,27 @@ export function isModelLimit(output, model, tailLines = 10) {
 //                                         fallback there is nothing to switch to, so it waits.
 //   planner, limit names its own model -> skip planning for the rest of the run
 //   any other limit (5-hour, weekly)   -> wait for the reset, as before
+//   `why` is the words for the log: "limit reached", or "requires usage credits".
 export function limitAction(output, { role, model, fallback = "sonnet" }) {
   if (!isLimitMessage(output)) return { kind: "none" };
   if (!isModelLimit(output, model)) return { kind: "wait" };
   const family = modelFamily(model);
-  if (role === "planner") return { kind: "skip-planner", family };
+  const why = whyModelLimit(output);
+  if (role === "planner") return { kind: "skip-planner", family, why };
   if (modelFamily(fallback) === family) return { kind: "wait" };
-  return { kind: "switch-worker", family, to: fallback };
+  return { kind: "switch-worker", family, to: fallback, why };
+}
+
+export function whyModelLimit(output) {
+  return isCreditsMessage(output) ? "requires usage credits" : "limit reached";
+}
+
+// Which model to use after a task's "(worker: X)" tag model hit its own limit or needs credits: the
+// loop's WORKER_MODEL (null = the default model). If WORKER_MODEL is itself the model that just
+// failed there is nothing to fall back to, so use `fallback` ("sonnet") instead of trying it again.
+export function taggedFallback({ tag, workerModel = null, fallback = "sonnet" }) {
+  if (workerModel && modelFamily(workerModel) === modelFamily(tag)) return fallback;
+  return workerModel;
 }
 
 function validZone(tz) {
