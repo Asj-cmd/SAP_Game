@@ -1,7 +1,7 @@
 {
   "bot_director_test": 46,
   "camera_controls_test": 16,
-  "capture_system_test": 42,
+  "capture_system_test": 53,
   "carry_system_test": 33,
   "command_codec_test": 24,
   "content_validator_test": 37,

@@ -68,12 +68,18 @@ func _try_capture(world: SimWorld, command: CaptureCommand) -> void:
 	var target_zone: ZoneDef = world.zone_at(target.position)
 	if captor_zone == null or target_zone == null:
 		return
-	# Both must be in the same room - reaching through a wall is not a capture.
-	if captor_zone.id != target_zone.id:
-		return
+	# The territory line (P3-8): both stand on the captor's own side - any of
+	# its rooms or its yard, which reaches the boundary fence. Not the same
+	# ROOM: a defender in the doorway may seize a raider in the yard outside.
 	if not _may_capture_on(captor_zone, captor.team):
 		return
+	if not _may_capture_on(target_zone, captor.team):
+		return
 	if captor.position.distance_squared_to(target.position) > _capture_range_squared(world):
+		return
+	# Reaching through a wall is not a capture. This used to be "both in the
+	# same zone", which also forbade the doorway seizure above.
+	if _reach_blocked(world, captor.position, target.position):
 		return
 	# The safe room's whole purpose. The grant is refreshed first: commands are
 	# resolved before per-tick updates, so an actor that reached the room this
@@ -93,6 +99,20 @@ func _may_capture_on(zone: ZoneDef, team: StringName) -> bool:
 	if not zone.is_owned_by(team):
 		return false
 	return zone.role != ZoneDef.Role.JAIL
+
+## How far above an actor's position (its body sphere's centre, a body radius
+## off the floor) the reach is tested: about chest height. Tested at the
+## position itself, the line between a body on a stair tread and one on the
+## floor grazes the tread's own edge.
+const REACH_LIFT: float = 60.0
+
+## Is there a blocker between the two bodies at chest height? No collision
+## authored (a rule rig) means nothing is in the way.
+func _reach_blocked(world: SimWorld, from: Vector3, to: Vector3) -> bool:
+	if world.collision == null:
+		return false
+	var lift: Vector3 = Vector3(0.0, REACH_LIFT, 0.0)
+	return world.collision.blocks_segment(from + lift, to + lift)
 
 func _seize(world: SimWorld, captor: SimEntity, target: SimEntity) -> void:
 	# A held actor cannot keep hold of anything. Capture states only that the

@@ -148,15 +148,41 @@ const STAIR_B_Z: float = 2030.0
 ## lot so point symmetry stays exact. The corridor grows from 500 to 520 and
 ## the far margins land at exactly 350, matching House A's - the "keep the
 ## buildings close" intent survives a 4% corridor change untouched.
-const LOT_W: float = 5400.0 # 135 cells
+##
+## P3-8 (the user's rules): the gap between the houses, wall to wall, went from
+## 520 to 2400 - 4.4 s at walking speed (540 a second) - so the lot is 1880
+## wider. Depth, margins and both houses' insides are unchanged.
+const LOT_W: float = 7280.0 # 182 cells
 const LOT_D: float = 3720.0 # 93 cells
 const HOUSE_A_X: float = 350.0
 const HOUSE_A_Z: float = 350.0
-const HOUSE_B_X: float = LOT_W - HOUSE_A_X - HOUSE ## 2960
+const HOUSE_B_X: float = LOT_W - HOUSE_A_X - HOUSE ## 4840
 const HOUSE_B_Z: float = LOT_D - HOUSE_A_Z - HOUSE ## 1280
 const LOT_H: float = ROOF + SLAB
-## §9: ground within 400 of a house's outer wall belongs to that house.
-const TERRITORY: float = 400.0
+
+# ---- P3-8 the boundary fence: the territory line ----
+## The fence stands on the lot's x midline, the full depth of the lot. Each
+## family owns everything on its side of it (no neutral ground). Tall-blocker
+## height, so it looks and is unclimbable (WORLD_AUTHORING §12).
+const FENCE_THICK: float = 30.0
+const FENCE_HEIGHT: float = 230.0
+## One main gate in the middle, and two small crossings near the ends. The
+## houses sit a half turn apart, so one off-centre crossing could not be
+## symmetric: each crossing is the "back" one for one family (its twin is the
+## other family's).
+const GATE: float = 400.0
+const CROSSING: float = 160.0
+const CROSSING_IN: float = 300.0 ## crossing centre from each end of the fence
+
+# ---- P3-8 the outside back staircase ----
+## One straight flight against the house's north (back) face, climbing west to
+## a platform in front of a door into Landing B (never the master bedroom).
+## The door sits over the back door G5 at NEAR_MID; the platform is a slab, so
+## the back door opens underneath it with 320 of headroom.
+const BACK_DOOR_X: float = NEAR_MID ## 530: the upper door's centre, over G5
+const PLATFORM_X0: float = 380.0
+const PLATFORM_X1: float = 680.0 ## the flight's top step starts here
+const BACK_STAIR_DEPTH: float = FLIGHT_W ## out from the wall, like the indoor flight's width
 
 ## The walkable fill samples at cell centres, so the 180-degree turn maps a
 ## sampled point to another sampled point only when the lot is a whole number
@@ -243,7 +269,49 @@ func _draw_house() -> void:
 	_ground()
 	_upper()
 	_stairs()
+	_back_stair()
 	_furnish()
+	_yard()
+
+## P3-8. Outside the north wall: a platform at upper-floor height in front of
+## the Landing B door, and twelve steps down from it running east along the
+## wall, each solid to the ground like the indoor flights. The house wall is
+## its inner side; the outer side is open (no blocker, so no banister).
+func _back_stair() -> void:
+	var z0: float = HOUSE
+	# The platform: a slab, not solid, so the back door below stays open.
+	_solid(AABB(Vector3(PLATFORM_X0, UPPER - SLAB, z0),
+		Vector3(PLATFORM_X1 - PLATFORM_X0, SLAB, BACK_STAIR_DEPTH)))
+	# Step i's top is GROUND + STEP * (i + 1); the top step is level with the
+	# platform. Step 0 is the far (east) end, at the ground.
+	var bottom: float = PLATFORM_X1 + RUN * float(FLIGHT_STEPS)
+	for i: int in FLIGHT_STEPS:
+		var top: float = GROUND + STEP * float(i + 1)
+		var x: float = bottom - RUN * float(i + 1)
+		_solid(AABB(Vector3(x, top - STEP, z0), Vector3(RUN, STEP, BACK_STAIR_DEPTH)))
+		_solid(AABB(Vector3(x, GROUND, z0), Vector3(RUN, top - STEP - GROUND, BACK_STAIR_DEPTH)))
+
+# ---- P3-8 yard props ----
+#
+# The same collision box at the turned spot in both yards, so the two lots stay
+# exact twins; the drawn model differs by family (ArtTheme.yard_models: slot +
+# team -> what is drawn). Heights follow the furniture thresholds: a 120 top
+# you can get onto, or 230 that stops you. Each stands at least 120 clear of
+# walls, doors, the back stair and the spawns.
+func _yard() -> void:
+	var g: float = GROUND
+	# East of the house, toward the fence, in front of the side door's line.
+	_yard_piece(&"yard_table", Rect2(2420.0, 520.0, 200.0, 120.0), g, TOP, FACE_W)
+	# Behind the kitchen, clear of the back stair's foot.
+	_yard_piece(&"yard_shed", Rect2(1560.0, 2700.0, 240.0, 180.0), g, TALL, FACE_S)
+	# The front garden's east corner, by the street railings.
+	_yard_piece(&"yard_bin", Rect2(2300.0, -230.0, 120.0, 120.0), g, TOP, FACE_N)
+
+func _yard_piece(slot: StringName, rect: Rect2, base: float, height: float, face: float) -> void:
+	var box: AABB = AABB(Vector3(rect.position.x, base, rect.position.y),
+		Vector3(rect.size.x, height, rect.size.y))
+	_furniture.append(box)
+	_props.append({"model": slot, "box": box, "face": face, "fit": true, "yard": true})
 
 # ---- furniture (P3-3) ----
 #
@@ -462,7 +530,10 @@ func _upper() -> void:
 	# South outer: nothing. The Study now escapes west (above), and giving one
 	# room two exits would hand it the cheapest route twice over.
 	_wall_z(WALL * 0.5, WALL, HOUSE - WALL, UPPER, top, [] as Array[Vector2])
-	# North outer: Master Bedroom escape window (U2), and this is the honest
+	# North outer: Landing B's door onto the outside back staircase (P3-8),
+	# over the back door. The Master Bedroom side of this wall stays blank.
+	#
+	# Master Bedroom escape window (U2), and this is the honest
 	# answer rather than the one that sounded best.
 	#
 	# U2 HAS MOVED THREE TIMES and is back where the second move put it. The
@@ -498,7 +569,9 @@ func _upper() -> void:
 	# checks: both landings open onto it. The window was never one of them - it
 	# is a one-way drop and cannot be entered through - so removing it costs the
 	# gate nothing, and the gate agrees.
-	_wall_z(HOUSE - WALL * 0.5, WALL, HOUSE - WALL, UPPER, top, [] as Array[Vector2])
+	_wall_z(HOUSE - WALL * 0.5, WALL, HOUSE - WALL, UPPER, top, [
+		_at(BACK_DOOR_X, DOOR), # U5 Landing B (NW) north, to the back staircase
+	] as Array[Vector2])
 	_ring(UPPER, top, [
 		&"D5", # Landing A <-> Master Bedroom
 		&"D6", # Master Bedroom <-> Landing B
@@ -674,6 +747,9 @@ func _stamp(turned: bool, team: StringName, side: String) -> void:
 		marker.set_meta(&"box", placed)
 		marker.set_meta(&"yaw_deg", fmod(float(prop["face"]) + (180.0 if turned else 0.0), 360.0))
 		marker.set_meta(&"fit", prop["fit"])
+		# A yard prop's drawing depends on whose yard it is (P3-8).
+		if prop.get("yard", false):
+			marker.set_meta(&"family", team)
 		_root.add_child(marker)
 
 	# §3 vertical stacking. Both floors share the same four quadrants.
@@ -728,44 +804,44 @@ func _place(box: AABB, turned: bool) -> AABB:
 func _place_point(local: Vector3, turned: bool) -> Vector3:
 	return _place(AABB(local, Vector3.ZERO), turned).position
 
-## §9 territory. Ground within 400 of a house's outer wall belongs to it and
-## capture is legal there; everything else is neutral.
+## §9 territory, as changed by P3-8: the boundary fence on the lot's x midline
+## is the line. Each family owns everything on its side of it, house and yard;
+## there is no neutral ground (the old 400-unit yards and the NEUTRAL `lot`
+## zone under them are gone). A defender may seize an intruder anywhere on its
+## own side; nobody is seized on their own side.
 func _outdoors() -> void:
 	var high: float = LOT_H - GROUND
-	# Priority -1: the lot underlies everything outdoors, and both yards sit on
-	# top of it. Whichever zone is more specific must win, or which ground a
-	# capture happens on is arbitrary.
-	_zone(&"lot", ZoneDef.Role.NEUTRAL, &"", -1,
-		AABB(Vector3(0.0, GROUND, 0.0), Vector3(LOT_W, high, LOT_D)), true)
-	# §9 states territory as a DISTANCE - "within 400 of a house's outer wall".
-	# Zones are boxes, so the box is the approximation, and the naive version
-	# does not work: the two houses are point-symmetric about the lot centre
-	# rather than side by side, so their z ranges interleave (A 350..2440,
-	# B 1280..3370). Two squares wrapping them overlap on z at ANY territory
-	# value - shrinking it does not help, because the overlap is caused by the
-	# diagonal offset, not the size. Confirmed by the same failure in the
-	# retired three-storey lot; the fix generalises unchanged.
-	#
-	# Two HOME zones overlapping at equal priority is a hard refusal: the
-	# overlap covers ground a spawn can sit on, and which team owns a point
-	# decides whether a capture there is legal.
-	#
-	# So each yard is clipped at the lot's x midline. The corridor is the
-	# divider the plan already draws, the split is point-symmetric so neither
-	# team is favoured, and most of the 400 survives on the contested east
-	# face - the one face where the exact figure matters.
 	var midline: float = LOT_W * 0.5
 	for turned: bool in [false, true]:
-		var yard: Rect2 = _flat(Rect2(-TERRITORY, -TERRITORY,
-			HOUSE + TERRITORY * 2.0, HOUSE + TERRITORY * 2.0), turned)
-		var from_x: float = maxf(yard.position.x, midline) if turned else yard.position.x
-		var to_x: float = yard.end.x if turned else minf(yard.end.x, midline)
+		var from_x: float = midline if turned else 0.0
 		# Priority 0: the yard WRAPS the house, so every room overlaps it.
-		# Rooms win, and the yard is only what is left over outside them.
+		# Rooms win, and the yard is only what is left over outside them. The
+		# two yards touch on the midline and do not overlap.
 		_zone(&"yard_b" if turned else &"yard_a", ZoneDef.Role.HOME,
 			&"team_b" if turned else &"team_a", 0,
-			AABB(Vector3(from_x, GROUND, yard.position.y),
-				Vector3(to_x - from_x, high, yard.size.y)), true)
+			AABB(Vector3(from_x, GROUND, 0.0), Vector3(midline, high, LOT_D)), true)
+	_fence(midline)
+
+## The boundary fence: solid along the midline except the main gate in the
+## middle and a small crossing CROSSING_IN from each end. Named as furniture
+## (`blocker_furniture_*`) so the shell does not draw it as a brick wall;
+## ExteriorBuilder draws it as a timber fence from these boxes.
+func _fence(midline: float) -> void:
+	var middle: float = LOT_D * 0.5
+	var gaps: Array[Vector2] = [
+		_at(CROSSING_IN, CROSSING),
+		_at(middle, GATE),
+		_at(LOT_D - CROSSING_IN, CROSSING),
+	]
+	var cursor: float = 0.0
+	for gap: Vector2 in gaps:
+		_fence_panel(midline, cursor, gap.x)
+		cursor = gap.y
+	_fence_panel(midline, cursor, LOT_D)
+
+func _fence_panel(midline: float, from_z: float, to_z: float) -> void:
+	_blocker(AABB(Vector3(midline - FENCE_THICK * 0.5, GROUND, from_z),
+		Vector3(FENCE_THICK, FENCE_HEIGHT, to_z - from_z)), "blocker_furniture_fence")
 
 # ---- primitives ----
 

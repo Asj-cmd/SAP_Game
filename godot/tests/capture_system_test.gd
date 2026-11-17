@@ -26,6 +26,7 @@ func _initialize() -> void:
 	print("=== CaptureSystem rules ===")
 	_test_content_variants_load()
 	_test_capture_conditions()
+	_test_territory_line()
 	_test_safe_room_variants()
 	_test_release_conditions()
 	_test_timeout()
@@ -138,7 +139,7 @@ func _test_capture_conditions() -> void:
 		{"name": "captures intruder on own home ground",
 		 "captor": Vector3(50, 50, 50), "target": Vector3(60, 50, 50),
 		 "captor_team": &"team_a", "target_team": &"team_b", "expect": true},
-		{"name": "rejects when in different zones",
+		{"name": "rejects a target on unowned ground next door",
 		 "captor": Vector3(95, 50, 50), "target": Vector3(105, 50, 50),
 		 "captor_team": &"team_a", "target_team": &"team_b", "expect": false},
 		{"name": "rejects beyond capture range",
@@ -193,6 +194,86 @@ func _test_capture_conditions() -> void:
 	_check("capture/breaks the target's grip", target_c.is_carrying(), false)
 	_check("capture/announces the dropped carriable",
 		_has_event(events, CaptureEvent.KIND_CARRIABLE_RELEASED), true)
+
+## The territory line (P3-8): a strip of five zones with real walls, x only.
+##   0..100 house_a | 100..200 yard_a | 200..300 yard_b | 300..400 house_b
+##   400..500 pen_a (team_a's jail, holding team_b's prisoners)
+## A house wall at x 98..102 and the fence at x 198..202, each with a doorway
+## at z 40..60. Positions sit 20 off the floor like a body's.
+func _build_line_world() -> SimWorld:
+	var zone_defs: Array[ZoneDef] = [
+		_make_zone(&"house_a", ZoneDef.Role.HOME, &"team_a", 0.0),
+		_make_zone(&"yard_a", ZoneDef.Role.HOME, &"team_a", 100.0),
+		_make_zone(&"yard_b", ZoneDef.Role.HOME, &"team_b", 200.0),
+		_make_zone(&"house_b", ZoneDef.Role.HOME, &"team_b", 300.0),
+		_make_zone(&"pen_a", ZoneDef.Role.JAIL, &"team_a", 400.0),
+	]
+	var team_a: TeamDef = TeamDef.new()
+	team_a.id = &"team_a"
+	team_a.jail_zone = &"pen_b"
+	var team_b: TeamDef = TeamDef.new()
+	team_b.id = &"team_b"
+	team_b.jail_zone = &"pen_a"
+	var mode: GameModeDef = GameModeDef.new()
+	mode.capture_seconds = HOLD_SECONDS
+	var tuning: TuningDef = TuningDef.new()
+	tuning.capture_range = RANGE
+	var world: SimWorld = SimWorld.new(1)
+	world.configure(mode, tuning, zone_defs, [team_a, team_b])
+	# Set after configure: the load gate would judge this rig as a level.
+	var walls: WorldCollisionDef = WorldCollisionDef.new()
+	for x: float in [98.0, 198.0]:
+		walls.blockers.append(AABB(Vector3(x, 0.0, 0.0), Vector3(4.0, 100.0, 40.0)))
+		walls.blockers.append(AABB(Vector3(x, 0.0, 60.0), Vector3(4.0, 100.0, 40.0)))
+	world.collision = walls
+	world.add_system(CaptureSystem.new())
+	world.match_phase = SimWorld.MatchPhase.PLAYING
+	return world
+
+func _test_territory_line() -> void:
+	var a: StringName = &"team_a"
+	var b: StringName = &"team_b"
+	var cases: Array[Dictionary] = [
+		{"name": "defender seizes an intruder in its yard",
+		 "captor": Vector3(140, 20, 20), "target": Vector3(160, 20, 20),
+		 "captor_team": a, "target_team": b, "expect": true},
+		{"name": "defender seizes an intruder in its house",
+		 "captor": Vector3(40, 20, 20), "target": Vector3(60, 20, 20),
+		 "captor_team": a, "target_team": b, "expect": true},
+		{"name": "from the house through the doorway to the yard",
+		 "captor": Vector3(85, 20, 50), "target": Vector3(115, 20, 50),
+		 "captor_team": a, "target_team": b, "expect": true},
+		{"name": "not through the house wall",
+		 "captor": Vector3(85, 20, 20), "target": Vector3(115, 20, 20),
+		 "captor_team": a, "target_team": b, "expect": false},
+		{"name": "up to the fence's own face",
+		 "captor": Vector3(170, 20, 80), "target": Vector3(196, 20, 80),
+		 "captor_team": a, "target_team": b, "expect": true},
+		{"name": "not an intruder still on its own side of the gate",
+		 "captor": Vector3(190, 20, 50), "target": Vector3(210, 20, 50),
+		 "captor_team": a, "target_team": b, "expect": false},
+		{"name": "both in the gate, on the defender's side",
+		 "captor": Vector3(185, 20, 50), "target": Vector3(195, 20, 50),
+		 "captor_team": a, "target_team": b, "expect": true},
+		{"name": "both in the gate, on the other side",
+		 "captor": Vector3(205, 20, 50), "target": Vector3(215, 20, 50),
+		 "captor_team": a, "target_team": b, "expect": false},
+		{"name": "the other family seizes on its own side of the gate",
+		 "captor": Vector3(215, 20, 50), "target": Vector3(205, 20, 50),
+		 "captor_team": b, "target_team": a, "expect": true},
+		{"name": "the other family not across the line",
+		 "captor": Vector3(210, 20, 50), "target": Vector3(190, 20, 50),
+		 "captor_team": b, "target_team": a, "expect": false},
+		{"name": "never in the defender's own jail",
+		 "captor": Vector3(440, 20, 20), "target": Vector3(460, 20, 20),
+		 "captor_team": a, "target_team": b, "expect": false},
+	]
+	for case: Dictionary in cases:
+		var world: SimWorld = _build_line_world()
+		var captor: SimEntity = _add_actor(world, case["captor_team"], case["captor"])
+		var target: SimEntity = _add_actor(world, case["target_team"], case["target"])
+		_run(world, [CaptureCommand.capture(captor.id, target.id)])
+		_check("line/%s" % case["name"], target.is_captured, case["expect"])
 
 func _has_event(events: Array[SimEvent], kind: StringName) -> bool:
 	for event: SimEvent in events:

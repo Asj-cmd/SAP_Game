@@ -22,3 +22,6 @@ const PEN_GATE: float = 120.0
 ## Which way the piece's front faces, in degrees about +y; 0 = +z.
 @export var yaw_deg: float = 0.0
 @export var fit: bool = true
+## A yard prop (P3-8): whose yard it stands in. `model` is then a SLOT, and the
+## theme's `yard_models` says what that family has there. Empty for furniture.
+@export var family: StringName = &""

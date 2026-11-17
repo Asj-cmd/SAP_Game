@@ -220,6 +220,7 @@ func _prop(node: Node, world: Transform3D) -> PropPlacement:
 	placement.box = box
 	placement.yaw_deg = float(node.get_meta(&"yaw_deg", 0.0))
 	placement.fit = bool(node.get_meta(&"fit", true))
+	placement.family = StringName(node.get_meta(&"family", &""))
 	return placement
 
 func _compare_props(a: PropPlacement, b: PropPlacement) -> bool:
