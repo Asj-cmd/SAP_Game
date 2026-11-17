@@ -8,6 +8,12 @@ extends SceneTree
 ##   node autobuild/run_tool.mjs rerig_character -- --src=<abs .fbx>
 ##        --rig=res://art/characters/figure_male.gltf --out=res://art/characters/x.gltf
 ##        [--normal-smooth=4] [--egg=1] [--egg-depth-max=1.45] [--kinds=Jacket:trim,Shirt:shirt]
+##        [--hair=combover|beehive|mohawk|pigtails_long|pigtails_short] [--hair-height=8]
+##        [--belly=9]
+##
+## --hair (P2-6) adds plain solid hair shapes on the blank head, painted `hair`
+## and rigid on the Head bone; --belly pushes the front of the lower torso out
+## by that many cm.
 ##
 ## --kinds overrides which paint region a source material becomes (exact
 ## material name -> bare | shirt | trim | trousers | shoes | drop).
@@ -35,6 +41,9 @@ const PAINT: Dictionary[String, Color] = {
 	"trim": Color8(200, 196, 160),
 	"trousers": Color8(128, 122, 116),
 	"shoes": Color8(80, 76, 72),
+	# P2-6: plain hair shapes. A mid brown, so a figure drawn without the theme's
+	# hair colours still has hair; the theme recolours it per member.
+	"hair": Color8(122, 86, 58),
 }
 
 ## Source bone -> rig bone, for the weights. Sides: ".L"/".R" -> "_l"/"_r".
@@ -139,6 +148,12 @@ func _run() -> int:
 	for b: int in r_bones.get_bone_count():
 		r_rest[r_bones.get_bone_name(b)] = r_root * r_bones.get_bone_global_rest(b)
 	var r_height: float = (_xf(r_view) * r_view.get_aabb()).end.y
+	# Which way each bone's own axes point at rest (root space), for whoever
+	# writes bone scales in the theme: only the two axes ACROSS a bone thicken it.
+	for bname: String in ["pelvis", "spine_03", "neck_01", "clavicle_l", "upperarm_l", "lowerarm_l"]:
+		var b: Basis = r_rest[bname].basis.orthonormalized()
+		print("axes: %s x %s y %s z %s" % [bname, b.x.snapped(Vector3.ONE * 0.01),
+			b.y.snapped(Vector3.ONE * 0.01), b.z.snapped(Vector3.ONE * 0.01)])
 
 	# --- 1. Pose the source into the rig's stance.
 	var aligns: Dictionary[String, Array] = {}
@@ -244,12 +259,72 @@ func _run() -> int:
 	for b: int in posed:
 		joint[s_bones.get_bone_name(b)] = posed[b].origin * scale + shift
 
+	# Which way the body faces along z: toes ahead of the ankle, by the joints and
+	# by the mesh (they must agree, or hair and belly would go on the back).
+	var cm: float = r_height / 180.0
+	var toe_z: float = joint["Foot.L_end"].z - joint["Foot.L"].z
+	var foot_bone: int = r_bones.find_bone("foot_l")
+	var foot_sum: float = 0.0
+	var foot_n: int = 0
+	for i: int in points.size():
+		if float(weights_out[i].get(foot_bone, 0.0)) >= 0.5:
+			foot_sum += points[i].z
+			foot_n += 1
+	var mesh_z: float = (foot_sum / foot_n - joint["LowerLeg.L_end"].z) if foot_n > 0 else 0.0
+	var fwd: float = 1.0 if mesh_z >= 0.0 else -1.0
+	print("facing: z %+.0f (toes %.2f by joints, %.2f by mesh), 1 cm = %.4f" % [fwd, toe_z, mesh_z, cm])
+	if (_opts.has("hair") or _opts.has("belly")) and (absf(mesh_z) < 0.5 * cm or toe_z * mesh_z < 0.0):
+		push_error("cannot tell which way the body faces")
+		return 1
+
+	# --- 2b. The belly (P2-6): the front of the lower torso pushed forward, fading
+	# out up, down and to the sides. A bone scale would widen the whole torso.
+	var belly: float = float(_opts.get("belly", "0")) * cm
+	if belly > 0.0:
+		var torso: Array[int] = [r_bones.find_bone("pelvis"), r_bones.find_bone("spine_01"),
+			r_bones.find_bone("spine_02"), r_bones.find_bone("spine_03")]
+		# Fullest half way between the abdomen and chest joints (about the navel);
+		# gone by the hip joints below and the chest above.
+		var mid_y: float = lerpf(joint["Abdomen"].y, joint["Torso"].y, 0.5)
+		var reach: float = (joint["Torso"].y - joint["Body"].y) * 0.8
+		var mid: Vector3 = joint["Body"]
+		var half_w: float = 0.0
+		var depth: float = 0.0
+		var on_torso: PackedFloat32Array = []
+		for i: int in points.size():
+			var tw: float = 0.0
+			for rb: int in torso:
+				tw += float(weights_out[i].get(rb, 0.0))
+			on_torso.append(tw)
+			if tw >= 0.5 and absf(points[i].y - mid_y) < reach * 0.5:
+				half_w = maxf(half_w, absf(points[i].x - mid.x))
+				depth = maxf(depth, (points[i].z - mid.z) * fwd)
+		var moved: int = 0
+		for i: int in points.size():
+			if on_torso[i] <= 0.0 or half_w <= 0.0 or depth <= 0.0:
+				continue
+			var p: Vector3 = points[i]
+			var gy: float = pow(cos(PI * 0.5 * minf(1.0, absf(p.y - mid_y) / reach)), 2.0)
+			var gx: float = cos(PI * 0.5 * minf(1.0, absf(p.x - mid.x) / half_w))
+			var gz: float = smoothstep(-0.2, 0.6, (p.z - mid.z) * fwd / depth)
+			var push: float = belly * on_torso[i] * gy * gx * gz
+			if push <= 0.0:
+				continue
+			p.z += push * fwd
+			p.x += (p.x - mid.x) / half_w * push * 0.25
+			points[i] = p
+			moved += 1
+		print("belly: %.1f out at y %.1f (reach %.1f, half width %.1f, depth %.1f), %d corners moved" % [
+			belly, mid_y, reach, half_w, depth, moved])
+
 	# --- 5a. The blank head: an ellipsoid fitted to the head points. The eyes and
 	# nose FOLD onto it (their triangles end up back to back), so their smoothed
 	# normals cancel and drew a ghost face by shading alone: egged points take
 	# the ellipsoid's own normal instead (egg_normal, by egg_w).
 	var egg_normal: PackedVector3Array = []
 	var egg_w: PackedFloat32Array = []
+	var egg_centre: Vector3 = Vector3.ZERO
+	var egg_radii: Vector3 = Vector3.ONE
 	if egg:
 		# The egg's base is below the Head joint, at the chin: these heads hang
 		# their jaw ~6 cm under the joint, and an egg fitted from the joint up
@@ -259,6 +334,8 @@ func _run() -> int:
 		points = made["points"]
 		egg_normal = made["normals"]
 		egg_w = made["weights"]
+		egg_centre = made["centre"]
+		egg_radii = made["radii"]
 		# The egg is round only while every point on it moves together. These
 		# rigs share the face's weights with the neck, so any clip that turns the
 		# head against the neck pulled the folded eyes, nose and mouth back out
@@ -288,6 +365,36 @@ func _run() -> int:
 			weights_out = soup["weights"]
 			egg_normal = soup["egg_normal"]
 			egg_w = soup["egg_w"]
+
+	# --- 5c. Hair (P2-6): closed plain shapes placed from the egg, painted
+	# `hair`, every corner on the Head bone alone, shaded with the rest.
+	var hair_style: String = _opts.get("hair", "")
+	if hair_style != "":
+		if not egg:
+			push_error("--hair needs the egg head")
+			return 1
+		_hc = egg_centre
+		_hr = egg_radii
+		_hf = fwd
+		_hair.clear()
+		if not _build_hair(hair_style, cm, float(_opts.get("hair-height", "8")) * cm,
+				joint["UpperArm.L"].y):
+			push_error("--hair: no style %s" % hair_style)
+			return 1
+		var hair_bone: int = r_bones.find_bone("Head")
+		var h_low: Vector3 = Vector3(INF, INF, INF)
+		var h_high: Vector3 = -h_low
+		for p: Vector3 in _hair:
+			points.append(p)
+			colours.append(PAINT["hair"])
+			weights_out.append({hair_bone: 1.0})
+			egg_normal.append(Vector3.ZERO)
+			egg_w.append(0.0)
+			h_low = h_low.min(p)
+			h_high = h_high.max(p)
+		print("hair: %s, %d triangles, egg centre %s radii %s, hair box %s .. %s, crown %.1f, shoulder %.1f" % [
+			hair_style, _hair.size() / 3, egg_centre, egg_radii, h_low, h_high,
+			egg_centre.y + egg_radii.y, joint["UpperArm.L"].y])
 
 	# --- 3. Move the rig's joints.
 	var placed: Dictionary[String, Vector3] = {}
@@ -444,6 +551,187 @@ func _stamp_bin_hash(gltf_path: String) -> void:
 	var file: FileAccess = FileAccess.open(gltf_path, FileAccess.WRITE)
 	file.store_string(JSON.stringify(doc))
 	file.close()
+
+# --- Hair (P2-6). Shapes are written in the head's own frame: a point `u` is in
+# egg radii from the egg's centre (x across, y up, z toward the face), so 1 on
+# an axis is the egg's surface. Everything is a triangle soup in root space.
+var _hc: Vector3 = Vector3.ZERO
+var _hr: Vector3 = Vector3.ONE
+var _hf: float = 1.0
+var _hair: PackedVector3Array = []
+
+func _hp(u: Vector3, k: float = 1.0) -> Vector3:
+	return _hc + Vector3(u.x * _hr.x, u.y * _hr.y, u.z * _hr.z * _hf) * k
+
+## One triangle, wound so its front faces away from `inside`.
+func _tri(a: Vector3, b: Vector3, c: Vector3, inside: Vector3) -> void:
+	var face: Vector3 = (c - a).cross(b - a)
+	if face.length_squared() < 1e-9:
+		return
+	if face.dot((a + b + c) / 3.0 - inside) < 0.0:
+		_hair.append_array(PackedVector3Array([a, c, b]))
+	else:
+		_hair.append_array(PackedVector3Array([a, b, c]))
+
+func _quad(a: Vector3, b: Vector3, c: Vector3, d: Vector3, inside: Vector3) -> void:
+	_tri(a, b, c, inside)
+	_tri(a, c, d, inside)
+
+## A layer of hair lying on the egg wherever `on` (unit direction -> 0..1) says:
+## a patch of a slightly larger egg whose edge dips under the head's surface, so
+## it needs no rim and leaves no gap.
+func _hair_cap(on: Callable, outer: float, rings: int = 12, segs: int = 16) -> void:
+	var grid: Array[PackedVector3Array] = []
+	var cover: Array[PackedFloat32Array] = []
+	for i: int in rings + 1:
+		var phi: float = PI * i / rings
+		var row: PackedVector3Array = []
+		var ms: PackedFloat32Array = []
+		for j: int in segs:
+			var th: float = TAU * j / segs
+			var d: Vector3 = Vector3(sin(phi) * cos(th), cos(phi), sin(phi) * sin(th))
+			var m: float = clampf(on.call(d), 0.0, 1.0)
+			row.append(_hp(d, lerpf(0.95, outer, m)))
+			ms.append(m)
+		grid.append(row)
+		cover.append(ms)
+	for i: int in rings:
+		for j: int in segs:
+			var k: int = (j + 1) % segs
+			if maxf(maxf(cover[i][j], cover[i][k]), maxf(cover[i + 1][j], cover[i + 1][k])) <= 0.0:
+				continue
+			_quad(grid[i][j], grid[i][k], grid[i + 1][k], grid[i + 1][j], _hc)
+
+## A strip of hair over the head: side to side (round z, `offset` along z) or
+## front to back (round x). Angles are from the crown, in degrees; `lift` (0..1
+## along the strip -> root units) raises its top; `top_k` narrows the top.
+func _hair_arc(front_to_back: bool, offset: float, half_w: float, from_deg: float, to_deg: float,
+		lift: Callable, top_k: float, outer: float, segs: int) -> void:
+	var rho: float = sqrt(maxf(0.0, 1.0 - offset * offset))
+	var side: Vector3 = Vector3.RIGHT if front_to_back else Vector3.BACK
+	var stations: Array[PackedVector3Array] = []  # base l, base r, top r, top l
+	for k: int in segs + 1:
+		var t: float = float(k) / segs
+		var ang: float = deg_to_rad(lerpf(from_deg, to_deg, t))
+		var mid: Vector3 = Vector3(rho * sin(ang), rho * cos(ang), offset)
+		if front_to_back:
+			mid = Vector3(offset, rho * cos(ang), rho * sin(ang))
+		var up: Vector3 = (_hp(mid) - _hc).normalized() * float(lift.call(t))
+		stations.append(PackedVector3Array([_hp(mid - side * half_w, 0.95), _hp(mid + side * half_w, 0.95),
+			_hp(mid + side * half_w * top_k, outer) + up, _hp(mid - side * half_w * top_k, outer) + up]))
+	for k: int in segs:
+		var a: PackedVector3Array = stations[k]
+		var b: PackedVector3Array = stations[k + 1]
+		var inside: Vector3 = Vector3.ZERO
+		for p: Vector3 in a + b:
+			inside += p / 8.0
+		_quad(a[0], a[3], b[3], b[0], inside)
+		_quad(a[1], a[2], b[2], b[1], inside)
+		_quad(a[3], a[2], b[2], b[3], inside)
+		if k == 0:
+			_quad(a[0], a[1], a[2], a[3], inside)
+		if k == segs - 1:
+			_quad(b[0], b[1], b[2], b[3], inside)
+
+## A solid egg shape: `radii` along `turn`'s axes, about `at` (root space).
+func _hair_blob(at: Vector3, radii: Vector3, turn: Basis, rings: int = 5, segs: int = 8) -> void:
+	var grid: Array[PackedVector3Array] = []
+	for i: int in rings + 1:
+		var phi: float = PI * i / rings
+		var row: PackedVector3Array = []
+		for j: int in segs:
+			var th: float = TAU * j / segs
+			row.append(at + turn * (Vector3(sin(phi) * cos(th), cos(phi), sin(phi) * sin(th)) * radii))
+		grid.append(row)
+	for i: int in rings:
+		for j: int in segs:
+			var k: int = (j + 1) % segs
+			_quad(grid[i][j], grid[i][k], grid[i + 1][k], grid[i + 1][j], at)
+
+## A column turned on a lathe: `profile` is [distance along `axis`, radius] rows
+## from `base`; the last row closes it to a point.
+func _hair_lathe(base: Vector3, axis: Vector3, profile: Array[Vector2], segs: int = 10) -> void:
+	var across: Vector3 = axis.cross(Vector3.RIGHT).normalized()
+	var other: Vector3 = axis.cross(across).normalized()
+	var grid: Array[PackedVector3Array] = []
+	for row: Vector2 in profile:
+		var ring: PackedVector3Array = []
+		for j: int in segs:
+			var th: float = TAU * j / segs
+			ring.append(base + axis * row.x + (across * cos(th) + other * sin(th)) * row.y)
+		grid.append(ring)
+	for i: int in profile.size() - 1:
+		var inside: Vector3 = base + axis * (profile[i].x + profile[i + 1].x) * 0.5
+		for j: int in segs:
+			var k: int = (j + 1) % segs
+			_quad(grid[i][j], grid[i][k], grid[i + 1][k], grid[i + 1][j], inside)
+
+## Top and back of the head: the hairline runs from the top of the forehead,
+## past the ears at the egg's middle height, down to the nape.
+func _on_top_back(d: Vector3) -> float:
+	return smoothstep(-0.08, 0.08, d.y - (0.55 * d.z + 0.02))
+
+## A horseshoe round the sides and back: none on the forehead or the crown.
+func _on_horseshoe(d: Vector3) -> float:
+	var low: float = 0.4 * minf(d.z, 0.0) - 0.05
+	return smoothstep(low - 0.08, low + 0.08, d.y) * (1.0 - smoothstep(0.42, 0.58, d.y)) \
+		* (1.0 - smoothstep(0.2, 0.45, d.z))
+
+func _flat(_t: float) -> float:
+	return 0.0
+
+var _crest: float = 0.0
+
+func _crest_at(t: float) -> float:
+	return _crest * sqrt(maxf(0.0, sin(PI * t)))
+
+## The five styles (P2-6 brief). `cm` is one centimetre in root units, `height`
+## the mohawk's, `shoulder_y` where the long pigtails must stop. False = unknown.
+func _build_hair(style: String, cm: float, height: float, shoulder_y: float) -> bool:
+	match style:
+		"combover":
+			_hair_cap(_on_horseshoe, 1.07)
+			# Three thin slabs laid across the bald crown, bare head between them.
+			for z: float in [0.38, 0.05, -0.28]:
+				_hair_arc(false, z, 0.085, -64.0, 64.0, _flat, 1.0, 1.09, 6)
+		"beehive":
+			_hair_cap(_on_top_back, 1.08)
+			var lean: float = deg_to_rad(8.0)
+			var axis: Vector3 = Vector3(0.0, cos(lean), -sin(lean) * _hf)
+			var top: float = 0.55 * _hr.y
+			var r: float = _hr.x
+			var profile: Array[Vector2] = [Vector2(0.0, 0.68 * r), Vector2(top + 2.0 * cm, 0.66 * r),
+				Vector2(top + 10.0 * cm, 0.64 * r), Vector2(top + 16.0 * cm, 0.56 * r),
+				Vector2(top + 19.5 * cm, 0.36 * r), Vector2(top + 21.0 * cm, 0.0)]
+			_hair_lathe(_hp(Vector3(0.0, 0.45, -0.12)), axis, profile)
+		"mohawk":
+			# One ridge down the middle, top of the forehead to the nape, no cap.
+			_crest = height
+			_hair_arc(true, 0.0, 0.13, 52.0, -125.0, _crest_at, 0.5, 1.0, 10)
+		"pigtails_long":
+			_hair_cap(_on_top_back, 1.05)
+			# Two long bunches from behind the ears down to just above the shoulders.
+			var top_y: float = _hc.y + 0.2 * _hr.y
+			# (The member's Head scale in the theme stretches them ~17 % further down.)
+			var bottom_y: float = shoulder_y + 8.0 * cm
+			for s: float in [-1.0, 1.0]:
+				var at: Vector3 = _hp(Vector3(s * 0.85, 0.0, -0.45))
+				at.x += s * 1.0 * cm
+				at.y = (top_y + bottom_y) * 0.5
+				_hair_blob(at, Vector3(2.8 * cm, (top_y - bottom_y) * 0.5, 3.0 * cm),
+					Basis(Vector3.BACK, deg_to_rad(6.0) * s))
+		"pigtails_short":
+			_hair_cap(_on_top_back, 1.05)
+			# Two short bunches set high, sticking out sideways and a little up.
+			for s: float in [-1.0, 1.0]:
+				var out: Vector3 = Vector3(s * cos(deg_to_rad(25.0)), sin(deg_to_rad(25.0)), 0.0)
+				var at: Vector3 = _hp(Vector3(s * 0.88, 0.42, -0.1)) + out * 3.0 * cm
+				# The blob's long (y) axis is turned to lie along `out`.
+				_hair_blob(at, Vector3(3.3 * cm, 4.5 * cm, 3.3 * cm),
+					Basis(Vector3.BACK, -s * deg_to_rad(65.0)))
+		_:
+			return false
+	return true
 
 ## Poses one source bone: follows its parent, then turns toward the rig.
 func _pose_bone(bones: Skeleton3D, b: int, rest: Dictionary[int, Transform3D],

@@ -25,3 +25,7 @@ extends Resource
 ## family's palette ("main", "second", "dark" ...; ArtTheme.family_palettes).
 ## A region not listed keeps the body's baked plain colour.
 @export var outfit: Dictionary[StringName, StringName] = {}
+## The colour of this member's hair shapes (P2-6; the `hair` paint region the
+## re-rig tool adds). The same in both families: teams are read from the
+## clothes. Alpha 0 keeps the body's baked plain brown.
+@export var hair_colour: Color = Color(0.0, 0.0, 0.0, 0.0)

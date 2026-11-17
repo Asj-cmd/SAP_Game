@@ -1711,8 +1711,8 @@ func _figure_instance(team: StringName, model: PackedScene = null, slot: int = 0
 	ArtTheme.dress_whole(art, theme.figure_material(team))
 	# D3 default: the member's outfit in its family's colours (P2-1b). Option
 	# (c) puts everyone back in the same plain clothes, told apart by the band.
-	if team != &"":
-		theme.outfit_figure(art, team, member, tell.wristband)
+	# The member's hair colour goes on with or without a team (P2-6).
+	theme.outfit_figure(art, team, member, tell.wristband)
 	if model != null or member != null or theme.figure_scene() != null:
 		theme.shape_figure(art, member)
 	# D3 (c): the one coloured thing on a figure (TeamTell, P2-4).

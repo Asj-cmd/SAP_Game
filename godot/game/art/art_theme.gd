@@ -402,6 +402,9 @@ const OUTFIT_REGIONS: Dictionary[StringName, Color] = {
 	&"trim": Color8(200, 196, 160),
 	&"trousers": Color8(128, 122, 116),
 	&"shoes": Color8(80, 76, 72),
+	# P2-6: the plain hair shapes; coloured per member (FamilyMember.hair_colour),
+	# never by team.
+	&"hair": Color8(122, 86, 58),
 }
 
 var _outfit_meshes: Dictionary[String, ArrayMesh] = {}
@@ -411,20 +414,27 @@ var _outfit_meshes: Dictionary[String, ArrayMesh] = {}
 ## palette's colours. Still one mesh, one material and one draw per body; the
 ## copies are made once per (body, team, member) and shared. `plain` (D3 option
 ## c), a theme with outfits off, or a team with no palette leaves the baked
-## plain clothes. Drawn only.
+## plain clothes. The member's hair colour (P2-6) is applied in every case, with
+## or without a team. Drawn only.
 func outfit_figure(art: Node3D, team: StringName, who: FamilyMember, plain: bool = false) -> void:
-	if plain or not family_outfits or who == null or who.outfit.is_empty():
+	if who == null:
 		return
-	var palette: Dictionary = family_palettes.get(team, {})
-	if palette.is_empty():
+	var outfit: Dictionary[StringName, StringName] = {}
+	var palette: Dictionary = {}
+	if not plain and family_outfits and not who.outfit.is_empty():
+		palette = family_palettes.get(team, {})
+		if not palette.is_empty():
+			outfit = who.outfit
+	if outfit.is_empty() and who.hair_colour.a <= 0.0:
 		return
+	var wearing: StringName = team if not outfit.is_empty() else &""
 	for found: Node in art.find_children("*", "MeshInstance3D", true, false):
 		var body: MeshInstance3D = found as MeshInstance3D
 		if body.mesh == null or body.skin == null:
 			continue
-		var key: String = "%d|%s|%s" % [body.mesh.get_instance_id(), team, who.id]
+		var key: String = "%d|%s|%s" % [body.mesh.get_instance_id(), wearing, who.id]
 		if not _outfit_meshes.has(key):
-			_outfit_meshes[key] = _outfit_mesh(body.mesh, who.outfit, palette)
+			_outfit_meshes[key] = _outfit_mesh(body.mesh, outfit, palette, who.hair_colour)
 		if _outfit_meshes[key] != null:
 			body.mesh = _outfit_meshes[key]
 
@@ -432,13 +442,18 @@ func outfit_figure(art: Node3D, team: StringName, who: FamilyMember, plain: bool
 ## by the colour that region wears. The figure material multiplies the vertex
 ## colour (as sRGB) by its own putty albedo, so the stored colour is the wanted
 ## one divided by the albedo in linear light, to come out on screen as asked.
-func _outfit_mesh(source: Mesh, outfit: Dictionary[StringName, StringName], palette: Dictionary) -> ArrayMesh:
+func _outfit_mesh(source: Mesh, outfit: Dictionary[StringName, StringName], palette: Dictionary,
+		hair: Color = Color(0.0, 0.0, 0.0, 0.0)) -> ArrayMesh:
+	var asked: Dictionary[StringName, Color] = {}
+	for region: StringName in outfit:
+		if palette.has(outfit[region]) and OUTFIT_REGIONS.has(region):
+			asked[region] = palette[outfit[region]] as Color
+	if hair.a > 0.0:
+		asked[&"hair"] = hair
 	var wear: Dictionary[StringName, Color] = {}
 	var under: Color = figure.albedo_color.srgb_to_linear() if figure != null else Color.WHITE
-	for region: StringName in outfit:
-		if not palette.has(outfit[region]) or not OUTFIT_REGIONS.has(region):
-			continue
-		var want: Color = (palette[outfit[region]] as Color).srgb_to_linear()
+	for region: StringName in asked:
+		var want: Color = asked[region].srgb_to_linear()
 		wear[region] = Color(minf(want.r / maxf(under.r, 0.01), 1.0), minf(want.g / maxf(under.g, 0.01), 1.0),
 			minf(want.b / maxf(under.b, 0.01), 1.0)).linear_to_srgb()
 	if wear.is_empty():
@@ -460,7 +475,41 @@ func _outfit_mesh(source: Mesh, outfit: Dictionary[StringName, StringName], pale
 			keep = 0
 		made.add_surface_from_arrays(Mesh.PRIMITIVE_TRIANGLES, arrays, [], {}, keep)
 		made.surface_set_material(surface, source.surface_get_material(surface))
+	# The copy's hair no longer carries the hair paint: hand on the body's box.
+	_body_boxes[made] = _body_box(source)
 	return made
+
+static var _body_boxes: Dictionary[Mesh, AABB] = {}
+
+## A figure mesh's box WITHOUT its hair (P2-6). Hair may stand above the crown
+## (mom's hairdo, a mohawk); a member's drawn height is its body's, so hair
+## never shrinks anybody. A mesh with no hair paint gives its whole box.
+static func _body_box(mesh: Mesh) -> AABB:
+	if _body_boxes.has(mesh):
+		return _body_boxes[mesh]
+	var box: AABB = mesh.get_aabb()
+	var body: AABB = AABB()
+	var any_body: bool = false
+	var any_hair: bool = false
+	for surface: int in mesh.get_surface_count():
+		var arrays: Array = mesh.surface_get_arrays(surface)
+		if arrays[Mesh.ARRAY_COLOR] == null:
+			any_hair = false
+			break
+		var points: PackedVector3Array = arrays[Mesh.ARRAY_VERTEX]
+		var colours: PackedColorArray = arrays[Mesh.ARRAY_COLOR]
+		for i: int in points.size():
+			if _outfit_region(colours[i]) == &"hair":
+				any_hair = true
+			elif any_body:
+				body = body.expand(points[i])
+			else:
+				body = AABB(points[i], Vector3.ZERO)
+				any_body = true
+	if any_hair and any_body:
+		box = body
+	_body_boxes[mesh] = box
+	return box
 
 ## The painted region a baked vertex colour belongs to (the nearest paint).
 static func _outfit_region(colour: Color) -> StringName:
@@ -543,7 +592,7 @@ static func _model_height(node: Node, above: Transform3D) -> float:
 	var tallest: float = 0.0
 	var mesh_view: MeshInstance3D = node as MeshInstance3D
 	if mesh_view != null and mesh_view.mesh != null:
-		tallest = (here * mesh_view.get_aabb()).size.y
+		tallest = (here * _body_box(mesh_view.mesh)).size.y
 	for child: Node in node.get_children():
 		tallest = maxf(tallest, _model_height(child, here))
 	return tallest

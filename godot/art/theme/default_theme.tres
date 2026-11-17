@@ -323,13 +323,16 @@ bone_scales = Dictionary[StringName, Vector3]({
 &"pelvis": Vector3(1.2, 1, 1.16),
 &"Head": Vector3(0.833, 1, 0.862),
 &"thigh_l": Vector3(1, 0.97, 1),
-&"thigh_r": Vector3(1, 0.97, 1)
+&"thigh_r": Vector3(1, 0.97, 1),
+&"upperarm_l": Vector3(0.95, 1, 0.95),
+&"upperarm_r": Vector3(0.95, 1, 0.95)
 })
 outfit = Dictionary[StringName, StringName]({
 &"shirt": &"main",
 &"trim": &"second",
 &"trousers": &"dark"
 })
+hair_colour = Color(0.2, 0.15, 0.11, 1)
 
 [sub_resource type="Resource" id="member_mom"]
 script = ExtResource("2_member")
@@ -338,13 +341,22 @@ model = "res://art/characters/figure_lp_dress.gltf"
 height = 176.0
 bone_scales = Dictionary[StringName, Vector3]({
 &"pelvis": Vector3(0.93, 1, 0.94),
-&"Head": Vector3(1.075, 1, 1.064)
+&"Head": Vector3(1.075, 1, 1.064),
+&"spine_03": Vector3(1.2, 1, 1.04),
+&"neck_01": Vector3(0.833, 1, 0.962),
+&"upperarm_l": Vector3(1.1, 1, 1.22),
+&"upperarm_r": Vector3(1.1, 1, 1.22),
+&"lowerarm_l": Vector3(0.9, 1, 0.9),
+&"lowerarm_r": Vector3(0.9, 1, 0.9),
+&"hand_l": Vector3(0.92, 1, 0.92),
+&"hand_r": Vector3(0.92, 1, 0.92)
 })
 outfit = Dictionary[StringName, StringName]({
 &"shirt": &"main",
 &"trim": &"second",
 &"trousers": &"dark"
 })
+hair_colour = Color(0.42, 0.2, 0.12, 1)
 
 [sub_resource type="Resource" id="member_elder_girl"]
 script = ExtResource("2_member")
@@ -360,6 +372,7 @@ outfit = Dictionary[StringName, StringName]({
 &"trim": &"main",
 &"trousers": &"second"
 })
+hair_colour = Color(0.62, 0.48, 0.28, 1)
 
 [sub_resource type="Resource" id="member_elder_boy"]
 script = ExtResource("2_member")
@@ -375,6 +388,7 @@ outfit = Dictionary[StringName, StringName]({
 &"trim": &"second",
 &"trousers": &"second"
 })
+hair_colour = Color(0.13, 0.11, 0.1, 1)
 
 [sub_resource type="Resource" id="member_younger_girl"]
 script = ExtResource("2_member")
@@ -394,6 +408,7 @@ outfit = Dictionary[StringName, StringName]({
 &"trim": &"main",
 &"trousers": &"second"
 })
+hair_colour = Color(0.62, 0.48, 0.28, 1)
 
 [sub_resource type="Resource" id="member_younger_boy"]
 script = ExtResource("2_member")
@@ -413,6 +428,7 @@ outfit = Dictionary[StringName, StringName]({
 &"trim": &"main",
 &"trousers": &"second"
 })
+hair_colour = Color(0.13, 0.11, 0.1, 1)
 
 [resource]
 script = ExtResource("1_theme")
