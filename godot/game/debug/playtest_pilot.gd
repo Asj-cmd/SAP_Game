@@ -225,6 +225,8 @@ func _run_network() -> void:
 		_note("joined", true, "seated as actor %d (team %s), %d bodies" % [
 			_game.link.actor_id, _me().team, _world().actor_ids().size()])
 	await _shot("lobby")
+	if host:
+		_game._lobby_start(true)
 	await _until(_phase_live, 15.0)
 	_turn_by_mouse = Input.mouse_mode == Input.MOUSE_MODE_CAPTURED
 	await _step_walk()
@@ -597,7 +599,7 @@ func _phase() -> SimWorld.MatchPhase:
 	return _world().match_phase if _world() != null else SimWorld.MatchPhase.WAITING
 
 func _in_network_match() -> bool:
-	return _game.link != null and _game.link.is_ready() and _match_started()
+	return _game.link != null and _game.link.is_ready() and (_match_started() or _game._lobby_wait or _role == "guest")
 
 func _guest_connected() -> bool:
 	return _game.link.transport.peers().size() > 0

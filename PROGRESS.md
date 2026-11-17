@@ -2,6 +2,9 @@
 
 Newest first. One entry per task: date, task id, what changed, what the frames showed, numbers, what is left.
 
+## 2026-11-17 — P5-1 Lobby
+- `LobbyPanel` (new): a menu-hosted game now waits in WAITING with a panel showing the join code (copied), team size, a "fill empty seats with bots" checkbox, Start and Cancel. `greybox_main` defers the bot fill and StartMatch to `_begin_match` on Start; Cancel returns to the menu. CLI hosts and solo start at once as before. The pilot host calls `_lobby_start`, and its in-match wait accepts the lobby. No seat list (not started). `verify.mjs` healthy. No frames, so the panel's look is unseen.
+
 ## 2026-11-17 — P5-2 HUD top bar
 - `MatchHud` (new, `game/greybox/match_hud.gd`): one bar, 60% of the width, first family left always, colours from the theme, split eased over 0.3 s; name, banked/target cash, round pips and YOU at each end; round and clock in the middle; CARRYING CASH, large JAILED countdown, and an [E] free prompt (read-only `LocalPlayerInput.rescue_target`). The old status line shows only with the debug HUD (F1). `MatchStatus.cash_split` pure, `match_status_test` 9 rows, pinned. Not looked at in a frame (testing diet). Prompt key text is a fixed E, not the rebind.
 

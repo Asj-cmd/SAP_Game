@@ -1,0 +1,12 @@
+const fs = require("fs");
+let b = fs.readFileSync("autobuild/BRIEF.md", "utf8");
+const i = b.indexOf("## P4-6 "), j = b.indexOf("## P4-7 ");
+b = b.slice(0, i) + b.slice(j);
+fs.writeFileSync("autobuild/BRIEF.md", b);
+let p = fs.readFileSync("PLAN.md", "utf8");
+p = p.replace("- [ ] **P4-6 Bots and panic run.**", "- [x] **P4-6 Bots and panic run.** *(Done 2026-11-17: nothing to do. P4-8 removed the panic speed boost and its verify is healthy; bots never set forward.)*");
+fs.writeFileSync("PLAN.md", p);
+let g = fs.readFileSync("PROGRESS.md", "utf8");
+const h = "## 2026-11-17 — P4-6 Bots and panic run: nothing to do\n- P4-8 removed the panic speed boost (animation only), so there is no panic speed for bots to use. The last full `verify.mjs` (end of P4-8, same code, no changes since) was healthy: 3v3 team_a in 526 s, 45 s stalls, deterministic; 1v1 deterministic; tick budget 0/0/3; symmetry 190/190; net_smoke agrees. No code changed, so no new run. BRIEF section deleted (it was marked out of date).\n\n";
+g = g.replace("## 2026-11-17 — P4-8", h + "## 2026-11-17 — P4-8");
+fs.writeFileSync("PROGRESS.md", g);

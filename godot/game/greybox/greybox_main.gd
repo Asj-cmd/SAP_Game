@@ -220,6 +220,9 @@ var _results: ResultsPanel = null
 ## Started from the menu rather than from flags, so a failure goes back there
 ## with its reason instead of leaving a dead screen behind a banner.
 var _from_menu: bool = false
+## A menu-hosted match waits in the lobby panel until Start is pressed.
+var _lobby_wait: bool = false
+var _lobby: LobbyPanel = null
 
 func _ready() -> void:
 	_build_lighting()
@@ -235,6 +238,10 @@ func _ready() -> void:
 	_menu.host_chosen.connect(_on_host)
 	_menu.join_chosen.connect(_on_join)
 	PlayerSettings.current().apply_audio()
+	_lobby = LobbyPanel.new()
+	add_child(_lobby)
+	_lobby.start_pressed.connect(_lobby_start)
+	_lobby.cancelled.connect(func() -> void: _return_to_menu(""))
 	_pause = PauseMenu.new()
 	add_child(_pause)
 	_pause.resumed.connect(func() -> void: _set_paused(false))
@@ -298,8 +305,16 @@ func _launch(role: MatchLink.Role, code: String, address: String) -> void:
 	_advertise = address
 	_from_menu = true
 	_menu.close()
-	_capture_mouse(not _split_screen)
+	_lobby_wait = role == MatchLink.Role.HOST
+	_capture_mouse(not _split_screen and not _lobby_wait)
 	_start(GreyBoxLevel.SafeVariant.B)
+	if _lobby_wait:
+		if link != null and link.failure == "":
+			_lobby.open(link.session_code(), _team_size)
+			DisplayServer.clipboard_set(link.session_code())
+		else:
+			_lobby_wait = false
+		return
 	# The code is what the host has to give somebody, and reading fourteen
 	# characters off a screen to a friend is where they get mistyped.
 	if link != null and link.failure == "" and link.role == MatchLink.Role.HOST:
@@ -330,6 +345,9 @@ func _rejoin_at(team_size: int) -> void:
 
 ## Closes the session and drops everything drawn for it.
 func _tear_down() -> void:
+	_lobby_wait = false
+	if _lobby != null:
+		_lobby.close()
 	if link != null:
 		link.close()
 	link = null
@@ -853,12 +871,27 @@ func _start(variant: GreyBoxLevel.SafeVariant) -> void:
 	# Only the authority starts a match, and only the authority fills it with
 	# bots. A guest is told that both happened, like everything else.
 	if link.role != MatchLink.Role.GUEST:
-		if link.lobby.bots_enabled:
-			link.lobby.note_fill(
-				link.crew.fill_lobby(world, _seated_actors(), world.actor_ids().size()),
-				link.crew.declined_reason
-			)
-		world.step([MatchCommand.start()])
+		if not _lobby_wait:
+			_begin_match()
+
+## Fills empty seats (when bots are on) and starts the match.
+func _begin_match() -> void:
+	if link.lobby.bots_enabled:
+		link.lobby.note_fill(
+			link.crew.fill_lobby(world, _seated_actors(), world.actor_ids().size()),
+			link.crew.declined_reason
+		)
+	world.step([MatchCommand.start()])
+
+func _lobby_start(bots: bool) -> void:
+	if link == null or not _lobby_wait:
+		return
+	_lobby_wait = false
+	_lobby.close()
+	_bots_enabled = bots
+	link.lobby.bots_enabled = bots
+	_capture_mouse(not _split_screen)
+	_begin_match()
 
 ## One configured, gated world. Null when the content was refused.
 func _build_world() -> SimWorld:
