@@ -2,6 +2,17 @@
 
 Newest first. One entry per task: date, task id, what changed, what the frames showed, numbers, what is left.
 
+## 2026-11-16 — P5-0 Family display names
+- **Followed the brief.** New `FamilyNames` (`godot/game/greybox/family_names.gd`, static): `parse(text)` is pure; `load_from(path)` adds the "Family A" / "Family B" fallbacks (both when the file is missing); `name_of(team_id)` reads `res://content/family_names.cfg` on the first call and caches it. Hand-parsed, not `ConfigFile`. The user's `.cfg` was read, not edited.
+- **Where players see a team:** the status line and the round / match headlines (`match_status.gd`) and the debug HUD's team and bot lines (`greybox_main.gd`) now use `FamilyNames.name_of`. Nothing else in `game/` or `net/` shows a team name: the menu's "Team size" label is generic, the lobby seat's `describe()` is only used in logs, and the team tell overlay and minimap draw no text. `TeamDef.display_name` stays as an internal label nobody sees (no re-bake). Nothing in `sim/`, the snapshot or any network message reads the names.
+- **Export:** `include_filter="content/family_names.cfg"` in `godot/export_presets.cfg`. **For P7-1:** an exported game reads its packed copy, so changing the names after export needs a re-export or an override file next to the exe; P7-1 decides which.
+- `HOW_TO_PLAY.md`: the "until P5-0 is finished" note is deleted.
+- **Test:** `godot/tests/family_names_test.gd`, table-driven, 26 checks, pinned. It covers both lines, spaces and tabs, double and single quotes, an unmatched quote, empty values and empty quotes, one line missing, comments and blank lines, a value containing `=`, Windows line ends with an unknown key, a missing file, `name_of` against what `load_from` reads from the shipped file, and an unknown id. Only made-up values are used.
+- **Search 1** (a node script read the two values from the `.cfg` and ran `git grep --untracked -F` for each): found only in the `.cfg`.
+- **Search 2** (`git grep "Team A" / "Team B"` over `godot/`): no hit in `game/` or `net/`. The remaining hits are the two internal `display_name` labels in `content/levels/house.tres` and one comment in `tests/scoring_flow_test.gd`.
+- **Verify:** `node autobuild/verify.mjs` healthy, run once at the end. 17 suites at their pinned counts; symmetry 193 of 193. Bot match unchanged (nothing in the sim moved): 3v3 team_b in 228 s, 18 s of stalls, 19 captures; 1v1 team_a in 250 s, 5 s, 6 captures. Both deterministic. Tick budget 0 / 0 / 0 of 600. net_smoke: 1659 ticks agree. Render counters 404 / 396 / 337 draws, all within the gate. No frames, per the testing diet.
+- **Left:** the real HUD bar, lobby and results screens (P5-1, P5-2) should use `FamilyNames.name_of` when they are built. `godot/art/theme/_tmp_noshell.tres` is still the untracked leftover.
+
 ## 2026-11-16 — P4-5 Cash tumble and bounce after a throw or drop
 - **Followed the brief.** Presentation only: nothing in `sim/`, `net/`, `content/` or the snapshot changed.
 - **New `BundleTumble`** (`godot/game/art/bundle_tumble.gd`). It keeps per-bundle state, read from the confirmed world:

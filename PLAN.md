@@ -229,7 +229,7 @@ territory line. The parts of these tasks that were first missing (the gap, the b
 P3-7) were filled in on 2026-11-16. Milestone: a friends playtest, so a working, simple version
 beats a polished one. Tasks tagged `(worker: fable)` run on the Fable model (see `loop.mjs`).
 
-- [ ] **P5-0 Family display names.** Each family gets a display name ("the family display names"),
+- [x] **P5-0 Family display names.** *(Done 2026-11-16: `FamilyNames` in `game/greybox/family_names.gd` reads the `.cfg` once; status line, headlines and debug HUD use it; `family_names_test` 26 checks; the names are found only in the `.cfg`; export preset includes it. See PROGRESS.md.)* Each family gets a display name ("the family display names"),
   kept in ONE small text file, `godot/content/family_names.cfg`, two lines: `team_a_name=` and
   `team_b_name=` (plain text after the `=`, no quotes needed; blank lines and lines starting with `#`
   are ignored). The file already exists with the first two names, and `HOW_TO_PLAY.md` has a section
