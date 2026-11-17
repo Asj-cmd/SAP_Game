@@ -2,6 +2,11 @@
 
 Newest first. One entry per task: date, task id, what changed, what the frames showed, numbers, what is left.
 
+## 2026-11-17 — P7-2 Quality settings and performance
+- `PlayerSettings` [video] (quality, fullscreen, vsync, max_fps) + `apply_video()`; presets in one dictionary; `WorldBackdrop.apply_quality` toggles the sun shadow and atlas; seat viewports (group `seat_viewport`) get `scaling_3d_scale`; four rows in `SettingsPanel`; `--quality=` override. Window settings are skipped in capture/pilot runs.
+- Timing table (GT 730M, 4v4) is in godot/PLAYTEST.md: GPU ms high 6.2/8.3/7.8, medium 5.5/7.8/7.2, low 4.5/6.4/5.9; low halves draws. No frames judged.
+- Left: P7-3.
+
 ## 2026-11-17 — P7-1 Export
 - Removed the three Godot MCP runtime autoloads from `project.godot` (nothing outside `addons/godot_mcp` referenced them), `addons/*` added to the preset's `exclude_filter`, file/product version 0.1.0.0, description "Cash Grab". New `autobuild/build.mjs`: refuses if MCP autoloads are present, creates `build/`, imports, exports release, smoke-runs the exe headless `--quit-after 900 -- --solo`, fails on SCRIPT ERROR / Parse Error / Failed to load. First run failed only because `build/` did not exist (script now creates it).
 - Result: `BUILD: ok 118.5 MB`, smoke run printed none of the error strings. No frames. PLAYTEST.md §2 updated.

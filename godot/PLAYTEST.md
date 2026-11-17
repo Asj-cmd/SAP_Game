@@ -168,3 +168,26 @@ The Steam buttons appear only when the add-on is installed. Not tested live.
 
 Known and not worth reporting: no sound, plain block characters with no
 animation, and grey-box rooms.
+
+## Performance on the dev machine
+
+Measured windowed on a **GeForce GT 730M** laptop (Compatibility renderer, 1600x900, 4v4, bots running),
+`node autobuild/render_stats.mjs --args="--team-size=4 --quality=<preset>"`, 120 timed frames per view.
+FPS = 1000 / median frame ms. The p95 frame (24-32 ms) is the occasional bot tick, not the render.
+
+| Preset | View | Frame ms | GPU ms | FPS | Draws |
+|---|---|---|---|---|---|
+| high | approach_from_south | 9.2 | 6.2 | 109 | 420 |
+| high | room_b_gf_kitchen | 10.8 | 8.3 | 93 | 332 |
+| high | cam_railing_backed | 10.9 | 7.8 | 92 | 366 |
+| medium | approach_from_south | 8.4 | 5.5 | 119 | 420 |
+| medium | room_b_gf_kitchen | 10.2 | 7.8 | 98 | 332 |
+| medium | cam_railing_backed | 10.4 | 7.2 | 96 | 366 |
+| low | approach_from_south | 7.1 | 4.5 | 141 | 222 |
+| low | room_b_gf_kitchen | 8.8 | 6.4 | 114 | 179 |
+| low | cam_railing_backed | 8.6 | 5.9 | 116 | 191 |
+
+High is the default and is already above 90 FPS here, so a friend on an ordinary laptop should stay on
+**High**; on a weak or integrated GPU pick **Low** (no sun shadow, 75% render scale, about 25% less GPU
+time and half the draw calls). Settings: *Graphics quality*, *Max FPS*, *Fullscreen*, *VSync* in the
+settings panel; `--quality=low|medium|high` overrides the saved choice.

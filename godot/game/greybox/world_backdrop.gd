@@ -51,9 +51,19 @@ const GROUND_DROP: float = 1.0
 ## 20 above the lamp: the 14-tall drum's centre is 7 below it.
 const SHADE_ABOVE_LAMP: float = 13.0
 
+static var _sun: DirectionalLight3D = null
+
+## Quality preset hook (P7-2): `size` 0 turns the sun shadow off, else sets the atlas.
+static func apply_quality(size: int) -> void:
+	if size > 0:
+		RenderingServer.directional_shadow_atlas_set_size(size, true)
+	if is_instance_valid(_sun) and ArtTheme.current().sun_shadows:
+		_sun.shadow_enabled = size > 0
+
 ## The sun, the sky, the haze and the ambient light.
 static func environment(far: float, theme: ArtTheme) -> Array[Node]:
 	var sun: DirectionalLight3D = DirectionalLight3D.new()
+	_sun = sun
 	sun.rotation_degrees = SUN_ROTATION_DEG
 	sun.light_energy = theme.sun_energy
 	sun.light_color = theme.sun_colour
@@ -64,7 +74,9 @@ static func environment(far: float, theme: ArtTheme) -> Array[Node]:
 			2: sun.directional_shadow_mode = DirectionalLight3D.SHADOW_PARALLEL_2_SPLITS
 			_: sun.directional_shadow_mode = DirectionalLight3D.SHADOW_PARALLEL_4_SPLITS
 		sun.directional_shadow_max_distance = theme.sun_shadow_distance
-		RenderingServer.directional_shadow_atlas_set_size(theme.sun_shadow_size, true)
+		var chosen: int = PlayerSettings.current().shadow_size(theme.sun_shadow_size)
+		sun.shadow_enabled = chosen > 0
+		RenderingServer.directional_shadow_atlas_set_size(maxi(chosen, 256), true)
 		RenderingServer.directional_soft_shadow_filter_set_quality(
 			theme.sun_shadow_filter as RenderingServer.ShadowQuality)
 

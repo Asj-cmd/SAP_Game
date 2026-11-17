@@ -1031,6 +1031,7 @@ func _build_seats() -> void:
 		# Every seat renders THIS node's world, so geometry and bodies exist
 		# once and are seen from as many places as there are seats.
 		viewport.world_3d = get_world_3d()
+		viewport.add_to_group(&"seat_viewport")
 
 		var chase: ChaseCamera = ChaseCamera.new(CAMERA_COLLISION_LAYER)
 		# The WHOLE RIG goes inside the seat's viewport, not just the camera.
@@ -2102,6 +2103,7 @@ func _flat(colour: Color) -> StandardMaterial3D:
 func _build_lighting() -> void:
 	for node: Node in WorldBackdrop.environment(ChaseCamera.FAR_PLANE, ArtTheme.current()):
 		add_child(node)
+	PlayerSettings.current().apply_video()
 
 ## The level's blockers as plain boxes, plus a static body per box for the
 ## camera arm to slide along.

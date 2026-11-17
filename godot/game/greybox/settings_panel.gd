@@ -32,6 +32,30 @@ func _init() -> void:
 		func(v: float) -> void: PlayerSettings.current().set_volume(&"Music", v))
 
 	add_child(HSeparator.new())
+	var quality_box: OptionButton = OptionButton.new()
+	for q: String in PlayerSettings.QUALITY_NAMES:
+		quality_box.add_item(q.capitalize())
+	quality_box.select(PlayerSettings.QUALITY_NAMES.find(settings.quality))
+	quality_box.item_selected.connect(func(i: int) -> void:
+		PlayerSettings.current().set_quality(PlayerSettings.QUALITY_NAMES[i]))
+	_row("Graphics quality", quality_box)
+	var fps_box: OptionButton = OptionButton.new()
+	for f: int in PlayerSettings.MAX_FPS_CHOICES:
+		fps_box.add_item("Off" if f == 0 else str(f))
+	fps_box.select(maxi(PlayerSettings.MAX_FPS_CHOICES.find(settings.max_fps), 0))
+	fps_box.item_selected.connect(func(i: int) -> void:
+		PlayerSettings.current().set_max_fps(PlayerSettings.MAX_FPS_CHOICES[i]))
+	_row("Max FPS", fps_box)
+	var full: CheckBox = CheckBox.new()
+	full.button_pressed = settings.fullscreen
+	full.toggled.connect(func(on: bool) -> void: PlayerSettings.current().set_fullscreen(on))
+	_row("Fullscreen", full)
+	var sync: CheckBox = CheckBox.new()
+	sync.button_pressed = settings.vsync
+	sync.toggled.connect(func(on: bool) -> void: PlayerSettings.current().set_vsync(on))
+	_row("VSync", sync)
+
+	add_child(HSeparator.new())
 	var keys_label: Label = Label.new()
 	keys_label.text = "Keys  (click one, then press the new key; Esc cancels)"
 	add_child(keys_label)
@@ -65,6 +89,15 @@ func _init() -> void:
 		_refresh_keys()
 		closed.emit())
 	add_child(back)
+
+func _row(text: String, control: Control) -> void:
+	var row: HBoxContainer = HBoxContainer.new()
+	var label: Label = Label.new()
+	label.text = text
+	label.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	row.add_child(label)
+	row.add_child(control)
+	add_child(row)
 
 func _slider(text: String, value: float, low: float, high: float, on_change: Callable) -> void:
 	var row: HBoxContainer = HBoxContainer.new()

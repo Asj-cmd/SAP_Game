@@ -2,60 +2,6 @@
 
 Written by the planner from a quick read. If a fact here is wrong, the code and `DECISIONS.md` win.
 
-## P7-2 — Quality settings and performance
-
-**Approach**
-1. Add a Graphics section to `PlayerSettings` (new `[video]` section in `user://settings.cfg`):
-   `quality` (low / medium / high), `fullscreen` (bool), `vsync` (bool), `max_fps` (0 = off, 30, 60,
-   120). Capture/pilot/net-smoke runs ignore saved values, as the other settings already do.
-2. One apply function (e.g. `PlayerSettings.apply_video(viewport)`) called at start and when the
-   panel changes a value. Presets, as data in one small dictionary in that file:
-   - **high** (default = today's look): sun shadow on at the theme's `sun_shadow_size` (2048),
-     render scale 1.0, MSAA off.
-   - **medium**: sun shadow on at 1024, render scale 1.0.
-   - **low**: sun shadow off, 3D render scale 0.75 (bilinear) on the seat viewports.
-   Shadow on/off and atlas size go through what `world_backdrop.gd` already does (lines ~60–67:
-   `sun.shadow_enabled`, `RenderingServer.directional_shadow_atlas_set_size`); add a small hook there
-   rather than a second place that creates lights. The seats are SubViewports: set
-   `scaling_3d_scale` on each seat viewport, not only the root.
-3. Add a `--quality=low|medium|high` command-line override (wins over the saved value) so the
-   measurement can pick a preset.
-4. Add the Graphics rows to `SettingsPanel` (an OptionButton for quality and max FPS, two
-   checkboxes). Applies at once, saved like the other settings.
-5. Measure on the dev machine, windowed (real GPU), with the existing tool and only these views:
-   `node autobuild/render_stats.mjs --views=<the three views verify gates + the kitchen view>
-   --args="--team-size=4 --quality=<preset>"`, once per preset (3 runs, each well under 10 min; check
-   the view names in `autobuild/views.json` and `render_budget.json`). That is a timing table, not
-   a capture set: do not open or judge frames.
-6. Write the table in `godot/PLAYTEST.md` (there is no root PLAYTEST.md; use the existing one): a new
-   short section "Performance on the dev machine": GPU name, per preset and view the frame ms, GPU ms
-   and the FPS they imply (1000 / frame ms), plus which preset a friend on a weak laptop should pick.
-
-**Already decided**
-- Default preset is **high** (current look; P3-6 measured it within budget on the GT 730M). REVIEW
-  only the preset contents (log in DECISIONS.md as REVIEW: what low drops).
-- No Forward+ features, no SSAO/glow/FXAA additions (D6). MSAA stays off in every preset.
-- VSync default on, max FPS default 0, fullscreen default off (windowed, as today).
-- Settings are presentation only: nothing reaches the sim, snapshots or the network.
-
-**Files likely touched**
-`godot/game/greybox/player_settings.gd`, `godot/game/greybox/settings_panel.gd`,
-`godot/game/greybox/world_backdrop.gd`, `godot/game/greybox/greybox_main.gd` (apply at start, seat
-viewports, `--quality=`), `godot/PLAYTEST.md`, `DECISIONS.md`, `PROGRESS.md`, `PLAN.md`.
-
-**Done means**
-- `--quality=low` measurably lowers GPU ms in the timing table (if it does not, say so; do not
-  chase it).
-- The table is in `godot/PLAYTEST.md` with real measured numbers.
-- Full `node autobuild/verify.mjs` once at the end: healthy, gated draws/triangles unchanged at the
-  default preset.
-
-**Do NOT**
-- Capture, open or judge frames; run `render_stats.mjs` over all views or more than once per preset.
-- Change the theme's default look, budgets in `render_budget.json`, or the verify gates.
-- Write a test for the settings (presentation; `godot/CLAUDE.md`).
-- Touch the sim, bots, or networking.
-
 ## P7-3 — Docs
 
 **Approach**
