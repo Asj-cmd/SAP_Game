@@ -210,6 +210,14 @@ var _show_paths: bool = false
 var _role: MatchLink.Role = MatchLink.Role.LOCAL
 var _join_code: String = ""
 var _advertise: String = ""
+## Dedicated host (`--dedicated`, run with --headless): a host with no player of
+## its own. It waits for a first guest, starts the match after a delay (bots
+## fill the rest) and rematches by itself so the server keeps serving.
+var _dedicated: bool = false
+var _dedicated_wait: float = 15.0
+var _dedicated_clock: float = -1.0 # counts down once the first guest is seated
+var _dedicated_started: bool = false
+var _dedicated_results: float = 0.0
 var _identity: String = ""
 var _backend: String = "enet"
 ## Bodies a side. From `--team-size=N` or the menu; a guest takes the host's
@@ -286,7 +294,7 @@ func _wants_menu() -> bool:
 	if OS.get_cmdline_user_args().has("--menu"):
 		return true
 	for arg: String in OS.get_cmdline_user_args():
-		if arg == "--host" or arg == "--solo" or arg == "--split" \
+		if arg == "--host" or arg == "--dedicated" or arg == "--solo" or arg == "--split" \
 				or arg.begins_with("--join") or arg.begins_with("--capture"):
 			return false
 	return true
@@ -295,6 +303,8 @@ func _read_command_line() -> void:
 	_role = _role_from_command_line()
 	_join_code = _argument("--join=", "")
 	_advertise = _argument("--advertise=", "")
+	_dedicated = OS.get_cmdline_user_args().has("--dedicated")
+	_dedicated_wait = float(_argument("--dedicated-wait=", "15"))
 	_identity = _argument("--identity=", "")
 	_backend = _argument("--backend=", "enet")
 	_team_size = clampi(int(_argument("--team-size=", str(GreyBoxLevel.DEFAULT_TEAM_SIZE))),
@@ -875,7 +885,8 @@ func _start(variant: GreyBoxLevel.SafeVariant) -> void:
 
 	world = link.outcome_world()
 	# Sit down before opening the door, or the first guest is given this body.
-	link.seat_local("You")
+	if not _dedicated:
+		link.seat_local("You")
 	_confirmed_frames.clear()
 	_seat_shown = SimEntity.NO_ENTITY
 	_build_seats()
@@ -886,7 +897,9 @@ func _start(variant: GreyBoxLevel.SafeVariant) -> void:
 	# Only the authority starts a match, and only the authority fills it with
 	# bots. A guest is told that both happened, like everything else.
 	if link.role != MatchLink.Role.GUEST:
-		if not _lobby_wait:
+		if _dedicated:
+			print("DEDICATED HOST code=%s" % link.session_code())
+		elif not _lobby_wait:
 			_begin_match()
 
 ## Fills empty seats (when bots are on) and starts the match.
@@ -930,7 +943,7 @@ func _build_world() -> SimWorld:
 
 func _role_from_command_line() -> MatchLink.Role:
 	var args: PackedStringArray = OS.get_cmdline_user_args()
-	if args.has("--host"):
+	if args.has("--host") or args.has("--dedicated"):
 		return MatchLink.Role.HOST
 	for arg: String in args:
 		if arg == "--join" or arg.begins_with("--join="):
@@ -1064,6 +1077,8 @@ func _process(delta: float) -> void:
 		return
 	_follow_seat()
 	_record_confirmed()
+	if _dedicated:
+		_dedicated_tick(delta)
 
 	for player: LocalPlayerInput in players:
 		player.poll(delta)
@@ -1084,6 +1099,27 @@ func _process(delta: float) -> void:
 	_render(_accumulator / SimWorld.SECONDS_PER_TICK, delta)
 	_track_cameras(delta)
 	_update_hud()
+
+## The dedicated host's whole job: start `--dedicated-wait=` seconds (15) after
+## the first guest sits down, and rematch 12 s after each match result.
+func _dedicated_tick(delta: float) -> void:
+	if not _dedicated_started:
+		if _dedicated_clock < 0.0 and link.transport.peers().size() > 0:
+			_dedicated_clock = _dedicated_wait
+			print("DEDICATED first guest seated; starting in %.0f s" % _dedicated_wait)
+		elif _dedicated_clock >= 0.0:
+			_dedicated_clock -= delta
+			if _dedicated_clock <= 0.0:
+				_dedicated_started = true
+				_begin_match()
+		return
+	if link.outcome_world().match_phase == SimWorld.MatchPhase.MATCH_END:
+		_dedicated_results += delta
+		if _dedicated_results >= 12.0:
+			_dedicated_results = 0.0
+			_rematch_asked = true
+	else:
+		_dedicated_results = 0.0
 
 func _advance_one_tick() -> void:
 	_previous = _snapshot()

@@ -354,7 +354,7 @@ removed on purpose (do not rebuild it). No ragdoll, knockback, slide, shove or d
 
 - [x] **P6-1 Loss and lag.** *(Done 2026-11-17: `LinkConditions` on the loopback; net_loopback IN LOCKSTEP at 100 ms + 5% loss; net_prediction CONSISTENT at 3 and 6 ticks + 5% loss. See PROGRESS.md.)* Add latency/packet-loss options to the loopback transport; confirm
   prediction/rollback/snapshots hold at 100 ms + 5% loss; fix defects.
-- [ ] **P6-2 Host modes.** Confirm what exists (player-hosted listen mode vs dedicated headless) and
+- [x] **P6-2 Host modes.** *(Done 2026-11-17: listen host documented in ARCHITECTURE.md; `--headless --dedicated` built as a thin flag in greybox_main.gd. See PROGRESS.md.)* Confirm what exists (player-hosted listen mode vs dedicated headless) and
   document in `godot/ARCHITECTURE.md`. Implement a headless dedicated host only if it is small.
 - [ ] **P6-3 Steam transport** behind the existing session/transport interface using GodotSteam
   (dev with Steam test app id 480). Works with two local instances where possible.

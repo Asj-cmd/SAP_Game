@@ -2,56 +2,6 @@
 
 Written by the planner from a quick read. If a fact here is wrong, the code and `DECISIONS.md` win.
 
-## P6-2 — Host modes
-
-**Approach**
-1. Confirm what exists and write it down: today the only host is a **listen host**. `--host` (or menu
-   Host) makes `MatchLink.host(...)` in `game/greybox/greybox_main.gd` `_start()`, then
-   `link.seat_local("You")` sits the host's own player down before any guest, and the host runs the
-   authoritative world plus the bot crew. `game/debug/net_smoke.gd` already runs that host
-   `--headless`, so the game scene works without a window.
-2. Add a short section to `godot/ARCHITECTURE.md` (in §1 Layers or after §5, "Host modes"): listen
-   host (default; host plays), dedicated host (below), who owns the authoritative world, who fills
-   bots, which flags start each, and that Steam (P6-3) is a transport, not a host mode.
-3. Implement the dedicated host only as a thin flag, **if it stays small** (aim: under ~120 changed
-   lines in `greybox_main.gd`; if it grows past that, stop, document it as not built, tick the task
-   with that note):
-   - `--dedicated` implies `--host` (`_role_from_command_line`, `_wants_menu` skips the menu).
-   - Skip `link.seat_local(...)`: no seat for this machine, so the first guest gets the first seat.
-   - Skip building seats/viewports, cameras, HUD, audio, first-run guide (guard where `_build_seats`,
-     `GameAudio`, `FirstRunGuide` are made). Keep the sim tick and the link's networking exactly as on
-     a listen host.
-   - Print the session code once to stdout (`link.session_code()`, with `--advertise=` as today).
-   - Start: wait in WAITING; begin the match `--dedicated-wait=` seconds (default 15) after the first
-     guest is seated, through the existing `_begin_match()` (bots fill empty seats as usual).
-     MATCH_END: rematch automatically after the results time, so the server keeps serving.
-4. Update `godot/PLAYTEST.md` with the one command line for a dedicated host.
-
-**Already decided**
-- The dedicated host is the same game scene run with `--headless --dedicated`, not a separate
-  project or export (log in DECISIONS.md, plain).
-- Start rule = 15 s after the first guest is seated, bots fill the rest; automatic rematch at MATCH_END
-  (log as REVIEW: friends may prefer a manual start).
-- No new network messages, no change in `net/` or `sim/`, no snapshot format change.
-
-**Files likely touched**
-- `godot/ARCHITECTURE.md`, `godot/PLAYTEST.md`, `DECISIONS.md`, `PLAN.md`, `PROGRESS.md`
-- `godot/game/greybox/greybox_main.gd` (flags, guards, start/rematch on a dedicated host)
-- maybe `godot/game/greybox/match_link.gd` (only if a "guest seated" query is missing; `lobby` is public)
-
-**Done means**
-- ARCHITECTURE.md describes both modes accurately against the code.
-- If built: a headless `--dedicated` run through `node autobuild/run_game.mjs` prints the code and no
-  script errors (one run, as P5-4/P5-5 did with `--solo`).
-- Full `node autobuild/verify.mjs` ONCE at the end, before the commit: healthy, every suite at its
-  pinned count, symmetry exact, bot match 3v3 + 1v1, tick budget, net_smoke in lockstep.
-
-**Do NOT**
-- Write a separate server binary, a headless export preset, or a matchmaking/directory service.
-- Touch `sim/`, `net/` transports, the snapshot or the lobby rules.
-- Add a test file or a verify gate for the dedicated host. Bot tuning, sweeps.
-- Run verify at the start.
-
 ## P6-3 — Steam transport
 
 **Approach**

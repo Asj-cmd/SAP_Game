@@ -82,6 +82,16 @@ applies to Play solo and to Host; bots fill every seat nobody is sitting in.
 > `-- --join=CODE`, `-- --advertise=100.x.y.z`, `-- --team-size=4`) for anyone
 > scripting a test.
 
+**Dedicated host** (a machine that serves but does not play, e.g. a spare PC):
+
+```
+godot --headless --path godot -- --dedicated --team-size=3 [--advertise=100.x.y.z] [--dedicated-wait=15]
+```
+
+It prints `DEDICATED HOST code=...` once; friends use that code with Join. The
+match starts 15 s after the first guest sits down (bots fill empty seats) and
+restarts by itself 12 s after each result.
+
 ## 4. Playing
 
 | | |

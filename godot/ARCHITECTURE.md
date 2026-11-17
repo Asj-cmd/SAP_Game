@@ -216,6 +216,27 @@ polish can be iterated freely without any risk to correctness.
 
 ---
 
+### Host modes
+
+The host is always the authority: it owns the real `SimWorld`, runs the bot
+crew (`BotCrew`) and the lobby, and guests only predict. Two ways to run one,
+both the same game scene (`game/greybox/greybox_main.gd`) and the same
+`MatchLink.host(...)`:
+
+- **Listen host (default).** `--host` or the menu's Host. `link.seat_local("You")`
+  seats this machine's player first; it plays, with cameras, HUD and audio.
+  Bots fill empty seats when the match starts (`_begin_match`).
+- **Dedicated host.** `--headless --dedicated` (implies `--host`, skips the menu).
+  No local seat, so the first guest gets the first seat. It prints the session
+  code once, waits in the lobby, begins the match `--dedicated-wait=` seconds
+  (default 15) after the first guest connects, and asks for a rematch 12 s
+  after MATCH_END. Seats, viewports and HUD are still built (headless renders
+  nothing); no new network messages, nothing in `sim/` or `net/` changed.
+
+Steam (P6-3) is a transport behind `SessionTransport`, not a host mode: either
+host mode can run on it. Not built: a separate server binary or export, a
+directory/matchmaking service.
+
 ## 6. Three decisions that must be made now, not later
 
 **Physics is not part of the deterministic simulation.** Jolt is not

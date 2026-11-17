@@ -2,6 +2,12 @@
 
 Newest first. One entry per task: date, task id, what changed, what the frames showed, numbers, what is left.
 
+## 2026-11-17 — P6-2 Host modes
+- Documented both host modes in `godot/ARCHITECTURE.md` ("Host modes"): listen host (default, host plays) and dedicated host. Built the dedicated host as a flag in `greybox_main.gd` (~45 lines): `--dedicated` implies `--host`, skips the menu and `seat_local`, prints `DEDICATED HOST code=...`, starts the match `--dedicated-wait=` s (15) after the first guest connects, requests a rematch 12 s after MATCH_END. Seats/viewports/HUD are still built (headless draws nothing), so no guards were added; the brief's "skip building seats" was not done, to stay small.
+- Checked: one `run_game.mjs --headless -- --dedicated --team-size=2` printed the code, no script errors (ran to the timeout). NOT tested with a live guest joining it or through a rematch cycle.
+- verify: healthy (3v3 3 of 600 over, 4v4 3 not gated; net_smoke 1656 ticks agree).
+- Left: P6-3.
+
 ## 2026-11-17 — P6-1 Loss and lag
 - `LinkConditions` (new, `net/link_conditions.gd`: latency, jitter, loss, seeded RNG, injectable clock) and `LoopbackTransport.conditions` (null = the old immediate path, unchanged). Reliable packets are never lost: a "lost" one arrives 2 x latency late, in order per receiver; unreliable are dropped. Session/peer events are never delayed.
 - `net_loopback` takes `--latency-ms= --jitter-ms= --loss= --ticks=` (packet wait 2 s -> 5 s); `net_prediction` takes `--loss=` (same reliable model, in ticks, per direction, seeded).
