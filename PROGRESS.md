@@ -2,6 +2,9 @@
 
 Newest first. One entry per task: date, task id, what changed, what the frames showed, numbers, what is left.
 
+## 2026-11-17 — P4-6 Bots and panic run: nothing to do
+- P4-8 removed the panic speed boost (animation only), so there is no panic speed for bots to use. The last full `verify.mjs` (end of P4-8, same code, no changes since) was healthy: 3v3 team_a in 526 s, 45 s stalls, deterministic; 1v1 deterministic; tick budget 0/0/3; symmetry 190/190; net_smoke agrees. No code changed, so no new run. BRIEF section deleted (it was marked out of date).
+
 ## 2026-11-17 — P4-8 Panic run is animation only; defenders are faster at home
 - **Followed the brief.** `panic_speed_scale` deleted; `home_speed_scale` 1.08 added to `TuningDef`; `MovementSystem._speed_for` multiplies by it when `zone_at(position)` is owned by the actor's team (carrier at home 0.85 x 1.08, crouch 0.55 x 1.08; REVIEW). `FigureAnimator.base_clip` / `update` take `panicking` (from `MovementSystem.is_panicking` on the world the motion came from, in `GreyBoxMain._animate`); `PANIC_FRACTION` deleted. Count and snapshot unchanged. D9 rewritten, two log rows.
 - **Tests:** panic rows now expect no speed change; new `_test_home_speed` (7 rows: own, other family's, unowned, no team, carrier, crouched, panicking at home). movement_system_test 149 -> 156, pinned.
