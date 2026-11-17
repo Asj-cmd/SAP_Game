@@ -224,7 +224,11 @@ var _from_menu: bool = false
 var _lobby_wait: bool = false
 var _lobby: LobbyPanel = null
 
+## Sound (P5-3): presentation only, fed from the confirmed state in `_animate` / `_render`.
+var audio: GameAudio = GameAudio.new()
+
 func _ready() -> void:
+	add_child(audio)
 	_build_lighting()
 	_build_hud()
 	# The debug split can be asked for at startup as well as with F2, so an
@@ -330,6 +334,8 @@ func _clear_code_banner() -> void:
 ## and a guest's peer goes quiet rather than timing out on the far end.
 func _return_to_menu(problem: String) -> void:
 	_tear_down()
+	audio.reset()
+	audio.set_in_match(false)
 	_capture_mouse(false)
 	_menu.open(problem)
 
@@ -1299,6 +1305,10 @@ func _render(alpha: float, delta: float) -> void:
 		# role. A guest never guesses at an outcome.
 		view.visible = true
 
+	if not _cameras.is_empty():
+		audio.set_listener(_cameras[0].world_position())
+	audio.set_in_match(true)
+	audio.match_state(truth)
 	_animate(drawn, truth, mine, remote, delta)
 	_hold_carried(truth)
 	_show_reach(mine)
@@ -1489,6 +1499,7 @@ func _animate(drawn: SimWorld, truth: SimWorld, mine: int, remote: bool, delta: 
 				_act(truth, entity_id, &"throw")
 		if was_carrying == SimEntity.NO_ENTITY and entity.is_carrying():
 			_anim_fired[&"grab"] = entity_id
+			audio.play(&"grab", entity.position, entity_id == mine)
 			if _anim_log:
 				print("anim grab  %s:%d  t=%.1f" % [entity.team, entity.slot,
 					truth.tick * SimWorld.SECONDS_PER_TICK])
@@ -1502,6 +1513,8 @@ func _animate(drawn: SimWorld, truth: SimWorld, mine: int, remote: bool, delta: 
 			freed.append(entity_id)
 		_anim_captured[entity_id] = entity.is_captured
 		_anim_sentence[entity_id] = entity.capture_ticks_remaining
+		audio.body(entity_id, motion.position, motion.is_grounded,
+			not entity.is_captured and motion.velocity.length() > 1.0, entity_id == mine)
 		animator.update(motion, entity.is_carrying(), entity.is_captured, move_speed, delta,
 			level.tuning.crouch_speed_scale, MovementSystem.is_panicking(motion_world, motion))
 	for victim: int in seized:
@@ -1538,6 +1551,9 @@ func _act_nearest(truth: SimWorld, victim: int, ally: bool) -> void:
 func _act(truth: SimWorld, entity_id: int, what: StringName) -> void:
 	_animators[entity_id].act(&"throw" if what == &"throw" else &"interact")
 	_anim_fired[what] = entity_id
+	var actor: SimEntity = truth.get_entity(entity_id)
+	if actor != null:
+		audio.play(what, actor.position, entity_id == _local_actor())
 	if _anim_log:
 		var who: SimEntity = truth.get_entity(entity_id)
 		print("anim %s  %s:%d  t=%.1f" % [what, who.team, who.slot,

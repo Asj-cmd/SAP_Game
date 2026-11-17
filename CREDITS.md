@@ -20,3 +20,7 @@ author, the title, the licence and a link, exactly as their licence asks.
 ## Game
 
 - Cash Grab: design, code and original models by the Cash Grab team.
+
+## Sound effects
+
+- Footsteps, impacts, cloth, coins, clicks and bell: Kenney (kenney.nl) Impact Sounds, Interface Sounds and RPG Audio, CC0 1.0.

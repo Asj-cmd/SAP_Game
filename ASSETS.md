@@ -88,3 +88,21 @@ Each file still gets its own row above when it lands in `godot/`.
   and only on Google Drive (no repeatable fetch). One coherent pack (Kenney) beats two.
 - P3-1: **Kenney Furniture Kit's** modular `wall*`, `doorway*`, `floor*`, `stairs*` and `paneling`
   pieces. They are half-real tiles that do not fit the blockout. The shell is generated (P3-2).
+
+## Audio (P5-3) - Kenney, CC0 1.0, fetched 2026-11-17, unmodified .ogg, only the used files copied to godot/art/audio/sfx/
+Packs: impact-sounds (https://kenney.nl/assets/impact-sounds), interface-sounds (https://kenney.nl/assets/interface-sounds), rpg-audio (https://kenney.nl/assets/rpg-audio). Zip hashes in autobuild/Incoming/kenney/<slug>/SOURCE.txt (gitignored).
+
+| File | From | Event |
+|---|---|---|
+| step_wood_1-3 | impact-sounds footstep_wood_000-002 | footsteps |
+| grab_1, grab_2 | rpg-audio cloth1, cloth2 | grab |
+| throw | rpg-audio cloth3 | throw |
+| seize_thump, seize_cloth | impact-sounds impactSoft_heavy_000; rpg-audio cloth4 | caught |
+| free | rpg-audio metalLatch | free an ally |
+| land | impact-sounds impactSoft_medium_000 | landing |
+| cash_1, cash_2 | rpg-audio handleCoins, handleCoins2 | deposit |
+| sting | interface-sounds bong_001 | round / match end |
+| tick | interface-sounds tick_001 | countdown |
+| ui_click | interface-sounds click_001 | every button |
+
+Music: none shipped (no CC0 loop fetched; GameAudio plays res://art/audio/music/loop.ogg if one is added).

@@ -2,6 +2,12 @@
 
 Newest first. One entry per task: date, task id, what changed, what the frames showed, numbers, what is left.
 
+## 2026-11-17 — P5-3 Audio
+- `GameAudio` (new, `game/audio/game_audio.gd`, owned by `greybox_main`): event table (files, dB), own RNG, pool of 8 `AudioStreamPlayer` on SFX, a UI player, a Music player. World sounds are attenuated by hand to 25 m from the chase camera (the seats are SubViewports in centimetres, so no 3D players); other bodies -5 dB under the player. A missing file plays nothing. Every `BaseButton` added to the tree clicks (node_added), so menu, lobby, pause, settings and results panels all click.
+- Events -> files: footsteps (one per 120 units on the ground, walking, not jailed) step_wood_1-3; grab grab_1/2; throw throw; seize seize_thump/seize_cloth; free free; landing after >8 airborne frames land; deposit (a team score rises) cash_1/2; round/match end sting; countdown seconds tick; buttons ui_click. All Kenney CC0 (impact, interface, rpg-audio), rows in ASSETS.md and CREDITS.md.
+- Not done: no music (no CC0 loop fetched; `art/audio/music/loop.ogg` plays when present, 0 dB menu, -12 dB match); no door sounds (no door event). Buses and sliders were already there from P5-1. Sounds never heard (no windowed run), so levels are untuned guesses.
+- `verify.mjs` healthy: bot 3v3 team_a 526 s and 1v1 unchanged, net_smoke agrees, tick budget 0/4/7 over (4v4 not gated). No new tests, no frames.
+
 ## 2026-11-17 — P5-1 Lobby
 - `LobbyPanel` (new): a menu-hosted game now waits in WAITING with a panel showing the join code (copied), team size, a "fill empty seats with bots" checkbox, Start and Cancel. `greybox_main` defers the bot fill and StartMatch to `_begin_match` on Start; Cancel returns to the menu. CLI hosts and solo start at once as before. The pilot host calls `_lobby_start`, and its in-match wait accepts the lobby. No seat list (not started). `verify.mjs` healthy. No frames, so the panel's look is unseen.
 

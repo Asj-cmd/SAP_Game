@@ -342,7 +342,7 @@ removed on purpose (do not rebuild it). No ragdoll, knockback, slide, shove or d
   debug text with it; the debug HUD stays behind its F-key. The split is a pure function of the two
   cash counts: give it a small table-driven test (0/0, 1/0, 3/1, equal, one side only). *Verify:*
   that test and the full `verify.mjs`; no frame captures.
-- [ ] **P5-3 Audio.** CC0 SFX and a music loop (Kenney, freesound CC0, OpenGameArt CC0): ordinary
+- [x] **P5-3 Audio.** CC0 SFX and a music loop (Kenney, freesound CC0, OpenGameArt CC0): ordinary
   household sounds — footsteps, doors, grab, caught, free, cash, alarm-ish sting, UI. No cartoon
   sounds (D2). Audio buses, volume settings.
 - [ ] **P5-4 Deadpan feedback: plain, physical, short. No confetti or cartoon effects.** (D2.)
