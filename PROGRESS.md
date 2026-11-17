@@ -2,6 +2,38 @@
 
 Newest first. One entry per task: date, task id, what changed, what the frames showed, numbers, what is left.
 
+## 2026-11-17 — P3-7 Isolation: the two houses stand alone
+- **No brief** for this task; worked from PLAN.md. Presentation only: nothing in `sim/`, collision, zones or `content/` changed.
+- **`ExteriorBuilder`:** the neighbours' plots (four houses), the row of eight houses across each street, the garden walls and the frontage hedges are gone (`_neighbours`, `_house`, `_decal`, `_garden_wall`, `_tri` deleted). New:
+  - a clipped hedge 380 tall, 160 deep, 30 behind each garden timber fence. It is in the fence's cut-away group, so a camera backed out through the fence sees through it (`cam_fence_backed`: body clear, no hedge in the way).
+  - a hedge of the same size across the far side of both streets.
+  - each street is a short dead end. The south street is shut at the east by the east garden hedge, and leaves west through a gap in the west hedge, down a 2800-long lane between hedges that ends in trees. The north street is its half-turned twin, so point symmetry holds by construction.
+  - tree belts beyond every hedge: 1450 out on the garden sides and 2950 out on the street sides, so no camera that stands outside the lot is inside a crown.
+- **Family colours on trim, door and roof.** Doors and casings already had them (P3-2). New theme field `family_roof_colours`: the first family's tile is sage-green `(0.44, 0.60, 0.46)` and the second's terracotta `(0.92, 0.50, 0.36)`. `ShellBuilder` draws each house's roof as `roof:<team>`, and the flat slab top shares that surface, so no draw is added. The fascia round the eaves is `paint:<team>`; the soffit stays white.
+- **STYLE.md** §3.3 (per-family roof row, plus a paragraph saying the suburb is gone), **ASSETS.md** (exterior row: no new texture, the hedge uses the existing foliage), **DECISIONS.md** (4 rows, 3 REVIEW).
+- **The one capture set** (`verify.mjs --frames-only --views=ext_,lot_,approach,cam_fence,cam_railing,cam_backstair,cash_30`, 25 views, every one opened). What the frames showed:
+  - `lot_overview`: from high over the south street, the two houses on a lawn, A with a green roof and B with a red-brown one. The fence and gate path run down the middle, and a flat-topped dark hedge rings the whole lot and both streets. Each street's lane runs out through a gap at one corner, A's street to the west and B's to the east. Lines of round trees stand outside the hedge, and beyond them there is only lawn and haze. There is no other building.
+  - `approach_from_south`: the camera now stands outside the enclosure. The lower half of the frame is the far street hedge, with the two houses' roofs and upper walls over it, trees either side, and a far row of trees between the houses.
+  - `ext_a_west`: the west hedge fills the lower half, with House A over it (green roof and fascia, a green-cased door) and trees either side. `ext_upstairs_out`: through the green french door, the hedge top and tree trunks, then lawn.
+  - `ext_street_along`: down the lane, the lane hedge is close on the right and the far hedge runs along the left. House A's side shows past the hedge, and at the far end the road stops at the east hedge.
+  - `ext_street_south`, `ext_a_east`: the road runs west to a gap where lawn and tree trunks show: the lane.
+  - `ext_a_south`, `ext_b_north`: each house behind its railings, with the green (A) or red with an orange fascia (B) roof. The other house shows at the side over the middle fence, and the hedge and trees at the other side.
+  - `cam_fence_west`: the timber fence with the tall hedge rising behind it, filling the top of the frame. `cam_railing_out`: the railings, the road, then the far hedge with treetops over it. `cam_railing_backed`, `cam_fence_backed`: bodies in clear view; the fence and hedge are cut away.
+  - `ext_midline`, `ext_gate_a`, `ext_gate_mid`, `cam_fence_gate`, `ext_cross_n`, `ext_cross_s`, `ext_gravel_a`, `ext_backstair_a/b`, `cam_backstair_top`, `cash_30m_yard`: in every one the only buildings are the two houses, and hedge and treetops close the distance. A's fascia is green and B's orange-red everywhere.
+  - No third house in any frame.
+- **Verify, first run: 2 problems.** `approach_from_south` had 277,750 triangles (limit 257,000) and `room_b_gf_kitchen` 196,738 (limit 194,000); everything else was healthy. The cause was the tree belts (about 70 trees at 1,600 triangles each). **The fix and the one redo:** the four side lumps of a crown are at 80 faces, and the top lump stays at 320, so a tree is about 650 triangles. Re-shot `ext_backstair_a`, `ext_street_along`, `approach_from_south`, `cam_backstair_top`: the crowns read the same, with the side lumps slightly more angular, and the outline against the sky is unchanged.
+- **Verify, second run** (`node autobuild/verify.mjs`): healthy.
+  - 17 suites at their pinned counts.
+  - Symmetry exact, 190 of 190.
+  - Bot match unchanged (no sim change): 3v3 team_b in 355 s, 49 s of stalls, 28 captures; 1v1 team_a in 250 s, 9 s, 2 captures. Both deterministic.
+  - Tick budget 1v1 0, 3v3 2, 4v4 6 of 600 (4v4 is not gated; the sim did not change, so this is laptop noise).
+  - net_smoke: 1658 ticks agree.
+  - Render counters: approach_from_south 404 draws / 204,790 triangles (was 440 / 241,654), cam_railing_backed 350 / 182,422, room_b_gf_kitchen 319 / 145,218. All are lower than before the task; the gate was not re-pinned.
+- **Left:**
+  - The lineup tool's 20 m / 40 m cameras (P2-6) were not re-shot. Nothing stands in their way across the street now, but they still look through the railings.
+  - The hedges are flat-topped boxes (as P3-4's were).
+  - `godot/art/theme/_tmp_noshell.tres` is still the untracked leftover.
+
 ## 2026-11-17 — P3-8 Territory line, gate and house layout
 - **Followed the brief.** Wrong in the brief: the Master Bedroom has no escape window in the code (U2 was removed), so there was nothing to keep the stair clear of on the north face; the code wins (logged).
 - **Territory.** The NEUTRAL `lot` zone and the 400-unit yards are gone. `yard_a` / `yard_b` are the two halves of the lot either side of the fence at x 3640; every point in the lot has an owner. `CaptureSystem._try_capture`: both bodies on ground the captor's team owns (not its jail), in range, target unprotected, and no blocker on the line between them at chest height (+60). Replaces "same zone": a doorway seizure from house to yard now works, one through a wall does not. `capture_system_test` 42 → 53 checks (11 territory rows: yard, house, through a doorway, through a wall, up to the fence's face, an intruder on its own side of the gate, both in the gate on each side, the other family both ways, own jail), pinned. The bot match passed the line test at the first attempt.

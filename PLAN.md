@@ -283,7 +283,7 @@ beats a polished one. Tasks tagged `(worker: fable)` run on the Fable model (see
   Bots only have to keep working (the gate is `verify.mjs`); no bot tuning or sweeps. *Verify:* the
   full `verify.mjs`; ONE set of exterior, gate and staircase views at the end, opened and judged, and
   at most one redo.
-- [ ] **P3-7 Isolation: the two houses stand alone.** Remove every other house from the exterior
+- [x] **P3-7 Isolation: the two houses stand alone.** *(Done 2026-11-17: no other house anywhere; a 380 hedge behind both garden fences (cut away like the fence) and across both streets' far sides, tree belts beyond; each street a short dead end that leaves down a hedged lane into the trees; roof tiles and fascias in the family colours (theme `family_roof_colours`). All 25 exterior views opened, no third house. See PROGRESS.md.)* Remove every other house from the exterior
   (the neighbours' houses and the row of houses across the street that `ExteriorBuilder` draws since
   P3-4). Enclose the two lots with tall hedges and trees; the street is a short dead end. From every
   exterior camera only the two houses are visible. Each house gets its family's colours on trim, door
