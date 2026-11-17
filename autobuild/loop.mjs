@@ -24,6 +24,9 @@
 //                  briefs for the next 3 tasks. A planner session is not a worker session and does not
 //                  count toward the stall limit. It is tried at most once per task per run.
 //   WORKER_MODEL   e.g. "opus": the model for worker sessions (CLAUDE_MODEL still works the same way).
+//   A task line in PLAN.md that contains "(worker: fable)" runs its worker session with --model fable
+//   instead. If Fable's own limit is hit, the loop uses WORKER_MODEL (or the default) for every task
+//   for the rest of the run, with no wait.
 //   If the worker model hits its OWN limit ("Opus limit reached") the workers switch to sonnet for the
 //   rest of the run, with no wait. If the planner model hits its own limit, planning is skipped for the
 //   rest of the run. Limits that are not model-specific (5-hour, weekly) wait as above.
@@ -37,7 +40,8 @@ import { appendFileSync, existsSync, mkdirSync, readFileSync, writeFileSync } fr
 import { dirname, join, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
 import { isLimitMessage, planLimitWait, isConnectionProblem, connectionWaitMin, MAX_CONNECTION_WAITS, limitAction } from "./limits.mjs";
-import { firstOpenTaskId, hasBriefFor, briefHeadings } from "./planning.mjs";
+import { firstOpenTaskId, hasBriefFor, briefHeadings, pickWorkerModel } from "./planning.mjs";
+import { isModelLimit, modelFamily } from "./limits.mjs";
 
 const HERE = dirname(fileURLToPath(import.meta.url));
 const ROOT = resolve(HERE, "..");
@@ -63,6 +67,7 @@ const BRIEF = join(HERE, "BRIEF.md");
 let workerModel = process.env.WORKER_MODEL?.trim() || process.env.CLAUDE_MODEL?.trim() || null;
 let plannerModel = process.env.PLANNER_MODEL?.trim() || null;
 const plannerTried = new Set(); // task ids the planner has already had its one go at in this run
+const tagOff = new Set(); // "(worker: X)" tags whose model hit its own limit: those tasks use workerModel
 
 const sh = (cmd, args, opts = {}) =>
   spawnSync(cmd, args, { cwd: ROOT, encoding: "utf8", shell: process.platform === "win32", ...opts });
@@ -230,9 +235,11 @@ for (let i = 1; i <= MAX_ITERS; i++) {
   const before = git("rev-parse", "HEAD");
   const prompt = readFileSync(join(HERE, "PROMPT.md"), "utf8");
   const args = ["-p", "--max-turns", String(MAX_TURNS), "--output-format", "text"];
-  if (workerModel) args.push("--model", workerModel);
+  // The model for this session: a "(worker: fable)" tag on the first open task, else WORKER_MODEL.
+  const pick = pickWorkerModel(planText(), { workerModel, tagOff });
+  if (pick.model) args.push("--model", pick.model);
   if (flag("--skip-permissions")) args.push("--dangerously-skip-permissions");
-  log(`session ${i}: starting (HEAD ${before.slice(0, 8)}, model ${workerModel ?? "default"})`);
+  log(`session ${i}: starting (HEAD ${before.slice(0, 8)}, model ${pick.model ?? "default"}${pick.tagged ? ", tagged in PLAN.md" : ""})`);
   const started = Date.now();
   const r = sh("claude", args, { input: prompt, timeout: ITER_TIMEOUT_MIN * 60_000, maxBuffer: 256 * 1024 * 1024 });
   const seconds = (Date.now() - started) / 1000;
@@ -274,7 +281,14 @@ for (let i = 1; i <= MAX_ITERS; i++) {
   // reset. Neither is a session or a "no commits" stall.
   if (!progressed && isLimitMessage(out)) {
     connectionWaits = 0; // a limit message means Claude did connect and sign in
-    const act = limitAction(out, { role: "worker", model: workerModel, fallback: FALLBACK_WORKER });
+    // A task tagged "(worker: fable)" whose Fable limit is hit: use WORKER_MODEL from now on, no wait.
+    if (pick.tagged && isModelLimit(out, pick.model)) {
+      tagOff.add(pick.model);
+      log(`session ${i}: ${modelFamily(pick.model)} limit reached, using ${workerModel ?? "the default model"} for every task for the rest of this run. Not counted as a session.`);
+      i--; // the same session number runs again, at once
+      continue;
+    }
+    const act = limitAction(out, { role: "worker", model: pick.model, fallback: FALLBACK_WORKER });
     if (act.kind === "switch-worker") {
       log(`session ${i}: ${act.family} limit reached, switching workers to ${act.to} for the rest of this run. Not counted as a session.`);
       workerModel = act.to;

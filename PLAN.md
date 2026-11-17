@@ -219,14 +219,15 @@ Aug 16–Oct 10 are in; an earlier version of this plan was written against the 
   *Verify:* frames at day-like exposure; cash readable at 30 m.
 - [x] **P3-6 Performance pass** against the budgets from P1-1. Merge meshes/instances where needed. *(Done 2026-11-16: furniture, cash bundles and trees merged at load by `MeshMerge`; sun shadow map 2048 (REVIEW). All 61 views within draws/triangles (worst `approach_from_south` 404 / 233k, was 654 / 384k); 8 timed views at 4v4 all within GPU 9 ms and frame 12 ms (worst kitchen 8.3 / 10.7, was 11.6 / 14.0). Draws and triangles of three views gated in the full verify. See PROGRESS.md.)*
 
-## Milestone — playtest feedback (user, 2026-11-16): do these four first, in this order
+## Milestone — playtest feedback (user, 2026-11-16): do these five first, in this order
 
 Written after the user's playtests. They come before the open Phase 4 and 5 tasks below, so the
 loop takes them first. The order matters: names first (small, visible), then the figures' look,
-then the fence rule and layout (which defines "own side"), then the home-side speed that depends
-on it. (An earlier plan update these were meant to build on, "Plan: playtest feedback", is not in
-this repo, and neither is a task P3-7: where the user's wording below says "as before" or "as
-already written", the missing text is flagged in the task. Decide, log as REVIEW, move on.)
+then the fence rule and layout (which defines "own side"), then the isolation of the two houses
+(which encloses whatever layout P3-8 leaves), then the home-side speed that depends on the
+territory line. The parts of these tasks that were first missing (the gap, the back staircase,
+P3-7) were filled in on 2026-11-16. Milestone: a friends playtest, so a working, simple version
+beats a polished one. Tasks tagged `(worker: fable)` run on the Fable model (see `loop.mjs`).
 
 - [ ] **P5-0 Family display names.** Each family gets a display name ("the family display names"),
   kept in ONE small text file, `godot/content/family_names.cfg`, two lines: `team_a_name=` and
@@ -246,7 +247,7 @@ already written", the missing text is flagged in the task. Decide, log as REVIEW
   `HOW_TO_PLAY.md`. *Verify:* one table-driven test of the loader (both lines, spaces, quotes, empty
   value, missing file, comment lines) and a search showing the names appear in no file but the
   `.cfg`; then the full `verify.mjs`. No frame captures.
-- [ ] **P2-6 Hair and builds: make each family member recognisable** (the user's design notes from
+- [ ] **P2-6 Hair and builds: make each family member recognisable** (worker: fable) (the user's design notes from
   playtest; keep their spirit, refine as needed). Dad has a belly (dad bod) and a comb-over. Mom is a
   little jacked (broad shoulders, strong arms) with a tall stiff hairdo. The son has a small mohawk.
   The daughter has two pigtails. The elder and younger variants follow the same idea (the elder and
@@ -259,8 +260,7 @@ already written", the missing text is flagged in the task. Decide, log as REVIEW
   not) and note it on D2; log the choices in DECISIONS.md as REVIEW. Art stays optional via fallback;
   the poly budget and the animations still hold. *Verify:* the full `verify.mjs`; ONE lineup and
   turnaround capture set at the end, opened and judged against this text, and at most one redo.
-- [ ] **P3-8 Territory line, gate and house layout.** (The user's rules; the earlier wording this
-  replaces is not in the repo, so the parts marked "unspecified" are yours to decide, REVIEW.)
+- [ ] **P3-8 Territory line, gate and house layout.** (The user's rules.)
   1. **The boundary fence is the territory line: no neutral strip.** A defender can seize an
      opponent anywhere on the defender's side of the fence (house and yard); an opponent on their own
      side is safe. Check what the sim does today (zones, `ZoneDef.Role.NEUTRAL`, the seize rule, the
@@ -269,19 +269,32 @@ already written", the missing text is flagged in the task. Decide, log as REVIEW
      side of the line.
   2. **One shared gate in the middle plus one smaller crossing at the back**, so the gate cannot be
      camped by one defender.
-  3. **The gap between the two lots is about double what it is now.** (The user's earlier wording was
-     "gap about double, as before"; double today's gap.) The planner may re-orient the houses (for
-     example front doors facing each other across the fence) if that plays better. Both lots stay
-     exact mirrors (the level-symmetry check in `verify.mjs` must stay exact).
+  3. **The gap between the two houses is double today's distance**, and a walk across should take
+     4 to 6 seconds at walking speed (`move_speed` 540 a second, so about 2,200 to 3,200 units; measure
+     today's distance first and check the result against both numbers). The planner may re-orient the
+     houses (for example front doors facing each other across the fence) if that plays better. Both
+     lots stay exact mirrors (the level-symmetry check in `verify.mjs` must stay exact).
   4. **Same layout in both houses, but each one visibly its own:** the family colours on trim, door
      and roof, plus two or three different yard props per house.
-  5. **An outside back staircase per house.** (The user wrote "as already written"; that text is
-     missing. Unspecified: put it on the house's back face as a way up to the upper floor, mirrored
-     in both houses, with collision that matches how it is drawn.)
+  5. **An outside back staircase: one per house, mirrored,** from the back yard up to the upstairs
+     landing, never directly into the master bedroom. Real collision (matching how it is drawn), the
+     bots' routes rebuilt, and the symmetry probe passes. If round times clearly break because of the
+     longer walk, lengthen the rounds once in the mode files (REVIEW); no sweeps.
   Bots only have to keep working (the gate is `verify.mjs`); no bot tuning or sweeps. *Verify:* the
   full `verify.mjs`; ONE set of exterior, gate and staircase views at the end, opened and judged, and
   at most one redo.
-- [ ] **P4-8 Panic run is animation only; defenders are faster at home.**
+- [ ] **P3-7 Isolation: the two houses stand alone.** Remove every other house from the exterior
+  (the neighbours' houses and the row of houses across the street that `ExteriorBuilder` draws since
+  P3-4). Enclose the two lots with tall hedges and trees; the street is a short dead end. From every
+  exterior camera only the two houses are visible. Each house gets its family's colours on trim, door
+  and roof (colours are data in the theme; this overlaps P3-8's "visibly its own": P3-7 does the
+  colours, P3-8 does the yard props). Do it after P3-8, so the hedges and trees enclose the final
+  layout. Presentation only: no collision or zone change, and the bounds stay the real walls. The
+  camera can stand outside the bounds (see `fence_cutaway.gdshader`), so a tall hedge near the
+  bounds needs the same camera care as the fence. Update STYLE.md (the suburb is gone) and ASSETS.md
+  for any new texture. *Verify:* the full `verify.mjs`; ONE set of every exterior view in
+  `views.json` at the end, opened and judged (no third house in any of them), and at most one redo.
+- [ ] **P4-8 Panic run is animation only; defenders are faster at home.** (worker: fable)
   1. **The chased player's panic run is animation only (arms up), with no speed boost.** Remove the
      speed multiplier (`panic_speed_scale`, 1.2, in `content/tuning/tuning_def.gd` and the `.tres`
      files, and where `MovementSystem` applies it). Keep what drives the arms-up pose (the forward
@@ -317,9 +330,16 @@ removed on purpose (do not rebuild it). No ragdoll, knockback, slide, shove or d
 - [ ] **P5-1 Menus.** A basic main menu already exists (`main_menu.gd`): audit it, then build it out —
   host/join (code field, later Steam invite), lobby screen with
   seats/teams/mode/bundles/bots, pause, settings (sensitivity, volume, keybinds), results screen.
-- [ ] **P5-2 HUD.** Replace the debug text with a real HUD (cash per team, round timer, carry state,
-  jail timer, rescue prompt) and a minimap (needed for DECISIONS.md D3 option b: it shows only your
-  own teammates). Debug HUD stays behind F-key.
+- [ ] **P5-2 HUD: a fighting-game style top bar** (the tug-of-war cash bar). ONE bar across the top:
+  the first family's colour fills from the left, the second family's from the right, and the split
+  follows each family's share of the banked cash (equal at 0 and 0; the whole bar to one side only
+  when the other has nothing). Each family's display name (from P5-0's loader, never typed into the
+  UI) and its cash count sit at its own end of the bar; the round timer is in the middle. The family
+  colours are the theme's. Also on the HUD: the carry state and the jail timer (and the rescue prompt
+  and the teammates-only minimap that were already part of this task; D3 option b). Replace the
+  debug text with it; the debug HUD stays behind its F-key. The split is a pure function of the two
+  cash counts: give it a small table-driven test (0/0, 1/0, 3/1, equal, one side only). *Verify:*
+  that test and the full `verify.mjs`; no frame captures.
 - [ ] **P5-3 Audio.** CC0 SFX and a music loop (Kenney, freesound CC0, OpenGameArt CC0): ordinary
   household sounds — footsteps, doors, grab, caught, free, cash, alarm-ish sting, UI. No cartoon
   sounds (D2). Audio buses, volume settings.
@@ -366,3 +386,8 @@ the measurements and leads in P3-3d, P3-3e and P3-3f above and in PROGRESS.md:
 
 A stash on this machine holds session 7's unfinished P3-3f sweep statistics (`git stash list`:
 "session 7 leftovers").
+
+## Backlog: after the playtest — do NOT start before the user has played
+
+- Trial of simple hand-drawn faces (our own dot eyes and line mouth) as a switchable setting; it
+  would change D2.

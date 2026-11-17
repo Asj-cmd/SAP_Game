@@ -1,5 +1,6 @@
 You are one session in an unattended, multi-day autonomous build of the game in this repository.
 Nobody will answer questions. Decide, log, and keep moving.
+Milestone: a friends playtest. Prefer a working, simple version over a polished one.
 
 1. Read, in this order: `DECISIONS.md`, `PLAN.md`, the last 60 lines of `PROGRESS.md`, `BLOCKED.md`,
    `godot/CLAUDE.md`, `godot/PROJECT_MEMORY.md`. Read other docs only when the task needs them.
