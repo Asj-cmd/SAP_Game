@@ -203,7 +203,10 @@ let a raider grab the cash and be home in seconds. North faces open lot
 instead — the other house sits diagonally offset and is not directly across
 from this wall the way it is the east one.
 
-**Landing B** (NW) — head of the second stair. Circulation only.
+**Landing B** (NW) — head of the second stair. Circulation only. Since P3-8 a
+door in its **north** wall (U5, over the back door) opens onto the **outside back
+staircase**: a platform at upper-floor height and a straight flight down along
+the north wall to the back yard. Two-way. It never opens into the Master Bedroom.
 
 **Study** (SW) — the second cash room. Doors to **both** landings. One passable
 window on the south face — a **one-way drop**.
@@ -295,8 +298,19 @@ ground window sill +90, head +240; escape window sill +80, head +240.
 | D6 | Doorway | Master Bedroom ↔ Landing B | Internal X 1030–1060 | X 1030–1060 · Z 1440–1680 | Two-way |
 | D7 | Doorway | Landing B ↔ Study | Internal Z 1030–1060 | X 410–650 · Z 1030–1060 | Two-way |
 | D8 | Doorway | Study ↔ Landing A | Internal X 1030–1060 | X 1030–1060 · Z 410–650 | Two-way |
+| U5 | Door (P3-8) | Landing B | North outer, over G5 | X 410–650 · Z 2060–2090 | Two-way, onto the back staircase |
 
-Anything not in these two tables is solid wall.
+### Outside (P3-8)
+
+| Tag | Element | Local coords (X, Z) | Notes |
+|---|---|---|---|
+| O1 | Back stair platform | X 380–680 · Z 2090–2370, top +360 | A 40 slab, not solid: the back door G5 opens underneath it with 320 clear |
+| O2 | Back staircase | X 680–1256 · Z 2090–2370 | Twelve 30 × 48 steps, 280 wide, climbing west to O1; each solid to the ground like the indoor flights. The house wall is its inner side, the outer side is open |
+
+The code's U2/U4 notes win over the table above where they differ: the Master
+Bedroom has no window at all, and the Study's escape window is on the west face.
+
+Anything not in these tables is solid wall.
 
 ## 8. Routes — what the gate should see
 
@@ -313,8 +327,10 @@ eighteen-room maze; the floor is 2 and the playtest decides the rest.
 
 ## 9. The lot
 
+**Rewritten by P3-8 (2026-11-17, the user's rules); the table is the built lot.**
+
 Two identical houses, **rotated 180° and point-symmetric about the lot centre**
-(2690, 1845). Not mirrored — mirroring in X once produced two houses facing the
+(3640, 1860). Not mirrored — mirroring in X once produced two houses facing the
 same way.
 
 ```
@@ -331,32 +347,51 @@ same way.
 
 | Element | X (east) | Z (north) |
 |---|---|---|
-| Lot / boundary wall | 0 – 5380 | 0 – 3690 |
+| Lot / bounds | 0 – 7280 | 0 – 3720 |
 | House A | 350 – 2440 | 350 – 2440 |
-| House B | 2940 – 5030 | 1250 – 3340 |
-| Corridor between | 2440 – 2940 | full depth |
-| Lot centre | 2690 | 1845 |
+| House B | 4840 – 6930 | 1280 – 3370 |
+| Gap between, wall to wall | 2440 – 4840 (2400) | full depth |
+| Boundary fence | 3625 – 3655 | full depth, 230 tall |
+| Main gate | — | 1660 – 2060 (400) |
+| Small crossings | — | 220 – 380 and 3340 – 3500 (160) |
+| Lot centre | 3640 | 1860 |
 
 House-local → world, House A: `world = local + (350, 350)`.
-House B: `world.x = 5030 − local.x`, `world.z = 3340 − local.z`.
+House B: `world.x = 7280 − (350 + local.x)`, `world.z = 3720 − (350 + local.z)`
+(for a box, also subtract its size).
 
-**The houses got bigger; the garden got smaller.** Margins are 350 (was 550) and
-the corridor is 500 (was 620). This is deliberate and it is the trade worth
-knowing: a bigger house means fewer accidental encounters, and thin encounter
-rates have bitten this project twice. Growing the house *and* the lot would make
-it worse. Keep the buildings close.
+**The gap was 520 and is 2400 since P3-8:** 4.4 s at walking speed (540 a
+second). The user asked for double the distance and a 4–6 s walk; double the
+wall-to-wall gap (1040) is under 2 s, so the walk time won. Margins and both
+houses are unchanged.
 
 Each front door faces **away** from the other house, so the nearest entrances to
-an attacker are the back and side doors and the front door is a flank.
+an attacker are the back and side doors and the front door is a flank. Both side
+doors face the main gate, and a paved path runs between them through it.
 
-### Territory
+### Territory: the boundary fence is the line
 
-Ground within **400** of a house's outer wall belongs to that house — capture is
-legal there. The corridor and outer margin are neutral and capture is illegal.
+There is **no neutral ground**. The fence stands on the lot's x midline; each
+family owns everything on its side of it, house and yard (`yard_a` is x < 3640,
+`yard_b` the rest; rooms win inside the houses). A defender may seize an
+intruder anywhere on the defender's side, through a doorway too (the seize
+needs both bodies on the captor's ground and no blocker between them at chest
+height); an opponent on its own side is safe. Never in the defender's own jail.
+
+The fence has one 400 main gate in the middle and two 160 crossings, each 300 in
+from an end. The houses are a half turn apart, so one off-centre crossing could
+not be symmetric: each crossing is the "back" crossing for one family.
 
 Never let the only safe place also be the only crossing. An earlier build put
 every encounter on neutral ground, so no capture was ever legal and the game had
-no interactions at all.
+no interactions at all. Now the only safe ground is your own side.
+
+### Yard props
+
+Three per house, the same collision box at the turned spot in both yards (a 120
+top or 230 tall), drawn differently per family (`ArtTheme.yard_models`): House A
+a picnic table, a timber shed and a compost bin; House B a brick barbecue, a
+brick outhouse and a planter.
 
 ### Spawns, cash, jail
 

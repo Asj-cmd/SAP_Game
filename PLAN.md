@@ -260,7 +260,7 @@ beats a polished one. Tasks tagged `(worker: fable)` run on the Fable model (see
   not) and note it on D2; log the choices in DECISIONS.md as REVIEW. Art stays optional via fallback;
   the poly budget and the animations still hold. *Verify:* the full `verify.mjs`; ONE lineup and
   turnaround capture set at the end, opened and judged against this text, and at most one redo.
-- [ ] **P3-8 Territory line, gate and house layout.** (The user's rules.)
+- [x] **P3-8 Territory line, gate and house layout.** (The user's rules.) *(Done 2026-11-17: no neutral ground, the fence on x 3640 is the line; seize needs both bodies on the captor's side and no blocker between them; 400 gate + two 160 crossings; houses 2400 apart (was 520, 4.4 s at 540); an outside back staircase to Landing B per house; three yard props per house, same boxes, drawn per family. Frames in `autobuild/frames/` (`lot_overview`, `ext_gate_mid`, `ext_cross_*`, `ext_backstair_*`, `cam_backstair_top`, `cam_fence_gate`). See PROGRESS.md.)*
   1. **The boundary fence is the territory line: no neutral strip.** A defender can seize an
      opponent anywhere on the defender's side of the fence (house and yard); an opponent on their own
      side is safe. Check what the sim does today (zones, `ZoneDef.Role.NEUTRAL`, the seize rule, the

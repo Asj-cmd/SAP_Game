@@ -184,9 +184,20 @@ drawn by whoever was building it, which is why it has been rebuilt twice. A
 described plan is coming; treat this one as scaffolding to be replaced rather
 than something to defend.
 
+**P3-8 (2026-11-17): the boundary fence is the territory line.** Every point in
+the lot has an owning team: `yard_a` is the half of the lot west of the fence
+(x < 3640), `yard_b` the half east of it, and the rooms win inside the houses.
+There is no neutral zone in the level any more (`ZoneDef.Role.NEUTRAL` stays for
+test rigs). "Am I on my own side?" is `world.zone_at(p).is_owned_by(team)`,
+which is what P4-8's home-side speed reads. A seizure needs both bodies on the
+captor's ground and nothing solid between them (`CaptureSystem`), so a doorway
+seizure from house to yard works. The houses are 2400 apart wall to wall (was
+520), with a 400 gate in the middle of the fence and two 160 crossings near its
+ends, and each house has an outside back staircase to Landing B.
+
 **One rule that is NOT a bug, and was measured to check.** A team can seize an
-intruder anywhere on ground it owns - and cannot in the neutral garden, in the
-other house, in its own pen, or in its own vault while the intruder's 5 s
+intruder anywhere on ground it owns - and cannot in the other house or yard, in
+its own pen, or in its own vault while the intruder's 5 s
 safe-room grant is running. That last one bites hardest: the raider is protected
 in the very room the defender most wants to catch them in. It is Variant B
 working as specified (`DESIGN_DIRECTION` §4) and it reads from the chair as "I

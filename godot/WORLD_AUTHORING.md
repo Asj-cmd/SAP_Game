@@ -184,6 +184,13 @@ Three details make the count mean what it should:
   encounters in a six-minute bot match, every one outdoors, not one where a
   capture was legal, and zero captures. Ownership says who may seize; `outdoor`
   says what the gate counts ways in from. See §13.
+- **Since P3-8 the house level has no neutral ground at all.** The boundary
+  fence (`blocker_furniture_fence_*`: collision listed with the furniture so the
+  shell does not draw it as brick) is the territory line, and the two yards are
+  the two halves of the lot either side of it. A seizure needs captor and target
+  both on the captor's ground and no blocker between them at chest height
+  (`CaptureSystem._reach_blocked`), not the same zone: a doorway seizure from
+  house to yard is legal, one through a wall is not.
 
 **Open plan scores low, and that is the answer rather than a bug.** A wide
 knocked-through opening is one connected stretch of boundary, so it is one
