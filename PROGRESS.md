@@ -2,6 +2,26 @@
 
 Newest first. One entry per task: date, task id, what changed, what the frames showed, numbers, what is left.
 
+## 2026-11-17 — P4-7 Verb readability audit by frames
+- Audit only: no captures, no code, no verify run (only docs changed). Judged against D2/D9 from frames earlier tasks made. Opened: `p4_8/panic_sheet`, `p4_2/{carry,crouch,jump_stand,throw}_sheet`, `p4_3/jail_sheet`, `p4_5/throw_chase`, `p2_3/{seize,free}_sheet`.
+
+| Verb | Frame | Readable? | Notes |
+|---|---|---|---|
+| Standing still | `p4_2/jump_stand_sheet` end rows, `p4_5/throw_chase` | yes | Upright, arms hanging, identical cell to cell: motionless as D9 asks. |
+| Walk / jog | `p4_2/crouch_sheet` cells 2-4, `p4_8/panic_sheet` cells 2-5 | yes | Arms held in at the sides, plain stride. |
+| Panic run | `p4_8/panic_sheet` cells 6-16 | yes | One arm straight overhead, the other forward-up, long stride, same pace as the jog. (648 speed in `p4_1` is the old boost, not a defect.) |
+| Jump + landing | `p4_2/jump_stand_sheet` | yes | One held tuck, small dip on landing, back to still. |
+| Crouch-walk | `p4_2/crouch_sheet` cells 6-20 | yes | Deep stiff hunch, hands hanging forward. Reads as ducking. |
+| Grab | `p4_2/carry_sheet` row 1 | yes | Bends, scoops the bundle, straightens, goes overhead. |
+| Carry overhead | `p4_2/carry_sheet`, `p4_5/throw_sheet` | yes | Arms straight up, bundle on top, body upright; a jump keeps the bundle up. |
+| Throw | `p4_2/throw_sheet` | yes | Both hands push forward, bundle leaves the hands. |
+| Jail run-in-place | `p4_3/jail_sheet` | yes, caveat | Jog, crouch-walk and hop in place read; from the top-down camera the legs are hard to follow, but the body moves while the position holds. |
+| Seize | `p2_3/seize_sheet` | NOT SEEN | Grey-box-era frame (old figure and blockout), only a figure running; no seize pose visible. |
+| Free ally | `p2_3/free_sheet` | NOT SEEN | Same: old art, two figures running past each other; no clear free gesture. |
+
+- **Fixes:** none; nothing found needed a clip or pose change.
+- **Follow-up (not started):** a seize and a free contact sheet with the current figures, for the next task allowed captures.
+
 ## 2026-11-17 — P4-6 Bots and panic run: nothing to do
 - P4-8 removed the panic speed boost (animation only), so there is no panic speed for bots to use. The last full `verify.mjs` (end of P4-8, same code, no changes since) was healthy: 3v3 team_a in 526 s, 45 s stalls, deterministic; 1v1 deterministic; tick budget 0/0/3; symmetry 190/190; net_smoke agrees. No code changed, so no new run. BRIEF section deleted (it was marked out of date).
 
