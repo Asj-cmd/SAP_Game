@@ -4,6 +4,12 @@ Written by the planner from a quick read. If a fact here is wrong, the code and 
 
 ## P4-6 — Bots and panic run
 
+**OUT OF DATE (2026-11-16, user's playtest).** This brief was written before P4-8, which now runs
+FIRST and removes the panic speed boost (the run becomes arms-up animation only). With no boost
+there is nothing for bots to gain from holding `forward`, so do NOT add `panic_min_run` or a
+`_wants_forward` rule. Read PLAN.md's P4-6 note: if `verify.mjs` is healthy after P4-8, tick the
+task with that note and delete this section. The rest below is history.
+
 **Approach**
 1. Read `godot/sim/ai/bot_director.gd`: `_steer`, `_send_intent` (the one place a bot's
    `MoveCommand.move(actor_id, intent, tick)` is made; bots never set `forward`), `_has_reached`,

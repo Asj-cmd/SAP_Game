@@ -219,6 +219,84 @@ Aug 16–Oct 10 are in; an earlier version of this plan was written against the 
   *Verify:* frames at day-like exposure; cash readable at 30 m.
 - [x] **P3-6 Performance pass** against the budgets from P1-1. Merge meshes/instances where needed. *(Done 2026-11-16: furniture, cash bundles and trees merged at load by `MeshMerge`; sun shadow map 2048 (REVIEW). All 61 views within draws/triangles (worst `approach_from_south` 404 / 233k, was 654 / 384k); 8 timed views at 4v4 all within GPU 9 ms and frame 12 ms (worst kitchen 8.3 / 10.7, was 11.6 / 14.0). Draws and triangles of three views gated in the full verify. See PROGRESS.md.)*
 
+## Milestone — playtest feedback (user, 2026-11-16): do these four first, in this order
+
+Written after the user's playtests. They come before the open Phase 4 and 5 tasks below, so the
+loop takes them first. The order matters: names first (small, visible), then the figures' look,
+then the fence rule and layout (which defines "own side"), then the home-side speed that depends
+on it. (An earlier plan update these were meant to build on, "Plan: playtest feedback", is not in
+this repo, and neither is a task P3-7: where the user's wording below says "as before" or "as
+already written", the missing text is flagged in the task. Decide, log as REVIEW, move on.)
+
+- [ ] **P5-0 Family display names.** Each family gets a display name ("the family display names"),
+  kept in ONE small text file, `godot/content/family_names.cfg`, two lines: `team_a_name=` and
+  `team_b_name=` (plain text after the `=`, no quotes needed; blank lines and lines starting with `#`
+  are ignored). The file already exists with the first two names, and `HOW_TO_PLAY.md` has a section
+  "Changing the family names" that tells the user which file and lines to edit.
+  Make the game read the file ONCE at start (one small loader class: trim spaces, strip optional
+  quotes; a missing file or an empty value falls back to "Family A" / "Family B", never "Team A/B")
+  and use the names everywhere a player sees a team: the HUD bar and status line, the menus and
+  lobby, round and match results, the minimap and team-tell labels, any text a player can see.
+  Internal ids stay `team_a` / `team_b` (sim, network, content, tests). No "Team A/B" text left on
+  screen: search the UI code and scenes for it. **Nothing else in the project may contain the names
+  as fixed text**: code, scenes, tests and docs say "the family display names"; tests compare with
+  what the loader returns, never with a literal name. The names are presentation only: never in the
+  sim, a snapshot or a network message (each machine shows what its own file says). The export
+  (P7-1) must include the file. When done, delete the "until P5-0 is finished" caveat in
+  `HOW_TO_PLAY.md`. *Verify:* one table-driven test of the loader (both lines, spaces, quotes, empty
+  value, missing file, comment lines) and a search showing the names appear in no file but the
+  `.cfg`; then the full `verify.mjs`. No frame captures.
+- [ ] **P2-6 Hair and builds: make each family member recognisable** (the user's design notes from
+  playtest; keep their spirit, refine as needed). Dad has a belly (dad bod) and a comb-over. Mom is a
+  little jacked (broad shoulders, strong arms) with a tall stiff hairdo. The son has a small mohawk.
+  The daughter has two pigtails. The elder and younger variants follow the same idea (the elder and
+  younger boy each get the mohawk, the elder and younger girl each get the pigtails, told apart by
+  size and shape). Hair is plain painted solid shapes in the figure material (no strands, no
+  texture), built into the figure the way P2-1b's clothes are, following the Head bone; hair colours
+  are data in the theme (REVIEW). Builds (belly, shoulders, arms) are bone scales and body shape in
+  the theme data, as in P2-1. Faces stay blank and deadpan (D2): no eyes, mouth or nose; drawn faces
+  are in the Backlog. Update STYLE.md §2.1 and §2.2 (hair is now allowed as plain shapes; faces are
+  not) and note it on D2; log the choices in DECISIONS.md as REVIEW. Art stays optional via fallback;
+  the poly budget and the animations still hold. *Verify:* the full `verify.mjs`; ONE lineup and
+  turnaround capture set at the end, opened and judged against this text, and at most one redo.
+- [ ] **P3-8 Territory line, gate and house layout.** (The user's rules; the earlier wording this
+  replaces is not in the repo, so the parts marked "unspecified" are yours to decide, REVIEW.)
+  1. **The boundary fence is the territory line: no neutral strip.** A defender can seize an
+     opponent anywhere on the defender's side of the fence (house and yard); an opponent on their own
+     side is safe. Check what the sim does today (zones, `ZoneDef.Role.NEUTRAL`, the seize rule, the
+     validator) and change it to exactly this; update D9 and the docs (`HOUSE_LAYOUT.md`,
+     `WORLD_AUTHORING.md`, `PROJECT_MEMORY.md`). Table-driven test for the seize decision on each
+     side of the line.
+  2. **One shared gate in the middle plus one smaller crossing at the back**, so the gate cannot be
+     camped by one defender.
+  3. **The gap between the two lots is about double what it is now.** (The user's earlier wording was
+     "gap about double, as before"; double today's gap.) The planner may re-orient the houses (for
+     example front doors facing each other across the fence) if that plays better. Both lots stay
+     exact mirrors (the level-symmetry check in `verify.mjs` must stay exact).
+  4. **Same layout in both houses, but each one visibly its own:** the family colours on trim, door
+     and roof, plus two or three different yard props per house.
+  5. **An outside back staircase per house.** (The user wrote "as already written"; that text is
+     missing. Unspecified: put it on the house's back face as a way up to the upper floor, mirrored
+     in both houses, with collision that matches how it is drawn.)
+  Bots only have to keep working (the gate is `verify.mjs`); no bot tuning or sweeps. *Verify:* the
+  full `verify.mjs`; ONE set of exterior, gate and staircase views at the end, opened and judged, and
+  at most one redo.
+- [ ] **P4-8 Panic run is animation only; defenders are faster at home.**
+  1. **The chased player's panic run is animation only (arms up), with no speed boost.** Remove the
+     speed multiplier (`panic_speed_scale`, 1.2, in `content/tuning/tuning_def.gd` and the `.tres`
+     files, and where `MovementSystem` applies it). Keep what drives the arms-up pose (the forward
+     count after about 2 s) because the animation uses it. The carrier's 0.85 factor is unchanged.
+  2. **New: a player standing on their own side of the fence (a defender) moves at 1.08x**, a value
+     in content data (REVIEW). Deterministic, decided in the sim from the territory line of P3-8,
+     never from the presentation. Unspecified: it multiplies with the carrier's 0.85 (a carrier at
+     home is 0.85 × 1.08); say so in the log.
+  3. Update D9 (the panic run row, and the new home-side speed). Update the tests (the panic cases
+     become "no speed change", plus table rows for the home-side factor on each side of the line)
+     and the snapshot if a field is added or removed.
+  4. Bot behaviour only has to keep working; no tuning, no sweeps. *Verify:* the full `verify.mjs`;
+     ONE contact sheet of the panic run (arms up, same pace) and of a defender at home, at the end,
+     and at most one redo.
+
 ## Phase 4 — Verbs (DECISIONS.md D9; see `DESIGN_DIRECTION.md` §5)
 
 The v1 verb set is fixed by D9. Each new verb: a sim command + system (general, never
@@ -231,8 +309,8 @@ removed on purpose (do not rebuild it). No ragdoll, knockback, slide, shove or d
 - [x] **P4-3 Jail run-in-place per D9:** the jailed player's inputs drive animation and camera only, never position *(Done 2026-11-16: jailed jumps counted in the sim (`held_jumps`, snapshot format 4), never kept for release; jog / crouch / crouch-walk / a 60-high drawn hop in place from the intent, facing the keys (REVIEW); mouse still turns the camera. `autobuild/frames/p4_3/jail_sheet.png`, `jail_chase.png`. See PROGRESS.md.)*
 - [x] **P4-4 Players block each other like walls** (check what the sim does now; make bodies block if they pass through) *(Done 2026-11-16: measured with table rows at the game's numbers; head-on panic runners never passed through, but a running jump went through a standing body's chest. Sideways moves now meet a body as a cylinder of its drawn height, vertical moves keep the sphere; the sidestep round a body stays; nobody is moved by a bump. A fall onto a body still rests inside it (REVIEW lead). REDO: a jailed own body is not faded. See PROGRESS.md.)*
 - [x] **P4-5 Cash tumble and bounce after a throw or drop** (cosmetic; snaps to the sim's position) *(Done 2026-11-16: `BundleTumble`: end-over-end spin in flight (540°/s thrown, 135°/s dropped), two hops on landing (first clamp(speed × 0.02, 4, 14), a drop ×0.4) while the spin eases to the nearest flat pose; drawn only, at the sim's x/z, exactly on the sim at rest. `--pilot=carry_out`, follow views `bundle` / `bundle_r`. Sheets in `autobuild/frames/p4_5/`. See PROGRESS.md.)*
-- [ ] **P4-6 Bots and panic run.** Bots may use panic run, but only so they do not break or get stuck. No tuning, no sweeps; verify.mjs is the gate.
-- [ ] **P4-7 Verb readability audit by frames**
+- [ ] **P4-6 Bots and panic run.** Bots may use panic run, but only so they do not break or get stuck. No tuning, no sweeps; verify.mjs is the gate. *(2026-11-16: P4-8 runs first and removes the panic speed boost, so there is no panic speed for bots to use. This task then shrinks to "bots do not break or get stuck with the new rules"; if verify is healthy, there is nothing to do: tick it with that note.)*
+- [ ] **P4-7 Verb readability audit by frames** *(2026-11-16, testing diet: audit the frames the earlier verb tasks already made, `autobuild/frames/p4_*`; no new captures.)*
 
 ## Phase 5 — Game feel, UI, audio
 
@@ -273,7 +351,8 @@ removed on purpose (do not rebuild it). No ragdoll, knockback, slide, shove or d
 
 Proximity voice chat · clip export (seed + input log) · lag compensation · defender prep phase
 (traps/locks) · loot variety (TV needing two people, piggy bank) · more maps · cosmetics/progression ·
-decoy mannequins/figures placed in the house (must be subtle, not obvious; try after v1).
+decoy mannequins/figures placed in the house (must be subtle, not obvious; try after v1) ·
+drawn faces on the figures (eyes, mouth: kept blank for v1, D2; hair is allowed from P2-6).
 
 ## Backlog: bots — revisit only when the user reports a problem
 
