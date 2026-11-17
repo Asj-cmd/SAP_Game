@@ -1,7 +1,7 @@
 // Builds the Windows release: build/CashGrab.exe, then smoke-runs it.
 //   node autobuild/build.mjs
 import { spawnSync } from "node:child_process";
-import { readFileSync, statSync, existsSync, mkdirSync } from "node:fs";
+import { readFileSync, statSync, existsSync, mkdirSync, copyFileSync } from "node:fs";
 
 const GODOT = process.env.GODOT_BIN || "C:/Godot/Godot_v4.7.1-stable_win64_console.exe";
 const proj = readFileSync("godot/project.godot", "utf8");
@@ -12,6 +12,7 @@ if (/^MCP\w*=.*addons\/godot_mcp/m.test(proj)) {
 const run = (args, timeout) =>
   spawnSync(GODOT, ["--headless", "--path", "godot", ...args], { encoding: "utf8", maxBuffer: 1 << 28, timeout });
 mkdirSync("build", { recursive: true });
+copyFileSync("CREDITS.md", "godot/content/credits.md"); // the in-game credits screen reads this copy
 run(["--import"], 600000);
 const r = run(["--export-release", "Windows Desktop", "../build/CashGrab.exe"], 600000);
 console.log(`${r.stdout ?? ""}${r.stderr ?? ""}`.split("\n").slice(-15).join("\n"));

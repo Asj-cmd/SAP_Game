@@ -1,10 +1,10 @@
 # Cash Grab — playtest build
 
-A grey-box test. Plain boxes and capsules, no art, no sound. What is being
-tested is how it **feels** to chase someone through a house and how the safe
-room behaves — not how it looks.
+A friends playtest of the whole game: two families, two houses, bots filling
+every empty seat. What is being tested is how it **feels** to raid a house and
+chase someone through it. Sound levels and looks are fair to comment on too.
 
-Two people, one hosts, the other joins. Ten minutes is plenty.
+One person hosts, the others join. Fifteen minutes is plenty.
 
 ---
 
@@ -45,7 +45,9 @@ Unzip anywhere and run **CashGrab.exe**. No installer.
 Windows may warn about an unrecognised publisher - the build is not signed.
 *More info* -> *Run anyway*.
 
-The game opens on a menu with three choices.
+The game opens on a menu: **Play solo**, **Host** (and **Host on Steam** when
+that add-on is installed), **Join**, **Settings**, **How to play**, **Credits**
+and **Quit**.
 
 ### The host
 
@@ -53,8 +55,10 @@ Press **Host**. The address box is filled in for you: if Tailscale is running
 it picks your Tailscale address (`100.x.y.z`), otherwise your home-network
 address. The note under the box says which, and who can reach it.
 
-A **code** like `05ZG-0001-W5FG` appears top-left and is **already copied** -
-paste it to the other player in whatever chat you use.
+A **lobby panel** shows a **code** like `05ZG-0001-W5FG`, already copied - paste
+it to the other players in whatever chat you use. The panel also has the team
+size, a "fill empty seats with bots" box, **Start** (press it when everyone is
+in) and **Cancel**.
 
 > Use the Tailscale address when the other player is in a different house. A
 > home-network address (`192.168.x.x`) only works for someone on the same wifi.
@@ -64,7 +68,8 @@ paste it to the other player in whatever chat you use.
 Paste the code into **Join a game** and press **Join** (or Enter). Codes are not
 case-sensitive and the dashes do not matter.
 
-You should be in the match within a second. If the host cannot be reached you
+You land in the host's lobby within a second and the match starts when the
+host presses Start. If the host cannot be reached you
 are put back on the menu after about ten seconds with the reason, and the code
 is still in the box to try again.
 
@@ -76,7 +81,10 @@ applies to Play solo and to Host; bots fill every seat nobody is sitting in.
 
 **Play solo** starts a match with you and bots.
 
-**F10** leaves any match and goes back to the menu.
+**Esc** opens the pause menu (Resume, Settings, Leave to menu); the match keeps
+running while it is up, online or not. **F10** leaves any match at once. The
+first match shows a short step-by-step guide; **F9** skips it and *How to play*
+on the menu brings it back.
 
 > The command-line flags still work (`CashGrab.exe -- --host`,
 > `-- --join=CODE`, `-- --advertise=100.x.y.z`, `-- --team-size=4`) for anyone
@@ -102,31 +110,35 @@ restarts by itself 12 s after each result.
 | Crouch (hold) | `SHIFT` |
 | Grab / drop cash | left mouse button |
 | Throw cash | right mouse button - a toss; it lands and anyone can pick it up |
-| Seize an intruder, or free a team-mate | `E` |
+| Seize an intruder, or free a team-mate | `E` (rebindable in Settings) |
 | Play again when the match is over | `Enter` (solo or host; a guest waits for the host) |
 | Leave to the menu | `F10` |
-| Release the mouse | `Esc` |
+| Pause menu (the match keeps running) | `Esc` |
 | Save a screenshot | `F12` |
 | Show / hide the debug HUD (bot state, camera, network) | `F1` - hidden by default |
 
-The line across the top always shows the round, the clock, each team's cash and
-rounds won (`>` marks your team), the cash needed to win, and CARRYING CASH or
-JAILED for you. A big message in the middle counts down each round and says who
-won it, and who won the match. A bundle someone is carrying is drawn over their
+The bar across the top is a tug of war: each family's colour fills from its own
+end in proportion to its banked cash, with the family names, cash, round wins and
+the clock. CARRYING CASH or a JAILED countdown shows for you, and a prompt appears
+when you can free a team-mate. A big message in the middle counts down each round
+and says who won it, and who won the match. The results panel at the end offers
+a rematch. A bundle someone is carrying is drawn over their
 head.
 
 Steal cash from the other family's vault and get it back to yours. On your own
-ground you can seize an intruder, which sends them to your basement until a
-team-mate reaches them - **except** in a safe room.
+side of the fence you can seize an intruder, which sends them to your jail until a
+team-mate reaches them - **except** in a safe room. There is no neutral ground:
+the boundary fence between the two lots is the line. Cross it through the central
+gate or the small back crossing. Each house also has an outside back staircase to
+the upstairs landing.
 
 `E` is one button for both: it asks for a seize and a release at the same time
 and the rules pick. Seizing needs an intruder on ground you own; freeing needs a
 held team-mate within reach; no position satisfies both.
 
 **You cannot seize someone in your own vault for the first 5 seconds after they
-enter it** - that is the safe room, and it is deliberate. Nor in the garden
-between the houses, which belongs to nobody, nor in your own basement. Anywhere
-else on your own ground is fair game.
+enter it** - that is the safe room, and it is deliberate. Nor in your own
+jail. Anywhere else on your own side is fair game.
 
 **Bots fill every empty seat**, and a joining player takes one over from a bot
 (the emptier team gets them first). At 3v3 that is up to six people per match.
@@ -166,8 +178,8 @@ The Steam buttons appear only when the add-on is installed. Not tested live.
 2. Friend: accepts the invite in Steam. If the game is closed Steam starts it with `+connect_lobby <id>`; if it is running the invite joins at once (not mid-match).
 3. Tailscale/LAN: unchanged, Host and Join with the code.
 
-Known and not worth reporting: no sound, plain block characters with no
-animation, and grey-box rooms.
+Known and not worth reporting: the blank faces (deliberate), bot behaviour, and
+Steam buttons missing (they need the add-on).
 
 ## Performance on the dev machine
 

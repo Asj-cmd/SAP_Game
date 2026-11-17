@@ -1,5 +1,55 @@
 # Cash Grab
 
+A third-person 3D party game for Steam. Two families raid each other's houses to
+steal cash, jail the intruders they catch on their own ground, and rescue jailed
+teammates. 2v2, 3v3 or 4v4, best of 3 rounds; bots fill empty seats.
+
+## Play it
+
+- **Build the game:** `node autobuild/build.mjs` makes `build/CashGrab.exe` (one file,
+  about 118 MB, Windows, unsigned). Needs Godot 4.7 and its export templates.
+- **Play with friends** over Tailscale or the same wifi: see `godot/PLAYTEST.md`
+  (Host, copy the code, the friend pastes it into Join). Steam invites work once
+  the GodotSteam add-on is installed (see `BLOCKED.md`).
+- **On your own:** *Play solo* on the main menu.
+
+### Controls (rebindable in Settings)
+
+| | |
+|---|---|
+| Move | `W A S D`, mouse to look |
+| Jump / crouch (hold) | `Space` / `Shift` |
+| Grab or drop cash / throw | left mouse / right mouse |
+| Seize an intruder, free a teammate | `E` |
+| Pause menu | `Esc` |
+| Leave to the menu | `F10` |
+| Debug HUD | `F1` |
+
+Steal cash from the other family's house and bring it home. On your own side of the
+fence you can seize intruders; they go to jail until a teammate frees them.
+
+## For developers
+
+```bash
+export GODOT_BIN=/path/to/godot-4.7-console      # Windows: the *_console.exe
+node autobuild/verify.mjs --quick                # tests + level symmetry
+node autobuild/verify.mjs                        # the full gate (bot match, tick budget, network)
+```
+
+The game is the Godot project in `godot/` (Godot 4.7, Compatibility renderer, typed
+GDScript, host-authoritative). Start with `godot/CLAUDE.md`, then
+`godot/ARCHITECTURE.md` and `godot/PROJECT_MEMORY.md`. The autonomous build runs from
+`PLAN.md`, `DECISIONS.md`, `PROGRESS.md` and `autobuild/README.md`. Asset licences are
+in `ASSETS.md` and `CREDITS.md`; a Steam store-page checklist is `STORE_CHECKLIST.md`.
+
+---
+
+## Legacy client/server (Three.js + Colyseus)
+
+The earlier browser version lives in `client/` and `server/`. It is kept for
+reference and not developed. `npm run install:all && npm run play` serves it on
+http://localhost:2567; the rest of this section is its original guide.
+
 A multiplayer top-down browser game. Two families compete to steal cash
 bundles from each other's master bedroom, jail the intruders they catch at home,
 and rescue jailed teammates.

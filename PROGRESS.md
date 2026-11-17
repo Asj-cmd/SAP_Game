@@ -2,6 +2,12 @@
 
 Newest first. One entry per task: date, task id, what changed, what the frames showed, numbers, what is left.
 
+## 2026-11-17 — P7-3 Docs
+- Root `README.md` now leads with the Godot game (pitch, play it, controls, developers); the Three.js guide is the last section, unchanged. `godot/PLAYTEST.md` fixed where stale (lobby panel and Start, Esc pause, first-run guide, top bar, no neutral ground / jail, no more "grey-box"); build line and performance table kept. New `STORE_CHECKLIST.md` (sizes from memory, marked check on Steamworks; fees and accounts user only).
+- Credits: main-menu "Credits" button opens a scrollable RichTextLabel (`#` headings bold, nothing else parsed; missing file shows "Credits: see CREDITS.md"). Text is `godot/content/credits.md`, a copy of `CREDITS.md` that `build.mjs` refreshes before exporting; in the preset's `include_filter`. `CREDITS.md` rewritten to cover every shipped source in `ASSETS.md` (added the Quaternius animated men/women and modular packs, Poly Haven samples).
+- Checked: headless `--menu` run no script errors; `build.mjs` BUILD: ok 118.5 MB; full verify healthy (3v3 4 of 600 over, 4v4 7 not gated, net_smoke 1651 ticks agree). No frames (the panel is unseen).
+- Left: P7-4.
+
 ## 2026-11-17 — P7-2 Quality settings and performance
 - `PlayerSettings` [video] (quality, fullscreen, vsync, max_fps) + `apply_video()`; presets in one dictionary; `WorldBackdrop.apply_quality` toggles the sun shadow and atlas; seat viewports (group `seat_viewport`) get `scaling_3d_scale`; four rows in `SettingsPanel`; `--quality=` override. Window settings are skipped in capture/pilot runs.
 - Timing table (GT 730M, 4v4) is in godot/PLAYTEST.md: GPU ms high 6.2/8.3/7.8, medium 5.5/7.8/7.2, low 4.5/6.4/5.9; low halves draws. No frames judged.

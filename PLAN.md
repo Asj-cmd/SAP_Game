@@ -366,7 +366,7 @@ removed on purpose (do not rebuild it). No ragdoll, knockback, slide, shove or d
 - [x] **P7-1 Export.** *(Done 2026-11-17: `node autobuild/build.mjs` -> `build/CashGrab.exe` 118.5 MB, smoke run clean. See PROGRESS.md.)* Windows export preset, a `autobuild/build.mjs` that produces `build/CashGrab.exe`;
   needs export templates installed (write BLOCKED.md if missing; do not download 800 MB unprompted — ask in the report).
 - [x] **P7-2 Quality settings and performance** on the dev machine (windowed, real GPU): record FPS in `PLAYTEST.md`.
-- [ ] **P7-3 Docs.** Update `README.md`, `PLAYTEST.md`, credits screen from `CREDITS.md`, a store-page asset checklist.
+- [x] **P7-3 Docs.** *(Done 2026-11-17: README rewritten for the Godot game, PLAYTEST.md brought up to date, Credits button + `content/credits.md` copy, STORE_CHECKLIST.md. See PROGRESS.md.)* Update `README.md`, `PLAYTEST.md`, credits screen from `CREDITS.md`, a store-page asset checklist.
 - [ ] **P7-4 Release sweep.** Full `verify.mjs --frames` over every room, final PROGRESS entry, tag `v0.1.0-rc1`.
 
 ## Backlog — do NOT start unless every task above is done

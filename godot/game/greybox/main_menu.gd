@@ -18,6 +18,7 @@ signal join_chosen(code: String)
 signal host_steam_chosen(team_size: int)
 
 const PANEL_WIDTH: float = 460.0
+const CREDITS_PATH: String = "res://content/credits.md"
 
 var _address: LineEdit = null
 ## Bodies a side for a solo or hosted match. A guest does not choose: it plays
@@ -29,6 +30,7 @@ var _error: Label = null
 var _root: Control = null
 var _settings: SettingsPanel = null
 var _howto: VBoxContainer = null
+var _credits: VBoxContainer = null
 var _tell_boxes: Dictionary[StringName, CheckBox] = {}
 
 func _ready() -> void:
@@ -41,6 +43,9 @@ func open(problem: String = "") -> void:
 	if _howto != null and _howto.visible:
 		_howto.visible = false
 		_settings.closed.emit()  # its handler shows the main column again
+	if _credits != null and _credits.visible:
+		_credits.visible = false
+		_settings.closed.emit()
 	if _settings != null and _settings.visible:
 		_settings.closed.emit()
 	# F5-F8 in a match may have changed the team tell since the menu was built.
@@ -78,6 +83,8 @@ func _build() -> void:
 	centre.add_child(_settings)
 	_howto = _build_howto(column)
 	centre.add_child(_howto)
+	_credits = _build_credits(column)
+	centre.add_child(_credits)
 
 	var title: Label = Label.new()
 	title.text = "CASH GRAB"
@@ -195,6 +202,12 @@ func _build() -> void:
 		_howto.visible = true)
 	column.add_child(howto_button)
 
+	var credits_button: Button = _button("Credits")
+	credits_button.pressed.connect(func() -> void:
+		column.visible = false
+		_credits.visible = true)
+	column.add_child(credits_button)
+
 	var quit_button: Button = _button("Quit")
 	quit_button.pressed.connect(func() -> void: get_tree().quit())
 	column.add_child(quit_button)
@@ -226,6 +239,40 @@ func _build_howto(column: VBoxContainer) -> VBoxContainer:
 				k.call(&"forward"), k.call(&"left"), k.call(&"back"), k.call(&"right"),
 				k.call(&"jump"), k.call(&"crouch"), k.call(&"seize")])
 	return panel
+
+## The credits text is a build-time copy of the root CREDITS.md. `#` heading
+## markers become bold lines; nothing else is parsed.
+func _build_credits(column: VBoxContainer) -> VBoxContainer:
+	var panel: VBoxContainer = VBoxContainer.new()
+	panel.custom_minimum_size = Vector2(PANEL_WIDTH, 0.0)
+	panel.add_theme_constant_override("separation", 12)
+	panel.visible = false
+	var text: RichTextLabel = RichTextLabel.new()
+	text.bbcode_enabled = true
+	text.fit_content = false
+	text.custom_minimum_size = Vector2(0.0, 420.0)
+	text.text = credits_bbcode(FileAccess.get_file_as_string(CREDITS_PATH))
+	panel.add_child(text)
+	var back: Button = _button("Back")
+	back.pressed.connect(func() -> void:
+		panel.visible = false
+		column.visible = true)
+	panel.add_child(back)
+	return panel
+
+static func credits_bbcode(raw: String) -> String:
+	if raw.strip_edges() == "":
+		return "Credits: see CREDITS.md"
+	var lines: PackedStringArray = []
+	for line: String in raw.replace("[", "[lb]").split("
+"):
+		var trimmed: String = line.strip_edges(false, true)
+		if trimmed.begins_with("#"):
+			lines.append("[b]%s[/b]" % trimmed.lstrip("#").strip_edges())
+		else:
+			lines.append(trimmed.replace("**", ""))
+	return "
+".join(lines)
 
 func _join() -> void:
 	var code: String = _code.text.strip_edges()
