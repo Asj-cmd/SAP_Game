@@ -177,7 +177,12 @@ func _run(
 	}
 
 func _transport(backend: String) -> SessionTransport:
-	return LoopbackTransport.new() if backend == "loopback" else ENetTransport.new()
+	match backend:
+		"loopback":
+			return LoopbackTransport.new()
+		"steam":
+			return SteamTransport.new()
+	return ENetTransport.new()
 
 func _settle(server: SessionTransport, client: SessionTransport) -> void:
 	var deadline: int = Time.get_ticks_msec() + 5000

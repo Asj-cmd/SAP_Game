@@ -356,7 +356,7 @@ removed on purpose (do not rebuild it). No ragdoll, knockback, slide, shove or d
   prediction/rollback/snapshots hold at 100 ms + 5% loss; fix defects.
 - [x] **P6-2 Host modes.** *(Done 2026-11-17: listen host documented in ARCHITECTURE.md; `--headless --dedicated` built as a thin flag in greybox_main.gd. See PROGRESS.md.)* Confirm what exists (player-hosted listen mode vs dedicated headless) and
   document in `godot/ARCHITECTURE.md`. Implement a headless dedicated host only if it is small.
-- [ ] **P6-3 Steam transport** behind the existing session/transport interface using GodotSteam
+- [x] **P6-3 Steam transport** *(Done 2026-11-17: `SteamTransport` + fake-Steam contract rows, 50 checks; live two-instance test waits on BLOCKED.md.)* behind the existing session/transport interface using GodotSteam
   (dev with Steam test app id 480). Works with two local instances where possible.
   Needs the user's Steamworks app for the real id → write BLOCKED.md for that part only.
 - [ ] **P6-4 Invite/join flow** through Steam lobbies, keeping the room-code path for Tailscale/LAN.

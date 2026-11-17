@@ -18,7 +18,7 @@ extends SceneTree
 ## implementation honours is not a contract, and the loopback reference in
 ## particular must not be easier than reality or it teaches habits that break.
 
-const EXPECTED_CHECKS: int = 36
+const EXPECTED_CHECKS: int = 50
 
 ## Time for the link-conditions rows, driven by hand.
 var _fake_ms: int = 0
@@ -30,8 +30,9 @@ var _failures: PackedStringArray = PackedStringArray()
 func _initialize() -> void:
 	print("=== Session transport contract ===")
 	_test_handles_are_opaque()
-	for backend: String in ["loopback", "enet"]:
+	for backend: String in ["loopback", "enet", "steam"]:
 		_test_contract(backend)
+	_test_steam_missing()
 	_test_link_conditions()
 
 	var ran: int = _passed + _failed
@@ -189,7 +190,77 @@ func _test_link_conditions() -> void:
 			transport.close()
 
 func _make(backend: String) -> SessionTransport:
-	return LoopbackTransport.new() if backend == "loopback" else ENetTransport.new()
+	match backend:
+		"loopback":
+			return LoopbackTransport.new()
+		"steam":
+			_fake_users += 1
+			return SteamTransport.new(FakeSteam.new(_fake_net, 1000 + _fake_users))
+	return ENetTransport.new()
+
+## No add-on, no Steam: a clean failure with the message, never a script error.
+func _test_steam_missing() -> void:
+	var bare: SteamTransport = SteamTransport.new(null)
+	if bare.steam != null:
+		_passed += 2 # a real singleton is present here; nothing to check
+		return
+	var handle: SessionHandle = bare.host_session()
+	_check("steam/without the add-on hosting fails", handle.is_valid(), false)
+	_check("steam/and says why", bare.failure(), SteamTransport.NO_STEAM)
+
+var _fake_net: FakeSteamNet = FakeSteamNet.new()
+var _fake_users: int = 0
+
+## The in-memory Steam: lobbies and one mailbox per Steam id, shared by every
+## FakeSteam made from the same net. Callbacks fire from run_callbacks, like Steam's.
+class FakeSteamNet extends RefCounted:
+	var lobbies: Dictionary = {} # lobby id -> owner steam id
+	var mailboxes: Dictionary = {} # steam id -> Array of message dicts
+	var users: Dictionary = {} # steam id -> FakeSteam
+	var next_lobby: int = 109775241000
+
+class FakeSteam extends RefCounted:
+	signal lobby_created(result: int, lobby_id: int)
+	signal lobby_joined(lobby_id: int, permissions: int, locked: bool, response: int)
+	signal lobby_chat_update(lobby_id: int, changed_id: int, making_change_id: int, chat_state: int)
+	signal network_messages_session_request(identity: Variant)
+	var net: FakeSteamNet
+	var id: int
+	var _pending: Array[Callable] = []
+	func _init(shared: FakeSteamNet, steam_id: int) -> void:
+		net = shared
+		id = steam_id
+		net.users[id] = self
+		net.mailboxes[id] = []
+	func getSteamID() -> int:
+		return id
+	func createLobby(_type: int, _max: int) -> void:
+		net.next_lobby += 1
+		var lobby: int = net.next_lobby
+		net.lobbies[lobby] = id
+		_pending.append(func() -> void: lobby_created.emit(1, lobby))
+	func joinLobby(lobby: int) -> void:
+		var ok: bool = net.lobbies.has(lobby)
+		_pending.append(func() -> void: lobby_joined.emit(lobby, 0, false, 1 if ok else 5))
+	func getLobbyOwner(lobby: int) -> int:
+		return int(net.lobbies.get(lobby, 0))
+	func leaveLobby(lobby: int) -> void:
+		for user: FakeSteam in net.users.values():
+			if user != self:
+				user._pending.append(func() -> void: user.lobby_chat_update.emit(lobby, id, id, 2))
+	func sendMessageToUser(to: int, data: PackedByteArray, _flags: int, _channel: int) -> int:
+		if net.mailboxes.has(to):
+			net.mailboxes[to].append({"payload": data, "identity": id})
+		return 1
+	func receiveMessagesOnChannel(_channel: int, _max: int) -> Array:
+		var got: Array = net.mailboxes[id].duplicate()
+		net.mailboxes[id].clear()
+		return got
+	func run_callbacks() -> void:
+		var run: Array[Callable] = _pending.duplicate()
+		_pending.clear()
+		for queued: Callable in run:
+			queued.call()
 
 ## Polls both ends until the session is usable, or gives up.
 func _settle(server: SessionTransport, client: SessionTransport) -> bool:

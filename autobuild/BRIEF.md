@@ -2,73 +2,6 @@
 
 Written by the planner from a quick read. If a fact here is wrong, the code and `DECISIONS.md` win.
 
-## P6-3 — Steam transport
-
-**Approach**
-1. Write `godot/net/steam_transport.gd` (`class_name SteamTransport extends SessionTransport`,
-   `backend_name()` = `&"steam"`) that talks to Steam ONLY through an injected `Object`
-   (`var steam: Object`, default `Engine.get_singleton("Steam")` when `Engine.has_singleton("Steam")`,
-   else null). With null, `host_session()` returns an invalid handle and `failure()` says
-   "Steam is not available (GodotSteam not installed or Steam not running)". The project must parse
-   and run with no addon present: use `steam.call("name", ...)` / `has_method`, never the `Steam`
-   class name in code.
-2. Session = a Steam lobby: `host_session()` calls `createLobby` (friends-only, max = 2 × team size)
-   and returns a `SessionHandle(&"steam", "<lobby id>")` once the lobby id arrives (OPENING until then);
-   `join_session()` calls `joinLobby(id)`, learns the owner's Steam id, and goes READY after the
-   handshake below. The 64-bit lobby id already packs into a LobbyCode (`PACK_NUMBER`, tested in
-   `lobby_test.gd`).
-3. Bytes = Steam Networking Messages (`sendMessageToUser`, `receiveMessagesOnChannel`, one channel).
-   RELIABLE → reliable send flag (8), UNRELIABLE → unreliable (0). Poll messages inside `poll()`; also
-   run `steam.call("run_callbacks")` there if the singleton does not do it itself.
-4. Peer ids: the host is `HOST_PEER` (1); the host gives each Steam id the next int from 2 in join
-   order, in a tiny transport-level handshake (guest → host `HELLO`, host → guest `WELCOME <id>`; one
-   reserved first byte so it never reaches `MatchChannel`). PEER_JOINED/PEER_LEFT events as the ENet
-   backend emits them (read `enet_transport.gd` and copy its event shapes exactly).
-5. Wire `backend == "steam"` into `MatchLink._transport` (`match_link.gd:144`) and the two tools
-   that pick a backend (`tools/net_loopback.gd:122`, `tools/net_lobby.gd:180`). `--backend=steam`
-   already reaches `_backend` in `greybox_main.gd`.
-6. Conformance without Steam: add a minimal fake Steam object (an inner class in
-   `tests/transport_test.gd`: lobby create/join, a shared in-memory mailbox per Steam id) and run the
-   existing per-backend rows on `SteamTransport` too. Re-pin the count in `autobuild/test_baseline.json`.
-7. Add `godot/steam_appid.txt` with `480` (Spacewar, dev only), excluded from export later (note for P7-1).
-8. Write the BLOCKED.md entry (below). Update ARCHITECTURE.md (the transport list) and ASSETS.md is not
-   needed (no asset added).
-
-**Already decided**
-- **Do not download GodotSteam or any Steam DLL in this session.** The GDExtension bundles Valve's
-  `steam_api64.dll` under the Steamworks SDK agreement, which is the user's to accept, and a build for
-  Godot 4.7 may not exist yet. BLOCKED.md entry: "install GodotSteam GDExtension for Godot 4.7 into
-  `godot/addons/godotsteam/`, have the Steam client running and logged in; then `--backend=steam`
-  works with app id 480; the real app id needs a Steamworks partner account and the app fee (money)".
-  Mark the task `[x]` with the note "live two-instance test waits on BLOCKED.md", not `[B]` (the code
-  part is not blocked). Log in DECISIONS.md as REVIEW.
-- Networking Messages, not `SteamMultiplayerPeer`: the game has its own `SessionTransport`, not
-  Godot's high-level multiplayer (D5).
-- Peer ids assigned by the host in join order; Steam ids never leave the transport except as the
-  identity slot (`player_identity.gd:16` says where a Steam id goes later; leave identity unchanged
-  in this task unless it is one line).
-
-**Files likely touched**
-- `godot/net/steam_transport.gd` (new)
-- `godot/game/greybox/match_link.gd`, `godot/tools/net_loopback.gd`, `godot/tools/net_lobby.gd`
-- `godot/tests/transport_test.gd`, `autobuild/test_baseline.json`
-- `godot/steam_appid.txt` (new), `godot/ARCHITECTURE.md`, `BLOCKED.md`, `DECISIONS.md`, `PLAN.md`, `PROGRESS.md`
-- Note: a new `class_name` needs one `--import` run before tools see it (P6-1).
-
-**Done means**
-- `transport_test` runs its rows on loopback, ENet and SteamTransport-with-fake, all passing; new
-  count pinned.
-- `--backend=steam` with no addon fails cleanly with the message above (menu returns "Could not
-  start: ...", CLI shows it in the banner), no script error.
-- Full `node autobuild/verify.mjs` ONCE at the end, before the commit: healthy, net_smoke (ENet)
-  unchanged and in lockstep.
-
-**Do NOT**
-- Download or commit GodotSteam, `steam_api*.dll`, or the Steamworks SDK. Do not create accounts.
-- Reference the `Steam` class name directly (the project would fail to parse without the addon).
-- Change `SessionTransport`'s interface, `MatchChannel` framing, the snapshot, the lobby rules or `sim/`.
-- Build the invite/overlay flow (that is P6-4). Bot work, sweeps, a new test file.
-
 ## P6-4 — Invite/join flow
 
 **Approach**
@@ -97,7 +30,7 @@ Written by the planner from a quick read. If a fact here is wrong, the code and 
 
 **Files likely touched**
 - `godot/game/greybox/main_menu.gd`, `godot/game/greybox/lobby_panel.gd`, `godot/game/greybox/greybox_main.gd`
-- `godot/net/steam_transport.gd` (an `available()` static and the overlay call, if P6-3 did not add them)
+- `godot/net/steam_transport.gd` (`available()` exists; add the overlay call)
 - `godot/PLAYTEST.md`, `godot/ARCHITECTURE.md`, `DECISIONS.md`, `PLAN.md`, `PROGRESS.md`
 
 **Done means**

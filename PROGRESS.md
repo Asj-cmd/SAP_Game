@@ -2,6 +2,12 @@
 
 Newest first. One entry per task: date, task id, what changed, what the frames showed, numbers, what is left.
 
+## 2026-11-17 — P6-3 Steam transport
+- `SteamTransport` (new, `net/steam_transport.gd`): Steam lobby as the session, Networking Messages for bytes, host-assigned peer ids (HELLO/WELCOME, reserved first byte), Steam reached only through an injected Object (singleton or fake). Wired into `MatchLink._transport`, `net_loopback`, `net_lobby`. `godot/steam_appid.txt` = 480 (leave out of the export, P7-1). `SteamTransport.available()` is there for P6-4.
+- `transport_test` 36 -> 50: the 12 contract rows now also run on SteamTransport against an in-memory fake Steam (lobbies, mailboxes), plus 2 rows for "no add-on fails with the message". Pinned in `test_baseline.json`. A headless `--host --backend=steam` run printed no script errors.
+- Not done: nothing run against live Steam; GodotSteam not downloaded (BLOCKED.md). Call/signal names follow GodotSteam 4.x docs and may need small fixes. A new `class_name` needed one `--import` run.
+- Left: P6-4 (brief kept in BRIEF.md).
+
 ## 2026-11-17 — P6-2 Host modes
 - Documented both host modes in `godot/ARCHITECTURE.md` ("Host modes"): listen host (default, host plays) and dedicated host. Built the dedicated host as a flag in `greybox_main.gd` (~45 lines): `--dedicated` implies `--host`, skips the menu and `seat_local`, prints `DEDICATED HOST code=...`, starts the match `--dedicated-wait=` s (15) after the first guest connects, requests a rematch 12 s after MATCH_END. Seats/viewports/HUD are still built (headless draws nothing), so no guards were added; the brief's "skip building seats" was not done, to stay small.
 - Checked: one `run_game.mjs --headless -- --dedicated --team-size=2` printed the code, no script errors (ran to the timeout). NOT tested with a live guest joining it or through a rematch cycle.

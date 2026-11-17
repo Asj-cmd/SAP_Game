@@ -142,7 +142,12 @@ static func guest(
 	return link
 
 static func _transport(backend: String) -> SessionTransport:
-	return LoopbackTransport.new() if backend == "loopback" else ENetTransport.new()
+	match backend:
+		"loopback":
+			return LoopbackTransport.new()
+		"steam":
+			return SteamTransport.new()
+	return ENetTransport.new()
 
 func _start_lobby(world: SimWorld, bots: bool) -> void:
 	lobby = Lobby.create(

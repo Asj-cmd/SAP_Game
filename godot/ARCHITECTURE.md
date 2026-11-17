@@ -233,7 +233,7 @@ both the same game scene (`game/greybox/greybox_main.gd`) and the same
   after MATCH_END. Seats, viewports and HUD are still built (headless renders
   nothing); no new network messages, nothing in `sim/` or `net/` changed.
 
-Steam (P6-3) is a transport behind `SessionTransport`, not a host mode: either
+Steam (P6-3, `net/steam_transport.gd`: lobby + Networking Messages, host-assigned peer ids, injected Steam object; live test waits on BLOCKED.md) is a transport behind `SessionTransport`, not a host mode: either
 host mode can run on it. Not built: a separate server binary or export, a
 directory/matchmaking service.
 

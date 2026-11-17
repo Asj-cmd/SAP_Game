@@ -122,6 +122,8 @@ func _transport(backend: String) -> SessionTransport:
 			return LoopbackTransport.new()
 		"enet":
 			return ENetTransport.new()
+		"steam":
+			return SteamTransport.new()
 	return null
 
 ## Waits for both ends to report themselves usable.
