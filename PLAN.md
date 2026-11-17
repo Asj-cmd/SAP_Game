@@ -247,7 +247,7 @@ beats a polished one. Tasks tagged `(worker: fable)` run on the Fable model (see
   `HOW_TO_PLAY.md`. *Verify:* one table-driven test of the loader (both lines, spaces, quotes, empty
   value, missing file, comment lines) and a search showing the names appear in no file but the
   `.cfg`; then the full `verify.mjs`. No frame captures.
-- [ ] **P2-6 Hair and builds: make each family member recognisable** (worker: fable) (the user's design notes from
+- [x] **P2-6 Hair and builds: make each family member recognisable** (worker: fable) *(Done 2026-11-17: hair shapes and dad's belly generated in `tools/rerig_character.gd` (`--hair=`, `--belly=`); hair colours and mom's / dad's builds in the theme; a member's drawn height is its body's, hair not counted. Frames in `autobuild/frames/p2_6/`; the lineup's 20 m and 40 m shots are blocked by the P3-4 exterior and show nothing. See PROGRESS.md.)* (the user's design notes from
   playtest; keep their spirit, refine as needed). Dad has a belly (dad bod) and a comb-over. Mom is a
   little jacked (broad shoulders, strong arms) with a tall stiff hairdo. The son has a small mohawk.
   The daughter has two pigtails. The elder and younger variants follow the same idea (the elder and

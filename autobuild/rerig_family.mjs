@@ -29,7 +29,7 @@ const BODIES = {
   tank: { src: join(WOMEN, "Female_TankTop.fbx"), rig: "figure_female", out: "figure_lp_tank",
     args: ["--hair=pigtails_short"] },
   shirt: { src: join(MEN, "Male_Shirt.fbx"), rig: "figure_male", out: "figure_lp_shirt",
-    args: ["--hair=combover", "--belly=9"] },
+    args: ["--hair=combover", "--belly=13"] },
   casual: { src: join(MEN, "Male_Casual.fbx"), rig: "figure_male", out: "figure_lp_casual",
     args: ["--hair=mohawk", "--hair-height=6"] },
 };

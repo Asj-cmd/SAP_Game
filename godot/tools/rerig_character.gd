@@ -700,14 +700,14 @@ func _build_hair(style: String, cm: float, height: float, shoulder_y: float) -> 
 			var axis: Vector3 = Vector3(0.0, cos(lean), -sin(lean) * _hf)
 			var top: float = 0.55 * _hr.y
 			var r: float = _hr.x
-			var profile: Array[Vector2] = [Vector2(0.0, 0.68 * r), Vector2(top + 2.0 * cm, 0.66 * r),
-				Vector2(top + 10.0 * cm, 0.64 * r), Vector2(top + 16.0 * cm, 0.56 * r),
-				Vector2(top + 19.5 * cm, 0.36 * r), Vector2(top + 21.0 * cm, 0.0)]
+			var profile: Array[Vector2] = [Vector2(0.0, 0.92 * r), Vector2(top + 2.0 * cm, 0.95 * r),
+				Vector2(top + 10.0 * cm, 0.98 * r), Vector2(top + 16.0 * cm, 0.86 * r),
+				Vector2(top + 19.5 * cm, 0.56 * r), Vector2(top + 21.0 * cm, 0.0)]
 			_hair_lathe(_hp(Vector3(0.0, 0.45, -0.12)), axis, profile)
 		"mohawk":
 			# One ridge down the middle, top of the forehead to the nape, no cap.
 			_crest = height
-			_hair_arc(true, 0.0, 0.13, 52.0, -125.0, _crest_at, 0.5, 1.0, 10)
+			_hair_arc(true, 0.0, 0.24, 52.0, -125.0, _crest_at, 0.6, 1.0, 10)
 		"pigtails_long":
 			_hair_cap(_on_top_back, 1.05)
 			# Two long bunches from behind the ears down to just above the shoulders.
@@ -725,9 +725,9 @@ func _build_hair(style: String, cm: float, height: float, shoulder_y: float) -> 
 			# Two short bunches set high, sticking out sideways and a little up.
 			for s: float in [-1.0, 1.0]:
 				var out: Vector3 = Vector3(s * cos(deg_to_rad(25.0)), sin(deg_to_rad(25.0)), 0.0)
-				var at: Vector3 = _hp(Vector3(s * 0.88, 0.42, -0.1)) + out * 3.0 * cm
+				var at: Vector3 = _hp(Vector3(s * 0.88, 0.42, -0.1)) + out * 4.0 * cm
 				# The blob's long (y) axis is turned to lie along `out`.
-				_hair_blob(at, Vector3(3.3 * cm, 4.5 * cm, 3.3 * cm),
+				_hair_blob(at, Vector3(3.8 * cm, 5.5 * cm, 3.8 * cm),
 					Basis(Vector3.BACK, -s * deg_to_rad(65.0)))
 		_:
 			return false
