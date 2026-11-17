@@ -2,58 +2,6 @@
 
 Written by the planner from a quick read. If a fact here is wrong, the code and `DECISIONS.md` win.
 
-## P7-1 — Export
-
-**Approach**
-1. Export templates ARE installed: `%APPDATA%/Godot/export_templates/4.7.1.stable/` holds
-   `windows_release_x86_64.exe` / `_console.exe`, matching the default `GODOT_BIN`
-   (`Godot_v4.7.1-stable_win64_console.exe`). No BLOCKED.md entry, no download.
-2. Deal with the Godot MCP plugin first (ASSETS.md row: licence unknown, must not ship). Remove its
-   three runtime-bridge autoloads (`MCPRuntimeBridge`, `MCPInputBridge`, `MCPScreenshotBridge`) from
-   `godot/project.godot` `[autoload]`, and add `addons/*` to the preset's `exclude_filter`. Leave the
-   `addons/godot_mcp/` folder and the `[editor_plugins]` line in place (editor-only, never exported).
-   Update the ASSETS.md row to say how it is kept out.
-3. Preset (`godot/export_presets.cfg`, keep "Windows Desktop"): set `application/file_version` and
-   `product_version` to `0.1.0.0`, `file_description` "Cash Grab", leave the icon empty. Keep
-   `embed_pck=true`, x86_64, `console_wrapper=1`, `exclude_filter` `tests/*, tools/*, addons/*`.
-   `steam_appid.txt` is not a resource, so the export already leaves it out; check, don't add it.
-4. Write `autobuild/build.mjs` (new), in the style of `run_tool.mjs` (same `GODOT_BIN` default):
-   (a) refuse with a clear message if `project.godot` still names `addons/godot_mcp` under
-   `[autoload]` (the editor plugin can re-add them when the user opens the editor);
-   (b) `GODOT_BIN --headless --path godot --import`, then
-   `--headless --path godot --export-release "Windows Desktop" ../build/CashGrab.exe`;
-   (c) check `build/CashGrab.exe` exists and print its size in MB;
-   (d) smoke-run the exe once: `build/CashGrab.exe --headless --quit-after 900 -- --solo`, with a
-   node timeout of 120 s, and fail if the output contains `SCRIPT ERROR`, `Parse Error` or
-   `Failed to load`. Print `BUILD: ok <size> MB` at the end.
-5. Run `node autobuild/build.mjs` once. If the smoke run shows errors that are missing files in the
-   export (e.g. something loaded by path from outside `res://` or filtered out), fix the filter, max
-   two attempts, then log in BLOCKED.md and mark `[~]`.
-6. Update `godot/PLAYTEST.md` §2 "Get the build" to say `node autobuild/build.mjs` and the real size.
-
-**Already decided**
-- MCP autoloads removed from `project.godot`, `addons/*` excluded from export (log in DECISIONS.md;
-  undo = put the three lines back). Not REVIEW.
-- Release export, not debug; console wrapper kept (friends' playtests need a way to see errors).
-- No code signing, no icon, no installer (unsigned exe, as PLAYTEST.md already warns).
-- `build/` stays gitignored (it already is). Nothing is uploaded anywhere.
-
-**Files likely touched**
-`godot/project.godot`, `godot/export_presets.cfg`, `autobuild/build.mjs` (new), `godot/PLAYTEST.md`,
-`ASSETS.md`, `DECISIONS.md`, `PROGRESS.md`, `PLAN.md`.
-
-**Done means**
-- `node autobuild/build.mjs` ends `BUILD: ok`, exe size recorded in PROGRESS.md.
-- The smoke run of the exported exe printed no script/parse/load errors.
-- Full `node autobuild/verify.mjs` once at the end: healthy (the autoload removal must not break any
-  tool; nothing in `game/` or `tools/` should reference the MCP bridges — grep to confirm).
-
-**Do NOT**
-- Download templates or anything else; publish or upload the build; add it to git.
-- Delete `godot/addons/godot_mcp/` or the editor plugin line.
-- Add GodotSteam or `steam_appid.txt` to the export.
-- Run frames, captures or `--pilot`; write test files; change the sim.
-
 ## P7-2 — Quality settings and performance
 
 **Approach**

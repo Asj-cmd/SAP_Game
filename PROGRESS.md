@@ -2,6 +2,11 @@
 
 Newest first. One entry per task: date, task id, what changed, what the frames showed, numbers, what is left.
 
+## 2026-11-17 — P7-1 Export
+- Removed the three Godot MCP runtime autoloads from `project.godot` (nothing outside `addons/godot_mcp` referenced them), `addons/*` added to the preset's `exclude_filter`, file/product version 0.1.0.0, description "Cash Grab". New `autobuild/build.mjs`: refuses if MCP autoloads are present, creates `build/`, imports, exports release, smoke-runs the exe headless `--quit-after 900 -- --solo`, fails on SCRIPT ERROR / Parse Error / Failed to load. First run failed only because `build/` did not exist (script now creates it).
+- Result: `BUILD: ok 118.5 MB`, smoke run printed none of the error strings. No frames. PLAYTEST.md §2 updated.
+- Left: P7-2.
+
 ## 2026-11-17 — P6-4 Invite/join flow
 - `MatchLink.guest` now decodes the code first and builds the transport from the handle's backend (a pasted Steam code or invite works whatever the CLI backend). Menu "Host on Steam" and lobby "Invite friends (Steam)" only when `SteamTransport.available()`; `+connect_lobby <id>` goes to the guest path with `steam:<id>`; `join_requested` joins while running (ignored if already in a session). Static helpers in `SteamTransport`. PLAYTEST.md and ARCHITECTURE.md updated.
 - Checked: `+connect_lobby 1097...` and `--solo` headless runs print no script errors (the clean-failure text is a banner, not printed, so not read). Live Steam untested (BLOCKED.md). No frames.

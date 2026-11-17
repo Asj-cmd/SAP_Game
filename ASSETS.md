@@ -58,7 +58,7 @@ We use only the bodies. Hair, eyebrows, eyes and the skin textures are dropped p
 
 | Name | Source | Licence | Date | Note |
 |---|---|---|---|---|
-| Godot MCP editor plugin (`godot/addons/godot_mcp`, "by mkdevkit", v0.1.0) | Unknown. No URL or licence file in the repo | **Not recorded** | before autobuild | A dev tool. Its three runtime bridges are autoloads in `project.godot`, so they would ship in an export. Before P7-1, remove the plugin and autoloads from the release build, or record its licence. Not used by the autobuild (no MCP in unattended runs) |
+| Godot MCP editor plugin (`godot/addons/godot_mcp`, "by mkdevkit", v0.1.0) | Unknown. No URL or licence file in the repo | **Not recorded** | before autobuild | A dev tool. Its three runtime bridges are autoloads in `project.godot`, so they would ship in an export. Before P7-1, remove the plugin and autoloads from the release build, or record its licence. Not used by the autobuild (no MCP in unattended runs) | **P7-1 done:** the three autoloads are removed from `project.godot` and `addons/*` is in the export preset's `exclude_filter`; `autobuild/build.mjs` refuses to build if they come back. Not in the export.
 | Godot Engine 4.7.1 | https://godotengine.org | MIT | — | Its licence text must go in the credits/about screen (P7-3) |
 
 ## Chosen sources, nothing downloaded yet (P3-1)

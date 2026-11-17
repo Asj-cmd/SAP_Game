@@ -32,10 +32,10 @@ That is the whole setup. Leave it running in the background.
 If you have one already, skip to running it. To make one from the source:
 
 ```
-godot --headless --path godot --export-release "Windows Desktop"
+node autobuild/build.mjs
 ```
 
-It lands in `build/CashGrab.exe` - one file, about 110 MB, no installer. Send
+It lands in `build/CashGrab.exe` - one file, about 118 MB, no installer. Send
 the whole thing to whoever is playing.
 
 ## 3. Run the game
