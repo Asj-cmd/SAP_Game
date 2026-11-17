@@ -296,7 +296,7 @@ Fable needs paid usage credits (2026-11-17), so the tags were removed from the o
   bounds needs the same camera care as the fence. Update STYLE.md (the suburb is gone) and ASSETS.md
   for any new texture. *Verify:* the full `verify.mjs`; ONE set of every exterior view in
   `views.json` at the end, opened and judged (no third house in any of them), and at most one redo.
-- [ ] **P4-8 Panic run is animation only; defenders are faster at home.**
+- [x] **P4-8 Panic run is animation only; defenders are faster at home.** *(Done 2026-11-17: `panic_speed_scale` removed, `home_speed_scale` 1.08 in `MovementSystem._speed_for`; the animator reads `is_panicking`; hedge REDO. See PROGRESS.md.)*
   1. **The chased player's panic run is animation only (arms up), with no speed boost.** Remove the
      speed multiplier (`panic_speed_scale`, 1.2, in `content/tuning/tuning_def.gd` and the `.tres`
      files, and where `MovementSystem` applies it). Keep what drives the arms-up pose (the forward

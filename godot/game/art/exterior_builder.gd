@@ -561,7 +561,9 @@ func _hedge(f: Frame, group: StringName, a0: float, a1: float, o0: float, o1: fl
 	var chamfer: float = 40.0
 	var shoulder: float = HEDGE_HEIGHT - chamfer
 	_box(f, group, &"hedge_base", a0, a1, 0.0, band, o0 - 2.0, o1 + 2.0, F_NO_BOTTOM)
-	_box(f, group, &"hedge", a0, a1, band, shoulder, o0, o1, F_SIDES)
+	var mid: float = 190.0
+	_box(f, group, &"hedge", a0, a1, band, mid, o0, o1, F_SIDES)
+	_box(f, group, &"hedge_hi", a0, a1, mid, shoulder, o0, o1, F_SIDES)
 	# The narrower crown: end faces, the two slopes, the flat top.
 	_box(f, group, &"hedge_top", a0, a1, shoulder, HEDGE_HEIGHT, o0 + chamfer, o1 - chamfer, F_ALONG_LO | F_ALONG_HI | F_UP)
 	_quad(group, &"hedge_top", [f.at(a0, shoulder, o0), f.at(a1, shoulder, o0), f.at(a1, HEDGE_HEIGHT, o0 + chamfer),
@@ -783,7 +785,7 @@ const FALLBACK: Dictionary[StringName, Color] = {
 	&"fence_wood": Color(0.45, 0.33, 0.23), &"fence_post": Color(0.36, 0.27, 0.19),
 	&"fence_steel": Color(0.1, 0.105, 0.11), &"fence_cap": Color(0.72, 0.69, 0.63),
 	&"cap": Color(0.72, 0.69, 0.63), &"hedge": Color(0.2, 0.33, 0.17),
-	&"hedge_base": Color(0.11, 0.2, 0.1), &"hedge_top": Color(0.42, 0.52, 0.2),
+	&"hedge_base": Color(0.11, 0.2, 0.1), &"hedge_hi": Color(0.3, 0.45, 0.2), &"hedge_top": Color(0.42, 0.52, 0.2),
 	&"crown": Color(0.25, 0.4, 0.2), &"bark": Color(0.33, 0.27, 0.21),
 	&"render": Color(0.84, 0.81, 0.74), &"door": Color(0.2, 0.22, 0.25),
 	&"yard": Color(0.36, 0.5, 0.3),
