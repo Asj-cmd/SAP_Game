@@ -158,5 +158,13 @@ Press `F12` when something looks wrong. Screenshots land in
 | You stop moving but others carry on | Tell us. That one matters. |
 | Dropped out entirely | Just run the same join command again. You get **your own body back**, wherever it had got to - a bot covers the seat while you are away and hands it straight back. If you come back as a *new* player instead, that is a bug and we want to know. |
 
+## Playing over Steam (needs GodotSteam; see BLOCKED.md)
+
+The Steam buttons appear only when the add-on is installed. Not tested live.
+
+1. Host: main menu, pick a team size, **Host on Steam**. The lobby panel has **Invite friends (Steam)** (opens the Steam overlay invite dialog) and the code, which also works pasted into Join.
+2. Friend: accepts the invite in Steam. If the game is closed Steam starts it with `+connect_lobby <id>`; if it is running the invite joins at once (not mid-match).
+3. Tailscale/LAN: unchanged, Host and Join with the code.
+
 Known and not worth reporting: no sound, plain block characters with no
 animation, and grey-box rooms.

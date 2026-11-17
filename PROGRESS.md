@@ -2,6 +2,11 @@
 
 Newest first. One entry per task: date, task id, what changed, what the frames showed, numbers, what is left.
 
+## 2026-11-17 — P6-4 Invite/join flow
+- `MatchLink.guest` now decodes the code first and builds the transport from the handle's backend (a pasted Steam code or invite works whatever the CLI backend). Menu "Host on Steam" and lobby "Invite friends (Steam)" only when `SteamTransport.available()`; `+connect_lobby <id>` goes to the guest path with `steam:<id>`; `join_requested` joins while running (ignored if already in a session). Static helpers in `SteamTransport`. PLAYTEST.md and ARCHITECTURE.md updated.
+- Checked: `+connect_lobby 1097...` and `--solo` headless runs print no script errors (the clean-failure text is a banner, not printed, so not read). Live Steam untested (BLOCKED.md). No frames.
+- Left: P7-1.
+
 ## 2026-11-17 — P6-3 Steam transport
 - `SteamTransport` (new, `net/steam_transport.gd`): Steam lobby as the session, Networking Messages for bytes, host-assigned peer ids (HELLO/WELCOME, reserved first byte), Steam reached only through an injected Object (singleton or fake). Wired into `MatchLink._transport`, `net_loopback`, `net_lobby`. `godot/steam_appid.txt` = 480 (leave out of the export, P7-1). `SteamTransport.available()` is there for P6-4.
 - `transport_test` 36 -> 50: the 12 contract rows now also run on SteamTransport against an in-memory fake Steam (lobbies, mailboxes), plus 2 rows for "no add-on fails with the message". Pinned in `test_baseline.json`. A headless `--host --backend=steam` run printed no script errors.

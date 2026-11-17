@@ -418,3 +418,7 @@ than a simulation one, and short shareable clips are the main distribution
 mechanism for a game of this kind. Anything that makes the simulation depend on
 un-recorded input destroys the property silently — which is the underlying
 reason for the §3 bans on wall clock, engine RNG, and scene state.
+
+### Steam invites (P6-4)
+
+The backend of a join comes from the `SessionHandle` (`MatchLink.guest` decodes the code first, then builds that backend's transport). Steam adds "Host on Steam" (menu), an overlay invite button (lobby panel, `SteamTransport.invite_dialog`), the `+connect_lobby <id>` launch argument and the `join_requested` signal, all in `greybox_main.gd`. With no Steam add-on none of it is shown. Live test waits on the GodotSteam entry in BLOCKED.md.

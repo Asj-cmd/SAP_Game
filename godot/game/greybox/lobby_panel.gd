@@ -9,6 +9,8 @@ signal cancelled
 var _code: Label = null
 var _bots: CheckBox = null
 var _size: Label = null
+var _invite: Button = null
+var _steam_token: String = ""
 
 func _ready() -> void:
 	layer = 9
@@ -46,6 +48,12 @@ func _ready() -> void:
 	_code.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
 	_code.add_theme_font_size_override("font_size", 28)
 	column.add_child(_code)
+	_invite = Button.new()
+	_invite.text = "Invite friends (Steam)"
+	_invite.custom_minimum_size = Vector2(0.0, 40.0)
+	_invite.visible = false
+	_invite.pressed.connect(func() -> void: SteamTransport.invite_dialog(_steam_token))
+	column.add_child(_invite)
 	_bots = CheckBox.new()
 	_bots.text = "Fill empty seats with bots"
 	_bots.button_pressed = true
@@ -61,7 +69,10 @@ func _ready() -> void:
 	cancel.pressed.connect(func() -> void: cancelled.emit())
 	column.add_child(cancel)
 
-func open(code: String, team_size: int) -> void:
+## `steam_token` is the Steam lobby id when this is a Steam host, else "".
+func open(code: String, team_size: int, steam_token: String = "") -> void:
+	_steam_token = steam_token
+	_invite.visible = steam_token != ""
 	_code.text = code
 	_size.text = "%dv%d" % [team_size, team_size]
 	visible = true

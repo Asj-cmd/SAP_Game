@@ -122,8 +122,6 @@ static func guest(
 	# seat. --identity is how a local two-window test gives them different
 	# people. On two actual machines it is never needed.
 	link.identity = as_identity if as_identity != "" else PlayerIdentity.local()
-	link.transport = _transport(backend)
-
 	# A pasted code, a handle from an invite, or nothing at all - which means
 	# the session on this machine, which is what makes a two-window test on one
 	# desktop a single flag rather than a copy-paste dance.
@@ -135,8 +133,11 @@ static func guest(
 	else:
 		handle = LobbyCode.decode(code)
 	if not handle.is_valid():
+		link.transport = _transport(backend)
 		link.failure = "that is not a session code"
 		return link
+	# The backend of a join comes from the handle, never from a menu toggle.
+	link.transport = _transport(String(handle.backend))
 	link.transport.join_session(handle)
 	link._joining_since = Time.get_ticks_msec()
 	return link

@@ -257,6 +257,8 @@ func _ready() -> void:
 	_menu.solo_chosen.connect(_on_solo)
 	_menu.host_chosen.connect(_on_host)
 	_menu.join_chosen.connect(_on_join)
+	_menu.host_steam_chosen.connect(_on_host_steam)
+	SteamTransport.on_join_requested(_on_steam_invite)
 	PlayerSettings.current().apply_audio()
 	_lobby = LobbyPanel.new()
 	add_child(_lobby)
@@ -293,6 +295,8 @@ func _ready() -> void:
 func _wants_menu() -> bool:
 	if OS.get_cmdline_user_args().has("--menu"):
 		return true
+	if _invite_lobby() != "":
+		return false
 	for arg: String in OS.get_cmdline_user_args():
 		if arg == "--host" or arg == "--dedicated" or arg == "--solo" or arg == "--split" \
 				or arg.begins_with("--join") or arg.begins_with("--capture"):
@@ -307,6 +311,10 @@ func _read_command_line() -> void:
 	_dedicated_wait = float(_argument("--dedicated-wait=", "15"))
 	_identity = _argument("--identity=", "")
 	_backend = _argument("--backend=", "enet")
+	var invited: String = _invite_lobby()
+	if invited != "":
+		_join_code = "steam:%s" % invited
+		_backend = "steam"
 	_team_size = clampi(int(_argument("--team-size=", str(GreyBoxLevel.DEFAULT_TEAM_SIZE))),
 		GreyBoxLevel.TEAM_SIZES.front(), GreyBoxLevel.TEAM_SIZES.back())
 
@@ -316,10 +324,22 @@ func _on_solo(team_size: int) -> void:
 
 func _on_host(address: String, team_size: int) -> void:
 	_team_size = team_size
+	_backend = _argument("--backend=", "enet") # undo a cancelled Steam host
 	_launch(MatchLink.Role.HOST, "", address)
+
+func _on_host_steam(team_size: int) -> void:
+	_team_size = team_size
+	_backend = "steam"
+	_launch(MatchLink.Role.HOST, "", "")
 
 func _on_join(code: String) -> void:
 	_launch(MatchLink.Role.GUEST, code, "")
+
+## A friend's invite accepted while the game is running (Steam overlay).
+func _on_steam_invite(lobby_id: int) -> void:
+	if link != null:
+		return # already in a session or match
+	_on_join("steam:%d" % lobby_id)
 
 func _launch(role: MatchLink.Role, code: String, address: String) -> void:
 	_role = role
@@ -332,7 +352,10 @@ func _launch(role: MatchLink.Role, code: String, address: String) -> void:
 	_start(GreyBoxLevel.SafeVariant.B)
 	if _lobby_wait:
 		if link != null and link.failure == "":
-			_lobby.open(link.session_code(), _team_size)
+			var steam_token: String = ""
+			if _backend == "steam":
+				steam_token = LobbyCode.decode(link.session_code()).token
+			_lobby.open(link.session_code(), _team_size, steam_token)
 			DisplayServer.clipboard_set(link.session_code())
 		else:
 			_lobby_wait = false
@@ -948,7 +971,15 @@ func _role_from_command_line() -> MatchLink.Role:
 	for arg: String in args:
 		if arg == "--join" or arg.begins_with("--join="):
 			return MatchLink.Role.GUEST
+	if _invite_lobby() != "":
+		return MatchLink.Role.GUEST
 	return MatchLink.Role.LOCAL
+
+## Steam starts the game with `+connect_lobby <id>` from an invite (not after `--`).
+func _invite_lobby() -> String:
+	var args: PackedStringArray = OS.get_cmdline_args()
+	args.append_array(OS.get_cmdline_user_args())
+	return SteamTransport.lobby_from_args(args)
 
 func _argument(prefix: String, fallback: String) -> String:
 	for arg: String in OS.get_cmdline_user_args():

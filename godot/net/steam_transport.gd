@@ -58,6 +58,29 @@ func _init(injected: Object = null) -> void:
 static func available() -> bool:
 	return _singleton() != null
 
+## Opens the Steam overlay's invite dialog for the lobby `token` (a handle's
+## token). False when Steam is absent. Friends-only lobbies are joined from it.
+static func invite_dialog(token: String) -> bool:
+	var s: Object = _singleton()
+	if s == null or not token.is_valid_int():
+		return false
+	s.call("activateGameOverlayInviteDialog", int(token))
+	return true
+
+## Steam passes `+connect_lobby <id>` when the game is started from an invite.
+## Returns the lobby id as text, or "" when the arguments carry none.
+static func lobby_from_args(args: PackedStringArray) -> String:
+	for i: int in args.size():
+		if args[i] == "+connect_lobby" and i + 1 < args.size() and args[i + 1].is_valid_int():
+			return args[i + 1]
+	return ""
+
+## Calls `handler(lobby_id: int)` when a friend's invite is accepted while running.
+static func on_join_requested(handler: Callable) -> void:
+	var s: Object = _singleton()
+	if s != null and s.has_signal("join_requested"):
+		s.connect("join_requested", func(lobby_id: int, _friend: int = 0) -> void: handler.call(lobby_id))
+
 static func _singleton() -> Object:
 	return Engine.get_singleton("Steam") if Engine.has_singleton("Steam") else null
 

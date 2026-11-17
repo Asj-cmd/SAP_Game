@@ -359,7 +359,7 @@ removed on purpose (do not rebuild it). No ragdoll, knockback, slide, shove or d
 - [x] **P6-3 Steam transport** *(Done 2026-11-17: `SteamTransport` + fake-Steam contract rows, 50 checks; live two-instance test waits on BLOCKED.md.)* behind the existing session/transport interface using GodotSteam
   (dev with Steam test app id 480). Works with two local instances where possible.
   Needs the user's Steamworks app for the real id → write BLOCKED.md for that part only.
-- [ ] **P6-4 Invite/join flow** through Steam lobbies, keeping the room-code path for Tailscale/LAN.
+- [x] **P6-4 Invite/join flow** *(Done 2026-11-17: Host on Steam, overlay invite, `+connect_lobby`, join_requested; live test waits on BLOCKED.md.)* through Steam lobbies, keeping the room-code path for Tailscale/LAN.
 
 ## Phase 7 — Release candidate
 

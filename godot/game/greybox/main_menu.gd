@@ -15,6 +15,7 @@ extends CanvasLayer
 signal solo_chosen(team_size: int)
 signal host_chosen(address: String, team_size: int)
 signal join_chosen(code: String)
+signal host_steam_chosen(team_size: int)
 
 const PANEL_WIDTH: float = 460.0
 
@@ -158,6 +159,11 @@ func _build() -> void:
 	host.pressed.connect(func() -> void:
 		host_chosen.emit(_address.text.strip_edges(), _chosen_size()))
 	column.add_child(host)
+	# Only when the Steam add-on is present; otherwise the menu is unchanged.
+	if SteamTransport.available():
+		var host_steam: Button = _button("Host on Steam  (invite friends)")
+		host_steam.pressed.connect(func() -> void: host_steam_chosen.emit(_chosen_size()))
+		column.add_child(host_steam)
 
 	column.add_child(HSeparator.new())
 
