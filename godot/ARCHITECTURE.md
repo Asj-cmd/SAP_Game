@@ -54,6 +54,11 @@ in Presentation or Network. This is not a style preference — it is the propert
 that lets the same simulation run on a headless server, inside a client
 predicting ahead of that server, and in a test harness, without modification.
 
+**Lag and loss (P6-1).** `LoopbackTransport.conditions` (a `LinkConditions`, opt-in, null = immediate and
+lossless) simulates one-way latency, jitter and loss on what that end sends; `net_loopback --latency-ms=
+--loss= --jitter-ms= --ticks=` and `net_prediction --latency= --loss=` use it. Every channel is RELIABLE
+today, so loss only makes a packet arrive a round trip late, in order; ENet has no loss injection here.
+
 ---
 
 ## 2. Directory layout

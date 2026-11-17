@@ -18,7 +18,10 @@ extends SceneTree
 ## implementation honours is not a contract, and the loopback reference in
 ## particular must not be easier than reality or it teaches habits that break.
 
-const EXPECTED_CHECKS: int = 28
+const EXPECTED_CHECKS: int = 36
+
+## Time for the link-conditions rows, driven by hand.
+var _fake_ms: int = 0
 
 var _passed: int = 0
 var _failed: int = 0
@@ -29,6 +32,7 @@ func _initialize() -> void:
 	_test_handles_are_opaque()
 	for backend: String in ["loopback", "enet"]:
 		_test_contract(backend)
+	_test_link_conditions()
 
 	var ran: int = _passed + _failed
 	if ran != EXPECTED_CHECKS:
@@ -115,6 +119,74 @@ func _test_contract(backend: String) -> void:
 	_check("%s/and says so through poll" % backend,
 		_has_kind(lost.poll(), NetEvent.Kind.SESSION_FAILED), true)
 	lost.close()
+
+# ---- lag and loss (loopback only, fake clock) ----
+
+## A ready loopback pair; the host's sends use `conditions`.
+func _pair(conditions: LinkConditions) -> Array[LoopbackTransport]:
+	var server: LoopbackTransport = LoopbackTransport.new()
+	var client: LoopbackTransport = LoopbackTransport.new()
+	server.conditions = conditions
+	client.join_session(server.host_session())
+	_settle(server, client)
+	return [server, client] as Array[LoopbackTransport]
+
+func _payloads(receiver: LoopbackTransport) -> Array[int]:
+	var found: Array[int] = []
+	for event: NetEvent in receiver.poll():
+		if event.kind == NetEvent.Kind.PAYLOAD:
+			found.append(event.payload[0])
+	return found
+
+func _conditions(latency: int, loss: float) -> LinkConditions:
+	var link: LinkConditions = LinkConditions.new(latency, loss, 0, 3)
+	link.clock = func() -> int: return _fake_ms
+	return link
+
+func _test_link_conditions() -> void:
+	# No conditions: immediate, as the reference always was.
+	_fake_ms = 0
+	var plain: Array[LoopbackTransport] = _pair(null)
+	plain[0].send(2, PackedByteArray([1]))
+	_check("link/null conditions deliver at once", _payloads(plain[1]), [1] as Array[int])
+
+	# 100 ms one way: nothing before, delivered at.
+	_fake_ms = 0
+	var lagged: Array[LoopbackTransport] = _pair(_conditions(100, 0.0))
+	lagged[0].send(2, PackedByteArray([2]))
+	_check("link/nothing at send time", _payloads(lagged[1]), [] as Array[int])
+	_fake_ms = 99
+	_check("link/nothing a ms early", _payloads(lagged[1]), [] as Array[int])
+	_fake_ms = 100
+	_check("link/delivered at latency", _payloads(lagged[1]), [2] as Array[int])
+
+	# Reliable at loss 1.0: never lost, one extra round trip, still in order.
+	_fake_ms = 0
+	var lossy: Array[LoopbackTransport] = _pair(_conditions(50, 1.0))
+	for value: int in [1, 2, 3]:
+		lossy[0].send(2, PackedByteArray([value]))
+	_fake_ms = 149
+	_check("link/reliable loss waits a round trip", _payloads(lossy[1]), [] as Array[int])
+	_fake_ms = 150
+	_check("link/reliable is never lost, in order", _payloads(lossy[1]), [1, 2, 3] as Array[int])
+
+	# Unreliable: dropped at 1.0, kept at 0.0.
+	_fake_ms = 0
+	var dropping: Array[LoopbackTransport] = _pair(_conditions(10, 1.0))
+	dropping[0].send(2, PackedByteArray([9]), SessionTransport.Delivery.UNRELIABLE)
+	_fake_ms = 100000
+	_check("link/unreliable dropped at loss 1.0", _payloads(dropping[1]), [] as Array[int])
+	_fake_ms = 0
+	var keeping: Array[LoopbackTransport] = _pair(_conditions(10, 0.0))
+	keeping[0].send(2, PackedByteArray([9]), SessionTransport.Delivery.UNRELIABLE)
+	_fake_ms = 10
+	_check("link/unreliable kept at loss 0.0", _payloads(keeping[1]), [9] as Array[int])
+
+	# Release the sessions and the clock lambdas (they capture this script).
+	for pair: Array[LoopbackTransport] in [plain, lagged, lossy, dropping, keeping]:
+		for transport: LoopbackTransport in pair:
+			transport.conditions = null
+			transport.close()
 
 func _make(backend: String) -> SessionTransport:
 	return LoopbackTransport.new() if backend == "loopback" else ENetTransport.new()

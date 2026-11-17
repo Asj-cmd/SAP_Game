@@ -31,10 +31,13 @@ const TICKS: int = 30 * 60
 
 func _initialize() -> void:
 	var latency: int = 0
+	var loss: float = 0.0
 	var delay_override: int = -1
 	for arg: String in OS.get_cmdline_user_args():
 		if arg.begins_with("--latency="):
 			latency = maxi(0, int(arg.trim_prefix("--latency=")))
+		elif arg.begins_with("--loss="):
+			loss = clampf(float(arg.trim_prefix("--loss=")), 0.0, 1.0)
 		elif arg.begins_with("--delay="):
 			delay_override = maxi(0, int(arg.trim_prefix("--delay=")))
 
@@ -61,11 +64,11 @@ func _initialize() -> void:
 	)
 	crew.fill_lobby(host, [seat] as Array[int], host.actor_ids().size())
 
-	var report: Dictionary = _run(host, session, crew, seat, latency)
+	var report: Dictionary = _run(host, session, crew, seat, latency, loss)
 
 	print("")
-	print("--- %s at %d ticks latency ---" % [
-		"CONSISTENT" if report["diverged_at"] < 0 else "DIVERGED", latency,
+	print("--- %s at %d ticks latency, %.0f%% loss ---" % [
+		"CONSISTENT" if report["diverged_at"] < 0 else "DIVERGED", latency, loss * 100.0,
 	])
 	print("input delay    %d ticks" % session.input_delay)
 	print("host ticks     %d" % host.tick)
@@ -83,8 +86,15 @@ func _run(
 	session: PredictedSession,
 	crew: BotCrew,
 	seat: int,
-	latency: int
+	latency: int,
+	loss: float
 ) -> Dictionary:
+	# Reliable under loss: a "lost" packet arrives 2 x latency later, and each
+	# direction stays in order (seeded, so a run repeats).
+	var rng: RandomNumberGenerator = RandomNumberGenerator.new()
+	rng.seed = 7
+	var last_host: int = 0
+	var last_guest: int = 0
 	# Both directions of the wire, as tick-stamped queues.
 	var to_host: Array[Dictionary] = []
 	var to_guest: Array[Dictionary] = []
@@ -110,7 +120,9 @@ func _run(
 		var steering: SimCommand = session.submit(
 			MoveCommand.move(seat, _wander(tick), 0)
 		)
-		to_host.append({"at": tick + latency, "command": steering})
+		var arrive_host: int = maxi(last_host, tick + latency + (2 * latency if rng.randf() < loss else 0))
+		last_host = arrive_host
+		to_host.append({"at": arrive_host, "command": steering})
 		session.predict()
 		# Keyed by the tick the state REPRESENTS, not the tick it was made on.
 		# Both sides of the comparison below are indexed that way, or the guess
@@ -152,7 +164,9 @@ func _run(
 		truth[host.tick] = host.state_digest()
 		# Encoded and decoded even in-process: the guest must only ever see what
 		# would survive the wire.
-		to_guest.append({"at": tick + latency, "bytes": CommandCodec.encode_batch(batch)})
+		var arrive_guest: int = maxi(last_guest, tick + latency + (2 * latency if rng.randf() < loss else 0))
+		last_guest = arrive_guest
+		to_guest.append({"at": arrive_guest, "bytes": CommandCodec.encode_batch(batch)})
 
 		# --- the guest confirms whatever has come back ---
 		var still_returning: Array[Dictionary] = []

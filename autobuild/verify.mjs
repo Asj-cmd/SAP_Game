@@ -183,6 +183,14 @@ if (!args.has("--quick") && !framesOnly) {
     else if (r.status !== 0 || !r.out.includes(`--- ${verdict}`)) fail(`${tool}: no "${verdict}"\n${tail(r.out, 12)}`);
     else console.log(`  ok    ${tool}  ${verdict}`);
   }
+  // P6-1: the same lockstep with 100 ms one way and 5% loss (reliable loss = a
+  // round trip later, in order). 300 ticks: each tick waits on the wall clock.
+  {
+    const r = godot(["--headless", "--path", GODOT_PROJECT, "--script", "res://tools/net_loopback.gd", "--", "--latency-ms=100", "--loss=0.05", "--ticks=300"], { timeoutSec: 300 });
+    if (r.timedOut) fail("net_loopback (100 ms, 5% loss): timed out");
+    else if (r.status !== 0 || !r.out.includes("--- IN LOCKSTEP")) fail(`net_loopback (100 ms, 5% loss): no "IN LOCKSTEP"\n${tail(r.out, 12)}`);
+    else console.log("  ok    net_loopback  IN LOCKSTEP at 100 ms + 5% loss");
+  }
   const s = spawnSync(process.execPath, [join(HERE, "net_smoke.mjs"), "--json"], { cwd: ROOT, encoding: "utf8", timeout: 600000 });
   const line = (s.stdout ?? "").trim().split("\n").filter((l) => l.startsWith("{")).pop();
   const report = line ? JSON.parse(line) : null;

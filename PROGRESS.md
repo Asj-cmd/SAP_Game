@@ -2,6 +2,12 @@
 
 Newest first. One entry per task: date, task id, what changed, what the frames showed, numbers, what is left.
 
+## 2026-11-17 — P6-1 Loss and lag
+- `LinkConditions` (new, `net/link_conditions.gd`: latency, jitter, loss, seeded RNG, injectable clock) and `LoopbackTransport.conditions` (null = the old immediate path, unchanged). Reliable packets are never lost: a "lost" one arrives 2 x latency late, in order per receiver; unreliable are dropped. Session/peer events are never delayed.
+- `net_loopback` takes `--latency-ms= --jitter-ms= --loss= --ticks=` (packet wait 2 s -> 5 s); `net_prediction` takes `--loss=` (same reliable model, in ticks, per direction, seeded).
+- **Results:** net_loopback at 100 ms + 5% loss, 300 ticks: IN LOCKSTEP, host and guest scores equal (team_a 4/0, team_b 4/0). net_prediction 3 ticks + 5%: CONSISTENT, own-position misprediction max 24.4 units, mean 4.4. 6 ticks + 5%: CONSISTENT, max 135.8, mean 31.4 (guest 15 ticks ahead). No divergence, so nothing to fix in `net/`. The error grows with latency as expected; that is the number a player would see corrected.
+- `transport_test` 28 -> 36 (fake-clock rows: null immediate, nothing before latency, delivered at it, reliable in order under loss 1.0, unreliable dropped at 1.0 / kept at 0.0), pinned. verify.mjs Network block gains the 100 ms / 5% line. ARCHITECTURE.md note added. Note: a new `class_name` needs one `--import` run before tools see it.
+
 ## 2026-11-17 — P5-5 First-run clarity
 - `FirstRunGuide` (new, `game/greybox/first_run_guide.gd`): a controls strip at the bottom (names follow rebinding; first 60 s of a match or while the guide runs) and a "Step n of 5" line under the top bar. Steps read the truth world for the local actor: moved 300 units, in the other family's zone, carrying, own score rises, 8 s final note. A second sentence appears after 20 s on a step. F9 skips. `PlayerSettings.guide_done` in `[firstrun]`; menu "How to play" clears it and shows rules and controls. `MatchHud` free prompt now uses the seize key.
 - Off in capture/pilot/net-smoke runs. Unseen (no frames, per testing diet).

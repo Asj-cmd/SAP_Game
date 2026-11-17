@@ -23,21 +23,33 @@ extends SceneTree
 ## felt directly. Prediction and rollback are what remove that, and they are
 ## next - this establishes the thing they have to preserve.
 
-const TICKS: int = 30 * 90
+const DEFAULT_TICKS: int = 30 * 90
+var _ticks: int = DEFAULT_TICKS
 ## How long to wait for a session, and for each tick's packet, before giving up.
 ## Generous: a relayed session may genuinely take seconds, and a harness that
 ## times out faster than the transport connects tests nothing.
 const SESSION_TIMEOUT_MS: int = 5000
-const PACKET_TIMEOUT_MS: int = 2000
+const PACKET_TIMEOUT_MS: int = 5000
 
 var _host_world: SimWorld = null
 var _guest_world: SimWorld = null
 
 func _initialize() -> void:
 	var backend: String = "loopback"
+	var latency_ms: int = 0
+	var jitter_ms: int = 0
+	var loss: float = 0.0
 	for arg: String in OS.get_cmdline_user_args():
 		if arg.begins_with("--backend="):
 			backend = arg.trim_prefix("--backend=")
+		elif arg.begins_with("--latency-ms="):
+			latency_ms = int(arg.trim_prefix("--latency-ms="))
+		elif arg.begins_with("--jitter-ms="):
+			jitter_ms = int(arg.trim_prefix("--jitter-ms="))
+		elif arg.begins_with("--loss="):
+			loss = float(arg.trim_prefix("--loss="))
+		elif arg.begins_with("--ticks="):
+			_ticks = maxi(1, int(arg.trim_prefix("--ticks=")))
 
 	var level: GreyBoxLevel = GreyBoxLevel.new()
 	if not level.is_loaded():
@@ -51,6 +63,11 @@ func _initialize() -> void:
 		print("unknown backend '%s' - try loopback or enet" % backend)
 		quit(1)
 		return
+
+	if backend == "loopback" and (latency_ms > 0 or loss > 0.0 or jitter_ms > 0):
+		(server as LoopbackTransport).conditions = LinkConditions.new(latency_ms, loss, jitter_ms, 1)
+		(client as LoopbackTransport).conditions = LinkConditions.new(latency_ms, loss, jitter_ms, 2)
+		print("link: %d ms one way, %d ms jitter, %.1f%% loss" % [latency_ms, jitter_ms, loss * 100.0])
 
 	var handle: SessionHandle = server.host_session()
 	if not handle.is_valid():
@@ -134,7 +151,7 @@ func _play(server: SessionTransport, client: SessionTransport, crew: BotCrew) ->
 	if not _exchange(server, client, [MatchCommand.start()] as Array[SimCommand]):
 		return {"sent": 0, "bytes": 0, "diverged_at": 0}
 
-	for tick: int in TICKS:
+	for tick: int in _ticks:
 		var commands: Array[SimCommand] = crew.drain(_host_world, _host_world.tick)
 		sent += commands.size()
 		bytes += CommandCodec.encode_batch(commands).size()

@@ -29,6 +29,10 @@ var _failure: String = ""
 var _inbox: Array[NetEvent] = []
 ## Readiness is applied on the next poll(), never on the call that asked for it.
 var _becomes_ready: bool = false
+## Opt-in lag and loss on what this end sends. Null = immediate and lossless.
+var conditions: LinkConditions = null
+## Packets in flight towards this end: {due, link, event}.
+var _pending: Array[Dictionary] = []
 
 func backend_name() -> StringName:
 	return _BACKEND
@@ -95,12 +99,24 @@ func peers() -> PackedInt32Array:
 ## reference: it establishes what correct looks like with the wire out of the
 ## picture. Loss and latency are the next harness's job, not this one's - a
 ## reference that also misbehaves cannot tell you which half is at fault.
-func send(peer: int, payload: PackedByteArray, _delivery: Delivery = Delivery.RELIABLE) -> void:
+##
+## Unless `conditions` is set (opt-in, see LinkConditions): then a packet sent
+## from here arrives after the link's delay, and may be lost (UNRELIABLE) or
+## arrive late (RELIABLE). Session and peer events are never delayed.
+func send(peer: int, payload: PackedByteArray, delivery: Delivery = Delivery.RELIABLE) -> void:
 	if _state != State.READY or not _sessions.has(_token):
 		return
 	for other: LoopbackTransport in _sessions[_token]:
 		if other._local == peer and other._state == State.READY:
-			other._inbox.append(NetEvent.payload_from(_local, payload.duplicate()))
+			if conditions == null:
+				other._inbox.append(NetEvent.payload_from(_local, payload.duplicate()))
+				return
+			var due: int = conditions.due_for(peer, delivery == Delivery.RELIABLE)
+			if due >= 0:
+				other._pending.append({
+					"due": due, "link": conditions,
+					"event": NetEvent.payload_from(_local, payload.duplicate()),
+				})
 			return
 
 func poll() -> Array[NetEvent]:
@@ -108,6 +124,15 @@ func poll() -> Array[NetEvent]:
 		_becomes_ready = false
 		_state = State.READY
 		_inbox.push_front(NetEvent.session_ready(_local))
+	if not _pending.is_empty():
+		var waiting: Array[Dictionary] = []
+		for entry: Dictionary in _pending:
+			var link: LinkConditions = entry["link"]
+			if int(entry["due"]) <= link.now_ms():
+				_inbox.append(entry["event"])
+			else:
+				waiting.append(entry)
+		_pending = waiting
 	var drained: Array[NetEvent] = _inbox.duplicate()
 	_inbox.clear()
 	return drained
