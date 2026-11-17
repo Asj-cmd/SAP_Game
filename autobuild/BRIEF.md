@@ -2,65 +2,6 @@
 
 Written by the planner from a quick read. If a fact here is wrong, the code and `DECISIONS.md` win.
 
-## P5-5 — First-run clarity
-
-**Approach**
-1. **Controls strip**: a one-line hint at the bottom centre of the seat during a match, built from
-   `PlayerSettings.key_for` (so it follows rebinding; also fixes the P5-2 note that the [E] free prompt
-   is a fixed E: make `MatchHud`'s prompt use `key_for(&"seize")` too). Text: "WASD move · Mouse look
-   · Space jump · Shift crouch · LMB grab/drop · RMB throw · E seize/free · Esc menu" with the real
-   key names (`OS.get_keycode_string`). Shown for the first 60 s of every match and whenever the
-   guide (below) is on; toggled off afterwards. Hidden by `--capture-clean`.
-2. **Guide**: a small presentation-only step list, `FirstRunGuide` (new,
-   `game/greybox/first_run_guide.gd`), one line under the top bar ("Step 2 of 5: ..."). Each step
-   advances on a condition read from the truth world for the local actor:
-   1. "Move with WASD, look with the mouse" → moved 300 units.
-   2. "Cross the fence into the other family's yard" → `world.zone_at(pos).owner_team` is the
-      other team.
-   3. "Find their cash and grab it (LMB)" → `is_carrying()`.
-   4. "Carry it back into your own house" → own team's score rises (or carrying while on own ground;
-      take the score rise).
-   5. "Catch intruders at home with E. If you are caught, a teammate frees you" → shown 8 s, then done.
-   A step that is not met in 20 s shows a second plain sentence (where to look: "Their house is
-   across the fence, behind you" etc.). No arrows in the world, no camera takeover (D9: nothing takes
-   control away).
-3. **First run**: `PlayerSettings` gains `[firstrun] guide_done` (bool, default false). On the first
-   solo or hosted match the guide runs; finishing step 5 or pressing F9 (skip) sets it true and saves.
-   The main menu gets a "How to play" button that clears the flag (the next match shows the guide)
-   and shows a plain panel with the controls list and three sentences of rules (steal cash from the
-   other house, bring it home; seize intruders on your side; free jailed teammates).
-4. The guide works in a normal match with bots (no special mode, no new sim rules). Guests see it too,
-   driven by their own confirmed world.
-5. Capture/pilot/net-smoke runs ignore the saved settings already (P5-1); make the guide OFF in them.
-6. Full verify once at the end; commit.
-
-**Already decided**
-- No separate tutorial level or mode; the "60-second guided first match" is the guide over a normal
-  match (REVIEW, log it: "first match guide is a step line over a normal match, not a tutorial mode").
-- Skip key F9 (free F-key; F1 debug HUD, F2-F4 debug, F5-F8 team tell, F10 menu, F12 capture). Log it.
-- Step texts as above; plain sentences, no exclamation marks (D2 deadpan). Log REVIEW.
-- Settings section `[firstrun]`, key `guide_done`. Log it.
-
-**Files likely touched**
-- `godot/game/greybox/first_run_guide.gd` (new)
-- `godot/game/greybox/greybox_main.gd`
-- `godot/game/greybox/match_hud.gd` (prompt key text)
-- `godot/game/greybox/player_settings.gd`
-- `godot/game/greybox/main_menu.gd` (How to play button + panel)
-- `DECISIONS.md`, `PLAN.md`, `PROGRESS.md`
-
-**Done means**
-- Full `node autobuild/verify.mjs` healthy, run ONCE at the end, suites at pinned counts (no test
-  changes: `game/` is never tested), bot matches unchanged, net_smoke agrees.
-- A headless `--solo` run prints no script errors.
-- No frames; say the guide and strip are unseen.
-
-**Do NOT**
-- Build a scripted tutorial level, spawn special bots, pause the sim, or freeze the player.
-- Put the guide's decisions in `sim/` or write tests for it.
-- Add world arrows, glowing outlines or other markers (team tell options stay as they are, P2-4).
-- Capture frames or run the pilot as a check.
-
 ## P6-1 — Loss and lag
 
 **Approach**

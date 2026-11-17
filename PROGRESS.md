@@ -2,6 +2,11 @@
 
 Newest first. One entry per task: date, task id, what changed, what the frames showed, numbers, what is left.
 
+## 2026-11-17 — P5-5 First-run clarity
+- `FirstRunGuide` (new, `game/greybox/first_run_guide.gd`): a controls strip at the bottom (names follow rebinding; first 60 s of a match or while the guide runs) and a "Step n of 5" line under the top bar. Steps read the truth world for the local actor: moved 300 units, in the other family's zone, carrying, own score rises, 8 s final note. A second sentence appears after 20 s on a step. F9 skips. `PlayerSettings.guide_done` in `[firstrun]`; menu "How to play" clears it and shows rules and controls. `MatchHud` free prompt now uses the seize key.
+- Off in capture/pilot/net-smoke runs. Unseen (no frames, per testing diet).
+- A 40 s `--solo` run through `run_game.mjs` printed no script errors. Full verify healthy (see the commit).
+
 ## 2026-11-17 — P5-4 Deadpan feedback
 - `GameFeedback` (new, `game/greybox/game_feedback.gd`, in the text layer so `--capture-clean` hides it): event line ("<family name> <member> was caught / freed", "<family> banked cash", "<family> <member> took cash" for a grab on the other family's ground; own body reads "You"), CPUParticles3D puff where a seized body stood (8) or a freed one appears (4), black cut 0.25 s seized / 0.2 s freed for your own body. `ChaseCamera.nudge` (position-only dip, added after the smoothing, 6 landing / 12 seized, 0.15 s). `MatchHud` label scales 1.0 to 1.15 to 1.0 over 0.2 s when a family's banked count rises. Hooks are in `GreyBoxMain._animate` / `_render`.
 - Effects unseen (testing diet: no frames). A headless `--solo` run prints no script errors (a first version of the puff had a lambda capture error; removed).

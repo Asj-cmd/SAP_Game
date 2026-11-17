@@ -31,6 +31,8 @@ var master_volume: float = 1.0
 var effects_volume: float = 1.0
 var music_volume: float = 0.6
 var keys: Dictionary[StringName, int] = DEFAULT_KEYS.duplicate()
+## The first-run guide has been finished (or skipped) on this machine.
+var guide_done: bool = false
 
 static var _current: PlayerSettings = null
 
@@ -39,6 +41,9 @@ static func current() -> PlayerSettings:
 		_current = PlayerSettings.new()
 		_current._load()
 	return _current
+
+static func transient() -> bool:
+	return _transient()
 
 static func _transient() -> bool:
 	for arg: String in OS.get_cmdline_user_args():
@@ -102,6 +107,7 @@ func _load() -> void:
 	master_volume = clampf(float(file.get_value("audio", "master", master_volume)), 0.0, 1.0)
 	effects_volume = clampf(float(file.get_value("audio", "effects", effects_volume)), 0.0, 1.0)
 	music_volume = clampf(float(file.get_value("audio", "music", music_volume)), 0.0, 1.0)
+	guide_done = bool(file.get_value("firstrun", "guide_done", guide_done))
 	for action: StringName in ACTIONS:
 		keys[action] = int(file.get_value("keys", String(action), keys[action]))
 
@@ -114,6 +120,7 @@ func save() -> void:
 	file.set_value("audio", "master", master_volume)
 	file.set_value("audio", "effects", effects_volume)
 	file.set_value("audio", "music", music_volume)
+	file.set_value("firstrun", "guide_done", guide_done)
 	for action: StringName in ACTIONS:
 		file.set_value("keys", String(action), keys[action])
 	file.save(PATH)

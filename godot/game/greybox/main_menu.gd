@@ -27,6 +27,7 @@ var _note: Label = null
 var _error: Label = null
 var _root: Control = null
 var _settings: SettingsPanel = null
+var _howto: VBoxContainer = null
 var _tell_boxes: Dictionary[StringName, CheckBox] = {}
 
 func _ready() -> void:
@@ -36,6 +37,9 @@ func _ready() -> void:
 ## Shows the menu, optionally with the reason the last attempt failed.
 func open(problem: String = "") -> void:
 	visible = true
+	if _howto != null and _howto.visible:
+		_howto.visible = false
+		_settings.closed.emit()  # its handler shows the main column again
 	if _settings != null and _settings.visible:
 		_settings.closed.emit()
 	# F5-F8 in a match may have changed the team tell since the menu was built.
@@ -71,6 +75,8 @@ func _build() -> void:
 	column.add_theme_constant_override("separation", 14)
 	centre.add_child(column)
 	centre.add_child(_settings)
+	_howto = _build_howto(column)
+	centre.add_child(_howto)
 
 	var title: Label = Label.new()
 	title.text = "CASH GRAB"
@@ -173,9 +179,47 @@ func _build() -> void:
 		_settings.visible = true)
 	column.add_child(settings_button)
 
+	var howto_button: Button = _button("How to play")
+	howto_button.pressed.connect(func() -> void:
+		# The next match shows the step guide again.
+		var saved: PlayerSettings = PlayerSettings.current()
+		saved.guide_done = false
+		saved.save()
+		column.visible = false
+		_howto.visible = true)
+	column.add_child(howto_button)
+
 	var quit_button: Button = _button("Quit")
 	quit_button.pressed.connect(func() -> void: get_tree().quit())
 	column.add_child(quit_button)
+
+func _build_howto(column: VBoxContainer) -> VBoxContainer:
+	var panel: VBoxContainer = VBoxContainer.new()
+	panel.custom_minimum_size = Vector2(PANEL_WIDTH, 0.0)
+	panel.add_theme_constant_override("separation", 12)
+	panel.visible = false
+	var rules: Label = Label.new()
+	rules.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+	rules.text = "Steal cash from the other family's house and bring it home.\n" \
+		+ "Seize intruders on your own side; they go to jail.\n" \
+		+ "Free jailed teammates before the timer runs out."
+	panel.add_child(rules)
+	var controls: Label = Label.new()
+	controls.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+	panel.add_child(controls)
+	var back: Button = _button("Back")
+	back.pressed.connect(func() -> void:
+		panel.visible = false
+		column.visible = true)
+	panel.add_child(back)
+	panel.visibility_changed.connect(func() -> void:
+		if panel.visible:
+			var s: PlayerSettings = PlayerSettings.current()
+			var k: Callable = func(a: StringName) -> String: return OS.get_keycode_string(s.key_for(a))
+			controls.text = "%s%s%s%s move · Mouse look · %s jump · %s crouch (hold)\nLeft mouse grab or drop · Right mouse throw · %s seize or free · Esc menu" % [
+				k.call(&"forward"), k.call(&"left"), k.call(&"back"), k.call(&"right"),
+				k.call(&"jump"), k.call(&"crouch"), k.call(&"seize")])
+	return panel
 
 func _join() -> void:
 	var code: String = _code.text.strip_edges()

@@ -80,7 +80,7 @@ func refresh(world: SimWorld, level: GreyBoxLevel, mine: SimEntity, input: Local
 		if not mine.is_captured and input != null:
 			var ally: int = input.rescue_target(world)
 			if ally != SimEntity.NO_ENTITY:
-				_below.text = "[E] Free a teammate"
+				_below.text = "[%s] Free a teammate" % OS.get_keycode_string(PlayerSettings.current().key_for(&"seize"))
 	_below.position = Vector2(0.0, _bar_rect.end.y + 56.0)
 	_below.size = Vector2(size.x, 30.0)
 	_jail.position = Vector2(0.0, size.y * 0.3)

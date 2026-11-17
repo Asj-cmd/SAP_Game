@@ -347,7 +347,7 @@ removed on purpose (do not rebuild it). No ragdoll, knockback, slide, shove or d
   sounds (D2). Audio buses, volume settings.
 - [x] **P5-4 Deadpan feedback: plain, physical, short. No confetti or cartoon effects.** *(Done 2026-11-17: `GameFeedback`: event line, vanish puff, seized/freed cut, camera nudge, HUD cash bump. Unseen. See PROGRESS.md.)* (D2.)
   Cheap in the Compatibility renderer.
-- [ ] **P5-5 First-run clarity.** Controls hints and a 60-second guided first match so a friend can
+- [x] **P5-5 First-run clarity.** *(Done 2026-11-17: FirstRunGuide step line, controls strip, How to play panel, F9 skip. Unseen. See PROGRESS.md.)* Controls hints and a 60-second guided first match so a friend can
   join without a lecture.
 
 ## Phase 6 — Networking and Steam
