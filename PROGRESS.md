@@ -2,6 +2,11 @@
 
 Newest first. One entry per task: date, task id, what changed, what the frames showed, numbers, what is left.
 
+## 2026-11-17 — P5-4 Deadpan feedback
+- `GameFeedback` (new, `game/greybox/game_feedback.gd`, in the text layer so `--capture-clean` hides it): event line ("<family name> <member> was caught / freed", "<family> banked cash", "<family> <member> took cash" for a grab on the other family's ground; own body reads "You"), CPUParticles3D puff where a seized body stood (8) or a freed one appears (4), black cut 0.25 s seized / 0.2 s freed for your own body. `ChaseCamera.nudge` (position-only dip, added after the smoothing, 6 landing / 12 seized, 0.15 s). `MatchHud` label scales 1.0 to 1.15 to 1.0 over 0.2 s when a family's banked count rises. Hooks are in `GreyBoxMain._animate` / `_render`.
+- Effects unseen (testing diet: no frames). A headless `--solo` run prints no script errors (a first version of the puff had a lambda capture error; removed).
+- Full `verify.mjs` healthy: bot 3v3 team_a 526 s and 1v1 unchanged, symmetry 190/190, tick budget 0 / 3 / 8 (4v4 not gated), net_smoke 1649 ticks agree.
+
 ## 2026-11-17 — P5-3 Audio
 - `GameAudio` (new, `game/audio/game_audio.gd`, owned by `greybox_main`): event table (files, dB), own RNG, pool of 8 `AudioStreamPlayer` on SFX, a UI player, a Music player. World sounds are attenuated by hand to 25 m from the chase camera (the seats are SubViewports in centimetres, so no 3D players); other bodies -5 dB under the player. A missing file plays nothing. Every `BaseButton` added to the tree clicks (node_added), so menu, lobby, pause, settings and results panels all click.
 - Events -> files: footsteps (one per 120 units on the ground, walking, not jailed) step_wood_1-3; grab grab_1/2; throw throw; seize seize_thump/seize_cloth; free free; landing after >8 airborne frames land; deposit (a team score rises) cash_1/2; round/match end sting; countdown seconds tick; buttons ui_click. All Kenney CC0 (impact, interface, rpg-audio), rows in ASSETS.md and CREDITS.md.

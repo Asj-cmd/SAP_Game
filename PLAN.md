@@ -345,7 +345,7 @@ removed on purpose (do not rebuild it). No ragdoll, knockback, slide, shove or d
 - [x] **P5-3 Audio.** CC0 SFX and a music loop (Kenney, freesound CC0, OpenGameArt CC0): ordinary
   household sounds — footsteps, doors, grab, caught, free, cash, alarm-ish sting, UI. No cartoon
   sounds (D2). Audio buses, volume settings.
-- [ ] **P5-4 Deadpan feedback: plain, physical, short. No confetti or cartoon effects.** (D2.)
+- [x] **P5-4 Deadpan feedback: plain, physical, short. No confetti or cartoon effects.** *(Done 2026-11-17: `GameFeedback`: event line, vanish puff, seized/freed cut, camera nudge, HUD cash bump. Unseen. See PROGRESS.md.)* (D2.)
   Cheap in the Compatibility renderer.
 - [ ] **P5-5 First-run clarity.** Controls hints and a 60-second guided first match so a friend can
   join without a lecture.

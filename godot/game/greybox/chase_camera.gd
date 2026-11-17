@@ -99,6 +99,11 @@ var _arm: SpringArm3D = null
 var _yaw: float = 0.0
 var _pitch: float = deg_to_rad(-12.0)
 var _settled: bool = false
+## The nudge's length; its depths are passed by the caller (GameFeedback consts).
+const NUDGE_SECONDS: float = 0.15
+var _base: Vector3 = Vector3.ZERO
+var _nudge_units: float = 0.0
+var _nudge_time: float = 0.0
 
 func _init(collision_mask: int = 2) -> void:
 	rig = Node3D.new()
@@ -172,12 +177,32 @@ func aim_from_stick(stick: Vector2, delta: float) -> void:
 ## Viewport, which has no transform of its own, so local and global agree and
 ## the tree-residency question never arises.
 func follow(target: Vector3, delta: float) -> void:
+	# The nudge (P5-4) is added after the smoothing, never fed back into it.
+	var dip: float = _nudge_offset(delta)
 	if not _settled:
 		_settled = true
-		rig.position = target
+		_base = target
+		rig.position = target - Vector3(0.0, dip, 0.0)
 		return
 	var blend: float = 1.0 - exp(-FOLLOW_RATE * delta)
-	rig.position = rig.position.lerp(target, blend)
+	_base = _base.lerp(target, blend)
+	rig.position = _base - Vector3(0.0, dip, 0.0)
+
+## A straight downward nudge of `units` over NUDGE_SECONDS, eased back (P5-4).
+## Position only: no rotation, no shake.
+func nudge(units: float) -> void:
+	_nudge_units = units
+	_nudge_time = 0.0
+
+func _nudge_offset(delta: float) -> float:
+	if _nudge_units <= 0.0:
+		return 0.0
+	_nudge_time += delta
+	var t: float = _nudge_time / NUDGE_SECONDS
+	if t >= 1.0:
+		_nudge_units = 0.0
+		return 0.0
+	return _nudge_units * sin(t * PI)
 
 ## Where the camera actually ended up, for the debug read-out. Falls back to the
 ## rig when the camera is not in a tree, since global_position would read zero.

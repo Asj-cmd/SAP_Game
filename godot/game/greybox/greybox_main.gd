@@ -227,6 +227,13 @@ var _lobby: LobbyPanel = null
 ## Sound (P5-3): presentation only, fed from the confirmed state in `_animate` / `_render`.
 var audio: GameAudio = GameAudio.new()
 
+## Deadpan feedback (P5-4): event line, vanish puff, cut, camera nudge. Presentation only.
+var feedback: GameFeedback = GameFeedback.new()
+const NUDGE_LANDING: float = 6.0
+const NUDGE_SEIZED: float = 12.0
+var _fb_scores: Dictionary[StringName, int] = {}
+var _fb_air: int = 0
+
 func _ready() -> void:
 	add_child(audio)
 	_build_lighting()
@@ -1309,6 +1316,7 @@ func _render(alpha: float, delta: float) -> void:
 		audio.set_listener(_cameras[0].world_position())
 	audio.set_in_match(true)
 	audio.match_state(truth)
+	_feedback_scores(truth)
 	_animate(drawn, truth, mine, remote, delta)
 	_hold_carried(truth)
 	_show_reach(mine)
@@ -1500,6 +1508,9 @@ func _animate(drawn: SimWorld, truth: SimWorld, mine: int, remote: bool, delta: 
 		if was_carrying == SimEntity.NO_ENTITY and entity.is_carrying():
 			_anim_fired[&"grab"] = entity_id
 			audio.play(&"grab", entity.position, entity_id == mine)
+			var ground: ZoneDef = truth.zone_at(entity.position)
+			if ground != null and ground.owner_team != &"" and ground.owner_team != entity.team:
+				feedback.add_line("%s took cash" % _who_text(entity, mine))
 			if _anim_log:
 				print("anim grab  %s:%d  t=%.1f" % [entity.team, entity.slot,
 					truth.tick * SimWorld.SECONDS_PER_TICK])
@@ -1513,18 +1524,61 @@ func _animate(drawn: SimWorld, truth: SimWorld, mine: int, remote: bool, delta: 
 			freed.append(entity_id)
 		_anim_captured[entity_id] = entity.is_captured
 		_anim_sentence[entity_id] = entity.capture_ticks_remaining
+		if entity_id == mine:
+			if motion.is_grounded:
+				if _fb_air > 8 and not entity.is_captured and not _cameras.is_empty():
+					_cameras[0].nudge(NUDGE_LANDING)
+				_fb_air = 0
+			else:
+				_fb_air += 1
 		audio.body(entity_id, motion.position, motion.is_grounded,
 			not entity.is_captured and motion.velocity.length() > 1.0, entity_id == mine)
 		animator.update(motion, entity.is_carrying(), entity.is_captured, move_speed, delta,
 			level.tuning.crouch_speed_scale, MovementSystem.is_panicking(motion_world, motion))
 	for victim: int in seized:
 		_act_nearest(truth, victim, false)
+		_feedback_body(truth, victim, mine, true)
 	for victim: int in freed:
 		_act_nearest(truth, victim, true)
+		_feedback_body(truth, victim, mine, false)
 	for entity_id: int in _animators:
 		var seen: SimEntity = truth.get_entity(entity_id)
 		if seen != null:
 			_anim_last_seen[entity_id] = seen.position
+
+## "You", or "<family> <member>" (for example "<family> dad").
+func _who_text(entity: SimEntity, mine: int) -> String:
+	if entity.id == mine:
+		return "You"
+	var member: FamilyMember = ArtTheme.current().member_for(entity.team, entity.slot,
+		TeamTell.current().kid_swap)
+	var word: String = GameFeedback.member_words(member.id) if member != null else "player"
+	return "%s %s" % [FamilyNames.name_of(entity.team), word]
+
+## Event line, puff, and for your own body the cut and the camera nudge (P5-4).
+func _feedback_body(truth: SimWorld, victim: int, mine: int, caught: bool) -> void:
+	var entity: SimEntity = truth.get_entity(victim)
+	if entity == null:
+		return
+	var own: bool = victim == mine
+	var who: String = _who_text(entity, mine)
+	var verb: String = "caught" if caught else "freed"
+	var was: String = "were" if own else "was"
+	feedback.add_line("%s %s %s" % [who, was, verb])
+	var at: Vector3 = _anim_last_seen.get(victim, entity.position) if caught else entity.position
+	feedback.puff(self, at, GameFeedback.PUFF_COUNT if caught else GameFeedback.PUFF_COUNT_SMALL)
+	if own:
+		feedback.cut(GameFeedback.CUT_SECONDS_SEIZED if caught else GameFeedback.CUT_SECONDS_FREED)
+		if caught and not _cameras.is_empty():
+			_cameras[0].nudge(NUDGE_SEIZED)
+
+## "<family> banked cash" when a team's score rises.
+func _feedback_scores(truth: SimWorld) -> void:
+	for team_id: StringName in truth.teams:
+		var score: int = truth.score_for(team_id)
+		if _fb_scores.has(team_id) and score > _fb_scores[team_id]:
+			feedback.add_line("%s banked cash" % FamilyNames.name_of(team_id))
+		_fb_scores[team_id] = score
 
 ## Plays `interact` on the actor nearest `victim` (where it was last drawn) on
 ## its own team (`ally`, a free) or the other (a seize), within reach.
@@ -1826,6 +1880,9 @@ func _clear_animators() -> void:
 	_anim_captured.clear()
 	_anim_sentence.clear()
 	_anim_last_seen.clear()
+	_fb_scores.clear()
+	_fb_air = 0
+	feedback.clear_lines()
 	# The loose-bundle tumble state goes with the views it drew (P4-5).
 	_tumble = BundleTumble.new()
 	_bundle_boxes.clear()
@@ -2114,6 +2171,7 @@ func _build_hud() -> void:
 	_status.visible = false  # the line stays for the debug HUD only
 	_match_hud = MatchHud.new()
 	_text_layer.add_child(_match_hud)
+	_text_layer.add_child(feedback)
 	_headline = Label.new()
 	_headline.set_anchors_and_offsets_preset(Control.PRESET_TOP_WIDE)
 	_headline.offset_top = 180.0

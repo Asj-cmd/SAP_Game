@@ -2,67 +2,6 @@
 
 Written by the planner from a quick read. If a fact here is wrong, the code and `DECISIONS.md` win.
 
-## P5-4 — Deadpan feedback
-
-**Approach**
-1. Build one presentation-only node, `GameFeedback` (new, `game/greybox/game_feedback.gd`), owned by
-   `greybox_main` like `GameAudio` (`var audio: GameAudio` at greybox_main.gd:228). It is driven from
-   the same places that already spot events: `_animate` (greybox_main.gd:1474: grab, throw via
-   `_act`, `seized` / `freed` lists) and GameAudio's score/phase tracking (deposit = a team's score
-   rises). Add one call next to each existing `audio.play(...)`. Never read or write the sim from it
-   except the truth world it is handed.
-2. **Event line**: a plain text feed, bottom-left of the seat, at most 3 lines, each shown 3 s then
-   gone (no fade animation beyond a 0.2 s alpha out). Lines: "<Family> <member> was caught",
-   "<Family> <member> was freed", "<Family> banked cash", "<Family> took cash" (a grab of the other
-   family's bundle). Family names from `FamilyNames` (P5-0 loader), member words from the slot's
-   `FamilyMember` id made plain ("dad", "mom", "elder girl", "younger boy"); your own body reads "You".
-3. **Vanish puff** where a seized victim stood (its last drawn position, `_anim_last_seen`): one
-   `CPUParticles3D` burst (Compatibility-safe), 8 flat grey-beige quads, 0.4 s, no gravity tricks,
-   one_shot, freed after. Same puff, smaller (4 quads), where a freed ally reappears. Nothing else
-   gets particles.
-4. **Own-body camera nudge**: on your own landing after a jump (the >8 airborne-frame rule GameAudio
-   uses) and on being seized, a straight downward nudge of the chase camera, 6 units (landing) /
-   12 units (seized), 0.15 s, eased back. Position only, no rotation, no shake. Add it as an offset
-   inside `ChaseCamera` that it adds after the spring arm; presentation only.
-5. **Seized cut**: when YOUR body is seized, a full-screen black `ColorRect` on the seat, alpha 1 → 0
-   over 0.25 s, so the jump to jail reads as a cut, not a glitch. Same, 0.2 s, when you are freed.
-6. **Cash number bump**: in `MatchHud`, when a family's banked count rises, that end's label scales
-   1.0 → 1.15 → 1.0 over 0.2 s. No colour flash.
-7. Run the full verify once, at the end; commit.
-
-**Already decided**
-- The five effects above and nothing more: no confetti, no screen shake, no slow-motion, no hit-stop,
-  no coloured flashes, no floating "+$" numbers, no sound changes (D2). Log as one REVIEW row:
-  "P5-4 deadpan feedback set: event line, vanish puff, camera nudge, seized cut, HUD bump".
-- Text: theme font, white at 0.85 alpha, no background box, 16 px.
-- Every number (durations, sizes, quad count) is a `const` at the top of `game_feedback.gd` /
-  `ChaseCamera`, so tuning is one place.
-- Capture runs (`--capture*`, pilot, net smoke) keep the effects (they are cheap) but `--capture-clean`
-  hides the event line like the other text layers.
-
-**Files likely touched**
-- `godot/game/greybox/game_feedback.gd` (new)
-- `godot/game/greybox/greybox_main.gd`
-- `godot/game/greybox/chase_camera.gd`
-- `godot/game/greybox/match_hud.gd`
-- `godot/game/greybox/family_names.gd` (read only, for names)
-- `DECISIONS.md`, `PLAN.md`, `PROGRESS.md`
-
-**Done means**
-- Full `node autobuild/verify.mjs` healthy, run ONCE at the end: all suites at their pinned counts in
-  `autobuild/test_baseline.json` (no count changes, no new tests: this is presentation), symmetry
-  exact, bot 3v3 and 1v1 deterministic as before (presentation cannot move them; if they move, the
-  sim was touched by mistake), net_smoke agrees, tick budget within the gate.
-- A headless `--solo` run prints no script errors.
-- No frames (testing diet); say in PROGRESS.md that the effects are unseen.
-
-**Do NOT**
-- Touch `sim/`, collision, zones or `content/` numbers.
-- Add tests, frame captures, contact sheets or sweeps.
-- Add cartoon effects of any kind (stars, sparkles, coins flying, bright colours, squash-stretch).
-- Rework GameAudio or the HUD layout beyond the label bump.
-- Use GPUParticles (CPUParticles3D only, Compatibility).
-
 ## P5-5 — First-run clarity
 
 **Approach**

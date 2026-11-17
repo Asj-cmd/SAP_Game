@@ -17,6 +17,12 @@ var _middle: Label = null
 var _below: Label = null
 var _jail: Label = null
 var _bar_rect: Rect2 = Rect2()
+const BUMP_SECONDS: float = 0.2
+const BUMP_SCALE: float = 0.15
+var _last_first: int = -1
+var _last_second: int = -1
+var _bump_left: float = 0.0
+var _bump_right: float = 0.0
 
 func _init() -> void:
 	set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
@@ -44,7 +50,15 @@ func refresh(world: SimWorld, level: GreyBoxLevel, mine: SimEntity, input: Local
 	var second: TeamDef = level.teams[1]
 	_first_id = first.id
 	_second_id = second.id
-	_target = MatchStatus.cash_split(world.score_for(first.id), world.score_for(second.id))
+	var first_score: int = world.score_for(first.id)
+	var second_score: int = world.score_for(second.id)
+	if first_score > _last_first and _last_first >= 0:
+		_bump_left = BUMP_SECONDS
+	if second_score > _last_second and _last_second >= 0:
+		_bump_right = BUMP_SECONDS
+	_last_first = first_score
+	_last_second = second_score
+	_target = MatchStatus.cash_split(first_score, second_score)
 	var width: float = size.x * 0.6
 	_bar_rect = Rect2((size.x - width) * 0.5, 8.0, width, BAR_HEIGHT)
 	_left.text = _end_text(world, level, first, mine)
@@ -88,7 +102,18 @@ func _process(delta: float) -> void:
 	if not visible:
 		return
 	_split = move_toward(_split, _target, delta / EASE_SECONDS)
+	_bump_left = maxf(_bump_left - delta, 0.0)
+	_bump_right = maxf(_bump_right - delta, 0.0)
+	_apply_bump(_left, _bump_left)
+	_apply_bump(_right, _bump_right)
 	queue_redraw()
+
+## The banked-cash label grows 1.0 -> 1.15 -> 1.0 over BUMP_SECONDS (P5-4).
+func _apply_bump(label: Label, left: float) -> void:
+	var t: float = 1.0 - left / BUMP_SECONDS if left > 0.0 else 1.0
+	var grow: float = BUMP_SCALE * sin(t * PI) if left > 0.0 else 0.0
+	label.pivot_offset = Vector2(0.0 if label == _left else label.size.x, 0.0)
+	label.scale = Vector2.ONE * (1.0 + grow)
 
 func _draw() -> void:
 	if _bar_rect.size.x <= 0.0:
