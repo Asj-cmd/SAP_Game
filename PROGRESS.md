@@ -2,6 +2,9 @@
 
 Newest first. One entry per task: date, task id, what changed, what the frames showed, numbers, what is left.
 
+## 2026-11-17 — P5-2 HUD top bar
+- `MatchHud` (new, `game/greybox/match_hud.gd`): one bar, 60% of the width, first family left always, colours from the theme, split eased over 0.3 s; name, banked/target cash, round pips and YOU at each end; round and clock in the middle; CARRYING CASH, large JAILED countdown, and an [E] free prompt (read-only `LocalPlayerInput.rescue_target`). The old status line shows only with the debug HUD (F1). `MatchStatus.cash_split` pure, `match_status_test` 9 rows, pinned. Not looked at in a frame (testing diet). Prompt key text is a fixed E, not the rebind.
+
 ## 2026-11-17 — P5-1 Menus (partly: lobby left)
 - **Done:** `PlayerSettings` (`user://settings.cfg`, sections `[controls]`, `[audio]`, `[keys]`; capture/pilot/net-smoke runs ignore it, as TeamTell does). `default_bus_layout.tres` with Master/SFX/Music. `SettingsPanel` (sensitivity 0.25-3, three volume sliders, click-then-press key rebinding with Esc cancel and a reset button), reachable from the main menu ("Settings") and the pause panel. `LocalPlayerInput` reads keyboard keys from the settings (mouse buttons and pad fixed); `ChaseCamera.aim_from_mouse` scales by the sensitivity. `PauseMenu` (Esc: Resume / Settings / Leave to menu; the sim keeps running, the seat gets `suspended` = zero intent, no verbs, no look). `ResultsPanel` at MATCH_END (winner family name, round score, banked cash last round, Play again for the authority / "Waiting for the host" for a guest, Main menu); the headline text is unchanged for the pilot but hidden under the panel. Enter and F10 still work.
 - **Audit of the old menu:** title, team size, team-tell boxes, Play solo, Host + address, Join + code, Quit; in game F10 menu, Enter rematch, Esc mouse release (Esc now pauses; the old release stays in the F2 debug split).

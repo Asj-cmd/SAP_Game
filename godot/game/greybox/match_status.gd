@@ -44,6 +44,17 @@ static func headline(world: SimWorld, level: GreyBoxLevel, can_rematch: bool) ->
 				_name(level, world.match_winner), _rounds(world, level), way_on]
 	return ""
 
+## The first family's share of the top bar: 0.5 when both have nothing banked,
+## otherwise first / (first + second). A pure function of the two counts.
+static func cash_split(first: int, second: int) -> float:
+	var total: int = first + second
+	if total <= 0:
+		return 0.5
+	return float(first) / float(total)
+
+static func clock_text(world: SimWorld) -> String:
+	return _clock(world)
+
 static func _clock(world: SimWorld) -> String:
 	if world.match_phase != SimWorld.MatchPhase.PLAYING:
 		return "--:--"

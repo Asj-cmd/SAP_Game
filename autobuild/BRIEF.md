@@ -2,42 +2,6 @@
 
 Written by the planner from a quick read. If a fact here is wrong, the code and `DECISIONS.md` win.
 
-## P5-2 — HUD: a fighting-game style top bar
-
-**Approach**
-1. Add the pure split function to `MatchStatus`: `static func cash_split(first: int, second: int) -> float`. It returns the first family's share of the bar: 0.5 when both are 0, otherwise `first / (first + second)`. So it is 1.0 when the second has nothing and 0.0 when the first has nothing.
-2. Write the table-driven test `godot/tests/match_status_test.gd` (new; copy the harness shape of `family_names_test.gd`, with `EXPECTED_CHECKS`). Rows: 0/0 → 0.5, 1/0 → 1.0, 0/4 → 0.0, 3/1 → 0.75, 2/2 → 0.5, 1/3 → 0.25. Add `"match_status_test": <count>` to `autobuild/test_baseline.json`.
-3. Build `MatchHud` (new `godot/game/greybox/match_hud.gd`, a `Control` on the existing `_text_layer`). One bar runs across the top, about 60 % of the screen wide and 28 px high. The first family's colour fills from the left up to `cash_split`, and the second family's fills the rest from the right.
-   - At each end: the family's display name (`FamilyNames.name_of`) and its banked cash (`world.score_for`) as "n / target" (`world.mode.score_to_win()`), with round-win pips (filled up to `round_wins_for`, out of rounds to win).
-   - In the middle, over the bar: the round number and the clock (reuse `MatchStatus._clock`; make it public if needed).
-   - Mark your own family with a small "YOU" under its name.
-4. Below the bar, only when true: "CARRYING CASH"; when jailed, a large centred "JAILED  12" counting down `capture_ticks_remaining`; and the rescue prompt "[E] Free <member>" when a jailed teammate is within free reach. For the prompt, add a public read-only helper on `LocalPlayerInput` that reuses `_nearest` + `_is_rescue_target` with the same range `drain` uses. Show the key from the P5-1 keybinds if they exist, else "E".
-5. In `greybox_main.gd` `_update_hud`, replace the `_status` label with `MatchHud.update(truth, level, mine)`. It shows when `link.is_ready()` and the debug HUD is off. Keep `_headline` for the countdown and round results (and P5-1's results panel, if it is there). F1 still swaps to the debug HUD.
-6. Search `godot/game` for any visible "Team A"/"Team B"/"team_a" text left on screen and route it through FamilyNames.
-
-**Already decided**
-- The first family (`level.teams[0]`, team_a) is ALWAYS on the left, on every machine, like player 1 in a fighting game, so the bar never mirrors between players. Your own side is marked "YOU". REVIEW.
-- The colours are `ArtTheme.current().family_colours` (the same ones `TeamTellOverlay` uses). The bar background is dark grey at 60 % opacity. The split eases towards its new value over about 0.3 s, drawn only.
-- The cash counted is banked cash this round (`score_for`), not cash being carried.
-- The teammates-only minimap is the existing D3 option (b) in `TeamTellOverlay`. It stays as it is and stays OFF by default (P2-4). Do not turn it on and do not build a second one.
-- `MatchStatus.line` may stay for the debug HUD or be deleted if nothing calls it.
-- Log in DECISIONS.md: the fixed left/right order (REVIEW), the bar layout (REVIEW).
-
-**Files likely touched**
-`godot/game/greybox/match_status.gd`, `godot/game/greybox/match_hud.gd` (new), `godot/game/greybox/greybox_main.gd`, `godot/game/greybox/local_player_input.gd` (read-only rescue-target helper), `godot/tests/match_status_test.gd` (new), `autobuild/test_baseline.json`, `DECISIONS.md`, `PROGRESS.md`, `PLAN.md`.
-
-**Done means**
-- `match_status_test` passes with its six rows (plus any edge rows) and is pinned in `test_baseline.json`.
-- The full `node autobuild/verify.mjs`, run ONCE at the end just before committing, prints `VERIFY: healthy` with 18 suites.
-- No frame captures (the task says so).
-
-**Do NOT**
-- Test anything beyond the split function: no HUD layout or label tests.
-- Read the predicted world for the cash or the clock (use the confirmed `truth`). Do not write to the sim from the HUD.
-- Build a new minimap, enemy markers, a kill feed, or any cartoon effects, flashes or confetti (D2).
-- Type a family name into the UI or a test. Tests compare numbers only.
-- Do P5-1's menus or P5-3's sounds here. Do not run captures, sweeps or bot work.
-
 ## P5-3 — Audio
 
 **Approach**

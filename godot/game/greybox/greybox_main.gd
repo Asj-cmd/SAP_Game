@@ -157,6 +157,7 @@ var _banner: Label = null
 ## between rounds and at the end of the match.
 var _status: Label = null
 var _headline: Label = null
+var _match_hud: MatchHud = null
 ## The D3 team tell's marker and minimap (TeamTell, P2-4), on their own layer:
 ## they are the game's HUD, not debug text, so `--capture-hud` keeps them in a
 ## clean shot.
@@ -348,6 +349,7 @@ func _tear_down() -> void:
 	_results.hide_panel()
 	# Nothing updates these without a match, so they would sit over the menu.
 	_status.visible = false
+	_match_hud.visible = false
 	_headline.visible = false
 	_tell_team = &""
 	_tell_overlay.bodies = []
@@ -2060,6 +2062,9 @@ func _build_hud() -> void:
 	_status.add_theme_constant_override("outline_size", 6)
 	_status.add_theme_color_override("font_outline_color", Color.BLACK)
 	_text_layer.add_child(_status)
+	_status.visible = false  # the line stays for the debug HUD only
+	_match_hud = MatchHud.new()
+	_text_layer.add_child(_match_hud)
 	_headline = Label.new()
 	_headline.set_anchors_and_offsets_preset(Control.PRESET_TOP_WIDE)
 	_headline.offset_top = 180.0
@@ -2082,7 +2087,8 @@ func _build_hud() -> void:
 func _update_hud() -> void:
 	var truth: SimWorld = link.outcome_world()
 	# The debug HUD carries the same numbers, on the same rows of screen.
-	_status.visible = link.is_ready() and not _debug_hud_visible
+	_status.visible = link.is_ready() and _debug_hud_visible
+	_match_hud.visible = link.is_ready() and not _debug_hud_visible
 	_headline.visible = link.is_ready()
 	var ended: bool = link.is_ready() and truth.match_phase == SimWorld.MatchPhase.MATCH_END and not _split_screen
 	if ended:
@@ -2096,7 +2102,10 @@ func _update_hud() -> void:
 		if not _pause.is_open():
 			_capture_mouse(not _split_screen)
 	if link.is_ready():
-		_status.text = MatchStatus.line(truth, level, truth.get_entity(_local_actor()))
+		var mine: SimEntity = truth.get_entity(_local_actor())
+		_status.text = MatchStatus.line(truth, level, mine)
+		if _match_hud.visible:
+			_match_hud.refresh(truth, level, mine, players[0] if not players.is_empty() else null)
 		_headline.text = MatchStatus.headline(truth, level, link.role != MatchLink.Role.GUEST)
 	_hud.visible = _debug_hud_visible
 	_hud_hint.visible = not _debug_hud_visible

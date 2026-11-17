@@ -332,7 +332,7 @@ removed on purpose (do not rebuild it). No ragdoll, knockback, slide, shove or d
 - [~] **P5-1 Menus.** *(2026-11-17: settings (sensitivity, volumes, rebindable keys), SFX/Music buses, pause, results panel done. Left: the lobby screen (seats/mode/bots/Start before a menu-hosted match); the menu host still starts at once. See PROGRESS.md.)* A basic main menu already exists (`main_menu.gd`): audit it, then build it out —
   host/join (code field, later Steam invite), lobby screen with
   seats/teams/mode/bundles/bots, pause, settings (sensitivity, volume, keybinds), results screen.
-- [ ] **P5-2 HUD: a fighting-game style top bar** (the tug-of-war cash bar). ONE bar across the top:
+- [x] **P5-2 HUD: a fighting-game style top bar** *(Done 2026-11-17: `MatchHud` bar, `MatchStatus.cash_split` + 9-row test. See PROGRESS.md.)* (the tug-of-war cash bar). ONE bar across the top:
   the first family's colour fills from the left, the second family's from the right, and the split
   follows each family's share of the banked cash (equal at 0 and 0; the whole bar to one side only
   when the other has nothing). Each family's display name (from P5-0's loader, never typed into the

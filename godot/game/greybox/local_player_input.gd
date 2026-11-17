@@ -283,6 +283,10 @@ func _nearest(world: SimWorld, predicate: Callable, range_limit: float) -> int:
 			best = entity_id
 	return best
 
+## Read-only: a jailed teammate the rescue key would free right now, or NO_ENTITY.
+func rescue_target(world: SimWorld) -> int:
+	return _nearest(world, _is_rescue_target, world.tuning.rescue_range)
+
 func _is_capture_target(me: SimEntity, other: SimEntity) -> bool:
 	return other.is_actor() and other.team != me.team and not other.is_captured
 
