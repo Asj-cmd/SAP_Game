@@ -308,13 +308,20 @@ Palette (sRGB, a starting point the theme owns):
 | Concrete (jail) | `(0.55, 0.55, 0.53)` | 0.9 | Colder than the rest of the house |
 | Painted wood trim | off-white `(0.90, 0.88, 0.83)` | 0.5 | Skirting, door frames, banisters |
 | Brick (exterior) | `(0.55, 0.33, 0.25)` | 0.85 | Or render `(0.85, 0.82, 0.75)`; P3-4 picks one for both houses |
-| Roof tile | dark grey `(0.30, 0.30, 0.32)` | 0.8 | |
+| Roof tile | per family (P3-7): sage-green `(0.44, 0.60, 0.46)` for the first family, terracotta `(0.92, 0.50, 0.36)` for the second, as the albedo over the grey tile texture | 0.8 | Theme `family_roof_colours`; the fascia round the eaves is the family colour, the soffit stays white trim |
 | Steel (safe, jail bars) | `(0.30, 0.31, 0.33)` | 0.45, metallic 0.8 | The only metal surfaces of note |
 | Grass | `(0.36, 0.50, 0.30)` | 1.0 | Today's `world_backdrop.gd` value; keep |
 | Cash bundle | emerald banknote green `(0.1, 0.62, 0.44)` + paper band (P3-5) | 0.55 | Must be the most saturated small object in any room (3.4) |
 
 **Saturation rule:** the house stays below about 35 per cent saturation everywhere except
 the cash and the two family colours. Then the eye goes to cash and doors without any effect.
+
+**The surroundings (P3-7): the two houses stand alone.** There is no suburb and no other house
+anywhere: the lot is shut in by a tall hedge (380, close-cut, the foliage texture) behind both
+garden fences and across the far side of both streets, with a belt of trees beyond every hedge
+whose crowns show over it. Each street is a short dead end, shut at one end and leaving down a
+short hedged lane into the trees at the other. From inside the lot the eye meets fence, hedge,
+treetops and sky, so the only buildings are the two families' houses.
 
 ### 3.4 Readability (the game comes first)
 

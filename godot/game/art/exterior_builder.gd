@@ -596,11 +596,16 @@ func _tree(f: Frame, along: float, outward: float, trunk: float, radius: float) 
 		var offset: Vector3 = Vector3(cos(angle), 0.0, sin(angle)) * radius * _rng.randf_range(0.36, 0.48)
 		offset.y = radius * _rng.randf_range(-0.16, 0.12)
 		var size: float = radius * _rng.randf_range(0.52, 0.64)
+		# The side lumps at 80 faces, the top at 320 (P3-7): the top makes the
+		# crown's outline against the sky; the belts are ~70 trees, all at least
+		# 14 m out, and at 320 faces each they put two gated views over budget.
+		var detail: int = 1
 		if i == lumps - 1:
 			# The last lump is the top of the crown.
 			offset = Vector3(0.0, radius * 0.3, 0.0)
 			size = radius * 0.62
-		_blob(group, &"crown", heart + offset, Vector3(size, size * 0.86, size), heart, 2, tint)
+			detail = 2
+		_blob(group, &"crown", heart + offset, Vector3(size, size * 0.86, size), heart, detail, tint)
 
 ## A lumpy ball: an icosphere pushed in and out by noise. Its normals lean
 ## toward `heart` -> surface (when given), so a crown of several lumps shades as
