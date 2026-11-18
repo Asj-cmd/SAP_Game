@@ -112,6 +112,12 @@ var presses: PackedStringArray = PackedStringArray()
 var press_at: PackedFloat32Array = PackedFloat32Array()
 var press_hold: PackedFloat32Array = PackedFloat32Array()
 
+## A UI screen to open before the shot (PT2-6): menu, settings, pause, lobby,
+## hud or results. Debug only: results are shown from a mid-match world with a
+## winner picked for the picture; nothing reaches the simulation.
+var screen: String = ""
+const SCREENS: PackedStringArray = ["menu", "settings", "pause", "lobby", "hud", "results"]
+
 ## How many shots this request will write.
 func shot_count() -> int:
 	return eyes.size() + chase_feet.size()
@@ -131,6 +137,8 @@ func path_for(index: int) -> String:
 ##   --capture-delay=<seconds> how long to wait first
 ##   --capture-clean           hide all on-screen text, so the shot is the world only
 ##   --capture-hud             with --capture-clean, keep the team tell's marker/minimap
+##   --capture-screen=<name>   open a UI screen first: menu, settings (both on the
+##                             menu), pause, lobby, hud, results (over a solo match)
 ##   --capture-stats           print draw calls / triangles / objects per shot
 ##   --capture-timing=N        also time N uncapped frames per shot (real GPU only)
 ##   --capture-crouch          hold crouch, so the shot shows a ducked body
@@ -195,6 +203,12 @@ static func from_command_line(args: PackedStringArray) -> FrameCapture:
 			request.clean = true
 		elif arg == "--capture-hud":
 			request.hud = true
+		elif arg.begins_with("--capture-screen="):
+			request.requested = true
+			request.quit_after = true
+			request.screen = arg.trim_prefix("--capture-screen=")
+			if not SCREENS.has(request.screen):
+				push_error("frame capture: --capture-screen wants one of %s" % ", ".join(SCREENS))
 		elif arg == "--capture-stats":
 			request.stats = true
 		elif arg.begins_with("--capture-timing="):

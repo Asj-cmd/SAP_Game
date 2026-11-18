@@ -289,6 +289,7 @@ func _ready() -> void:
 	if NetSmoke.requested(OS.get_cmdline_user_args()):
 		add_child(NetSmoke.new(self))
 	if _wants_menu():
+		_show_menu_backdrop(true)
 		_menu.open()
 		_capture_mouse(false)
 		# So the menu itself can be photographed (`--menu --capture`).
@@ -304,6 +305,9 @@ func _ready() -> void:
 ## is what keeps every tool and unattended capture working unchanged.
 func _wants_menu() -> bool:
 	if OS.get_cmdline_user_args().has("--menu"):
+		return true
+	var args: PackedStringArray = OS.get_cmdline_user_args()
+	if args.has("--capture-screen=menu") or args.has("--capture-screen=settings"):
 		return true
 	if _invite_lobby() != "":
 		return false
@@ -388,6 +392,7 @@ func _return_to_menu(problem: String) -> void:
 	audio.reset()
 	audio.set_in_match(false)
 	_capture_mouse(false)
+	_show_menu_backdrop(true)
 	_menu.open(problem)
 
 ## A guest that built its world at a different team size from the host's
@@ -467,6 +472,8 @@ func _arm_capture() -> void:
 		_show_paths = true
 		_draw_paths()
 		await get_tree().process_frame
+	if request.screen != "":
+		await _pose_screen(request.screen)
 	for i: int in request.figures.size():
 		var spot: Vector4 = request.figures[i]
 		# The fifth field is a model path, or a family member's id (P2-1).
@@ -566,6 +573,25 @@ func _arm_capture() -> void:
 			await _capture_chase(request)
 	if request.quit_after:
 		get_tree().quit()
+
+## `--capture-screen` (FrameCapture.screen, PT2-6): opens one UI screen the way
+## its button or key would, then lets its opening fade finish. Debug only.
+var _screen_hold: bool = false
+
+func _pose_screen(screen: String) -> void:
+	match screen:
+		"settings":
+			_menu.show_settings()
+		"pause":
+			_set_paused(true)
+		"lobby":
+			if level != null:
+				_lobby.open("05ZG-0001-W5FG", _team_size)
+		"results":
+			if world != null and level != null:
+				_screen_hold = true
+				_results.show_for(world, level, true, level.teams[0].id)
+	await get_tree().create_timer(0.5).timeout
 
 ## One shot per viewpoint, through the ordinary render path.
 ##
@@ -880,7 +906,54 @@ func _active_camera() -> Camera3D:
 
 # ---- setup ----
 
+## Behind the main menu (PT2-6): the two houses, drawn only (no world, no bots),
+## seen from a camera circling the lot once every MENU_ORBIT_SECONDS. Built the
+## first time the menu opens; after a match the match's own geometry is reused.
+const MENU_ORBIT_SECONDS: float = 90.0
+const MENU_ORBIT_RADIUS: float = 4300.0
+const MENU_ORBIT_HEIGHT: float = 1700.0
+const MENU_ORBIT_LOOK_HEIGHT: float = 200.0
+var _menu_camera: Camera3D = null
+var _menu_orbit: float = 0.35
+
+func _show_menu_backdrop(on: bool) -> void:
+	if not on:
+		if _menu_camera != null:
+			_menu_camera.queue_free()
+			_menu_camera = null
+		return
+	if level == null:
+		level = GreyBoxLevel.new(GreyBoxLevel.SafeVariant.B, GreyBoxLevel.LEVEL_PATH, _team_size)
+		if not level.is_loaded():
+			level = null
+			return
+		_build_geometry()
+	# The last match's seat views would cover the root viewport, and keep rendering.
+	if _seats != null:
+		_seats.visible = false
+		for view: Node in _seats.find_children("*", "SubViewport", true, false):
+			(view as SubViewport).render_target_update_mode = SubViewport.UPDATE_DISABLED
+	if _menu_camera == null:
+		_menu_camera = Camera3D.new()
+		_menu_camera.near = ChaseCamera.NEAR_PLANE
+		_menu_camera.far = ChaseCamera.FAR_PLANE
+		_menu_camera.fov = 50.0
+		add_child(_menu_camera)
+	_menu_camera.current = true
+	_orbit_menu_camera(0.0)
+
+func _orbit_menu_camera(delta: float) -> void:
+	if _menu_camera == null or level == null:
+		return
+	_menu_orbit = fmod(_menu_orbit + delta * TAU / MENU_ORBIT_SECONDS, TAU)
+	var middle: Vector3 = level.collision.bounds.get_center()
+	middle.y = MENU_ORBIT_LOOK_HEIGHT
+	_menu_camera.global_position = middle + Vector3(
+		sin(_menu_orbit) * MENU_ORBIT_RADIUS, MENU_ORBIT_HEIGHT, -cos(_menu_orbit) * MENU_ORBIT_RADIUS)
+	_menu_camera.look_at(middle, Vector3.UP)
+
 func _start(variant: GreyBoxLevel.SafeVariant) -> void:
+	_show_menu_backdrop(false)
 	_guide.begin()
 	level = GreyBoxLevel.new(variant, GreyBoxLevel.LEVEL_PATH, _team_size)
 	if not level.is_loaded():
@@ -1095,6 +1168,7 @@ func _build_seats() -> void:
 ## want 60 Hz for ragdoll work later while the rules stay at 30, and tying the
 ## two together now would make that a migration instead of a setting.
 func _process(delta: float) -> void:
+	_orbit_menu_camera(delta)
 	if link == null or world == null or not world.has_valid_content():
 		return
 
@@ -2286,23 +2360,32 @@ func _build_hud() -> void:
 	_text_layer = CanvasLayer.new()
 	add_child(_text_layer)
 	_debug_hud_visible = OS.get_cmdline_user_args().has("--debug-hud")
+	# Every text here is in the shared UI theme (PT2-6): cream on a charcoal outline.
+	var ui: Theme = UiTheme.current()
 	_hud = Label.new()
 	_hud.position = Vector2(16, 12)
+	_hud.theme = ui
+	_hud.theme_type_variation = UiTheme.HUD
+	_hud.add_theme_font_size_override("font_size", 15)
 	_text_layer.add_child(_hud)
 	_hud_hint = Label.new()
 	_hud_hint.position = Vector2(16, 12)
 	_hud_hint.modulate = Color(1.0, 1.0, 1.0, 0.6)
+	_hud_hint.theme = ui
+	_hud_hint.theme_type_variation = UiTheme.HUD
+	_hud_hint.add_theme_font_size_override("font_size", 13)
 	_text_layer.add_child(_hud_hint)
 	_banner = Label.new()
 	_banner.position = Vector2(16, 300)
+	_banner.theme = ui
+	_banner.theme_type_variation = UiTheme.HUD
 	_text_layer.add_child(_banner)
 	_status = Label.new()
 	_status.set_anchors_and_offsets_preset(Control.PRESET_TOP_WIDE)
 	_status.offset_top = 36.0
 	_status.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
-	_status.add_theme_font_size_override("font_size", 18)
-	_status.add_theme_constant_override("outline_size", 6)
-	_status.add_theme_color_override("font_outline_color", Color.BLACK)
+	_status.theme = ui
+	_status.theme_type_variation = UiTheme.HUD
 	_text_layer.add_child(_status)
 	_status.visible = false  # the line stays for the debug HUD only
 	_match_hud = MatchHud.new()
@@ -2313,9 +2396,8 @@ func _build_hud() -> void:
 	_headline.set_anchors_and_offsets_preset(Control.PRESET_TOP_WIDE)
 	_headline.offset_top = 180.0
 	_headline.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
-	_headline.add_theme_font_size_override("font_size", 44)
-	_headline.add_theme_constant_override("outline_size", 10)
-	_headline.add_theme_color_override("font_outline_color", Color.BLACK)
+	_headline.theme = ui
+	_headline.theme_type_variation = UiTheme.HUD_BIG
 	_text_layer.add_child(_headline)
 	_tell_layer = CanvasLayer.new()
 	add_child(_tell_layer)
@@ -2341,7 +2423,7 @@ func _update_hud() -> void:
 			_set_paused(false)
 		_headline.visible = false  # the panel says it; the text stays for the pilot
 		_capture_mouse(false)
-	elif _results.visible:
+	elif _results.visible and not _screen_hold:
 		_results.hide_panel()
 		if not _pause.is_open():
 			_capture_mouse(not _split_screen)

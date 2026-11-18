@@ -46,9 +46,9 @@ func _init() -> void:
 func _label(size: int) -> Label:
 	var label: Label = Label.new()
 	label.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+	label.theme = UiTheme.current()
+	label.theme_type_variation = UiTheme.HUD
 	label.add_theme_font_size_override("font_size", size)
-	label.add_theme_constant_override("outline_size", 6)
-	label.add_theme_color_override("font_outline_color", Color.BLACK)
 	label.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	add_child(label)
 	return label
@@ -96,7 +96,7 @@ func refresh(world: SimWorld, mine: SimEntity, delta: float) -> void:
 	_strip.text = strip_text()
 	_strip.position = Vector2(0.0, size.y - 40.0)
 	_strip.size = Vector2(width, 28.0)
-	_line.position = Vector2(0.0, 92.0)
+	_line.position = Vector2(0.0, 132.0)  # under the top bar's names (MatchHud)
 	_line.size = Vector2(width, 30.0)
 	if not _active or mine == null:
 		return

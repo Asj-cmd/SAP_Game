@@ -58,6 +58,8 @@ func add_line(text: String) -> void:
 	var label: Label = Label.new()
 	label.text = text
 	label.modulate = Color(1.0, 1.0, 1.0, LINE_ALPHA)
+	label.theme = UiTheme.current()
+	label.theme_type_variation = UiTheme.HUD
 	label.add_theme_font_size_override("font_size", LINE_FONT_SIZE)
 	label.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	_lines.add_child(label)
