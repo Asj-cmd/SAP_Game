@@ -6,8 +6,9 @@ extends Control
 ## of D3, a still enemy should be hard to tell from your own family.
 ##
 ## Presentation only. GreyBoxMain hands it the drawn bodies each frame; it reads
-## nothing from the simulation itself. The minimap is the minimal one P2-4 asks
-## for; P5-2 makes the final HUD.
+## nothing from the simulation itself. The minimap draws the level's outline
+## (MinimapOutline: lot, yards, houses, fence with its gates, PT4-4), only while
+## a match is being played.
 
 ## One drawn body: feet position, drawn height, team, and whether it is yours.
 class Body:
@@ -29,27 +30,29 @@ var own_team: StringName = &""
 var bodies: Array[Body] = []
 var tell: TeamTell = null
 var colours: Dictionary[StringName, Color] = {}
-## The world the map shows (x/z), the rooms drawn on it, and which world
+## True only while a match is being played on this machine (GreyBoxMain sets it
+## every frame): never on the menu, in the lobby or under the results (PT4-4).
+var in_match: bool = false
+## What the map shows (MinimapOutline, built once per level), and which world
 ## direction is "up" on the map (toward the enemy house, so yours is at the bottom).
-var _lot: Rect2 = Rect2()
-var _rooms: Array[Rect2] = []
+var _outline: MinimapOutline = null
 var _up: Vector2 = Vector2(0.0, -1.0)
+
+const MAP_BACK: Color = Color(0.06, 0.06, 0.07, 0.72)
+const MAP_LOT: Color = Color(0.22, 0.27, 0.2, 0.85)
+const MAP_YARD: Color = Color(0.28, 0.35, 0.25, 0.9)
+const MAP_HOUSE: Color = Color(0.52, 0.5, 0.46, 0.95)
+const MAP_WALL: Color = Color(0.95, 0.91, 0.82)
+const MAP_FENCE: Color = Color(0.2, 0.13, 0.08)
 
 func _init() -> void:
 	set_anchors_preset(Control.PRESET_FULL_RECT)
 	mouse_filter = Control.MOUSE_FILTER_IGNORE
 
-## The map's world: the lot's ground box, the indoor rooms, and the two teams'
-## spawn centres (own first) to turn the map so the player's house is at the
-## bottom.
-func set_level(lot: AABB, zones: Array[ZoneDef], own_spawn: Vector3, enemy_spawn: Vector3) -> void:
-	_lot = Rect2(lot.position.x, lot.position.z, lot.size.x, lot.size.z)
-	_rooms.clear()
-	for zone: ZoneDef in zones:
-		if zone.outdoor or zone.owner_team == &"":
-			continue
-		_rooms.append(Rect2(zone.bounds.position.x, zone.bounds.position.z,
-			zone.bounds.size.x, zone.bounds.size.z))
+## The map's world (null clears it), and the two teams' spawn centres (own
+## first) to turn the map so the player's house is at the bottom.
+func set_level(outline: MinimapOutline, own_spawn: Vector3, enemy_spawn: Vector3) -> void:
+	_outline = outline
 	# Snapped to the nearer world axis: the houses are laid out square to the
 	# axes, and the spawn centres are not exactly opposite each other.
 	var toward: Vector2 = Vector2(enemy_spawn.x - own_spawn.x, enemy_spawn.z - own_spawn.z)
@@ -66,7 +69,7 @@ func _draw() -> void:
 		return
 	if tell.marker:
 		_draw_marks()
-	if tell.minimap and _lot.size != Vector2.ZERO:
+	if tell.minimap and in_match and _outline != null and _outline.lot.size != Vector2.ZERO:
 		_draw_map()
 
 func _draw_marks() -> void:
@@ -95,17 +98,28 @@ func _draw_marks() -> void:
 
 func _draw_map() -> void:
 	var box: Rect2 = Rect2(Vector2(size.x - MAP_SIZE - MAP_MARGIN, MAP_TOP), Vector2(MAP_SIZE, MAP_SIZE))
-	draw_rect(box, Color(0.06, 0.06, 0.07, 0.72))
+	draw_rect(box, MAP_BACK)
 	draw_rect(box, Color(1.0, 1.0, 1.0, 0.25), false, 1.0)
-	var fit: float = (MAP_SIZE - 16.0) / maxf(_lot.size.x, _lot.size.y)
-	var centre: Vector2 = _lot.get_center()
+	var lot: Rect2 = _outline.lot
+	var fit: float = (MAP_SIZE - 16.0) / maxf(lot.size.x, lot.size.y)
+	var centre: Vector2 = lot.get_center()
 	var middle: Vector2 = box.get_center()
-	for room: Rect2 in _rooms:
-		var corners: PackedVector2Array = PackedVector2Array()
-		for corner: Vector2 in [room.position, Vector2(room.end.x, room.position.y), room.end,
-				Vector2(room.position.x, room.end.y), room.position]:
-			corners.append(_to_map(corner, centre, middle, fit))
-		draw_polyline(corners, Color(0.85, 0.82, 0.76, 0.35), 1.0)
+	# Lot, yards a shade lighter, houses lighter still with cream walls, then the
+	# fence as a dark line broken at its gates.
+	draw_colored_polygon(_map_rect(lot, centre, middle, fit), MAP_LOT)
+	for yard: Rect2 in _outline.yards:
+		draw_colored_polygon(_map_rect(yard, centre, middle, fit), MAP_YARD)
+	for house: Rect2 in _outline.houses:
+		var corners: PackedVector2Array = _map_rect(house, centre, middle, fit)
+		draw_colored_polygon(corners, MAP_HOUSE)
+		corners.append(corners[0])
+		draw_polyline(corners, MAP_WALL, 2.0)
+	for panel: Vector2 in _outline.fence_panels:
+		draw_line(_to_map(Vector2(_outline.fence_x, panel.x), centre, middle, fit),
+			_to_map(Vector2(_outline.fence_x, panel.y), centre, middle, fit), MAP_FENCE, 3.0)
+	var lot_edge: PackedVector2Array = _map_rect(lot, centre, middle, fit)
+	lot_edge.append(lot_edge[0])
+	draw_polyline(lot_edge, Color(MAP_WALL, 0.45), 1.0)
 	var own: Color = colours.get(own_team, Color.WHITE)
 	for body: Body in bodies:
 		if body.team != own_team or body.mine:
@@ -129,6 +143,14 @@ func _draw_map() -> void:
 		draw_colored_polygon(PackedVector2Array([
 			at + facing * 6.0, at - facing * 3.5 + side * 3.8, at - facing * 3.5 - side * 3.8]),
 			Color(1.0, 1.0, 1.0))
+
+## A world x/z rectangle's four corners in map pixels.
+func _map_rect(rect: Rect2, centre: Vector2, middle: Vector2, fit: float) -> PackedVector2Array:
+	var corners: PackedVector2Array = PackedVector2Array()
+	for corner: Vector2 in [rect.position, Vector2(rect.end.x, rect.position.y), rect.end,
+			Vector2(rect.position.x, rect.end.y)]:
+		corners.append(_to_map(corner, centre, middle, fit))
+	return corners
 
 ## World x/z -> map pixels, turned so `_up` points up the screen.
 func _to_map(world: Vector2, centre: Vector2, middle: Vector2, fit: float) -> Vector2:

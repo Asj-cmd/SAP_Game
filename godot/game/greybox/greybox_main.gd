@@ -506,6 +506,8 @@ func _tear_down() -> void:
 	_lineup.hide(null)
 	_tell_team = &""
 	_tell_overlay.bodies = []
+	_tell_overlay.in_match = false
+	_tell_overlay.set_level(null, Vector3.ZERO, Vector3.ZERO)
 	_rematch_asked = false
 
 # ---- looking at the screen ----
@@ -1775,9 +1777,7 @@ func _update_tell(truth: SimWorld, mine: int) -> void:
 				own_spawn = centre
 			else:
 				enemy_spawn = centre
-		var lot: AABB = WorldBackdrop.widest_blocker(level.collision.blockers) \
-			if not level.collision.blockers.is_empty() else AABB()
-		_tell_overlay.set_level(lot, level.zones, own_spawn, enemy_spawn)
+		_tell_overlay.set_level(MinimapOutline.build(level), own_spawn, enemy_spawn)
 	_tell_overlay.own_team = team
 	_tell_overlay.camera = _active_camera()
 	var bodies: Array[TeamTellOverlay.Body] = []
@@ -2654,13 +2654,20 @@ func _update_hud() -> void:
 		if _guide.visible:
 			_guide.refresh(truth, mine, get_process_delta_time())
 		_headline.text = MatchStatus.headline(truth, level, link.role != MatchLink.Role.GUEST)
+	# The minimap is match HUD: not under the lobby, the results or a match that ended.
+	_tell_overlay.in_match = link.is_ready() and not ended and not _results.visible \
+		and not _lobby_wait and not _lobby.is_open()
 	_hud.visible = _debug_hud_visible
 	_hud_hint.visible = not _debug_hud_visible
 	if not _debug_hud_visible:
-		var hint: String = "[F1] debug HUD"
+		# A release build (the exe friends play) keeps F1 but shows no hint for
+		# it; a host or guest still gets the network line (PT4-4).
+		var parts: PackedStringArray = PackedStringArray()
 		if link.role != MatchLink.Role.LOCAL:
-			hint = "%s     %s" % [_network_line(), hint]
-		_hud_hint.text = hint
+			parts.append(_network_line())
+		if OS.is_debug_build():
+			parts.append("[F1] debug HUD")
+		_hud_hint.text = "     ".join(parts)
 		return
 	var zone: ZoneDef = level.sheltered_zone()
 	var lines: PackedStringArray = PackedStringArray()

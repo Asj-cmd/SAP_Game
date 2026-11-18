@@ -21,9 +21,8 @@ const NOTE_GAP: float = 10.0
 const BUMP_SECONDS: float = 0.2
 const BUMP_SCALE: float = 0.15
 
-var _colours: Dictionary[StringName, Color] = {}
-var _first_id: StringName = &""
-var _second_id: StringName = &""
+var _left_colour: Color = Color.TRANSPARENT
+var _right_colour: Color = Color.TRANSPARENT
 var _split: float = 0.5
 var _target: float = 0.5
 var _left_name: Label = null
@@ -34,6 +33,7 @@ var _left_you: Label = null
 var _right_you: Label = null
 var _clock: Label = null
 var _round: Label = null
+var _goal: Label = null  # "FIRST TO 7", under the clock plate
 var _chip: PanelContainer = null
 var _chip_icon: TextureRect = null
 var _chip_text: Label = null
@@ -58,7 +58,6 @@ func _init() -> void:
 	set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
 	mouse_filter = Control.MOUSE_FILTER_IGNORE
 	theme = UiTheme.current()
-	_colours = ArtTheme.current().family_colours
 	_note = UiTheme.cash_icon()
 	_left_name = _label(UiTheme.HUD_BIG, 28, HORIZONTAL_ALIGNMENT_LEFT)
 	_right_name = _label(UiTheme.HUD_BIG, 28, HORIZONTAL_ALIGNMENT_RIGHT)
@@ -70,6 +69,7 @@ func _init() -> void:
 	_clock.add_theme_constant_override("outline_size", 0)
 	_round = _label(UiTheme.HUD, 14, HORIZONTAL_ALIGNMENT_CENTER)
 	_round.add_theme_constant_override("outline_size", 0)
+	_goal = _label(UiTheme.HUD, 15, HORIZONTAL_ALIGNMENT_CENTER)
 	var chip: Array = _make_chip(22)
 	_chip = chip[0]
 	_chip_icon = chip[1]
@@ -144,8 +144,6 @@ func _make_chip(font_size: int) -> Array:
 func refresh(world: SimWorld, level: GreyBoxLevel, mine: SimEntity, input: LocalPlayerInput) -> void:
 	var first: TeamDef = level.teams[0]
 	var second: TeamDef = level.teams[1]
-	_first_id = first.id
-	_second_id = second.id
 	var first_score: int = world.score_for(first.id)
 	var second_score: int = world.score_for(second.id)
 	if first_score > _last_first and _last_first >= 0:
@@ -154,7 +152,10 @@ func refresh(world: SimWorld, level: GreyBoxLevel, mine: SimEntity, input: Local
 		_bump_right = BUMP_SECONDS
 	_last_first = first_score
 	_last_second = second_score
-	_target = MatchStatus.cash_split(first_score, second_score)
+	var layout: Dictionary = bar_layout(first_score, second_score, first.id, second.id, ArtTheme.current())
+	_target = layout[&"split"]
+	_left_colour = layout[&"left"]
+	_right_colour = layout[&"right"]
 	_wins = Vector2i(world.round_wins_for(first.id), world.round_wins_for(second.id))
 	_to_win = world.mode.rounds_to_win
 
@@ -175,8 +176,14 @@ func refresh(world: SimWorld, level: GreyBoxLevel, mine: SimEntity, input: Local
 	_place(_right_count, Vector2(_bar_rect.end.x + gap, count_y), Vector2(count_w, 60.0))
 	_left_name.text = FamilyNames.name_of(first.id).to_upper()
 	_right_name.text = FamilyNames.name_of(second.id).to_upper()
-	_left_count.text = "%d/%d" % [first_score, world.mode.score_to_win()]
-	_right_count.text = "%d/%d" % [second_score, world.mode.score_to_win()]
+	# Each name in its own family's colour, so a bar that is all one colour
+	# (0 against 6) still says whose end is whose (PT4-4).
+	_left_name.add_theme_color_override("font_color", _left_colour.lightened(0.2))
+	_right_name.add_theme_color_override("font_color", _right_colour.lightened(0.2))
+	# The banked count alone: "0/6" at each end read as a score of 0 against 6.
+	# The target is said once, on the clock plate.
+	_left_count.text = "%d" % first_score
+	_right_count.text = "%d" % second_score
 	_left_you.text = "YOU" if mine != null and mine.team == first.id else ""
 	_right_you.text = "YOU" if mine != null and mine.team == second.id else ""
 
@@ -188,6 +195,8 @@ func refresh(world: SimWorld, level: GreyBoxLevel, mine: SimEntity, input: Local
 	_place(_clock, _plate_rect.position + Vector2(0.0, 0.0), Vector2(PLATE_SIZE.x, 50.0))
 	_round.text = "ROUND %d" % world.round_number
 	_place(_round, _plate_rect.position + Vector2(0.0, 52.0), Vector2(PLATE_SIZE.x, 18.0))
+	_goal.text = "FIRST TO %d" % world.mode.score_to_win()
+	_place(_goal, Vector2(_plate_rect.position.x - 40.0, _plate_rect.end.y + 4.0), Vector2(PLATE_SIZE.x + 80.0, 22.0))
 
 	_chip.visible = false
 	_jail.visible = false
@@ -205,6 +214,18 @@ func refresh(world: SimWorld, level: GreyBoxLevel, mine: SimEntity, input: Local
 	_centre(_chip, size.y - 132.0)
 	_centre(_jail, size.y * 0.3)
 	queue_redraw()
+
+## The bar's numbers (PT4-4), the one place `_draw` takes them from: `split` is
+## where the colours meet (0.0 = all the second family's, 1.0 = all the first's,
+## 0.5 when nothing is banked), `left` / `right` are the first and second
+## family's colours, read from the theme by team id.
+static func bar_layout(first_score: int, second_score: int, first_id: StringName,
+		second_id: StringName, theme: ArtTheme) -> Dictionary:
+	return {
+		&"split": MatchStatus.cash_split(first_score, second_score),
+		&"left": theme.family_colour(first_id),
+		&"right": theme.family_colour(second_id),
+	}
 
 func _set_chip(icon: Texture2D, text: String, urgent: bool) -> void:
 	_chip_icon.texture = icon
@@ -246,8 +267,8 @@ func _apply_bump(label: Label, left: float, from_right: bool) -> void:
 func _draw() -> void:
 	if _bar_rect.size.x <= 0.0:
 		return
-	var first_colour: Color = _colours.get(_first_id, Color(0.48, 0.58, 0.45))
-	var second_colour: Color = _colours.get(_second_id, Color(0.7, 0.4, 0.3))
+	var first_colour: Color = _left_colour
+	var second_colour: Color = _right_colour
 	draw_rect(_bar_rect.grow(4.0), Color(UiTheme.CHARCOAL, 0.35))
 	var left_w: float = _bar_rect.size.x * _split
 	draw_rect(Rect2(_bar_rect.position, Vector2(left_w, BAR_HEIGHT)), first_colour)

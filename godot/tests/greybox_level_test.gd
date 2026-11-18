@@ -13,7 +13,7 @@ extends SceneTree
 ## also drives the sim the way the slice does, so "the grey box runs" is a
 ## claim with evidence rather than a screenshot nobody kept.
 
-const EXPECTED_CHECKS: int = 35
+const EXPECTED_CHECKS: int = 40
 
 var _passed: int = 0
 var _failed: int = 0
@@ -25,6 +25,7 @@ func _initialize() -> void:
 	_test_playable()
 	_test_spawn_lineup()
 	_test_tuning_tracks_defaults()
+	_test_minimap_outline()
 
 	if _passed + _failed != EXPECTED_CHECKS:
 		_failed += 1
@@ -36,6 +37,28 @@ func _initialize() -> void:
 		for failure: String in _failures:
 			print("  - %s" % failure)
 	quit(1 if _failed > 0 else 0)
+
+## PT4-4: the minimap's outline, from the baked level.
+func _test_minimap_outline() -> void:
+	var level: GreyBoxLevel = GreyBoxLevel.new()
+	var outline: MinimapOutline = MinimapOutline.build(level)
+	_check("map/two houses", outline.houses.size(), 2)
+	var outside: PackedStringArray = PackedStringArray()
+	for house: Rect2 in outline.houses:
+		if not outline.lot.encloses(house):
+			outside.append(str(house))
+	_check("map/houses inside the lot", ", ".join(outside), "")
+	_check("map/the fence has panels", outline.fence_panels.size() > 0, true)
+	# A gate is an opening strictly inside the lot's length, not only its ends.
+	var inner_gates: int = 0
+	for gate: Vector2 in outline.gates:
+		if gate.x > outline.lot.position.y + 1.0 and gate.y < outline.lot.end.y - 1.0:
+			inner_gates += 1
+	_check("map/the fence has a gate", inner_gates >= 1, true)
+	var again: MinimapOutline = MinimapOutline.build(GreyBoxLevel.new())
+	_check("map/same outline on a second build",
+		[again.lot, again.houses, again.yards, again.fence_panels, again.gates],
+		[outline.lot, outline.houses, outline.yards, outline.fence_panels, outline.gates])
 
 func _check(case_name: String, actual: Variant, expected: Variant) -> void:
 	if actual == expected:
