@@ -102,6 +102,11 @@ const DEFAULT_PATH: String = "res://art/theme/default_theme.tres"
 ## Interior wall finish, and per room kind (the jail's painted block).
 @export var wall_inside: StandardMaterial3D = null
 @export var walls: Dictionary[StringName, StandardMaterial3D] = {}
+## PT2-5: interior wall faces carry a vertex colour that runs from this (at the
+## room's floor) up to 1.0 (at its ceiling), a cheap stand-in for the light that
+## falls off toward the floor without room lamps. Linear; it shows only where the
+## wall material has `vertex_color_use_as_albedo`. 1.0 = flat walls as before.
+@export_range(0.0, 1.0) var wall_shade_floor: float = 1.0
 ## Outside faces of the houses.
 @export var wall_outside: StandardMaterial3D = null
 @export var ceiling: StandardMaterial3D = null

@@ -18,6 +18,23 @@
 [ext_resource type="Texture2D" path="res://art/textures/weathered_brown_planks/weathered_brown_planks_diff_1k.jpg" id="t_planks"]
 [ext_resource type="Texture2D" path="res://art/textures/bark_brown_02/bark_brown_02_diff_1k.jpg" id="t_bark"]
 
+[sub_resource type="Gradient" id="weave_ramp"]
+offsets = PackedFloat32Array(0, 1)
+colors = PackedColorArray(0.74, 0.74, 0.74, 1, 1, 1, 1, 1)
+
+[sub_resource type="FastNoiseLite" id="weave_noise"]
+noise_type = 1
+seed = 11
+frequency = 0.06
+fractal_octaves = 4
+
+[sub_resource type="NoiseTexture2D" id="weave"]
+width = 256
+height = 256
+seamless = true
+color_ramp = SubResource("weave_ramp")
+noise = SubResource("weave_noise")
+
 [sub_resource type="StandardMaterial3D" id="ext_pavement"]
 resource_name = "ext_pavement"
 albedo_color = Color(0.92, 1.0, 1.15, 1)
@@ -150,19 +167,24 @@ roughness = 0.9
 [sub_resource type="StandardMaterial3D" id="floor_oak"]
 resource_name = "floor_oak"
 albedo_texture = ExtResource("t_oak")
-roughness = 0.6
+roughness = 0.45
 uv1_scale = Vector3(0.005882, 0.005882, 1)
+texture_filter = 5
 
 [sub_resource type="StandardMaterial3D" id="floor_tile"]
 resource_name = "floor_tile"
 albedo_texture = ExtResource("t_tiles")
-roughness = 0.4
+roughness = 0.35
 uv1_scale = Vector3(0.005263, 0.005263, 1)
+texture_filter = 5
 
 [sub_resource type="StandardMaterial3D" id="floor_concrete"]
 resource_name = "floor_concrete"
-albedo_color = Color(0.46, 0.49, 0.52, 1)
+albedo_color = Color(0.84, 0.89, 0.95, 1)
+albedo_texture = ExtResource("t_concrete")
 roughness = 0.9
+uv1_scale = Vector3(0.004, 0.004, 1)
+texture_filter = 5
 
 [sub_resource type="StandardMaterial3D" id="wall_plaster"]
 resource_name = "wall_plaster"
@@ -170,6 +192,8 @@ albedo_color = Color(1.12, 1.09, 1.03, 1)
 albedo_texture = ExtResource("t_plaster")
 roughness = 0.9
 uv1_scale = Vector3(0.005, 0.005, 1)
+texture_filter = 5
+vertex_color_use_as_albedo = true
 
 [sub_resource type="StandardMaterial3D" id="wall_block"]
 resource_name = "wall_block"
@@ -177,6 +201,8 @@ albedo_color = Color(1.6, 1.82, 2.1, 1)
 albedo_texture = ExtResource("t_block")
 roughness = 0.9
 uv1_scale = Vector3(0.005, 0.005, 1)
+texture_filter = 5
+vertex_color_use_as_albedo = true
 
 [sub_resource type="StandardMaterial3D" id="wall_brick"]
 resource_name = "wall_brick"
@@ -184,11 +210,15 @@ albedo_color = Color(0.86, 0.88, 0.92, 1)
 albedo_texture = ExtResource("t_brick")
 roughness = 0.85
 uv1_scale = Vector3(0.0069, 0.0069, 1)
+texture_filter = 5
 
 [sub_resource type="StandardMaterial3D" id="ceiling"]
 resource_name = "ceiling"
-albedo_color = Color(0.8, 0.79, 0.76, 1)
+albedo_color = Color(1.18, 1.17, 1.13, 1)
+albedo_texture = ExtResource("t_plaster")
 roughness = 0.95
+uv1_scale = Vector3(0.0035, 0.0035, 1)
+texture_filter = 5
 
 [sub_resource type="StandardMaterial3D" id="trim"]
 resource_name = "trim"
@@ -210,18 +240,27 @@ metallic_specular = 0.9
 
 [sub_resource type="StandardMaterial3D" id="carpet_grey"]
 resource_name = "carpet_grey"
-albedo_color = Color(0.55, 0.52, 0.48, 1)
+albedo_color = Color(0.63, 0.6, 0.55, 1)
+albedo_texture = SubResource("weave")
 roughness = 1.0
+uv1_scale = Vector3(0.004, 0.004, 1)
+texture_filter = 5
 
 [sub_resource type="StandardMaterial3D" id="carpet_green"]
 resource_name = "carpet_green"
-albedo_color = Color(0.36, 0.4, 0.48, 1)
+albedo_color = Color(0.41, 0.46, 0.55, 1)
+albedo_texture = SubResource("weave")
 roughness = 1.0
+uv1_scale = Vector3(0.004, 0.004, 1)
+texture_filter = 5
 
 [sub_resource type="StandardMaterial3D" id="carpet_beige"]
 resource_name = "carpet_beige"
-albedo_color = Color(0.66, 0.6, 0.5, 1)
+albedo_color = Color(0.76, 0.69, 0.57, 1)
+albedo_texture = SubResource("weave")
 roughness = 1.0
+uv1_scale = Vector3(0.004, 0.004, 1)
+texture_filter = 5
 
 [sub_resource type="StandardMaterial3D" id="lawn"]
 resource_name = "lawn"
@@ -232,18 +271,31 @@ uv1_scale = Vector3(0.0025, 0.0025, 1)
 
 [sub_resource type="StandardMaterial3D" id="path"]
 resource_name = "path"
-albedo_color = Color(0.62, 0.6, 0.56, 1)
+albedo_color = Color(0.9, 0.9, 0.88, 1)
+albedo_texture = ExtResource("t_pavement")
 roughness = 0.9
+uv1_scale = Vector3(0.005556, 0.005556, 1)
+texture_filter = 5
 
 [sub_resource type="StandardMaterial3D" id="prop_wood"]
 resource_name = "wood"
-albedo_color = Color(0.46, 0.33, 0.22, 1)
-roughness = 0.6
+albedo_color = Color(0.74, 0.58, 0.46, 1)
+albedo_texture = ExtResource("t_oak")
+roughness = 0.5
+uv1_scale = Vector3(0.008, 0.008, 0.008)
+uv1_triplanar = true
+uv1_world_triplanar = true
+texture_filter = 5
 
 [sub_resource type="StandardMaterial3D" id="prop_fabric"]
 resource_name = "fabric"
-albedo_color = Color(0.5, 0.49, 0.46, 1)
+albedo_color = Color(0.58, 0.56, 0.53, 1)
+albedo_texture = SubResource("weave")
 roughness = 1.0
+uv1_scale = Vector3(0.012, 0.012, 0.012)
+uv1_triplanar = true
+uv1_world_triplanar = true
+texture_filter = 5
 
 [sub_resource type="StandardMaterial3D" id="prop_steel"]
 resource_name = "steel"
@@ -263,8 +315,13 @@ roughness = 0.8
 
 [sub_resource type="StandardMaterial3D" id="prop_worktop"]
 resource_name = "worktop"
-albedo_color = Color(0.26, 0.25, 0.24, 1)
-roughness = 0.35
+albedo_color = Color(0.36, 0.35, 0.34, 1)
+albedo_texture = ExtResource("t_concrete")
+roughness = 0.3
+uv1_scale = Vector3(0.006, 0.006, 0.006)
+uv1_triplanar = true
+uv1_world_triplanar = true
+texture_filter = 5
 
 [sub_resource type="StandardMaterial3D" id="prop_enamel"]
 resource_name = "enamel"
@@ -273,13 +330,23 @@ roughness = 0.3
 
 [sub_resource type="StandardMaterial3D" id="prop_rug"]
 resource_name = "rug"
-albedo_color = Color(0.5, 0.41, 0.35, 1)
+albedo_color = Color(0.58, 0.47, 0.4, 1)
+albedo_texture = SubResource("weave")
 roughness = 1.0
+uv1_scale = Vector3(0.012, 0.012, 0.012)
+uv1_triplanar = true
+uv1_world_triplanar = true
+texture_filter = 5
 
 [sub_resource type="StandardMaterial3D" id="prop_rug_border"]
 resource_name = "rug_border"
-albedo_color = Color(0.33, 0.28, 0.25, 1)
+albedo_color = Color(0.38, 0.32, 0.29, 1)
+albedo_texture = SubResource("weave")
 roughness = 1.0
+uv1_scale = Vector3(0.012, 0.012, 0.012)
+uv1_triplanar = true
+uv1_world_triplanar = true
+texture_filter = 5
 
 [sub_resource type="StandardMaterial3D" id="prop_screen"]
 resource_name = "screen"
@@ -493,6 +560,7 @@ wall_inside = SubResource("wall_plaster")
 walls = Dictionary[StringName, StandardMaterial3D]({
 &"jail": SubResource("wall_block")
 })
+wall_shade_floor = 0.7
 wall_outside = SubResource("wall_brick")
 ceiling = SubResource("ceiling")
 trim = SubResource("trim")

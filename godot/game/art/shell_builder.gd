@@ -279,7 +279,10 @@ func _face(index: int, box: AABB, house: House, shape: Shape, axis: int, sign: f
 				p[u] = corner.x
 				p[w] = corner.y
 				corners.append(p)
-			_quad(house, key, corners, normal)
+			var shade: Vector2 = Vector2.ZERO
+			if room != null and String(key).begins_with("wall:"):
+				shade = Vector2(room.bounds.position.y, room.bounds.end.y)
+			_quad(house, key, corners, normal, shade)
 			if shape == Shape.WALL and axis != 1 and room != null:
 				_skirting(house, corners, normal, axis, plane, sign)
 
@@ -659,15 +662,27 @@ static func _uv(p: Vector3, normal: Vector3) -> Vector2:
 
 ## One flat quad. The corners may come in either turning order; they are wound
 ## so the face points along `normal` (Godot: clockwise seen from the front).
-func _quad(house: House, key: StringName, corners: Array[Vector3], normal: Vector3) -> void:
+## `shade` (floor y, ceiling y) of a room gives the face the theme's
+## floor-to-ceiling wall shading (PT2-5); zero = plain white. Every vertex gets a
+## colour, so one surface never mixes vertices with and without one.
+func _quad(house: House, key: StringName, corners: Array[Vector3], normal: Vector3,
+		shade: Vector2 = Vector2.ZERO) -> void:
 	var tool: SurfaceTool = _tool(house, key)
 	var turning: float = (corners[1] - corners[0]).cross(corners[2] - corners[0]).dot(normal)
 	var order: Array[int] = QUAD_TURNED if turning > 0.0 else QUAD_AS_IS
 	for index: int in order:
+		tool.set_color(_shade_at(corners[index].y, shade))
 		tool.set_normal(normal)
 		tool.set_uv(_uv(corners[index], normal))
 		tool.add_vertex(corners[index])
 	quads += 1
+
+func _shade_at(y: float, shade: Vector2) -> Color:
+	if shade.y <= shade.x or _theme.wall_shade_floor >= 1.0:
+		return Color.WHITE
+	var t: float = clampf((y - shade.x) / (shade.y - shade.x), 0.0, 1.0)
+	var value: float = lerpf(_theme.wall_shade_floor, 1.0, t)
+	return Color(value, value, value, 1.0)
 
 func _triangle(house: House, key: StringName, points: Array[Vector3], uvs: Array[Vector2],
 		normal: Vector3) -> void:
@@ -675,6 +690,7 @@ func _triangle(house: House, key: StringName, points: Array[Vector3], uvs: Array
 	var turning: float = (points[1] - points[0]).cross(points[2] - points[0]).dot(normal)
 	var order: Array[int] = TRI_TURNED if turning > 0.0 else TRI_AS_IS
 	for index: int in order:
+		tool.set_color(Color.WHITE)
 		tool.set_normal(normal)
 		tool.set_uv(uvs[index])
 		tool.add_vertex(points[index])
