@@ -123,6 +123,11 @@ as "<Surname> Family"), and the host can clear either. An empty box shows
 "Green Family" or "Orange Family". In a solo game the two boxes are on the main
 menu. See `HOW_TO_PLAY.md`.
 
+Every round starts with your family lined up on your own front lawn, facing you,
+for 3 seconds: your family's name above, and under each body its role (Dad, Mom,
+Daughter, Son) and who plays it ("You", "Bot", or the player). Nobody can move
+until the countdown ends, then the camera goes back behind you.
+
 The bar across the top is a tug of war: each family's colour fills from its own
 end in proportion to its banked cash, with the family names, cash, round wins and
 the clock. CARRYING CASH or a JAILED countdown shows for you, and a prompt appears

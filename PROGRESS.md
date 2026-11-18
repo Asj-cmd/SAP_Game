@@ -2,6 +2,28 @@
 
 Newest first. One entry per task: date, task id, what changed, what the frames showed, numbers, what is left.
 
+## 2026-11-18 — PT4-2 Family spawn
+- Spawns: `SPAWN_LOCAL` in `build_house.gd` is now one row on the front lawn, in slot order. The points are house-local (300, -150), (550, -150), (800, -150) and (1050, -150), 250 apart and 390 short of the front door's jamb. They were taken from the brief as given; no point hit a blocker, so the row did not need shifting. I re-ran `build_house`, then `bake_blockout_headless` (still 301 blockers). In the baked `house.tres` only the spawn lines changed: team_a sits at lot z 200, x 650..1400; team_b is its turned twin at z 3520, x 6630..5880. The generated `house.tscn` also churned, but this session's permissions would not let me read that diff. It is the generated scene, committed as written.
+- Countdown: `pre_round_seconds` 2 → 3 in `house_{1v1,2v2,3v3,4v4}.tres` (REVIEW). The sim's COUNTDOWN already freezes movement and is entered at every round start, so there is no new rule and no snapshot change.
+- Lineup (new `game/greybox/family_lineup.gd`, called from `GreyBoxMain._update_lineup` after `_render`):
+  - While the confirmed world is in COUNTDOWN, seat 0's SubViewport switches to its own Camera3D. The camera stands 600 out from the row's middle and 170 above the lawn, looks at a point 200 over the row, with fov 50. The "out" axis is whichever of x or z the row lies further along from the family's cash. So the camera hangs over the street, 400 outside the railings, where `fence_cutaway` (reach 600) stops drawing them.
+  - Every body is drawn facing out of its own house; `_facings` is updated, so nothing snaps afterwards. The own body is never faded while the lineup shows.
+  - Overlay on the text layer: the family name (`FamilyNames.name_of`, HUD_BIG in the family colour) above the heads, and under each body's feet "<role>\n<who>". Roles are Dad / Mom / Daughter / Son, with Elder / Younger only when two children share a sex (never at the default order). Who is "You", "Bot" (`SimEntity.is_bot`, which is in the snapshot, so it is right on a guest too), the lobby seat's name where the lobby lives, else "Player". PT4-3 brings guest names.
+  - Off in split screen and whenever a frame capture was requested, so verify's views are unchanged. When PLAYING starts the chase camera is current again.
+- Checked with temporary prints (removed), headless `--solo`:
+  - 4v4 labels: "Dad\nYou", "Mom\nBot", "Daughter\nBot", "Son\nBot".
+  - 2v2: the lineup camera is current at (775, 470, -400), facing a row centred on (775, 300, 200).
+  - 3v3: the lineup ends at phase PLAYING with the chase camera current again.
+  - 30 s runs at 2v2, 3v3 and 4v4 had no script errors.
+  - Not looked at: no frames, per the diet. Whether the frame reads well (railings cut, house behind, labels clear of the headline) is unconfirmed.
+- Tests: `greybox_level_test` 20 → 35, pinned. The new spawn table covers 2v2, 3v3 and 4v4 and checks five things per size: one point per seat, each the twin of the other house's point about (3640, 1860), no two bodies within two radii (both teams), no body box in a blocker or outside the shell, and the same points on a second load. The playable case now runs 150 ticks through the countdown (was 90, too short for 3 s).
+- Full verify, run once: **healthy**.
+  - All suites at their pins. Symmetry 190 of 190.
+  - Bot 3v3: **team_b** won, 402 s, 67 s stalls (budget 400), deterministic. It was team_a, 526 s, 45 s before; the spawn move changes the match, as the brief expected. 1v1: team_a won, 8 s stalls (was 13).
+  - Tick budget 0 / 1 / 4 (4v4 not gated). net_smoke: 1641 ticks agree. Render counters within limits (416 / 364 / 330 draws).
+- Docs: PLAYTEST.md has a paragraph on the lineup. DECISIONS has four rows (front lawn rather than hall; 3 s REVIEW; the drawn lineup; the label rules). The brief's PT4-2 section is removed, and a pointer to `_lineup_player` is added to PT4-3.
+- Left: someone looking at the lineup in a window. Next: PT4-3 (brief ready).
+
 ## 2026-11-18 — PT3-3 Players name their families
 - `FamilyNames` (`godot/game/greybox/family_names.gd`) keeps the typed names on each machine: `set_typed`, `typed_of`, `typed_all`, `clear_typed`, and a `revision` counter so panels know to redraw. `name_of` returns the typed name as "<Name> Family" (a name whose last word is already "family" stays as typed) or the default. `FALLBACK` and `content/family_names.cfg` now hold only "Green Family" / "Orange Family". Every place that shows a name already went through `name_of` (cash bar, results, status line, round and match headlines, debug HUD), so they all follow. The minimap and team-tell markers draw no text, so nothing changed there.
 - Cleaning: `FamilyNames.clean` calls `LobbyState.clean_name` (net/). This differs from the brief, which put the rule in `FamilyNames`: the wire decoder in net/ has to clean too, and net/ may not depend on game/. It is still one function. Letters are characters whose upper and lower case differ, so accents and Cyrillic are kept; digits, symbols and emoji are removed. Spaces, `-` and `'` are kept, runs of spaces collapse, the ends are trimmed, and the text is cut to 16 and trimmed again. Typing allows one trailing space while the field has focus (`FamilyNameBox.typing_filter`); without that, "Van Der" could not be typed.

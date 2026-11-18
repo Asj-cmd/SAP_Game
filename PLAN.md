@@ -101,7 +101,7 @@ are typed by the players (see PT3-3).
      rule against P5-0 in `DECISIONS.md`.
   *Verify:* the table-driven tests above, a search showing neither old name appears anywhere in the
   repo's tracked files, then the full `verify.mjs`. No frames.
-- [ ] **PT4-2 Family spawn.** At round start each family spawns **together in a lineup in front of
+- [x] **PT4-2 Family spawn.** *(Done 2026-11-18: one row per family on its own front lawn, house-local x 300..1050 at z -150, re-baked; 3 s countdown in every mode (REVIEW); `FamilyLineup` camera 600 out from the row during COUNTDOWN, bodies drawn facing it, family name above and role / "You" / "Bot" / player under each body. Spawn table in `greybox_level_test`. Not looked at (no frames, per the diet). See PROGRESS.md.)* At round start each family spawns **together in a lineup in front of
   its own house** (or in its ground-floor hall if that plays better: pick one, say why in
   `DECISIONS.md`), facing the camera for about 3 s while its member names show, then play starts.
   Deterministic in the sim and mirrored for both houses (the symmetry probe still passes). If the
