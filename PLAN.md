@@ -32,7 +32,7 @@ other task here is verified by tests and numbers. The family display names come 
   right; extend the upper floor / landing (shell, collision and nav) so it meets the top tread. Check
   every flight, including the new outside back stairs. The symmetry probe passes; the full
   `verify.mjs` is the gate. No frames.
-- [ ] **PT2-2 Remove the panic run; add a "spotted" startle.** Delete the arms-up panic run: the sim
+- [x] **PT2-2 Remove the panic run; add a "spotted" startle.** *(Done 2026-11-17: panic run gone from sim, wire, snapshot (format 5), clips and tests; spotted jolt + pitched sting in `GreyBoxMain._spot_carriers`, 6 m, 8 s cooldown (REVIEW). Unseen. See PROGRESS.md.)* Delete the arms-up panic run: the sim
   state (`is_panicking`, the forward-held tracking if nothing else uses it), the animation, the bot
   code that deals with it, and the tests that pinned it. Replace it with a "spotted" moment: the first
   time a defender comes within the old panic distance of a player who is carrying that defender's

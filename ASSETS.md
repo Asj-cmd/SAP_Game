@@ -101,7 +101,7 @@ Packs: impact-sounds (https://kenney.nl/assets/impact-sounds), interface-sounds 
 | free | rpg-audio metalLatch | free an ally |
 | land | impact-sounds impactSoft_medium_000 | landing |
 | cash_1, cash_2 | rpg-audio handleCoins, handleCoins2 | deposit |
-| sting | interface-sounds bong_001 | round / match end |
+| sting | interface-sounds bong_001 | round / match end; also the `spotted` alarm (PT2-2), the same file played at pitch 1.25 as a placeholder until PT2-4 |
 | tick | interface-sounds tick_001 | countdown |
 | ui_click | interface-sounds click_001 | every button |
 
