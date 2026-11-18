@@ -1781,6 +1781,8 @@ func _update_tell(truth: SimWorld, mine: int) -> void:
 	_tell_overlay.own_team = team
 	_tell_overlay.camera = _active_camera()
 	var bodies: Array[TeamTellOverlay.Body] = []
+	var theme: ArtTheme = ArtTheme.current()
+	var kid_swap: bool = TeamTell.current().kid_swap
 	for entity_id: int in _actor_views:
 		var entity: SimEntity = truth.get_entity(entity_id)
 		if entity == null or not entity.is_actor():
@@ -1791,6 +1793,11 @@ func _update_tell(truth: SimWorld, mine: int) -> void:
 		body.height = _figure_heights.get(entity_id, ACTOR_HEIGHT)
 		body.team = entity.team
 		body.mine = entity_id == mine
+		# The member as drawn (kid swap honoured, like the figures) and the drawn
+		# facing, for the minimap pointer (PT4-5).
+		var member: FamilyMember = theme.member_for(entity.team, entity.slot, kid_swap)
+		body.member = member.id if member != null else &""
+		body.heading = _facings.get(entity_id, view.rotation.y)
 		bodies.append(body)
 	bodies.append_array(_tell_extras)
 	_tell_overlay.bodies = bodies

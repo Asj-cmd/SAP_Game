@@ -1,21 +1,33 @@
 class_name TeamTellOverlay
 extends Control
 ## The on-screen half of the D3 team tell (TeamTell, P2-4): (a) a small mark
-## over each of YOUR OWN teammates, and (b) a corner minimap showing only your
-## own teammates and you. Enemies are never drawn by either: that is the point
-## of D3, a still enemy should be hard to tell from your own family.
+## over each of YOUR OWN teammates (never over enemies), and (b) a corner
+## minimap. Since PT4-5 the minimap shows every figure of both families
+## (MAP_SHOWS_ENEMIES), each as its member's shape in its family colour,
+## pointing the way it faces (`pointer`).
 ##
 ## Presentation only. GreyBoxMain hands it the drawn bodies each frame; it reads
 ## nothing from the simulation itself. The minimap draws the level's outline
 ## (MinimapOutline: lot, yards, houses, fence with its gates, PT4-4), only while
 ## a match is being played.
 
-## One drawn body: feet position, drawn height, team, and whether it is yours.
+## One drawn body: feet position, drawn height, team, whether it is yours, the
+## family member it is drawn as ("dad", "younger_girl" ...; "" if none) and the
+## yaw it is drawn facing (atan2(x, z): 0 faces world +z).
 class Body:
 	var feet: Vector3 = Vector3.ZERO
 	var height: float = 180.0
 	var team: StringName = &""
 	var mine: bool = false
+	var member: StringName = &""
+	var heading: float = 0.0
+
+## REVIEW (PT4-5): both families on the minimap, bots and players alike. False
+## goes back to P2-4's "own family only".
+const MAP_SHOWS_ENEMIES: bool = true
+const POINTER_RADIUS: float = 5.0
+const POINTER_MINE_RADIUS: float = 6.5
+const NOTCH_LENGTH: float = 4.0
 
 const MARK_LIFT: float = 30.0  # above the head, world units
 const MARK_SIZE: float = 9.0  # half-width of the mark, pixels, up close
@@ -23,7 +35,6 @@ const MARK_FAR_SCALE: float = 0.55
 const MAP_SIZE: float = 210.0  # pixels, square
 const MAP_MARGIN: float = 16.0
 const MAP_TOP: float = 70.0  # below the status line
-const DOT_RADIUS: float = 4.5
 
 var camera: Camera3D = null
 var own_team: StringName = &""
@@ -120,29 +131,82 @@ func _draw_map() -> void:
 	var lot_edge: PackedVector2Array = _map_rect(lot, centre, middle, fit)
 	lot_edge.append(lot_edge[0])
 	draw_polyline(lot_edge, Color(MAP_WALL, 0.45), 1.0)
-	var own: Color = colours.get(own_team, Color.WHITE)
-	for body: Body in bodies:
-		if body.team != own_team or body.mine:
-			continue
-		var at: Vector2 = _to_map(Vector2(body.feet.x, body.feet.z), centre, middle, fit)
-		draw_circle(at, DOT_RADIUS + 1.5, Color(0.05, 0.05, 0.05, 0.9))
-		draw_circle(at, DOT_RADIUS, own)
-	for body: Body in bodies:
-		if not body.mine:
-			continue
-		var at: Vector2 = _to_map(Vector2(body.feet.x, body.feet.z), centre, middle, fit)
-		var facing: Vector2 = Vector2(0.0, -1.0)
-		if camera != null:
-			var look: Vector3 = -camera.global_transform.basis.z
-			facing = _turn(Vector2(look.x, look.z))
-			facing = facing.normalized() if facing.length() > 0.01 else Vector2(0.0, -1.0)
-		var side: Vector2 = Vector2(-facing.y, facing.x)
-		var arrow: PackedVector2Array = PackedVector2Array([
-			at + facing * 8.0, at - facing * 5.0 + side * 5.5, at - facing * 5.0 - side * 5.5])
-		draw_colored_polygon(arrow, Color(0.05, 0.05, 0.05, 0.9))
-		draw_colored_polygon(PackedVector2Array([
-			at + facing * 6.0, at - facing * 3.5 + side * 3.8, at - facing * 3.5 - side * 3.8]),
-			Color(1.0, 1.0, 1.0))
+	# Everyone else first, your own body last so it sits on top.
+	for pass_mine: bool in [false, true]:
+		for body: Body in bodies:
+			if body.mine != pass_mine:
+				continue
+			if not body.mine and body.team != own_team and not MAP_SHOWS_ENEMIES:
+				continue
+			var at: Vector2 = _to_map(Vector2(body.feet.x, body.feet.z), centre, middle, fit)
+			_draw_pointer(at, pointer(body.member, body.mine, body.heading, _up),
+				colours.get(body.team, Color.WHITE))
+
+## One figure's pointer on the map, `at` its map position.
+func _draw_pointer(at: Vector2, shape: Dictionary, fill: Color) -> void:
+	var rim: Color = Color(0.05, 0.05, 0.05, 0.9)
+	var mine: bool = shape[&"mine"]
+	var edge: Color = UiTheme.CREAM if mine else rim
+	var edge_width: float = 2.0 if mine else 1.5
+	var points: PackedVector2Array = shape[&"points"]
+	var radius: float = shape[&"radius"]
+	if points.is_empty():
+		draw_circle(at, radius + edge_width, edge)
+		draw_circle(at, radius, fill)
+	else:
+		var placed: PackedVector2Array = PackedVector2Array()
+		for point: Vector2 in points:
+			placed.append(at + point)
+		draw_colored_polygon(placed, fill)
+		placed.append(placed[0])
+		draw_polyline(placed, edge, edge_width, true)
+	var notch: PackedVector2Array = shape[&"notch"]
+	if notch.size() == 2:
+		draw_line(at + notch[0], at + notch[1], edge, 2.5 if mine else 2.0)
+
+## The minimap pointer for one figure (PT4-5), in map pixels about its map
+## position: dad a square, mom a diamond, a son (any `*_boy`) a triangle whose
+## apex is the facing, a daughter (any `*_girl`) a circle; anyone else a circle.
+## Every shape but the triangle carries a short notch out the way it faces.
+## `heading` is the drawn yaw (atan2(x, z)); `up` the world x/z direction the
+## map shows at the top. Your own is bigger.
+##
+## Returns {shape, radius, mine, facing (map unit vector), points (polygon,
+## empty for a circle), notch ([from, to], empty for the triangle), tip (the
+## point that shows the facing: apex or notch end)}.
+static func pointer(member: StringName, mine: bool, heading: float, up: Vector2) -> Dictionary:
+	var radius: float = POINTER_MINE_RADIUS if mine else POINTER_RADIUS
+	var facing: Vector2 = turn(Vector2(sin(heading), cos(heading)), up).normalized()
+	var side: Vector2 = Vector2(-facing.y, facing.x)
+	var text: String = String(member)
+	var shape: StringName = &"circle"
+	if member == &"dad":
+		shape = &"square"
+	elif member == &"mom":
+		shape = &"diamond"
+	elif text.ends_with("_boy"):
+		shape = &"triangle"
+	var points: PackedVector2Array = PackedVector2Array()
+	var notch: PackedVector2Array = PackedVector2Array()
+	var tip: Vector2 = facing * (radius + NOTCH_LENGTH)
+	match shape:
+		&"square":
+			var r: float = radius * 0.9
+			points = PackedVector2Array([(facing + side) * r, (facing - side) * r,
+				(-facing - side) * r, (-facing + side) * r])
+		&"diamond":
+			points = PackedVector2Array([facing * radius * 1.25, side * radius,
+				-facing * radius * 1.25, -side * radius])
+			tip = facing * (radius * 1.25 + NOTCH_LENGTH)
+		&"triangle":
+			tip = facing * radius * 1.5
+			points = PackedVector2Array([tip, -facing * radius * 0.8 + side * radius,
+				-facing * radius * 0.8 - side * radius])
+	if shape != &"triangle":
+		var from: Vector2 = facing * (radius * 1.25 if shape == &"diamond" else radius)
+		notch = PackedVector2Array([from, tip])
+	return {&"shape": shape, &"radius": radius, &"mine": mine, &"facing": facing,
+		&"points": points, &"notch": notch, &"tip": tip}
 
 ## A world x/z rectangle's four corners in map pixels.
 func _map_rect(rect: Rect2, centre: Vector2, middle: Vector2, fit: float) -> PackedVector2Array:
@@ -154,9 +218,9 @@ func _map_rect(rect: Rect2, centre: Vector2, middle: Vector2, fit: float) -> Pac
 
 ## World x/z -> map pixels, turned so `_up` points up the screen.
 func _to_map(world: Vector2, centre: Vector2, middle: Vector2, fit: float) -> Vector2:
-	return middle + _turn(world - centre) * fit
+	return middle + turn(world - centre, _up) * fit
 
-## A world x/z direction in map axes: `_up` maps to screen up (-y).
-func _turn(world: Vector2) -> Vector2:
-	var right: Vector2 = Vector2(-_up.y, _up.x)
-	return Vector2(world.dot(right), -world.dot(_up))
+## A world x/z direction in map axes: `up` maps to screen up (-y).
+static func turn(world: Vector2, up: Vector2) -> Vector2:
+	var right: Vector2 = Vector2(-up.y, up.x)
+	return Vector2(world.dot(right), -world.dot(up))

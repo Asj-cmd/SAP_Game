@@ -6,7 +6,7 @@
   "command_codec_test": 23,
   "content_validator_test": 37,
   "family_names_test": 52,
-  "match_status_test": 15,
+  "match_status_test": 63,
   "music_rule_test": 7,
   "greybox_level_test": 40,
   "identity_test": 15,

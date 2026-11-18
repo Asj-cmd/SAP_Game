@@ -175,7 +175,8 @@ man 3,987, woman 3,027.
   gives back the identical plain clothes.
 - The team tell is a data setting (P2-4), keeping the earlier ideas as **switchable options for
   later playtests, off by default**: (a) a marker over **your own** teammates only,
-  (b) a minimap of your own teammates only, (c) one small detail differs (a wristband), (d) kid
+  (b) a minimap (since PT4-5, 2026-11-18, REVIEW: every figure of BOTH families, bots and players
+  alike; `TeamTellOverlay.MAP_SHOWS_ENEMIES = false` gives back "own teammates only"), (c) one small detail differs (a wristband), (d) kid
   swap. When (c) is on, the wristband is the only coloured thing on a figure: a 6–8 wide band on
   the left wrist, in the family colour below, same satin material.
 - **Family colours** (REVIEW, logged in DECISIONS): Family A **sage** `Color(0.48, 0.58, 0.45)`,
@@ -190,8 +191,12 @@ man 3,987, woman 3,027.
   menu (four checkboxes) or in a match with F5 marker / F6 minimap / F7 wristband / F8 kid swap;
   `--team-tell=` on the command line. Wristband: 7 long on the left forearm cuff, radius measured
   from the mesh, satin family colour (theme `wristband_*`). Marker: a small family-colour
-  point-down triangle over each teammate's head, never over an enemy. Minimap: top right, rooms
-  outlined, your teammates as dots, you as a white arrow, your house at the bottom. Kid swap uses
+  point-down triangle over each teammate's head, never over an enemy. Minimap: top right, your house at the
+  bottom, only during a match. It shows the level outline (PT4-4: lot, yards, houses with cream
+  walls, the fence broken at its gates). Every figure is drawn in its family colour with a dark
+  rim (PT4-5): dad a square, mom a diamond, a son a triangle with its apex the facing, a daughter
+  a circle. Every shape except the triangle has a short notch the way it faces. The radius is 5 px;
+  your own is 6.5 px with a 2 px cream outline, drawn last. Kid swap uses
   the theme's `family_order_by_team` (B: dad, mom, elder boy, younger girl). Frames:
   `autobuild/frames/p2_4/<set>_{close,20m,40m}.png` (`node autobuild/team_tell_frames.mjs`).
 

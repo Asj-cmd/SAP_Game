@@ -3,7 +3,7 @@ extends SceneTree
 ##
 ##   godot --headless --path godot --script res://tests/match_status_test.gd
 
-const EXPECTED_CHECKS: int = 15
+const EXPECTED_CHECKS: int = 63
 
 var _passed: int = 0
 var _failed: int = 0
@@ -24,6 +24,7 @@ func _initialize() -> void:
 			_failed += 1
 			_failures.append("%d/%d: expected %s, got %s" % [case[0], case[1], case[2], got])
 	_test_bar_layout()
+	_test_map_pointers()
 	var ran: int = _passed + _failed
 	if ran != EXPECTED_CHECKS:
 		_failed += 1
@@ -55,6 +56,36 @@ func _test_bar_layout() -> void:
 	var swapped: Dictionary = MatchHud.bar_layout(0, 6, second, first, theme)
 	_count(swapped[&"left"] == theme.family_colour(second) and swapped[&"right"] == theme.family_colour(first),
 		"swapped ids did not swap the colours: %s" % swapped)
+
+## PT4-5: each member's minimap pointer. The map here shows world +z at the top
+## (up = (0, 1)), so a body drawn facing +z (heading 0) points up the screen,
+## and one facing +x (heading 90) points to screen LEFT (looking along +z, +x
+## is on your left).
+func _test_map_pointers() -> void:
+	print("=== Minimap pointers ===")
+	var up: Vector2 = Vector2(0.0, 1.0)
+	# member, expected shape
+	var members: Array[Array] = [
+		[&"dad", &"square"], [&"mom", &"diamond"], [&"elder_girl", &"circle"],
+		[&"elder_boy", &"triangle"], [&"younger_girl", &"circle"], [&"younger_boy", &"triangle"],
+	]
+	# heading, expected map direction
+	var headings: Array[Array] = [[0.0, Vector2(0.0, -1.0)], [PI * 0.5, Vector2(-1.0, 0.0)]]
+	for row: Array in members:
+		for mine: bool in [false, true]:
+			var label: String = "%s%s" % [row[0], " (mine)" if mine else ""]
+			var got: Dictionary = TeamTellOverlay.pointer(row[0], mine, 0.0, up)
+			_count(got[&"shape"] == row[1], "%s: shape %s, expected %s" % [label, got[&"shape"], row[1]])
+			var radius: float = 6.5 if mine else 5.0
+			_count(is_equal_approx(got[&"radius"], radius), "%s: radius %s, expected %s" % [label, got[&"radius"], radius])
+			for heading: Array in headings:
+				var turned: Dictionary = TeamTellOverlay.pointer(row[0], mine, heading[0], up)
+				var tip: Vector2 = turned[&"tip"]
+				var shown: bool = tip.length() > radius * 0.9 and tip.normalized().dot(heading[1]) > 0.99
+				# The triangle points with its apex; the others with a notch.
+				var how: bool = (turned[&"notch"] as PackedVector2Array).is_empty() == (row[1] == &"triangle")
+				_count(shown and how, "%s at heading %s: tip %s, notch %s, expected toward %s"
+					% [label, heading[0], tip, turned[&"notch"], heading[1]])
 
 func _count(ok: bool, failure: String) -> void:
 	if ok:
