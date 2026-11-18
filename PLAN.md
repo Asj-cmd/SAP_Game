@@ -112,7 +112,7 @@ are typed by the players (see PT3-3).
   sim's own start, so snapshot and network changes are only what the spawn positions need. Table-
   driven test: spawn positions per team size (2v2, 3v3, 4v4), mirrored, no overlap with walls or
   each other, same result on every run. No frames.
-- [ ] **PT4-3 Choose your family member.** The solo setup screen lets the player pick Dad, Mom, Son,
+- [x] **PT4-3 Choose your family member.** *(Done 2026-11-18: a member is a lobby seat slot; `Lobby.choose` / `resolve_random` (host's own RNG at Start) / `begin`; `LobbyState` version 2 carries seats, requests and a refusal notice; a moved player gets a fresh TAG_SEAT; "Play as" on the main menu (solo) and in the lobby under the own family's name box; lineup labels read player names on guests. `lobby_test` 57 -> 99. Headless host + two guests checked; not tried by two people. See PROGRESS.md.)* The solo setup screen lets the player pick Dad, Mom, Son,
   Daughter or "Random" (default Random); today the user always gets the dad. Online, each player
   picks in the lobby, next to their family's name box (PT3-3); no duplicates within a family; the
   host's copy of the choices is the truth (a second player picking a taken member is refused and sees

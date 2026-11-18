@@ -78,6 +78,8 @@ var _member_rng: RandomNumberGenerator = null
 static func local(level: GreyBoxLevel, world: SimWorld, bots: bool) -> MatchLink:
 	var link: MatchLink = MatchLink.new()
 	link.role = Role.LOCAL
+	# The lobby finds a player's seat by identity (PT4-3 picks), and "" is nobody.
+	link.identity = "local"
 	link._level = level
 	link._authoritative = world
 	link._start_lobby(world, bots)

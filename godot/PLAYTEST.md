@@ -123,6 +123,13 @@ as "<Surname> Family"), and the host can clear either. An empty box shows
 "Green Family" or "Orange Family". In a solo game the two boxes are on the main
 menu. See `HOW_TO_PLAY.md`.
 
+Pick who you play with "Play as", under your family's name box in the lobby (or
+on the main menu for a solo game): Dad, Mom, Daughter or Son (only the members a
+family has at that team size), or Random, the default. Two players of one family
+cannot pick the same member: the second is told who took it. Random never takes
+a member somebody picked; it is drawn when the host presses Start, and bots play
+whoever is left. If you drop out and come back you get the same member.
+
 Every round starts with your family lined up on your own front lawn, facing you,
 for 3 seconds: your family's name above, and under each body its role (Dad, Mom,
 Daughter, Son) and who plays it ("You", "Bot", or the player). Nobody can move

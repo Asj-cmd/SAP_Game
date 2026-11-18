@@ -250,6 +250,7 @@ var _lobby: LobbyPanel = null
 ## The member this machine's player asks for when seated (PT4-3): a slot of
 ## their family, or Lobby.RANDOM.
 var _wanted_member: int = 0
+var _member_asked: bool = false
 
 ## Sound (P5-3): presentation only, fed from the confirmed state in `_animate` / `_render`.
 var audio: GameAudio = GameAudio.new()
@@ -1523,6 +1524,11 @@ func _follow_seat() -> void:
 	if link.role == MatchLink.Role.GUEST:
 		for player: LocalPlayerInput in players:
 			player.actor_id = link.actor_id
+		# A command-line guest given `--member=` asks for it once seated (tools).
+		if not _member_asked and not _from_menu and _argument("--member=", "") != "" \
+				and _wanted_member != Lobby.RANDOM:
+			_member_asked = true
+			link.request_member(_wanted_member)
 	elif not players.is_empty():
 		players[0].actor_id = link.actor_id
 	_rebuild_views()

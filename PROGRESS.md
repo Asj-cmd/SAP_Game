@@ -2,6 +2,43 @@
 
 Newest first. One entry per task: date, task id, what changed, what the frames showed, numbers, what is left.
 
+## 2026-11-18 — PT4-3 Choose your family member
+- Picked up a cut-off session's uncommitted net-layer work (`lobby.gd`, `lobby_seat.gd`, `lobby_state.gd`, `match_channel.gd`). It was one task, so I finished it rather than stashing.
+- Model (`Lobby`, pure): a member IS a seat slot.
+  - `choose(identity, slot)` works only while GATHERING and only in the player's own family. A member another player PICKED is refused with "taken by <name>". A Random player's provisional seat is not a block (the two swap). An empty or filler-bot seat is simply taken.
+  - `admit(..., wanted)` takes the menu choice. If the wanted member is taken, the newcomer is seated on Random.
+  - At Start, `resolve_random(rng)` draws every Random player a place among the seats nobody picked, using the host's own randomized RNG (never the sim's). Then `begin()` fixes the choices.
+  - Rejoin by identity returns the same seat, so the member is kept.
+- Wire: `LobbyState` version 2 (TAG_LOBBY) carries the names, a request byte (none / Random / slot), a refusal notice, and per seat: team, slot, occupant, picked flag and player name. Everything is cleaned on the way in, and a malformed body decodes to null. It is not in the sim, the snapshot, the input or the hash.
+- `MatchLink`:
+  - `request_member`: the host decides at once; a guest sends a request and the host answers with the state. A refusal goes back to that one peer.
+  - `_after_seats_moved`: bots let go of seats people now hold, the peer table is rebuilt, the host's own actor follows, every guest whose body moved gets a fresh TAG_SEAT, the fill runs again, and the state is broadcast.
+  - `start_from_lobby` runs at Start; `lobby_view` gives the host's lobby or a guest's last copy.
+  - The host's seat is now named "Host", because names reach guests.
+- UI:
+  - Main menu: a "Play as" row under Team size (Random, then the members at the chosen size, rebuilt when the size changes). `solo_chosen` now carries the member.
+  - Lobby panel: a "Play as" picker under the player's own family's name box. A member someone else picked is disabled with "(taken by X)", and a refusal shows in red.
+  - `_follow_seat` now also moves the host's / solo player's body. The lineup's "who" reads player names from the lobby state on guests too (PT4-2 showed "Player").
+- Command line: `--member=N|random`. The default is slot 0 (Dad), so tools keep their body; the menu defaults to Random. A command-line guest given `--member=` asks for it once seated.
+- Bug found and fixed: a solo `MatchLink` had an empty identity, so the lobby could not find the player and every solo pick fell back to Random. It is now "local".
+- Checked headless, with temporary prints (removed):
+  - Solo 3v3 default → actor 1, slot 0. `--member=2` → slot 2. Two 4v4 `--member=random` runs → slots 3 and 1.
+  - A dedicated host plus two guests both asking for member 2 at 3v3: guest one was re-seated from actor 1 to actor 3 by a fresh TAG_SEAT. Guest two got "taken by Player 2" and stayed on its Random seat. Every guest heard the seat list.
+  - Menu and solo runs had no script errors.
+  - NOT checked: the pickers by eye (no frames, per the diet), or two people in a real lobby.
+- Tests: `lobby_test` 57 → 99, pinned.
+  - The version-2 round trip: seats, notice, requests.
+  - 17 malformed bodies, including a version-1 body, a request out of range, too many seats, a seat cut short, a third team and an unknown occupant.
+  - An 8-case member table: duplicate refused naming the taker, pick displaces a Random player, empty member taken, missing member refused, wanted on arrival, wanted-but-taken seats on Random, back to Random, two picks without a clash.
+  - Each size offers exactly its slots. Random never draws a picked member in 24 seeded draws, and does draw more than one member. A pick takes a filler bot's seat and only leftovers stay for bots. Refused after the start. Rejoin keeps the member and the pick.
+- Full verify, run once: **healthy**.
+  - 20 suites at their pins (lobby 99). Symmetry 190 of 190.
+  - Bot 3v3: team_b won, 402 s, 67 s stalls, deterministic. 1v1: team_a won, 8 s stalls. Both are the same as PT4-2: bot matches do not go through the lobby.
+  - Tick budget 0 / 3 / 4 (4v4 not gated).
+  - net_loopback, net_lobby and loss all ok. net_smoke: 1643 ticks agree; guest seated in 3209 ms.
+  - Render counters within limits (416 / 364 / 330 draws).
+- Left: someone looking at the pickers and trying a two-PC lobby. Next: PT4-4.
+
 ## 2026-11-18 — PT4-2 Family spawn
 - Spawns: `SPAWN_LOCAL` in `build_house.gd` is now one row on the front lawn, in slot order. The points are house-local (300, -150), (550, -150), (800, -150) and (1050, -150), 250 apart and 390 short of the front door's jamb. They were taken from the brief as given; no point hit a blocker, so the row did not need shifting. I re-ran `build_house`, then `bake_blockout_headless` (still 301 blockers). In the baked `house.tres` only the spawn lines changed: team_a sits at lot z 200, x 650..1400; team_b is its turned twin at z 3520, x 6630..5880. The generated `house.tscn` also churned, but this session's permissions would not let me read that diff. It is the generated scene, committed as written.
 - Countdown: `pre_round_seconds` 2 → 3 in `house_{1v1,2v2,3v3,4v4}.tres` (REVIEW). The sim's COUNTDOWN already freezes movement and is entered at every round start, so there is no new rule and no snapshot change.
