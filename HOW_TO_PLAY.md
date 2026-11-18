@@ -33,3 +33,24 @@ The sound a player hears when they are caught and sent to jail is **one file**:
    `build/CashGrab.exe`). Running the project from Godot picks it up without a rebuild.
 
 If the file is missing the game simply plays no jail sound. Its volume follows the Effects slider.
+
+## Changing the menu music
+
+Music plays only around a match: in the main menu, the lobby and the results panel. It fades
+out over about a second when a match starts and fades back in when the results appear; nothing
+plays under the match itself. The win and lose jingles at the end of a match are separate files.
+The music is **one file**: `godot/content/music/menu.ogg`. To use another track:
+
+1. Save it as **OGG Vorbis** (`.ogg`), 44.1 kHz or 48 kHz. It plays from start to end and then
+   starts again, so a track that is written to loop sounds best.
+2. Name it exactly `menu.ogg` and put it in `godot/content/music/`, replacing the file that is there.
+   Two other tracks are ready in `godot/content/music/candidates/`: copy one over `menu.ogg`
+   (`deliberate_concealment.ogg`, `sneaking_around.ogg`; the old jazz loop is there too as
+   `jazz_improvisation_loop.ogg`). Nothing in `candidates/` ships in the exe.
+3. The shipped track has two seconds of silence at its end, so the game jumps back to the start at
+   104.4 s. For a different track, set `MUSIC_LOOP_END` in `godot/game/audio/game_audio.gd` to `0.0`
+   (play the whole file), or to the second where its sound ends.
+4. Rebuild the game: `node autobuild/build.mjs`. Running the project from Godot picks it up
+   without a rebuild.
+
+If the file is missing the menu is silent. Its volume follows the Music slider.

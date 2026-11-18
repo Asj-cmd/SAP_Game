@@ -11,7 +11,9 @@ extends Node
 ## AudioStreamPlayer3D: the seats live in SubViewports and the world is in centimetres.
 
 const SFX_DIR: String = "res://art/audio/sfx/"
-const MUSIC_PATH: String = "res://art/audio/music/loop.ogg"
+## The menu music (PT3-1). One file, so a swap is a rename (HOW_TO_PLAY.md,
+## "Changing the menu music").
+const MUSIC_PATH: String = "res://content/music/menu.ogg"
 const POOL_SIZE: int = 8
 ## Nothing farther than this (world units, 25 m) from the listener is heard.
 const HEARING_RANGE: float = 2500.0
@@ -20,11 +22,16 @@ const STEP_DISTANCE: float = 120.0
 ## Other bodies' sounds are never louder than the player's own steps.
 const OTHER_BODY_DB: float = -5.0
 const MUSIC_MENU_DB: float = 0.0
-const MUSIC_MATCH_DB: float = -12.0
+## Where a fade-out ends before the stream is paused.
+const MUSIC_SILENT_DB: float = -80.0
+const MUSIC_FADE_SECONDS: float = 1.0
+## The screens with music (PT3-1); see `music_wanted`.
+const MUSIC_SCREENS: Array[StringName] = [&"menu", &"lobby", &"results"]
 
-## The loop file has ~3.7 s of silence after its last note (measured, PT2-4): the music
-## is sent back to the start here instead of waiting for it. 0 = play the whole file.
-const MUSIC_LOOP_END: float = 128.3
+## Where the music is sent back to the start, if the file has silence after its last
+## note (measured with `tools/audio_probe.gd --ends`). 0 = play the whole file.
+## "Trouble in the Garden" (106 s) is silent after 104.3 s (PT3-1).
+const MUSIC_LOOP_END: float = 104.4
 
 ## event -> {files: [names without .ogg], db: float, optional pitch: float, optional
 ## bus: StringName (default `DEFAULT_BUS`), optional path: a full res:// path that wins
@@ -59,6 +66,8 @@ var _streams: Dictionary[String, AudioStream] = {} # by res:// path
 var _pool: Array[AudioStreamPlayer] = []
 var _ui: AudioStreamPlayer = null
 var _music: AudioStreamPlayer = null
+var _screen: StringName = &"menu"
+var _fade: Tween = null
 var _listener: Vector3 = Vector3.ZERO
 var _has_listener: bool = false
 
@@ -102,9 +111,39 @@ func _process(_delta: float) -> void:
 			and _music.get_playback_position() >= MUSIC_LOOP_END:
 		_music.seek(0.0)
 
-func set_in_match(in_match: bool) -> void:
-	if _music != null:
-		_music.volume_db = MUSIC_MATCH_DB if in_match else MUSIC_MENU_DB
+## The rule for when the menu music plays (PT3-1): around a match, never under it.
+## The end sequence (PT2-7) is silent apart from its jingle; it calls
+## `set_screen(&"end_sequence")` while it runs and `&"results"` when the panel opens.
+## An unknown screen is silent, so a new screen has to be added here on purpose.
+static func music_wanted(screen: StringName) -> bool:
+	return screen in MUSIC_SCREENS
+
+## What the player is looking at now (`&"menu"`, `&"lobby"`, `&"match"`,
+## `&"end_sequence"`, `&"results"`). Safe to call every frame: only a change of
+## screen starts a fade. Out of a match the music fades in over MUSIC_FADE_SECONDS;
+## into one it fades out and then pauses, so it resumes where it was.
+func set_screen(screen: StringName) -> void:
+	if screen == _screen:
+		return
+	_screen = screen
+	if _music == null or _music.stream == null:
+		return
+	var wanted: bool = music_wanted(screen)
+	if _fade != null:
+		_fade.kill()
+		_fade = null
+	if wanted:
+		if not _music.playing:
+			_music.play()
+		_music.stream_paused = false
+	if not is_inside_tree():
+		_music.volume_db = MUSIC_MENU_DB if wanted else MUSIC_SILENT_DB
+		_music.stream_paused = not wanted
+		return
+	_fade = create_tween()
+	_fade.tween_property(_music, "volume_db", MUSIC_MENU_DB if wanted else MUSIC_SILENT_DB, MUSIC_FADE_SECONDS)
+	if not wanted:
+		_fade.tween_callback(func() -> void: _music.stream_paused = true)
 
 func set_listener(position: Vector3) -> void:
 	_listener = position

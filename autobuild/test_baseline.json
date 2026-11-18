@@ -7,6 +7,7 @@
   "content_validator_test": 37,
   "family_names_test": 26,
   "match_status_test": 9,
+  "music_rule_test": 7,
   "greybox_level_test": 20,
   "identity_test": 15,
   "lobby_test": 42,

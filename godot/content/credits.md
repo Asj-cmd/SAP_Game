@@ -19,7 +19,7 @@ Footsteps, impacts, cloth, coins, clicks and bell: Kenney (kenney.nl) Impact Sou
 Jail "boink": "Boings" by EZduzziteh (opengameart.org/node/183317), CC0.
 
 ## Music
-"jazz improvisation looped" by Alex McCulloch (Pro Sensory), opengameart.org/content/jazz-improvisation-looped, CC0.
+Menu music: "Trouble in the Garden" by HaelDB, opengameart.org/content/trouble-in-the-garden, CC0.
 Win and lose jingles: Music Jingles by Kenney (kenney.nl), CC0 1.0.
 
 ## Fonts and icons

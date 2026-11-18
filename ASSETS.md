@@ -110,13 +110,22 @@ CC0 proof for each source sits next to the download in `autobuild/Incoming/` (gi
 
 | File | Name / author | Licence | URL | Modified? | sha256 of the shipped file |
 |---|---|---|---|---|---|
-| `godot/art/audio/music/loop.ogg` | "jazz improvisation looped", Pro Sensory (Alex McCulloch) | CC0 | https://opengameart.org/content/jazz-improvisation-looped | No: the site's own .ogg rendition of the .mp3 (131.9 s). GameAudio restarts it at 128.3 s, skipping 3.7 s of trailing silence | 46581d10…16d6 |
+| `godot/content/music/candidates/jazz_improvisation_loop.ogg` (was `art/audio/music/loop.ogg`) | "jazz improvisation looped", Pro Sensory (Alex McCulloch) | CC0 | https://opengameart.org/content/jazz-improvisation-looped | **Candidate, not shipped** since PT3-1 (the user found it like phone hold music). No: the site's own .ogg rendition of the .mp3 (131.9 s); its loop end was 128.3 s | 46581d10…16d6 |
 | `godot/art/audio/music/jingle_win.ogg` | Music Jingles `jingles_PIZZI02`, Kenney | CC0 1.0 | https://kenney.nl/assets/music-jingles | No (0.96 s, a rising scale) | 4967dc3c…3e3e |
 | `godot/art/audio/music/jingle_lose.ogg` | Music Jingles `jingles_PIZZI07`, Kenney | CC0 1.0 | https://kenney.nl/assets/music-jingles | No (1.32 s, falling by semitones) | 91870588…ce7c |
 | `godot/content/sfx/jailed.ogg` | "Boings" `bung_01.mp3`, EZduzziteh | CC0 | https://opengameart.org/node/183317 | Yes: silence trimmed to 0.35 s, 10 ms fades, MP3 → Ogg Vorbis q5 (`godot/tools/decode_audio.gd` + `autobuild/encode_ogg.mjs`) | e32ce9da…5223 |
 
 Kenney zip sha256 in `autobuild/Incoming/kenney/music-jingles/SOURCE.txt`. The `spotted` alarm still reuses `sting` at pitch 1.25 (PT2-2). The user may replace `jailed.ogg` with their own recording (HOW_TO_PLAY.md); log it here as theirs.
 Encoder used for jailed.ogg: `wasm-media-encoders` 0.7.0 (npm, MIT; libvorbis BSD), installed outside the repo, not shipped.
+
+## Menu music (PT3-1), fetched 2026-11-18
+Proof: the saved OpenGameArt pages and `SOURCE.txt` in `autobuild/Incoming/music/pt3_1/` (gitignored). `godot/content/music/candidates/` has a `.gdignore` (Godot neither imports nor exports it) and is also in the export's `exclude_filter`.
+
+| File | Name / author | Licence | URL | Modified? | sha256 of the file |
+|---|---|---|---|---|---|
+| `godot/content/music/menu.ogg` (shipped; the same file is kept as `candidates/trouble_in_the_garden.ogg`) | "Trouble in the Garden", HaelDB | CC0 (the page offers CC0 or OGA-BY 3.0; used under CC0) | https://opengameart.org/content/trouble-in-the-garden | No (106.0 s; sound ends at 104.3 s, GameAudio loops at 104.4 s) | ce261e0c…3df6 |
+| `godot/content/music/candidates/deliberate_concealment.ogg` | "Deliberate Concealment", northivanastan | CC0 | https://opengameart.org/content/deliberate-concealment | **Candidate, not shipped.** No (157.0 s, sound to 155.9 s) | 237269cf…cb2b |
+| `godot/content/music/candidates/sneaking_around.ogg` | "Sneaking Around", Umplix | CC0 | https://opengameart.org/content/sneaking-around | **Candidate, not shipped.** The site's own .ogg rendition of the .wav (88.0 s, sound 0.3..85.9 s) | da948cd5…9ba0 |
 
 ## UI fonts and icons (PT2-6), fetched 2026-11-18
 Fonts from the Google Fonts repository on GitHub (`google/fonts`, `ofl/<family>/`), each with its OFL.txt shipped beside it (the export's `include_filter` takes `art/ui/fonts/*.txt`). Icons from Kenney's Game Icons (`node autobuild/fetch_kenney.mjs game-icons`; zip sha256 7a86d8d58e0b851e22004b3c70bf90b003632bbf9ac633424daa3bb17d9e7e4e; licence file and SOURCE.txt in gitignored `autobuild/Incoming/kenney/game-icons/`; `Kenney-License.txt` copied beside the icons).

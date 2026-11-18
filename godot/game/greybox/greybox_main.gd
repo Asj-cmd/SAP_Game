@@ -390,7 +390,7 @@ func _clear_code_banner() -> void:
 func _return_to_menu(problem: String) -> void:
 	_tear_down()
 	audio.reset()
-	audio.set_in_match(false)
+	audio.set_screen(&"menu")
 	_capture_mouse(false)
 	_show_menu_backdrop(true)
 	_menu.open(problem)
@@ -1169,6 +1169,7 @@ func _build_seats() -> void:
 ## two together now would make that a migration instead of a setting.
 func _process(delta: float) -> void:
 	_orbit_menu_camera(delta)
+	audio.set_screen(_music_screen())
 	if link == null or world == null or not world.has_valid_content():
 		return
 
@@ -1215,6 +1216,18 @@ func _process(delta: float) -> void:
 	_render(_accumulator / SimWorld.SECONDS_PER_TICK, delta)
 	_track_cameras(delta)
 	_update_hud()
+
+## Which screen the music rule (`GameAudio.music_wanted`, PT3-1) sees this frame,
+## read from what is open rather than set at each place a screen opens. PT2-7's end
+## sequence adds `&"end_sequence"` here, between the match and the results panel.
+func _music_screen() -> StringName:
+	if _lobby != null and _lobby.is_open():
+		return &"lobby"
+	if _results != null and _results.visible:
+		return &"results"
+	if link != null and link.is_ready():
+		return &"match"
+	return &"menu"
 
 ## The dedicated host's whole job: start `--dedicated-wait=` seconds (15) after
 ## the first guest sits down, and rematch 12 s after each match result.
@@ -1468,7 +1481,6 @@ func _render(alpha: float, delta: float) -> void:
 
 	if not _cameras.is_empty():
 		audio.set_listener(_cameras[0].world_position())
-	audio.set_in_match(true)
 	var own_body: SimEntity = truth.get_entity(mine) if mine != SimEntity.NO_ENTITY else null
 	audio.match_state(truth, own_body.team if own_body != null else &"")
 	_feedback_scores(truth)
