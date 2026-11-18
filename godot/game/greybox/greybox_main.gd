@@ -1395,7 +1395,8 @@ func _render(alpha: float, delta: float) -> void:
 	if not _cameras.is_empty():
 		audio.set_listener(_cameras[0].world_position())
 	audio.set_in_match(true)
-	audio.match_state(truth)
+	var own_body: SimEntity = truth.get_entity(mine) if mine != SimEntity.NO_ENTITY else null
+	audio.match_state(truth, own_body.team if own_body != null else &"")
 	_feedback_scores(truth)
 	_animate(drawn, truth, mine, remote, delta)
 	_hold_carried(truth)
@@ -1614,6 +1615,10 @@ func _animate(drawn: SimWorld, truth: SimWorld, mine: int, remote: bool, delta: 
 		animator.update(motion, entity.is_carrying(), entity.is_captured, move_speed, delta,
 			level.tuning.crouch_speed_scale)
 	for victim: int in seized:
+		# PT2-4: the jail "boink", where the victim was caught (it is already in jail
+		# in `truth`), so the captor hears it too; full level for the local victim.
+		var caught_at: Vector3 = _anim_last_seen.get(victim, truth.get_entity(victim).position)
+		audio.play(&"jailed", caught_at, victim == mine)
 		_act_nearest(truth, victim, false)
 		_feedback_body(truth, victim, mine, true)
 	for victim: int in freed:

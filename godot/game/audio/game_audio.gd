@@ -22,9 +22,17 @@ const OTHER_BODY_DB: float = -5.0
 const MUSIC_MENU_DB: float = 0.0
 const MUSIC_MATCH_DB: float = -12.0
 
+## The loop file has ~3.7 s of silence after its last note (measured, PT2-4): the music
+## is sent back to the start here instead of waiting for it. 0 = play the whole file.
+const MUSIC_LOOP_END: float = 128.3
+
 ## event -> {files: [names without .ogg], db: float, optional pitch: float, optional
-## bus: StringName (default `DEFAULT_BUS`)}. Each bus has its own volume slider (PT2-3).
+## bus: StringName (default `DEFAULT_BUS`), optional path: a full res:// path that wins
+## over SFX_DIR + file}. Each bus has its own volume slider (PT2-3).
 const DEFAULT_BUS: StringName = &"SFX"
+## The jail sound lives on its own in content/ so the user can swap in their own
+## recording (HOW_TO_PLAY.md, "Changing the jail sound").
+const JAILED_PATH: String = "res://content/sfx/jailed.ogg"
 const EVENTS: Dictionary = {
 	&"step": {"files": ["step_wood_1", "step_wood_2", "step_wood_3"], "db": -8.0, "bus": &"Footsteps"},
 	&"grab": {"files": ["grab_1", "grab_2"], "db": -4.0},
@@ -34,6 +42,11 @@ const EVENTS: Dictionary = {
 	&"land": {"files": ["land"], "db": -6.0},
 	&"cash": {"files": ["cash_1", "cash_2"], "db": -4.0},
 	&"sting": {"files": ["sting"], "db": -6.0},
+	# PT2-4: match end, heard by the local seat's family only (Kenney pizzicato jingles,
+	# on the Music bus so the Music slider sets them), and the jail "boink" (REVIEW).
+	&"win": {"files": ["jingle_win"], "db": -3.0, "bus": &"Music", "path": "res://art/audio/music/jingle_win.ogg"},
+	&"lose": {"files": ["jingle_lose"], "db": -3.0, "bus": &"Music", "path": "res://art/audio/music/jingle_lose.ogg"},
+	&"jailed": {"files": ["jailed"], "db": -3.0, "path": JAILED_PATH},
 	# PT2-2: a carrier spotted by the family whose cash it holds. Placeholder: the
 	# sting, pitched up; PT2-4 may give it its own file.
 	&"spotted": {"files": ["sting"], "db": -5.0, "pitch": 1.25},
@@ -42,7 +55,7 @@ const EVENTS: Dictionary = {
 }
 
 var _rng: RandomNumberGenerator = RandomNumberGenerator.new()
-var _streams: Dictionary[String, AudioStream] = {}
+var _streams: Dictionary[String, AudioStream] = {} # by res:// path
 var _pool: Array[AudioStreamPlayer] = []
 var _ui: AudioStreamPlayer = null
 var _music: AudioStreamPlayer = null
@@ -83,6 +96,11 @@ func _ready() -> void:
 func _on_node_added(node: Node) -> void:
 	if node is BaseButton:
 		(node as BaseButton).pressed.connect(func() -> void: play_ui())
+
+func _process(_delta: float) -> void:
+	if MUSIC_LOOP_END > 0.0 and _music != null and _music.playing \
+			and _music.get_playback_position() >= MUSIC_LOOP_END:
+		_music.seek(0.0)
 
 func set_in_match(in_match: bool) -> void:
 	if _music != null:
@@ -157,7 +175,9 @@ func body(entity_id: int, position: Vector3, grounded: bool, walking: bool, own:
 		_air_frames[entity_id] = _air_frames.get(entity_id, 0) + 1
 
 ## Match-level sounds from the confirmed world: a deposit, the countdown, round/match end.
-func match_state(world: SimWorld) -> void:
+## `local_team` is the family of the seat this machine plays (&"" for none, e.g. a
+## dedicated host): at MATCH_END it hears the win or lose jingle, nobody else anything.
+func match_state(world: SimWorld, local_team: StringName = &"") -> void:
 	for team_id: StringName in world.teams:
 		var score: int = world.score_for(team_id)
 		if _scores.has(team_id) and score > _scores[team_id]:
@@ -165,8 +185,12 @@ func match_state(world: SimWorld) -> void:
 		_scores[team_id] = score
 	var phase: int = int(world.match_phase)
 	if phase != _phase:
-		if phase == SimWorld.MatchPhase.ROUND_END or phase == SimWorld.MatchPhase.MATCH_END:
+		if phase == SimWorld.MatchPhase.ROUND_END:
 			play_flat(&"sting")
+		elif phase == SimWorld.MatchPhase.MATCH_END and _phase != -1:
+			# The one call site for the match-end jingle (PT2-7 may move it into its
+			# end sequence). `_phase != -1`: joining a match that already ended is silent.
+			_match_end_jingle(world.match_winner, local_team)
 		_last_count_second = -1
 		_phase = phase
 	if phase == SimWorld.MatchPhase.COUNTDOWN:
@@ -175,6 +199,14 @@ func match_state(world: SimWorld) -> void:
 			if _last_count_second != -1:
 				play_flat(&"tick")
 			_last_count_second = second
+
+func _match_end_jingle(winner: StringName, local_team: StringName) -> void:
+	if local_team == &"":
+		return
+	if winner == &"":
+		play_flat(&"sting") # no winner: the plain round-end sting
+	else:
+		play_flat(&"win" if winner == local_team else &"lose")
 
 ## Forget per-body and match state (a new match starts).
 func reset() -> void:
@@ -191,14 +223,14 @@ func _pick(event: StringName) -> AudioStream:
 		return null
 	var files: Array = row["files"]
 	var file: String = files[_rng.randi_range(0, files.size() - 1)]
-	if _streams.has(file):
-		return _streams[file]
-	var path: String = SFX_DIR + file + ".ogg"
+	var path: String = String(row.get("path", SFX_DIR + file + ".ogg"))
+	if _streams.has(path):
+		return _streams[path]
 	if not ResourceLoader.exists(path):
 		return null
 	var stream: AudioStream = load(path) as AudioStream
 	if stream != null:
-		_streams[file] = stream
+		_streams[path] = stream
 	return stream
 
 func _bus_of(event: StringName) -> StringName:
