@@ -14,7 +14,7 @@ extends SceneTree
 ## Joining is also checked for the thing that actually costs players: a code
 ## must survive being read aloud, and an invite must need no steps at all.
 
-const EXPECTED_CHECKS: int = 57
+const EXPECTED_CHECKS: int = 99
 const GRACE: int = 30
 
 var _passed: int = 0
@@ -30,6 +30,7 @@ func _initialize() -> void:
 	_test_bots_are_opt_in()
 	_test_host_loss()
 	_test_lobby_state()
+	_test_member_choice()
 
 	var ran: int = _passed + _failed
 	if ran != EXPECTED_CHECKS:
@@ -194,25 +195,45 @@ func _test_host_loss() -> void:
 	_check("authority/nothing else is admitted afterwards",
 		lobby.admit("p3", 13, "Cal", 201).kind, LobbyEvent.Kind.ENDED)
 
-# ---- 7. the lobby message (PT3-3: the typed family names) ----
+# ---- 7. the lobby message (PT3-3 names, PT4-3 seats and requests) ----
 
 ## Round trips, the cleaning on the way in, and bodies that must be ignored: the
-## names come off the wire from other players, so a short, long, foreign or
-## future body decodes to nothing rather than to half a name.
+## state comes off the wire from other players, so a short, long, foreign or
+## future body decodes to nothing rather than to half a state.
 func _test_lobby_state() -> void:
 	var names: Dictionary[StringName, String] = {&"team_a": "Smith", &"team_b": "O'Neil-Müller"}
-	var body: PackedByteArray = LobbyState.encode(names)
-	_check("lobby state/round trip", LobbyState.decode(body), names)
+	var body: PackedByteArray = LobbyState.of_names(names).encode()
+	_check("lobby state/names round trip", LobbyState.decode(body).names, names)
 	_check("lobby state/framed under its own tag",
-		MatchChannel.tag_of(MatchChannel.frame_lobby(names)), MatchChannel.TAG_LOBBY)
-	_check("lobby state/through the frame",
-		MatchChannel.lobby_names_of(MatchChannel.body_of(MatchChannel.frame_lobby(names))), names)
+		MatchChannel.tag_of(MatchChannel.frame_lobby(LobbyState.of_names(names))), MatchChannel.TAG_LOBBY)
+	_check("lobby state/through the frame", MatchChannel.lobby_state_of(MatchChannel.body_of(
+		MatchChannel.frame_lobby(LobbyState.of_names(names)))).names, names)
 	var empty: Dictionary[StringName, String] = {&"team_a": "", &"team_b": ""}
 	var none: Dictionary[StringName, String] = {}
-	_check("lobby state/empty names (defaults) round trip", LobbyState.decode(LobbyState.encode(none)), empty)
+	_check("lobby state/empty names (defaults) round trip",
+		LobbyState.decode(LobbyState.of_names(none).encode()).names, empty)
 	var typed: Dictionary[StringName, String] = {&"team_a": " Sm1th!! ", &"team_b": "Abcdefghijklmnopq"}
-	_check("lobby state/encode cleans", LobbyState.decode(LobbyState.encode(typed)),
+	_check("lobby state/encode cleans", LobbyState.decode(LobbyState.of_names(typed).encode()).names,
 		{&"team_a": "Smth", &"team_b": "Abcdefghijklmnop"})
+
+	# The seats (PT4-3): a picked player, a Random player, a bot, an empty seat.
+	var lobby: Lobby = _lobby()
+	lobby.admit("p1", 11, "Ana", 0, 1)
+	lobby.admit("p2", 12, "Ben" + char(7), 0)
+	lobby.note_fill([1] as Array[int], "")
+	var sent: LobbyState = LobbyState.of_lobby(lobby, names)
+	sent.notice = "taken by Ana"
+	var got: LobbyState = LobbyState.decode(sent.encode())
+	var seats_seen: Array[String] = []
+	for seat: LobbyState.Seat in got.seats:
+		seats_seen.append("%s/%d/%d/%s/%s" % [seat.team, seat.slot, seat.occupant, seat.chosen, seat.name])
+	_check("lobby state/seats round trip (version 2)", seats_seen, [
+		"team_a/0/2/false/", "team_a/1/1/true/Ana", "team_b/0/1/false/Ben", "team_b/1/0/false/"])
+	_check("lobby state/notice round trip", got.notice, "taken by Ana")
+	_check("lobby state/the host's copy asks for nothing", got.wanted, LobbyState.NO_REQUEST)
+	for wanted: int in [0, 3, Lobby.RANDOM]:
+		_check("lobby state/request %d round trip" % wanted,
+			LobbyState.decode(LobbyState.request(wanted).encode()).wanted, wanted)
 
 	# A hand-built body with dirty names: the decoder cleans what a peer sent.
 	var dirty: PackedByteArray = PackedByteArray([LobbyState.VERSION])
@@ -220,21 +241,145 @@ func _test_lobby_state() -> void:
 		var raw: PackedByteArray = text.to_utf8_buffer()
 		dirty.append(raw.size())
 		dirty.append_array(raw)
-	_check("lobby state/decode cleans", LobbyState.decode(dirty), {&"team_a": "Smth", &"team_b": ""})
+	dirty.append_array(PackedByteArray([255, 0, 0]))
+	_check("lobby state/decode cleans", LobbyState.decode(dirty).names, {&"team_a": "Smth", &"team_b": ""})
 
-	var bad_utf8: PackedByteArray = PackedByteArray([LobbyState.VERSION, 2, 0xC3, 0x28, 0])
-	var too_long: PackedByteArray = PackedByteArray([LobbyState.VERSION, LobbyState.MAX_NAME_BYTES + 1])
-	too_long.resize(2 + LobbyState.MAX_NAME_BYTES + 1 + 1)
+	var v: int = LobbyState.VERSION
+	var bad_utf8: PackedByteArray = PackedByteArray([v, 2, 0xC3, 0x28, 0, 255, 0, 0])
+	var too_long: PackedByteArray = PackedByteArray([v, LobbyState.MAX_NAME_BYTES + 1])
+	too_long.resize(2 + LobbyState.MAX_NAME_BYTES + 1 + 4)
 	var malformed: Array[Array] = [
 		["empty body", PackedByteArray()],
-		["version only", PackedByteArray([LobbyState.VERSION])],
-		["wrong version", PackedByteArray([LobbyState.VERSION + 1, 0, 0])],
+		["version only", PackedByteArray([v])],
+		["version 1 (names only)", PackedByteArray([1, 0, 0])],
+		["wrong version", PackedByteArray([v + 1, 0, 0, 255, 0, 0])],
 		["version zero", PackedByteArray([0, 0, 0])],
-		["length past the end", PackedByteArray([LobbyState.VERSION, 5, 65, 66])],
-		["second name missing", PackedByteArray([LobbyState.VERSION, 1, 65])],
-		["trailing bytes", PackedByteArray([LobbyState.VERSION, 0, 0, 7])],
+		["length past the end", PackedByteArray([v, 5, 65, 66])],
+		["second name missing", PackedByteArray([v, 1, 65])],
+		["no request byte", PackedByteArray([v, 0, 0])],
+		["request out of range", PackedByteArray([v, 0, 0, 9, 0, 0])],
+		["no seat count", PackedByteArray([v, 0, 0, 255, 0])],
+		["too many seats", PackedByteArray([v, 0, 0, 255, 0, 9])],
+		["seat cut short", PackedByteArray([v, 0, 0, 255, 0, 1, 0, 0])],
+		["seat of a third team", PackedByteArray([v, 0, 0, 255, 0, 1, 2, 0, 1, 0, 0])],
+		["seat occupant unknown", PackedByteArray([v, 0, 0, 255, 0, 1, 0, 0, 3, 0, 0])],
+		["trailing bytes", PackedByteArray([v, 0, 0, 255, 0, 0, 7])],
 		["name longer than allowed", too_long],
 		["not UTF-8", bad_utf8],
 	]
 	for case: Array in malformed:
-		_check("lobby state/ignored: %s" % case[0], LobbyState.decode(case[1]).is_empty(), true)
+		_check("lobby state/ignored: %s" % case[0], LobbyState.decode(case[1]) == null, true)
+
+# ---- 8. choosing a family member (PT4-3) ----
+
+## `size` seats a family, actor ids 1.. in seat order (team_a first).
+func _sized(size: int, allow_bots: bool = false) -> Lobby:
+	var lobby: Lobby = Lobby.create(GRACE, allow_bots)
+	var actor: int = 1
+	for team_id: StringName in [&"team_a", &"team_b"]:
+		for slot: int in size:
+			lobby.seats.append(LobbySeat.make(team_id, slot, actor))
+			actor += 1
+	return lobby
+
+## Where a player sits: the slot, plus "!" when they picked it; "-" when unseated.
+func _where(lobby: Lobby, identity: String) -> String:
+	var seat: LobbySeat = lobby.seat_of(identity)
+	if seat == null:
+		return "-"
+	return "%d%s" % [seat.slot, "!" if seat.chosen else ""]
+
+## Players arrive in order (p1 team_a, p2 team_b, p3 team_a, ...), each asking
+## for a member or Random on arrival; then the `choose` steps run in order. The
+## last step's answer and where everyone ends up are checked.
+func _test_member_choice() -> void:
+	var r: int = Lobby.RANDOM
+	var cases: Array[Dictionary] = [
+		{"name": "a picked member is refused to the next, naming the taker", "size": 2,
+			"admit": [["p1", r], ["p2", r], ["p3", r]], "choose": [["p1", 1], ["p3", 1]],
+			"answer": "taken by P1", "where": {"p1": "1!", "p3": "0"}},
+		{"name": "a pick displaces a Random player, who swaps", "size": 2,
+			"admit": [["p1", r], ["p2", r], ["p3", r]], "choose": [["p1", 1]],
+			"answer": "", "where": {"p1": "1!", "p3": "0"}},
+		{"name": "an empty member is simply taken", "size": 3,
+			"admit": [["p1", r]], "choose": [["p1", 2]],
+			"answer": "", "where": {"p1": "2!"}},
+		{"name": "a member the size does not have is refused", "size": 2,
+			"admit": [["p1", r]], "choose": [["p1", 2]],
+			"answer": "there is no such member at this team size", "where": {"p1": "0"}},
+		{"name": "asked for on arrival", "size": 4,
+			"admit": [["p1", 3]], "choose": [],
+			"answer": "", "where": {"p1": "3!"}},
+		{"name": "asked for on arrival but taken: seated on Random", "size": 2,
+			"admit": [["p1", 1], ["p2", r], ["p3", 1]], "choose": [],
+			"answer": "", "where": {"p1": "1!", "p3": "0"}},
+		{"name": "back to Random keeps the seat, unpicked", "size": 3,
+			"admit": [["p1", 2]], "choose": [["p1", r]],
+			"answer": "", "where": {"p1": "2"}},
+		{"name": "two players, two picks, no clash", "size": 4,
+			"admit": [["p1", r], ["p2", r], ["p3", r]], "choose": [["p1", 3], ["p3", 2]],
+			"answer": "", "where": {"p1": "3!", "p3": "2!"}},
+	]
+	for case: Dictionary in cases:
+		var lobby: Lobby = _sized(case["size"])
+		for arrival: Array in case["admit"]:
+			lobby.admit(arrival[0], 0, String(arrival[0]).to_upper(), 0, arrival[1])
+		var answer: String = ""
+		for step: Array in case["choose"]:
+			answer = lobby.choose(step[0], step[1])
+		_check("member/%s: answer" % case["name"], answer, case["answer"])
+		var where: Dictionary = {}
+		for identity: String in case["where"]:
+			where[identity] = _where(lobby, identity)
+		_check("member/%s: seats" % case["name"], where, case["where"])
+
+	# Every team size offers exactly its own members.
+	for size: int in [1, 2, 3, 4]:
+		var expected: Array[int] = []
+		for slot: int in size:
+			expected.append(slot)
+		_check("member/%dv%d offers its own slots" % [size, size],
+			_sized(size).offered_slots(&"team_a"), expected)
+
+	# Random never draws a member somebody picked, and is a real draw (solo no
+	# longer always plays Dad).
+	var clashes: int = 0
+	var drawn: Dictionary[int, bool] = {}
+	for seed_value: int in 24:
+		var lobby: Lobby = _sized(4)
+		lobby.admit("p1", 0, "P1", 0)
+		lobby.admit("p2", 0, "P2", 0)
+		lobby.admit("p3", 0, "P3", 0, 2)
+		var rng: RandomNumberGenerator = RandomNumberGenerator.new()
+		rng.seed = seed_value
+		lobby.resolve_random(rng)
+		var p1: LobbySeat = lobby.seat_of("p1")
+		var p3: LobbySeat = lobby.seat_of("p3")
+		if p1 == null or p3 == null or p3.slot != 2 or p1.slot == 2 or p1.team != &"team_a":
+			clashes += 1
+		elif p1 != null:
+			drawn[p1.slot] = true
+	_check("member/Random never takes a picked member (24 draws)", clashes, 0)
+	_check("member/Random is a draw, not always the first member", drawn.size() > 1, true)
+
+	# Bots take only what is left: a pick takes a filler bot's seat, and after
+	# the draw only the players' seats count as human for the bot fill.
+	var bots: Lobby = _sized(3, true)
+	bots.admit("p1", 0, "P1", 0)
+	bots.note_fill([2, 3] as Array[int], "")
+	_check("member/a pick takes a filler bot's member", bots.choose("p1", 2), "")
+	_check("member/that seat is the player's now",
+		bots.seat_at(&"team_a", 2).occupancy, LobbySeat.Occupancy.HUMAN)
+	bots.resolve_random(RandomNumberGenerator.new())
+	_check("member/after the draw the bots fill the rest", bots.human_actor_ids(), [3])
+
+	# After the start nothing moves, and a returning player has their member.
+	var started: Lobby = _sized(3)
+	started.admit("p1", 11, "P1", 0, 1)
+	started.begin()
+	_check("member/refused once the match has started", started.choose("p1", 0), "the match has started")
+	started.note_absence(11, 100)
+	started.advance(100 + GRACE)
+	var back: LobbyEvent = started.admit("p1", 21, "P1", 500, 0)
+	_check("member/a rejoin keeps the member", back.seat.slot, 1)
+	_check("member/and the pick", back.seat.chosen, true)

@@ -62,6 +62,16 @@ var _last_snapshot_tick: int = 0
 ## The address put into the session code. See host().
 var _advertised: String = "127.0.0.1"
 var _seeded: bool = false
+## Host: the actor last told to each guest by TAG_SEAT, so a member change
+## (PT4-3) re-seats exactly the guests whose body moved.
+var _sent_actor: Dictionary[int, int] = {}
+## Guest: the host's last lobby state (PT4-3), null before the first arrives.
+var _lobby_heard: LobbyState = null
+## Why this machine's last member request was refused ("" = none). Set by the
+## host for itself, or from the notice on the copy the host sent back.
+var member_notice: String = ""
+## The host's own generator for Random members (never the sim's RNG).
+var _member_rng: RandomNumberGenerator = null
 
 # ---- construction ----
 
@@ -163,11 +173,14 @@ func _start_lobby(world: SimWorld, bots: bool) -> void:
 ## the lobby - correctly, knowing only what it had been told - handed the host's
 ## own body to the first guest, so both machines drove one actor and each drew
 ## the other's corrections as jitter on itself.
-func seat_local(display_name: String) -> int:
+##
+## `wanted` (PT4-3) is the member this player asked for on the menu: a slot of
+## their family, or `Lobby.RANDOM` (resolved at the start, `start_from_lobby`).
+func seat_local(display_name: String, wanted: int = Lobby.RANDOM) -> int:
 	if role == Role.GUEST or lobby == null:
 		return SimEntity.NO_ENTITY
 	var seated: LobbyEvent = lobby.admit(
-		identity, SessionTransport.HOST_PEER, display_name, 0
+		identity, SessionTransport.HOST_PEER, display_name, 0, wanted
 	)
 	if seated.seat == null:
 		return SimEntity.NO_ENTITY
@@ -340,17 +353,14 @@ func _admit(peer: int, token: String) -> void:
 		MatchChannel.TAG_SNAPSHOT, WorldSnapshot.capture(_authoritative)
 	))
 	transport.send(peer, MatchChannel.frame_seat(seated.seat.actor_id, _level.mode.team_size))
-	# The typed family names (PT3-3): a joining or returning player sees the
-	# current ones at once, not after the next change.
-	transport.send(peer, MatchChannel.frame_lobby(FamilyNames.typed_all()))
+	_sent_actor[peer] = seated.seat.actor_id
 
 	# Bots re-fill around whoever is now seated: still opt-in, still symmetric,
 	# still declining rather than tilting the sides.
-	if lobby.bots_enabled:
-		lobby.note_fill(
-			crew.fill_lobby(_authoritative, lobby.human_actor_ids(), _authoritative.actor_ids().size()),
-			crew.declined_reason
-		)
+	_refill()
+	# The lobby state (PT3-3 names, PT4-3 members) to everyone: a joining or
+	# returning player sees the current one at once, the others see them arrive.
+	publish_lobby()
 
 func _depart(peer: int) -> void:
 	if role != Role.HOST:
@@ -392,7 +402,7 @@ func _receive(peer: int, payload: PackedByteArray) -> void:
 			if role == Role.HOST:
 				_admit(peer, MatchChannel.token_of(body))
 		MatchChannel.TAG_LOBBY:
-			_receive_names(peer, body)
+			_receive_lobby(peer, body)
 
 # ---- the lobby state (PT3-3) ----
 
@@ -414,34 +424,132 @@ func in_lobby() -> bool:
 func publish_names() -> void:
 	if transport == null:
 		return
-	var framed: PackedByteArray = MatchChannel.frame_lobby(FamilyNames.typed_all())
 	match role:
 		Role.HOST:
-			transport.broadcast(framed)
+			publish_lobby()
 		Role.GUEST:
 			if actor_id != SimEntity.NO_ENTITY:
-				transport.send(SessionTransport.HOST_PEER, framed)
+				transport.send(SessionTransport.HOST_PEER,
+					MatchChannel.frame_lobby(LobbyState.of_names(FamilyNames.typed_all())))
 
-## A TAG_LOBBY frame. On the host: a guest's name for its OWN family, accepted
-## only from a seated guest before the match starts, then sent to everyone (last
-## typed wins). On a guest: the host's copy, applied as it is. A malformed body
-## decodes to {} and is ignored; every name that decodes is already cleaned.
-func _receive_names(peer: int, body: PackedByteArray) -> void:
-	var names: Dictionary[StringName, String] = MatchChannel.lobby_names_of(body)
-	if names.is_empty():
+## The host's lobby state (names and seats) to every guest. `notice_for` and
+## `notice` send a refusal to that one peer instead of the plain copy.
+func publish_lobby(notice_for: int = 0, notice: String = "") -> void:
+	if role != Role.HOST or transport == null:
+		return
+	var state: LobbyState = lobby_view()
+	transport.broadcast(MatchChannel.frame_lobby(state))
+	if notice_for != 0 and notice != "":
+		state.notice = notice
+		transport.send(notice_for, MatchChannel.frame_lobby(state))
+
+## The lobby as this machine knows it: built from the lobby on the host or in a
+## solo game, the host's last copy on a guest (null before it arrives).
+func lobby_view() -> LobbyState:
+	if role == Role.GUEST:
+		return _lobby_heard
+	return LobbyState.of_lobby(lobby, FamilyNames.typed_all())
+
+## This machine's player asks to play member `slot` of their family, or
+## `Lobby.RANDOM` (PT4-3). On the host it is decided at once (a refusal lands in
+## `member_notice`); a guest asks the host, whose answer comes back as the state.
+func request_member(slot: int) -> void:
+	member_notice = ""
+	match role:
+		Role.GUEST:
+			if transport != null and actor_id != SimEntity.NO_ENTITY:
+				transport.send(SessionTransport.HOST_PEER,
+					MatchChannel.frame_lobby(LobbyState.request(slot)))
+		_:
+			if lobby == null:
+				return
+			member_notice = lobby.choose(identity, slot)
+			if member_notice == "":
+				_after_seats_moved()
+
+## Start: Random players draw their members (the host's own generator), seats
+## settle, and choices are fixed. Called by the game just before the bot fill
+## and the start command, on the host and in a solo game.
+func start_from_lobby() -> void:
+	if role == Role.GUEST or lobby == null:
+		return
+	if _member_rng == null:
+		_member_rng = RandomNumberGenerator.new()
+		_member_rng.randomize()
+	lobby.resolve_random(_member_rng)
+	_after_seats_moved()
+	lobby.begin()
+
+## After players moved between seats: who holds which body follows the lobby.
+## Bots let go of every seat a person now holds, the peer table is rebuilt, the
+## host's own body and any guest whose body moved are re-seated (a fresh
+## TAG_SEAT), the bot fill runs again for the seats left behind, and everyone
+## hears the new state.
+func _after_seats_moved() -> void:
+	_seat_of_peer.clear()
+	for seat: LobbySeat in lobby.seats:
+		if seat.occupancy != LobbySeat.Occupancy.HUMAN:
+			continue
+		if crew.drives(seat.actor_id):
+			crew.release(_authoritative, seat.actor_id)
+		if seat.presence == LobbySeat.Presence.PRESENT and seat.identity != "":
+			_seat_of_peer[seat.peer] = seat
+		if seat.identity == identity:
+			actor_id = seat.actor_id
+		elif _sent_actor.has(seat.peer) and _sent_actor[seat.peer] != seat.actor_id \
+				and transport != null:
+			transport.send(seat.peer, MatchChannel.frame_seat(seat.actor_id, _level.mode.team_size))
+			_sent_actor[seat.peer] = seat.actor_id
+	# A seat nobody sits in any more must not keep a person's bot label.
+	for seat: LobbySeat in lobby.seats:
+		if seat.is_open() and crew.drives(seat.actor_id):
+			crew.release(_authoritative, seat.actor_id)
+	_refill()
+	publish_lobby()
+
+func _refill() -> void:
+	if lobby.bots_enabled:
+		lobby.note_fill(
+			crew.fill_lobby(_authoritative, lobby.human_actor_ids(), _authoritative.actor_ids().size()),
+			crew.declined_reason
+		)
+
+## A TAG_LOBBY frame. On the host, from a seated guest before the match starts:
+## a request for a member (decided, refused with a reason to that guest only),
+## or the guest's name for its OWN family (last typed wins); either way everyone
+## then hears the host's copy. On a guest: the host's copy, applied as it is.
+## A malformed body decodes to null and is ignored; every text in one that
+## decodes is already cleaned.
+func _receive_lobby(peer: int, body: PackedByteArray) -> void:
+	var state: LobbyState = MatchChannel.lobby_state_of(body)
+	if state == null:
 		return
 	match role:
 		Role.HOST:
 			var seat: LobbySeat = _seat_of_peer.get(peer, null)
-			if seat == null or not in_lobby() or not names.has(seat.team):
+			if seat == null or not in_lobby():
 				return
-			FamilyNames.set_typed(seat.team, names[seat.team])
-			publish_names()
+			if state.wanted != LobbyState.NO_REQUEST:
+				var refused: String = lobby.choose(seat.identity, state.wanted)
+				if refused != "":
+					publish_lobby(peer, refused)
+				else:
+					_after_seats_moved()
+				return
+			if not state.names.has(seat.team):
+				return
+			FamilyNames.set_typed(seat.team, state.names[seat.team])
+			publish_lobby()
 		Role.GUEST:
 			if peer != SessionTransport.HOST_PEER:
 				return
-			for team_id: StringName in names:
-				FamilyNames.set_typed(team_id, names[team_id])
+			for team_id: StringName in state.names:
+				FamilyNames.set_typed(team_id, state.names[team_id])
+			_lobby_heard = state
+			# Only the copy sent back to this player carries a notice; the
+			# plain broadcasts that follow do not clear it (a new request does).
+			if state.notice != "":
+				member_notice = state.notice
 
 ## Takes a guest's input, having checked it is theirs to give.
 ##

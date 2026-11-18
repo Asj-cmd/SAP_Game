@@ -39,6 +39,9 @@ var display_name: String = ""
 var held_for: String = ""
 ## Tick the current hiccup began, for the grace countdown. -1 when present.
 var absent_since: int = -1
+## The occupant picked this member (PT4-3: the slot IS the member). False means
+## they asked for Random and only sit here provisionally until the match starts.
+var chosen: bool = false
 
 static func make(seat_team: StringName, seat_slot: int, actor: int) -> LobbySeat:
 	var seat: LobbySeat = LobbySeat.new()
@@ -46,6 +49,33 @@ static func make(seat_team: StringName, seat_slot: int, actor: int) -> LobbySeat
 	seat.slot = seat_slot
 	seat.actor_id = actor
 	return seat
+
+## Is this seat somebody's: a player in it, or a bot keeping it for one?
+func is_persons() -> bool:
+	return occupancy == Occupancy.HUMAN or is_being_held()
+
+## Takes over whoever sits in `other` (everything but team, slot and actor,
+## which belong to the seat). Used when a player moves to another member.
+func copy_occupant_from(other: LobbySeat) -> void:
+	occupancy = other.occupancy
+	presence = other.presence
+	peer = other.peer
+	identity = other.identity
+	display_name = other.display_name
+	held_for = other.held_for
+	absent_since = other.absent_since
+	chosen = other.chosen
+
+## Back to nobody.
+func clear_occupant() -> void:
+	occupancy = Occupancy.EMPTY
+	presence = Presence.PRESENT
+	peer = 0
+	identity = ""
+	display_name = ""
+	held_for = ""
+	absent_since = -1
+	chosen = false
 
 func is_open() -> bool:
 	return occupancy == Occupancy.EMPTY

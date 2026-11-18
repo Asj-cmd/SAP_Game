@@ -247,6 +247,9 @@ var _from_menu: bool = false
 ## A menu-hosted match waits in the lobby panel until Start is pressed.
 var _lobby_wait: bool = false
 var _lobby: LobbyPanel = null
+## The member this machine's player asks for when seated (PT4-3): a slot of
+## their family, or Lobby.RANDOM.
+var _wanted_member: int = 0
 
 ## Sound (P5-3): presentation only, fed from the confirmed state in `_animate` / `_render`.
 var audio: GameAudio = GameAudio.new()
@@ -281,6 +284,7 @@ func _ready() -> void:
 	_lobby.cancelled.connect(func() -> void: _return_to_menu(""))
 	_lobby.name_edited.connect(_on_family_name_edited)
 	_lobby.name_cleared.connect(_on_family_name_cleared)
+	_lobby.member_chosen.connect(_on_member_chosen)
 	_pause = PauseMenu.new()
 	add_child(_pause)
 	_pause.resumed.connect(func() -> void: _set_paused(false))
@@ -338,28 +342,53 @@ func _read_command_line() -> void:
 		_backend = "steam"
 	_team_size = clampi(int(_argument("--team-size=", str(GreyBoxLevel.DEFAULT_TEAM_SIZE))),
 		GreyBoxLevel.TEAM_SIZES.front(), GreyBoxLevel.TEAM_SIZES.back())
+	# A command-line launch plays member 0 (Dad) unless told otherwise, so tools
+	# and captures keep the body they always had; the menu defaults to Random.
+	var member: String = _argument("--member=", "0")
+	_wanted_member = Lobby.RANDOM if member == "random" else clampi(int(member), 0, _team_size - 1)
 
-## Solo: the names typed in the menu's two boxes are already in FamilyNames.
-func _on_solo(team_size: int) -> void:
+## Solo: the names typed in the menu's two boxes are already in FamilyNames;
+## `member` is the menu's "Play as" choice (a slot, or Lobby.RANDOM).
+func _on_solo(team_size: int, member: int) -> void:
 	_team_size = team_size
+	_wanted_member = member
 	_launch(MatchLink.Role.LOCAL, "", "")
 
 ## A hosted or joined game starts with empty name boxes: the lobby types them.
+## The member is picked in the lobby; until then the player is on Random.
 func _on_host(address: String, team_size: int) -> void:
 	FamilyNames.clear_typed()
 	_team_size = team_size
+	_wanted_member = Lobby.RANDOM
 	_backend = _argument("--backend=", "enet") # undo a cancelled Steam host
 	_launch(MatchLink.Role.HOST, "", address)
 
 func _on_host_steam(team_size: int) -> void:
 	FamilyNames.clear_typed()
 	_team_size = team_size
+	_wanted_member = Lobby.RANDOM
 	_backend = "steam"
 	_launch(MatchLink.Role.HOST, "", "")
 
 func _on_join(code: String) -> void:
 	FamilyNames.clear_typed()
+	_wanted_member = Lobby.RANDOM
 	_launch(MatchLink.Role.GUEST, code, "")
+
+## The lobby's "Play as" picker (PT4-3): the host decides at once, a guest asks.
+func _on_member_chosen(slot: int) -> void:
+	if link != null and link.in_lobby():
+		link.request_member(slot)
+
+## Keeps the open lobby panel's member picker in step with the lobby state.
+func _lobby_members() -> void:
+	if link == null or _lobby == null or not _lobby.is_open():
+		return
+	var mine: int = -1
+	var truth: SimWorld = link.outcome_world()
+	if truth != null and truth.has_entity(link.actor_id):
+		mine = truth.get_entity(link.actor_id).slot
+	_lobby.show_members(link.lobby_view(), link.own_team(), mine, link.member_notice)
 
 ## A name typed in the lobby (PT3-3). Only the player's own family on a guest
 ## (the host checks that too); the host may type its own. Stored here at once,
@@ -1037,10 +1066,13 @@ func _start(variant: GreyBoxLevel.SafeVariant) -> void:
 	world = link.outcome_world()
 	# Sit down before opening the door, or the first guest is given this body.
 	if not _dedicated:
-		link.seat_local("You")
+		# Named "Host": the name travels to guests (lineup, "taken by Host").
+		link.seat_local("Host", _wanted_member)
 	_confirmed_frames.clear()
 	_seat_shown = SimEntity.NO_ENTITY
 	_build_seats()
+	if link.role != MatchLink.Role.GUEST:
+		_seat_shown = link.actor_id
 	_rebuild_views()
 	_previous = _snapshot()
 	_accumulator = 0.0
@@ -1055,6 +1087,9 @@ func _start(variant: GreyBoxLevel.SafeVariant) -> void:
 
 ## Fills empty seats (when bots are on) and starts the match.
 func _begin_match() -> void:
+	# Random members are drawn now (PT4-3); this machine's body may have moved.
+	link.start_from_lobby()
+	_follow_seat()
 	if link.lobby.bots_enabled:
 		link.lobby.note_fill(
 			link.crew.fill_lobby(world, _seated_actors(), world.actor_ids().size()),
@@ -1239,6 +1274,7 @@ func _process(delta: float) -> void:
 		return
 	_follow_seat()
 	_guest_lobby()
+	_lobby_members()
 	_record_confirmed()
 	if _dedicated:
 		_dedicated_tick(delta)
@@ -1326,17 +1362,18 @@ func _update_lineup() -> void:
 	_lineup.show(_cameras[0].rig.get_parent(), middle, outward[own.team],
 		FamilyNames.name_of(own.team), theme.family_colour(own.team), bodies)
 
-## Who plays a body in the lineup: "You", "Bot", the lobby seat's name on the
-## machine that runs the lobby, else "Player" (a guest learns names in PT4-3).
+## Who plays a body in the lineup: "You", "Bot", the player's name from the
+## lobby state (the host's copy on a guest, PT4-3), else "Player".
 func _lineup_player(entity: SimEntity, mine: int) -> String:
 	if entity.id == mine:
 		return "You"
 	if entity.is_bot:
 		return "Bot"
-	if link.lobby != null:
-		var seat: LobbySeat = link.lobby.seat_for_actor(entity.id)
-		if seat != null and seat.display_name != "" and seat.display_name != "Bot":
-			return seat.display_name
+	var view: LobbyState = link.lobby_view()
+	if view != null:
+		var seat: LobbyState.Seat = view.seat_at(entity.team, entity.slot)
+		if seat != null and seat.occupant == LobbyState.Occupant.HUMAN and seat.name != "":
+			return seat.name
 	return "Player"
 
 ## Which screen the music rule (`GameAudio.music_wanted`, PT3-1) sees this frame,
@@ -1476,12 +1513,18 @@ static func _fade_material(material: StandardMaterial3D, opacity: float) -> void
 ## A guest cannot work out which body is its own: the roster is identical on
 ## both machines and nothing in it says "you". It is told, and until it has been
 ## told there is nobody to follow and nothing to drive.
+##
+## The host and a solo game too, since PT4-3: picking a member, or Random being
+## drawn at the start, moves this machine's player to another body.
 func _follow_seat() -> void:
-	if link.role != MatchLink.Role.GUEST or link.actor_id == _seat_shown:
+	if link.actor_id == _seat_shown or (link.actor_id == SimEntity.NO_ENTITY and link.role != MatchLink.Role.GUEST):
 		return
 	_seat_shown = link.actor_id
-	for player: LocalPlayerInput in players:
-		player.actor_id = link.actor_id
+	if link.role == MatchLink.Role.GUEST:
+		for player: LocalPlayerInput in players:
+			player.actor_id = link.actor_id
+	elif not players.is_empty():
+		players[0].actor_id = link.actor_id
 	_rebuild_views()
 	_previous = _snapshot()
 

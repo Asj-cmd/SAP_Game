@@ -33,6 +33,11 @@ enum Phase {
 	ENDED, ## Over. See `ended_reason`.
 }
 
+## A player's member choice when they have not picked one (PT4-3). Any other
+## value is a slot of their own family: slot n IS a member (dad, mom, ...), and
+## only the slots that exist at the team size can be picked.
+const RANDOM: int = -1
+
 var phase: Phase = Phase.GATHERING
 var seats: Array[LobbySeat] = []
 ## The peer currently holding the authority ROLE. Compared against, never
@@ -73,7 +78,13 @@ func is_ended() -> bool:
 ## because a peer id names a connection and a reconnecting player has a new one.
 ## Getting this the wrong way round would hand a returning player a fresh seat
 ## and leave a bot holding their old one for the rest of the match.
-func admit(identity: String, peer: int, display_name: String, tick: int) -> LobbyEvent:
+##
+## `wanted` (PT4-3) is the member a NEW player asks for, as a slot of the family
+## they are seated in, or RANDOM. A returning player keeps the seat, and so the
+## member, they had; `wanted` is ignored for them. A wanted member that is not
+## free leaves the player on Random rather than turning them away.
+func admit(identity: String, peer: int, display_name: String, tick: int,
+		wanted: int = RANDOM) -> LobbyEvent:
 	if phase == Phase.ENDED:
 		return LobbyEvent.ended(ended_reason)
 
@@ -98,13 +109,14 @@ func admit(identity: String, peer: int, display_name: String, tick: int) -> Lobb
 	if seat == null:
 		return LobbyEvent.about(LobbyEvent.Kind.SEAT_FREED, null, "the match is full")
 
+	seat.clear_occupant()
 	seat.identity = identity
 	seat.peer = peer
 	seat.display_name = display_name
 	seat.occupancy = LobbySeat.Occupancy.HUMAN
-	seat.presence = LobbySeat.Presence.PRESENT
-	seat.absent_since = -1
-	return LobbyEvent.about(LobbyEvent.Kind.SEAT_TAKEN, seat)
+	if wanted != RANDOM:
+		choose(identity, wanted)
+	return LobbyEvent.about(LobbyEvent.Kind.SEAT_TAKEN, seat_of(identity))
 
 ## Keeps the sides even as players arrive: the emptier team gets the next one.
 ##
@@ -139,6 +151,94 @@ func _emptiest_where(want_empty: bool) -> LobbySeat:
 		if best == null or occupied[seat.team] < occupied[best.team]:
 			best = seat
 	return best
+
+# ---- choosing a member (PT4-3) ----
+
+## A player asks to play member `slot` of their own family, or RANDOM. Returns
+## "" when done, else why not (shown to that player). Only while GATHERING, and
+## never another family: players do not change sides here.
+##
+## A member somebody PICKED is theirs: asking for it is refused, naming them. A
+## member a Random player only sits on provisionally is not: the two swap, so
+## the Random player lands on the asker's old seat. An empty member or one a
+## filler bot holds is simply taken (the caller releases the bot and refills).
+func choose(identity: String, slot: int) -> String:
+	if phase != Phase.GATHERING:
+		return "the match has started"
+	var mine: LobbySeat = seat_of(identity)
+	if mine == null:
+		return "you are not seated"
+	if slot == RANDOM:
+		mine.chosen = false
+		return ""
+	var target: LobbySeat = seat_at(mine.team, slot)
+	if target == null:
+		return "there is no such member at this team size"
+	if target != mine:
+		if target.is_persons():
+			if target.chosen:
+				var who: String = target.display_name if target.display_name != "" else "another player"
+				return "taken by %s" % who
+			var mover: LobbySeat = LobbySeat.new()
+			mover.copy_occupant_from(mine)
+			mine.copy_occupant_from(target)
+			target.copy_occupant_from(mover)
+		else:
+			target.copy_occupant_from(mine)
+			mine.clear_occupant()
+	target.chosen = true
+	return ""
+
+## At Start: every Random player of each family draws one of the places left
+## for them (their own provisional seat, an empty one, or one a filler bot
+## holds), from `rng` - the host's own generator, never the sim's. Picked
+## members are never drawn. Places nobody draws keep their bot or stay empty
+## for the bot fill that follows.
+func resolve_random(rng: RandomNumberGenerator) -> void:
+	if phase != Phase.GATHERING:
+		return
+	var teams: Array[StringName] = []
+	for seat: LobbySeat in seats:
+		if not teams.has(seat.team):
+			teams.append(seat.team)
+	for team_id: StringName in teams:
+		var drawers: Array[LobbySeat] = []
+		var places: Array[LobbySeat] = []
+		for slot: int in offered_slots(team_id):
+			var seat: LobbySeat = seat_at(team_id, slot)
+			if seat.is_persons() and seat.chosen:
+				continue
+			places.append(seat)
+			if seat.is_persons():
+				var copy: LobbySeat = LobbySeat.new()
+				copy.copy_occupant_from(seat)
+				drawers.append(copy)
+				seat.clear_occupant()
+		for drawer: LobbySeat in drawers:
+			var at: int = rng.randi_range(0, places.size() - 1)
+			places[at].copy_occupant_from(drawer)
+			places.remove_at(at)
+
+## The match has started: choices are fixed from here on.
+func begin() -> void:
+	if phase == Phase.GATHERING:
+		phase = Phase.IN_MATCH
+
+## The seat of member `slot` in `team_id`, or null at this team size.
+func seat_at(team_id: StringName, slot: int) -> LobbySeat:
+	for seat: LobbySeat in seats:
+		if seat.team == team_id and seat.slot == slot:
+			return seat
+	return null
+
+## The members a family has at this team size, as slots in order.
+func offered_slots(team_id: StringName) -> Array[int]:
+	var slots: Array[int] = []
+	for seat: LobbySeat in seats:
+		if seat.team == team_id:
+			slots.append(seat.slot)
+	slots.sort()
+	return slots
 
 # ---- leaving ----
 

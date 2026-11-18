@@ -16,6 +16,8 @@ signal start_pressed(bots: bool)
 signal cancelled
 signal name_edited(team_id: StringName, text: String)
 signal name_cleared(team_id: StringName)
+## The player picked a member of their own family (PT4-3): a slot, or Lobby.RANDOM.
+signal member_chosen(slot: int)
 
 var _root: Control = null
 var _code: Label = null
@@ -28,6 +30,11 @@ var _plate: PanelContainer = null
 var _start: Button = null
 var _waiting: Label = null
 var _name_boxes: Dictionary[StringName, FamilyNameBox] = {}
+var _pickers: Dictionary[StringName, OptionButton] = {}
+var _picker_rows: Dictionary[StringName, HBoxContainer] = {}
+var _member_note: Label = null
+## What the pickers were last built from, so they are rebuilt only on a change.
+var _members_shown: String = ""
 
 func _ready() -> void:
 	layer = 9
@@ -86,6 +93,26 @@ func _ready() -> void:
 		box.cleared.connect(func(team: StringName) -> void: name_cleared.emit(team))
 		column.add_child(box)
 		_name_boxes[team_id] = box
+		# PT4-3: "Play as" under the player's OWN family's box only.
+		var row: HBoxContainer = HBoxContainer.new()
+		var label: Label = Label.new()
+		label.text = "Play as"
+		label.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+		row.add_child(label)
+		var picker: OptionButton = OptionButton.new()
+		picker.custom_minimum_size = Vector2(260.0, 0.0)
+		picker.item_selected.connect(func(index: int) -> void:
+			member_chosen.emit(_picker_slot(picker.get_item_id(index))))
+		row.add_child(picker)
+		row.visible = false
+		column.add_child(row)
+		_picker_rows[team_id] = row
+		_pickers[team_id] = picker
+	_member_note = Label.new()
+	_member_note.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+	_member_note.add_theme_color_override("font_color", UiTheme.ERROR)
+	_member_note.visible = false
+	column.add_child(_member_note)
 
 	_bots = CheckBox.new()
 	_bots.text = "Fill empty seats with bots"
@@ -144,10 +171,55 @@ func _set_rights(own_team: StringName, can_clear: bool) -> void:
 
 func _show(team_size: int) -> void:
 	_size.text = "%d V %d" % [team_size, team_size]
+	_members_shown = ""
 	var was_open: bool = visible
 	visible = true
 	if not was_open:
 		UiTheme.open_layer(self, _root)
+
+## The "Play as" picker of the player's own family (PT4-3), from the lobby state:
+## Random, then each member at this team size. A member another player PICKED is
+## disabled and says who; the player's own pick is selected, or Random when they
+## have not picked. `notice` is why the last request was refused ("" = none).
+func show_members(view: LobbyState, own_team: StringName, my_slot: int, notice: String) -> void:
+	var key: String = "%s|%d|%s" % [own_team, my_slot, notice]
+	if view != null:
+		for seat: LobbyState.Seat in view.seats:
+			key += "|%s:%d:%d:%d:%s" % [seat.team, seat.slot, seat.occupant, int(seat.chosen), seat.name]
+	if key == _members_shown:
+		return
+	_members_shown = key
+	_member_note.text = notice
+	_member_note.visible = notice != ""
+	for team_id: StringName in _pickers:
+		_picker_rows[team_id].visible = view != null and team_id == own_team
+	if view == null or not _pickers.has(own_team):
+		return
+	var picker: OptionButton = _pickers[own_team]
+	picker.clear()
+	picker.add_item("Random", 0)
+	var slots: Array[int] = []
+	for seat: LobbyState.Seat in view.seats:
+		if seat.team == own_team:
+			slots.append(seat.slot)
+	slots.sort()
+	var words: Array[String] = FamilyLineup.slot_words(own_team, slots.size())
+	var selected: int = 0
+	for i: int in slots.size():
+		var seat: LobbyState.Seat = view.seat_at(own_team, slots[i])
+		var text: String = words[i] if i < words.size() else "Member %d" % (i + 1)
+		var taken: bool = seat.occupant == LobbyState.Occupant.HUMAN and seat.chosen \
+			and seat.slot != my_slot
+		if taken:
+			text += "  (taken by %s)" % (seat.name if seat.name != "" else "a player")
+		picker.add_item(text, seat.slot + 1)
+		picker.set_item_disabled(picker.item_count - 1, taken)
+		if seat.slot == my_slot and seat.chosen:
+			selected = picker.item_count - 1
+	picker.select(selected)
+
+static func _picker_slot(item_id: int) -> int:
+	return Lobby.RANDOM if item_id == 0 else item_id - 1
 
 func close() -> void:
 	visible = false

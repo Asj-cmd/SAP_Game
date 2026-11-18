@@ -16,7 +16,8 @@ extends CanvasLayer
 ## two houses (GreyBoxMain orbits a camera round the lot behind this layer), the
 ## choices on one cream card on the right.
 
-signal solo_chosen(team_size: int)
+## `member`: the "Play as" choice, a slot of the family or Lobby.RANDOM (PT4-3).
+signal solo_chosen(team_size: int, member: int)
 signal host_chosen(address: String, team_size: int)
 signal join_chosen(code: String)
 signal host_steam_chosen(team_size: int)
@@ -31,6 +32,8 @@ var _address: LineEdit = null
 ## Bodies a side for a solo or hosted match. A guest does not choose: it plays
 ## at the host's size.
 var _team_size: OptionButton = null
+## "Play as" for a solo game (PT4-3).
+var _member: OptionButton = null
 var _code: LineEdit = null
 var _note: Label = null
 var _error: Label = null
@@ -144,6 +147,20 @@ func _build() -> void:
 	size_row.add_child(_team_size)
 	column.add_child(size_row)
 
+	# PT4-3: which family member a solo player plays. Random by default; only
+	# the members that exist at the chosen size, so rebuilt when it changes.
+	var member_row: HBoxContainer = HBoxContainer.new()
+	var member_label: Label = Label.new()
+	member_label.text = "Play as"
+	member_label.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	member_row.add_child(member_label)
+	_member = OptionButton.new()
+	_member.custom_minimum_size = Vector2(150.0, 0.0)
+	member_row.add_child(_member)
+	column.add_child(member_row)
+	_fill_members()
+	_team_size.item_selected.connect(func(_index: int) -> void: _fill_members())
+
 	# Solo (PT3-3): both families' names, typed here because a solo game has no
 	# lobby. Empty = the default from content/family_names.cfg. Not saved.
 	column.add_child(_note_label("Family names for a solo game (empty = the default)"))
@@ -171,7 +188,7 @@ func _build() -> void:
 	column.add_child(tell_row)
 
 	var solo: Button = _button("Play solo  (against bots)")
-	solo.pressed.connect(func() -> void: solo_chosen.emit(_chosen_size()))
+	solo.pressed.connect(func() -> void: solo_chosen.emit(_chosen_size(), _chosen_member()))
 	column.add_child(solo)
 
 	column.add_child(HSeparator.new())
@@ -342,6 +359,24 @@ func _join() -> void:
 
 func _chosen_size() -> int:
 	return _team_size.get_selected_id()
+
+## Random, then the solo player's family's members at the chosen size. Keeps the
+## member picked before when it still exists.
+func _fill_members() -> void:
+	var kept: int = _chosen_member()
+	_member.clear()
+	_member.add_item("Random", 0)
+	var words: Array[String] = FamilyLineup.slot_words(&"team_a", _chosen_size())
+	for slot: int in words.size():
+		_member.add_item(words[slot], slot + 1)
+	var index: int = _member.get_item_index(kept + 1) if kept != Lobby.RANDOM else 0
+	_member.select(maxi(0, index))
+
+## The "Play as" choice: a slot, or Lobby.RANDOM.
+func _chosen_member() -> int:
+	if _member == null or _member.item_count == 0 or _member.selected <= 0:
+		return Lobby.RANDOM
+	return _member.get_selected_id() - 1
 
 static func _size_name(size: int) -> String:
 	var label: String = "%dv%d" % [size, size]

@@ -46,6 +46,16 @@ static func frame(spawns: Array[Vector3], indoors: Vector3, ground_lift: float) 
 		else Vector3(0.0, 0.0, signf(away.z))
 	return [middle, out]
 
+## The role words of a family's first `count` slots (slot n draws member n of
+## the theme's order, without the kid swap): the "Play as" pickers (PT4-3).
+static func slot_words(team_id: StringName, count: int) -> Array[String]:
+	var theme: ArtTheme = ArtTheme.current()
+	var ids: Array[StringName] = []
+	for slot: int in count:
+		var member: FamilyMember = theme.member_for(team_id, slot, false)
+		ids.append(member.id if member != null else &"player")
+	return role_words(ids)
+
 ## "Dad", "Mom", "Daughter", "Son" per member id, in the order given; "Elder" /
 ## "Younger" in front only when two children in the row share a sex.
 static func role_words(member_ids: Array[StringName]) -> Array[String]:
