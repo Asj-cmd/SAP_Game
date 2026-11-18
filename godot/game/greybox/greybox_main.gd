@@ -473,6 +473,7 @@ func _tear_down() -> void:
 	_status.visible = false
 	_match_hud.visible = false
 	_headline.visible = false
+	_lineup.hide(null)
 	_tell_team = &""
 	_tell_overlay.bodies = []
 	_rematch_asked = false
@@ -500,6 +501,8 @@ func _arm_capture() -> void:
 	var request: FrameCapture = FrameCapture.from_command_line(OS.get_cmdline_user_args())
 	if not request.requested:
 		return
+	# A capture shoots what it asked for, never the round-start lineup (PT4-2).
+	_capture_requested = true
 	_capture_stats = request.stats
 	_capture_timing = request.timing_frames
 	await get_tree().create_timer(request.delay).timeout
@@ -1257,8 +1260,84 @@ func _process(delta: float) -> void:
 	_advance_remote_clock(delta)
 	_draw_paths()
 	_render(_accumulator / SimWorld.SECONDS_PER_TICK, delta)
+	_update_lineup()
 	_track_cameras(delta)
 	_update_hud()
+
+## The round-start lineup (PT4-2, FamilyLineup): while the confirmed world counts
+## down, seat 0 looks at its own family's row through the lineup camera, every
+## body is drawn facing out of its own house, and the names show. Single view
+## only, never in a capture. Drawn only: the countdown is the sim's own.
+var _lineup: FamilyLineup = FamilyLineup.new()
+var _capture_requested: bool = false
+
+func _update_lineup() -> void:
+	var truth: SimWorld = link.outcome_world()
+	var mine: int = _local_actor()
+	var own: SimEntity = truth.get_entity(mine) if mine != SimEntity.NO_ENTITY else null
+	var wanted: bool = link.is_ready() and truth.match_phase == SimWorld.MatchPhase.COUNTDOWN \
+		and own != null and players.size() == 1 and not _cameras.is_empty() \
+		and not _capture_requested and _capture_camera == null and not _posing_chase \
+		and level != null
+	if not wanted:
+		_lineup.hide(_cameras[0].camera if not _cameras.is_empty() else null)
+		return
+	var size: int = level.mode.team_size
+	var ground_lift: float = level.tuning.actor_radius
+	var outward: Dictionary[StringName, Vector3] = {}
+	var middle: Vector3 = Vector3.ZERO
+	for team: TeamDef in level.teams:
+		var spawns: Array[Vector3] = []
+		for slot: int in size:
+			spawns.append(team.spawn_point_for_slot(slot))
+		var indoors: Vector3 = Vector3.ZERO
+		for point: Vector3 in team.cash_points:
+			indoors += point
+		if not team.cash_points.is_empty():
+			indoors /= float(team.cash_points.size())
+		var framed: Array[Vector3] = FamilyLineup.frame(spawns, indoors, ground_lift)
+		outward[team.id] = framed[1]
+		if team.id == own.team:
+			middle = framed[0]
+
+	# Every body faces out of its own house; its next real move turns it as usual.
+	var theme: ArtTheme = ArtTheme.current()
+	var ids: Array[StringName] = []
+	var row: Array[SimEntity] = []
+	for entity_id: int in truth.sorted_entity_ids():
+		var entity: SimEntity = truth.entities[entity_id]
+		var view: MeshInstance3D = _actor_views.get(entity_id, null)
+		if not entity.is_actor() or view == null:
+			continue
+		var out: Vector3 = outward.get(entity.team, Vector3.FORWARD)
+		var heading: float = atan2(out.x, out.z)
+		_facings[entity_id] = heading
+		view.rotation = Vector3(0.0, heading, 0.0)
+		if entity.team == own.team:
+			var member: FamilyMember = theme.member_for(entity.team, entity.slot, false)
+			ids.append(member.id if member != null else &"player")
+			row.append(entity)
+	var words: Array[String] = FamilyLineup.role_words(ids)
+	var bodies: Array[Dictionary] = []
+	for i: int in row.size():
+		var entity: SimEntity = row[i]
+		var foot: Vector3 = entity.position - Vector3(0.0, ground_lift, 0.0)
+		bodies.append({"foot": foot, "text": "%s\n%s" % [words[i], _lineup_player(entity, mine)]})
+	_lineup.show(_cameras[0].rig.get_parent(), middle, outward[own.team],
+		FamilyNames.name_of(own.team), theme.family_colour(own.team), bodies)
+
+## Who plays a body in the lineup: "You", "Bot", the lobby seat's name on the
+## machine that runs the lobby, else "Player" (a guest learns names in PT4-3).
+func _lineup_player(entity: SimEntity, mine: int) -> String:
+	if entity.id == mine:
+		return "You"
+	if entity.is_bot:
+		return "Bot"
+	if link.lobby != null:
+		var seat: LobbySeat = link.lobby.seat_for_actor(entity.id)
+		if seat != null and seat.display_name != "" and seat.display_name != "Bot":
+			return seat.display_name
+	return "Player"
 
 ## Which screen the music rule (`GameAudio.music_wanted`, PT3-1) sees this frame,
 ## read from what is open rather than set at each place a screen opens. PT2-7's end
@@ -1335,7 +1414,8 @@ func _track_cameras(delta: float) -> void:
 		var own: SimEntity = link.predicted_world().entities.get(players[seat].actor_id, null)
 		var jailed: bool = own != null and own.is_captured
 		_fade_body(players[seat].actor_id, view,
-			1.0 if _capture_camera != null else _cameras[seat].body_opacity(jailed))
+			1.0 if _capture_camera != null or _lineup.active
+				else _cameras[seat].body_opacity(jailed))
 
 ## Last opacity drawn per actor, so a body is only re-walked when it changes.
 var _body_opacity: Dictionary[int, float] = {}
@@ -2487,6 +2567,7 @@ func _build_hud() -> void:
 	_headline.theme = ui
 	_headline.theme_type_variation = UiTheme.HUD_BIG
 	_text_layer.add_child(_headline)
+	_lineup.attach(_text_layer)
 	_tell_layer = CanvasLayer.new()
 	add_child(_tell_layer)
 	_tell_overlay = TeamTellOverlay.new()
