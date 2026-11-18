@@ -37,6 +37,12 @@ const TAG_HELLO: int = 5
 ## wrong size has to rejoin at the right one. 0 = not said (an older host).
 const TAG_SEAT: int = 4
 
+## Both ways: the lobby state (`LobbyState`: the typed family names, PT3-3).
+## Host to guest it is the truth, sent on join, reconnect and every change.
+## Guest to host it is that guest's own family name, which the host checks
+## against the sender's seat. Never part of the sim, the snapshot or the input.
+const TAG_LOBBY: int = 6
+
 static func frame(tag: int, payload: PackedByteArray) -> PackedByteArray:
 	var framed: PackedByteArray = PackedByteArray([tag])
 	framed.append_array(payload)
@@ -80,6 +86,13 @@ static func seat_of(body: PackedByteArray) -> int:
 ## everything else off the wire.
 static func frame_hello(token: String) -> PackedByteArray:
 	return frame(TAG_HELLO, token.to_utf8_buffer())
+
+static func frame_lobby(names: Dictionary[StringName, String]) -> PackedByteArray:
+	return frame(TAG_LOBBY, LobbyState.encode(names))
+
+## The names in a TAG_LOBBY body, cleaned; {} when it is not a valid one.
+static func lobby_names_of(body: PackedByteArray) -> Dictionary[StringName, String]:
+	return LobbyState.decode(body)
 
 static func token_of(body: PackedByteArray) -> String:
 	if body.is_empty() or body.size() > PlayerIdentity.MAX_LENGTH:

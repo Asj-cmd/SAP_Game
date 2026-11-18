@@ -5,20 +5,34 @@ guide (two people over the internet) is `godot/PLAYTEST.md`.
 
 ## Changing the family names
 
-The two families' display names (the names players see in the score bar, the menus and the round and
-match results) are written in **one small text file and nowhere else**:
+The players name their own families. The name is shown in the score bar, the round and match
+messages, the results panel and the debug HUD.
 
-1. Open `godot/content/family_names.cfg` in Notepad (or any text editor).
-2. Edit the two lines:
-   - `team_a_name=` is the family that starts in the first house (House A);
-   - `team_b_name=` is the family that starts in the second house (House B).
+- **Online:** the lobby has one name box per family. Anyone seated on a family can type its surname
+  (for example `Smith`); the game shows it as "Smith Family" (a name that already ends in "Family"
+  is left as it is). The host can type their own family's name and has a **Clear** button on both
+  boxes. Every player sees the change within a second, and someone who joins or reconnects gets the
+  current names. Names can be changed until the host presses Start.
+- **Solo:** the main menu has the same two boxes under "Team size", above "Play solo".
+- **Rules for a name:** at most 16 characters; letters (accents are fine), spaces, hyphens and
+  apostrophes only. Anything else (digits, symbols, emoji) is removed as you type, spaces at the
+  ends are trimmed and double spaces become one.
+- Typed names are not saved: they are empty each time the game starts, and a new hosted or joined
+  game starts with empty boxes.
 
-   Write the name right after the `=` sign. No quotes are needed. Leave the left part of each line
-   exactly as it is. Lines that start with `#` are notes and are ignored.
-3. Save the file and start the game again. The names are read once, when the game starts.
+**Defaults.** A box left empty shows a default name: "Green Family" for the first family (the one in
+House A, in green) and "Orange Family" for the second (House B, rust orange). The defaults are in
+one small text file, `godot/content/family_names.cfg`:
 
-If a name is left empty, or the file is missing, the game shows "Family A" and "Family B" instead.
-The names are only for display, so two players can even have different names on their own PCs.
+1. Open it in Notepad (or any text editor).
+2. Edit the text after `team_a_name=` (first family) or `team_b_name=` (second family). No quotes
+   are needed. Leave the left part of each line exactly as it is; lines that start with `#` are notes.
+3. Save the file and start the game again (rebuild the exe with `node autobuild/build.mjs` for the
+   exe to have it).
+
+If a line is empty, or the file is missing, the game uses "Green Family" and "Orange Family". The
+defaults are read on each PC from its own file; the typed names are the same on every PC (the
+host's copy wins).
 
 ## Changing the jail sound
 

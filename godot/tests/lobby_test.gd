@@ -14,7 +14,7 @@ extends SceneTree
 ## Joining is also checked for the thing that actually costs players: a code
 ## must survive being read aloud, and an invite must need no steps at all.
 
-const EXPECTED_CHECKS: int = 42
+const EXPECTED_CHECKS: int = 57
 const GRACE: int = 30
 
 var _passed: int = 0
@@ -29,6 +29,7 @@ func _initialize() -> void:
 	_test_takeover_and_reclaim()
 	_test_bots_are_opt_in()
 	_test_host_loss()
+	_test_lobby_state()
 
 	var ran: int = _passed + _failed
 	if ran != EXPECTED_CHECKS:
@@ -192,3 +193,48 @@ func _test_host_loss() -> void:
 	# world and could continue. Migration is unbuilt, not precluded.
 	_check("authority/nothing else is admitted afterwards",
 		lobby.admit("p3", 13, "Cal", 201).kind, LobbyEvent.Kind.ENDED)
+
+# ---- 7. the lobby message (PT3-3: the typed family names) ----
+
+## Round trips, the cleaning on the way in, and bodies that must be ignored: the
+## names come off the wire from other players, so a short, long, foreign or
+## future body decodes to nothing rather than to half a name.
+func _test_lobby_state() -> void:
+	var names: Dictionary[StringName, String] = {&"team_a": "Smith", &"team_b": "O'Neil-Müller"}
+	var body: PackedByteArray = LobbyState.encode(names)
+	_check("lobby state/round trip", LobbyState.decode(body), names)
+	_check("lobby state/framed under its own tag",
+		MatchChannel.tag_of(MatchChannel.frame_lobby(names)), MatchChannel.TAG_LOBBY)
+	_check("lobby state/through the frame",
+		MatchChannel.lobby_names_of(MatchChannel.body_of(MatchChannel.frame_lobby(names))), names)
+	var empty: Dictionary[StringName, String] = {&"team_a": "", &"team_b": ""}
+	var none: Dictionary[StringName, String] = {}
+	_check("lobby state/empty names (defaults) round trip", LobbyState.decode(LobbyState.encode(none)), empty)
+	var typed: Dictionary[StringName, String] = {&"team_a": " Sm1th!! ", &"team_b": "Abcdefghijklmnopq"}
+	_check("lobby state/encode cleans", LobbyState.decode(LobbyState.encode(typed)),
+		{&"team_a": "Smth", &"team_b": "Abcdefghijklmnop"})
+
+	# A hand-built body with dirty names: the decoder cleans what a peer sent.
+	var dirty: PackedByteArray = PackedByteArray([LobbyState.VERSION])
+	for text: String in ["Sm1th 2000", "   "]:
+		var raw: PackedByteArray = text.to_utf8_buffer()
+		dirty.append(raw.size())
+		dirty.append_array(raw)
+	_check("lobby state/decode cleans", LobbyState.decode(dirty), {&"team_a": "Smth", &"team_b": ""})
+
+	var bad_utf8: PackedByteArray = PackedByteArray([LobbyState.VERSION, 2, 0xC3, 0x28, 0])
+	var too_long: PackedByteArray = PackedByteArray([LobbyState.VERSION, LobbyState.MAX_NAME_BYTES + 1])
+	too_long.resize(2 + LobbyState.MAX_NAME_BYTES + 1 + 1)
+	var malformed: Array[Array] = [
+		["empty body", PackedByteArray()],
+		["version only", PackedByteArray([LobbyState.VERSION])],
+		["wrong version", PackedByteArray([LobbyState.VERSION + 1, 0, 0])],
+		["version zero", PackedByteArray([0, 0, 0])],
+		["length past the end", PackedByteArray([LobbyState.VERSION, 5, 65, 66])],
+		["second name missing", PackedByteArray([LobbyState.VERSION, 1, 65])],
+		["trailing bytes", PackedByteArray([LobbyState.VERSION, 0, 0, 7])],
+		["name longer than allowed", too_long],
+		["not UTF-8", bad_utf8],
+	]
+	for case: Array in malformed:
+		_check("lobby state/ignored: %s" % case[0], LobbyState.decode(case[1]).is_empty(), true)

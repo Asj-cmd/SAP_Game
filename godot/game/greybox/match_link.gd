@@ -340,6 +340,9 @@ func _admit(peer: int, token: String) -> void:
 		MatchChannel.TAG_SNAPSHOT, WorldSnapshot.capture(_authoritative)
 	))
 	transport.send(peer, MatchChannel.frame_seat(seated.seat.actor_id, _level.mode.team_size))
+	# The typed family names (PT3-3): a joining or returning player sees the
+	# current ones at once, not after the next change.
+	transport.send(peer, MatchChannel.frame_lobby(FamilyNames.typed_all()))
 
 	# Bots re-fill around whoever is now seated: still opt-in, still symmetric,
 	# still declining rather than tilting the sides.
@@ -388,6 +391,57 @@ func _receive(peer: int, payload: PackedByteArray) -> void:
 		MatchChannel.TAG_HELLO:
 			if role == Role.HOST:
 				_admit(peer, MatchChannel.token_of(body))
+		MatchChannel.TAG_LOBBY:
+			_receive_names(peer, body)
+
+# ---- the lobby state (PT3-3) ----
+
+## The family this machine's body belongs to, or &"" before it has one.
+func own_team() -> StringName:
+	var world: SimWorld = outcome_world()
+	if world == null or not world.has_entity(actor_id):
+		return &""
+	return world.get_entity(actor_id).team
+
+## Has the match not started yet, so the lobby may still change names?
+func in_lobby() -> bool:
+	var world: SimWorld = outcome_world()
+	return world != null and world.match_phase == SimWorld.MatchPhase.WAITING
+
+## Tells the other machines this one's typed names changed. The host sends its
+## copy (the truth) to everyone; a guest sends its view to the host, which takes
+## only the guest's own family from it. Nothing to do in a solo game.
+func publish_names() -> void:
+	if transport == null:
+		return
+	var framed: PackedByteArray = MatchChannel.frame_lobby(FamilyNames.typed_all())
+	match role:
+		Role.HOST:
+			transport.broadcast(framed)
+		Role.GUEST:
+			if actor_id != SimEntity.NO_ENTITY:
+				transport.send(SessionTransport.HOST_PEER, framed)
+
+## A TAG_LOBBY frame. On the host: a guest's name for its OWN family, accepted
+## only from a seated guest before the match starts, then sent to everyone (last
+## typed wins). On a guest: the host's copy, applied as it is. A malformed body
+## decodes to {} and is ignored; every name that decodes is already cleaned.
+func _receive_names(peer: int, body: PackedByteArray) -> void:
+	var names: Dictionary[StringName, String] = MatchChannel.lobby_names_of(body)
+	if names.is_empty():
+		return
+	match role:
+		Role.HOST:
+			var seat: LobbySeat = _seat_of_peer.get(peer, null)
+			if seat == null or not in_lobby() or not names.has(seat.team):
+				return
+			FamilyNames.set_typed(seat.team, names[seat.team])
+			publish_names()
+		Role.GUEST:
+			if peer != SessionTransport.HOST_PEER:
+				return
+			for team_id: StringName in names:
+				FamilyNames.set_typed(team_id, names[team_id])
 
 ## Takes a guest's input, having checked it is theirs to give.
 ##

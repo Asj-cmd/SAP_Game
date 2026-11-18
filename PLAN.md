@@ -204,7 +204,7 @@ other task here is verified by tests and numbers. The family display names come 
   `CREDITS.md`); styled panels and buttons with hover and press states and small animations; a title
   logo on the main menu over a live or rendered view of the two houses; icons in the HUD; a proper
   tug-of-war cash bar with the family colours, names and counts; a clear round timer. Keep the
-  deadpan tone, no confetti. Fix "THE GRABBS WINS": the result line is plural, so "WIN" (the family
+  deadpan tone, no confetti. Fix "<OLD DEFAULT NAME> WINS": the result line is plural, so "WIN" (the family
   display names come from `family_names.cfg`; build the line so it never says "WINS" after a family
   name). Keeps the P5-0 rules (names only from the `.cfg`). **Frames allowed: one set of every screen
   at the end, at most one redo.**

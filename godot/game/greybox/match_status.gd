@@ -36,12 +36,12 @@ static func headline(world: SimWorld, level: GreyBoxLevel, can_rematch: bool) ->
 		SimWorld.MatchPhase.ROUND_END:
 			if world.round_winner == &"":
 				return "ROUND %d DRAWN - replayed" % world.round_number
-			# Plural: a family display name is several people ("<NAME> WIN").
-			return "%s WIN ROUND %d" % [_name(level, world.round_winner), world.round_number]
+			# Singular (PT3-3): a name reads "<Name> Family", so "<NAME> WINS".
+			return "%s WINS ROUND %d" % [_name(level, world.round_winner), world.round_number]
 		SimWorld.MatchPhase.MATCH_END:
 			var way_on: String = "[Enter] play again    [F10] menu" if can_rematch \
 				else "waiting for the host    [F10] menu"
-			return "%s WIN THE MATCH  %s\n%s" % [
+			return "%s WINS THE MATCH  %s\n%s" % [
 				_name(level, world.match_winner), _rounds(world, level), way_on]
 	return ""
 

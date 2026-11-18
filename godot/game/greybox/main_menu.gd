@@ -144,6 +144,16 @@ func _build() -> void:
 	size_row.add_child(_team_size)
 	column.add_child(size_row)
 
+	# Solo (PT3-3): both families' names, typed here because a solo game has no
+	# lobby. Empty = the default from content/family_names.cfg. Not saved.
+	column.add_child(_note_label("Family names for a solo game (empty = the default)"))
+	for team_id: StringName in LobbyState.TEAMS:
+		var name_box: FamilyNameBox = FamilyNameBox.make(team_id)
+		name_box.edited.connect(func(team: StringName, text: String) -> void:
+			FamilyNames.set_typed(team, text))
+		name_box.cleared.connect(func(team: StringName) -> void: FamilyNames.set_typed(team, ""))
+		column.add_child(name_box)
+
 	# The D3 team tell (an experiment; TeamTell, P2-4): how you tell your own
 	# family from the other one. Any combination; saved on this machine, and
 	# F5-F8 flip the same four in a match.

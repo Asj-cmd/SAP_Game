@@ -279,6 +279,8 @@ func _ready() -> void:
 	add_child(_lobby)
 	_lobby.start_pressed.connect(_lobby_start)
 	_lobby.cancelled.connect(func() -> void: _return_to_menu(""))
+	_lobby.name_edited.connect(_on_family_name_edited)
+	_lobby.name_cleared.connect(_on_family_name_cleared)
 	_pause = PauseMenu.new()
 	add_child(_pause)
 	_pause.resumed.connect(func() -> void: _set_paused(false))
@@ -337,22 +339,57 @@ func _read_command_line() -> void:
 	_team_size = clampi(int(_argument("--team-size=", str(GreyBoxLevel.DEFAULT_TEAM_SIZE))),
 		GreyBoxLevel.TEAM_SIZES.front(), GreyBoxLevel.TEAM_SIZES.back())
 
+## Solo: the names typed in the menu's two boxes are already in FamilyNames.
 func _on_solo(team_size: int) -> void:
 	_team_size = team_size
 	_launch(MatchLink.Role.LOCAL, "", "")
 
+## A hosted or joined game starts with empty name boxes: the lobby types them.
 func _on_host(address: String, team_size: int) -> void:
+	FamilyNames.clear_typed()
 	_team_size = team_size
 	_backend = _argument("--backend=", "enet") # undo a cancelled Steam host
 	_launch(MatchLink.Role.HOST, "", address)
 
 func _on_host_steam(team_size: int) -> void:
+	FamilyNames.clear_typed()
 	_team_size = team_size
 	_backend = "steam"
 	_launch(MatchLink.Role.HOST, "", "")
 
 func _on_join(code: String) -> void:
+	FamilyNames.clear_typed()
 	_launch(MatchLink.Role.GUEST, code, "")
+
+## A name typed in the lobby (PT3-3). Only the player's own family on a guest
+## (the host checks that too); the host may type its own. Stored here at once,
+## then sent: the host broadcasts its copy, a guest asks the host.
+func _on_family_name_edited(team_id: StringName, text: String) -> void:
+	if link == null or team_id != link.own_team():
+		return
+	FamilyNames.set_typed(team_id, text)
+	link.publish_names()
+
+## The host's Clear button, for either family.
+func _on_family_name_cleared(team_id: StringName) -> void:
+	if link == null or link.role == MatchLink.Role.GUEST:
+		return
+	FamilyNames.set_typed(team_id, "")
+	link.publish_names()
+
+## A seated guest sees the lobby panel (its own family's name box) while the
+## host has not started; it closes when the confirmed world leaves WAITING.
+func _guest_lobby() -> void:
+	if link.role != MatchLink.Role.GUEST or _lobby == null or _split_screen:
+		return
+	var waiting: bool = link.actor_id != SimEntity.NO_ENTITY and link.in_lobby()
+	if waiting and not _lobby.is_open():
+		_lobby.open_guest(_team_size, link.own_team())
+		_capture_mouse(false)
+	elif not waiting and _lobby.is_open() and _lobby.is_guest():
+		_lobby.close()
+		if not _pause.is_open():
+			_capture_mouse(true)
 
 ## A friend's invite accepted while the game is running (Steam overlay).
 func _on_steam_invite(lobby_id: int) -> void:
@@ -374,7 +411,7 @@ func _launch(role: MatchLink.Role, code: String, address: String) -> void:
 			var steam_token: String = ""
 			if _backend == "steam":
 				steam_token = LobbyCode.decode(link.session_code()).token
-			_lobby.open(link.session_code(), _team_size, steam_token)
+			_lobby.open(link.session_code(), _team_size, steam_token, link.own_team())
 			DisplayServer.clipboard_set(link.session_code())
 		else:
 			_lobby_wait = false
@@ -1198,6 +1235,7 @@ func _process(delta: float) -> void:
 		_banner.text = "NETWORK   %s\n[F10] back to the menu" % link.failure
 		return
 	_follow_seat()
+	_guest_lobby()
 	_record_confirmed()
 	if _dedicated:
 		_dedicated_tick(delta)
@@ -2482,7 +2520,7 @@ func _update_hud() -> void:
 		_status.text = MatchStatus.line(truth, level, mine)
 		if _match_hud.visible:
 			_match_hud.refresh(truth, level, mine, players[0] if not players.is_empty() else null)
-		_guide.visible = not _debug_hud_visible and not _lobby_wait
+		_guide.visible = not _debug_hud_visible and not _lobby_wait and not _lobby.is_open()
 		if _guide.visible:
 			_guide.refresh(truth, mine, get_process_delta_time())
 		_headline.text = MatchStatus.headline(truth, level, link.role != MatchLink.Role.GUEST)

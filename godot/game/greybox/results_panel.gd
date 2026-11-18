@@ -5,8 +5,8 @@ extends CanvasLayer
 ##
 ## Look (PT2-6): the shared UiTheme; one of the two places the family colours are
 ## used (with the HUD bar): a band in the winners' colour and each family's name
-## in its own. The line is plural ("<NAME> WIN THE MATCH"): a family is several
-## people, and the display names (FamilyNames) read as plurals.
+## in its own. The line is singular ("<NAME> WINS THE MATCH", PT3-3): a display name
+## reads "<Name> Family" (FamilyNames), one family.
 
 signal play_again
 signal main_menu
@@ -107,12 +107,12 @@ func _side_name(align: HorizontalAlignment) -> Label:
 	made.add_theme_font_size_override("font_size", 26)
 	return made
 
-## The match result line for a winner's team id: "<NAME> WIN THE MATCH", never
-## "WINS" (the name is a family, a plural). An empty id is a drawn match.
+## The match result line for a winner's team id: "<NAME> WINS THE MATCH" (PT3-3:
+## the name is "<Name> Family", singular). An empty id is a drawn match.
 static func title_for(winner: StringName) -> String:
 	if winner == &"":
 		return "THE MATCH IS DRAWN"
-	return "%s WIN THE MATCH" % FamilyNames.name_of(winner).to_upper()
+	return "%s WINS THE MATCH" % FamilyNames.name_of(winner).to_upper()
 
 ## Fills and shows the panel from the confirmed world. `winner` overrides the
 ## world's winner (only the screen capture uses it, to show a result mid-match).

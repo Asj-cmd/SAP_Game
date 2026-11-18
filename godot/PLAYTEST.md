@@ -117,6 +117,12 @@ restarts by itself 12 s after each result.
 | Save a screenshot | `F12` |
 | Show / hide the debug HUD (bot state, camera, network) | `F1` - hidden by default |
 
+Name your family in the lobby before the host presses Start: each family has a
+name box, anyone on that family can type its surname (up to 16 letters; it shows
+as "<Surname> Family"), and the host can clear either. An empty box shows
+"Green Family" or "Orange Family". In a solo game the two boxes are on the main
+menu. See `HOW_TO_PLAY.md`.
+
 The bar across the top is a tug of war: each family's colour fills from its own
 end in proportion to its banked cash, with the family names, cash, round wins and
 the clock. CARRYING CASH or a JAILED countdown shows for you, and a prompt appears
