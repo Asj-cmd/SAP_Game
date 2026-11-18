@@ -138,7 +138,7 @@ are typed by the players (see PT3-3).
   triangle points itself). The player's own one is outlined and slightly bigger. Bots and players
   alike. Presentation only. Table-driven test of the shape and size per member and that facing is
   read from the figure's heading. No frames.
-- [ ] **PT4-6 Hands and arms.** The dad's palms look too big and his arms too long; check all six
+- [x] **PT4-6 Hands and arms.** *(Done 2026-11-18: shorter forearms (along their length) and smaller hands per member through theme `bone_scales`; fingertips now end at mid-thigh, hands 0.105–0.114 of height; the carried bundle stays above the head for adults and elder kids. Lineup and dad-carry frames in `autobuild/frames/pt4_6/`. Measured with `tools/arm_probe.gd`. See PROGRESS.md.)* The dad's palms look too big and his arms too long; check all six
   members (both families' figures, elder and younger variants where they exist). Scale hands and
   forearms so they look normal next to the bodies, keeping the carry and throw poses working (the
   IK arm poses from P2-2 must still reach and hold a bundle overhead; check by the numbers the

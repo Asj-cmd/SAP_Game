@@ -2,6 +2,48 @@
 
 Newest first. One entry per task: date, task id, what changed, what the frames showed, numbers, what is left.
 
+## 2026-11-18 — PT4-6 Hands and arms
+- Measured first. New `tools/arm_probe.gd` (`node autobuild/run_tool.mjs arm_probe`) builds the six members through `ArtTheme.shape_figure`. Fractions are of the drawn height; hand length and width come from the hand's own mesh vertices.
+  - It was meant to be temporary, but this unattended session could not delete files, so it stays as a measuring tool (logged).
+
+  | member | fingertips hanging, before → after | hip–knee midpoint | forearm / upper arm, before → after | hand length, before → after | hand width (with thumb), before → after |
+  |---|---|---|---|---|---|
+  | dad | 0.313 → 0.344 | 0.344 | 0.177 / 0.160 → 0.156 / 0.160 | 0.126 → 0.106 | 0.103 → 0.084 |
+  | mom | 0.317 → 0.343 | 0.363 | 0.176 / 0.162 → 0.158 / 0.162 | 0.132 → 0.114 | 0.089 → 0.077 |
+  | elder girl | 0.343 → 0.360 | 0.364 | 0.161 / 0.158 → 0.150 / 0.158 | 0.117 → 0.106 | 0.090 → 0.076 |
+  | elder boy | 0.331 → 0.348 | 0.344 | 0.167 / 0.152 → 0.155 / 0.152 | 0.116 → 0.105 | 0.086 → 0.073 |
+  | younger girl | 0.338 → 0.340 | 0.345 | 0.154 / 0.149 (unchanged) | 0.113 → 0.110 | 0.087 → 0.075 |
+  | younger boy | 0.326 → 0.328 | 0.326 | 0.159 / 0.142 (unchanged) | 0.112 → 0.109 | 0.083 → 0.071 |
+
+  Shoulder joint 0.68–0.72 of height. Wrist hanging was 0.378–0.396, now 0.383–0.407.
+- **The brief's absolute targets are wrong for these figures** (code wins).
+  - Wrist at 0.48 and fingertips at 0.38 of height assume real legs. These figures' hips are at 0.40–0.44 of height (real: 0.52), so meeting 0.48 would need arms about 30 % shorter.
+  - Used instead: fingertips at the figure's own mid-thigh (hip–knee midpoint), forearm no longer than the upper arm, hand about 0.11 of height ±10 %.
+  - All six now meet the fingertip and hand-length targets. Mom's fingertips are 0.02 below mid-thigh, about where a real person's are. The younger boy's forearm stays longer than his upper arm (kids' arms may stay short).
+  - Hand width (0.050 target) is not met: 0.071–0.084. The measure includes the low-poly thumb, and narrowing more shrinks the hand into a stub. The frames are the judge here.
+- **Change (data only, `default_theme.tres` `bone_scales`; no re-bake, no rig or clip edits):**
+  - Forearm y (along its length): dad 0.88, mom 0.9 (her x/z 0.9 thinning kept), elder kids 0.93, younger kids unchanged.
+  - Hands (x, length, z): dad 0.82/0.95/0.82, mom 0.8/0.95/0.8, elder kids 0.85/0.97/0.85, younger kids 0.86/0.97/0.86.
+  - A first try, forearm 0.86 with uniform 0.85 hands for everyone, made hands 0.089–0.093 of height, too small. It also left the adults' bundle only 0.5 cm clear of the head.
+- **Carry check.** The brief's version fails before any change:
+  - `hands_point` (the wrist midpoint) is 2–9 cm below the crown, and the wrists are 4–12 cm apart, under a 44 × 22 × 17 cm bundle whose bottom sits 6 cm above that midpoint (`CARRY_HAND_LIFT`).
+  - Used instead: the bundle's bottom at or above the crown. Dad +1.0 cm (was +3.8), mom +0.7 (+2.9), elder girl/boy +1.0/+1.1 (+2.4/+2.5).
+  - The younger kids are unchanged at −2.9: the bundle sinks slightly into their big heads, as before this task. Not fixed here; logged.
+- **Frames** (one set, no redo), `autobuild/frames/pt4_6/`:
+  - `lineup_front.png`: the six in green at about 4.5 m, right to left dad, mom (red beehive), elder girl, elder boy (mohawk), younger girl, younger boy. On every member the hands end at about mid-thigh. No arm reaches toward the knee, and the hands are small mitts, not paddles. Mom's arms look slim and long-ish but end at her dress hem / mid-thigh.
+  - `lineup_side.png`: the same row turned 90°. Arms hang beside the thighs, hands at mid-thigh, with nothing sticking out.
+  - `dad_carry_1.png`: two dads facing the camera at about 2.2 m. The idle one's hands hang at mid-thigh and look in scale with his head and torso. The carrying one holds the green bundle above his head, both hands under its front, the bundle's bottom just above his hair with no gap and no clipping.
+  - `dad_carry_2.png`: three-quarter view of the same. His raised right arm has its palm against the bundle's side and underside, and the bundle is clearly above the head.
+  - The bundle in these frames is a prop placed at hands + 6 (where play puts it, from the probe), not a live carry.
+  - Render counters: lineup 336–431 draws, 199–252k triangles.
+- Full verify, run once: **healthy**.
+  - All suites at their pins. Symmetry 190 of 190.
+  - Bot 3v3: team_b won, 402 s, 67 s stalls. 1v1: team_a, 8 s stalls. Both deterministic and unchanged.
+  - Tick budget 0 / 3 / 8 (4v4 not gated).
+  - net_smoke: 1638 ticks agree.
+  - Render counters within limits (416 / 364 / 330 draws).
+- Left: the younger kids' bundle sitting 2.9 cm into the head (old). A human eye on the hands in play. Next: PT4-7.
+
 ## 2026-11-18 — PT4-5 Minimap pointers per member
 - `TeamTellOverlay.Body` gains `member` and `heading`, both filled in `GreyBoxMain._update_tell`:
   - `member` comes from `ArtTheme.member_for(team, slot, kid_swap)`, the same call that picks the drawn figure, so kid swap is honoured.

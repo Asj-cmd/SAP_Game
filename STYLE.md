@@ -59,7 +59,7 @@ headroom and jump rule conservative for everybody.
 | Member | Drawn height | Head : height | Off-proportion nudge (one each, subtle) | Base mesh (D10, P1-2) |
 |---|---|---|---|---|
 | Dad | 180 | 1 : 7 | Torso a touch long, legs a touch short; shoulders squared | Quaternius Superhero_Male, muscle detail smoothed out |
-| Mom | 176 | 1 : 7 | Neck a touch long; hands a touch large | Quaternius Superhero_Female, smoothed |
+| Mom | 176 | 1 : 7 | Neck a touch long | Quaternius Superhero_Female, smoothed |
 | Elder child | 160 | 1 : 6 | Head a touch big for the body | Same two bodies, scaled, head enlarged |
 | Younger child | 145 | 1 : 5 | Head clearly big; arms a touch short | Same two bodies, scaled, head enlarged |
 
@@ -72,6 +72,19 @@ girl / boy = 145, build ×0.86 / ×0.9, head a further ×1.25, upper arms and th
 are drawn as `family_order` = dad, mom, elder girl, younger boy (both families; P2-4's kid swap
 overrides one team through `family_order_by_team`). Each body is 5,000 triangles.
 Frames: `autobuild/frames/p2_1/lineup_*.png` (`node autobuild/family_lineup.mjs`).
+
+**Arms and hands (PT4-6, REVIEW).** The user found dad's palms too big and his arms too long.
+Every member now has a shorter forearm and a smaller hand, set through `bone_scales` in the
+theme. The forearm is scaled along its length, y: dad ×0.88, mom ×0.9 (her x/z ×0.9 thinning
+stays), the elder kids ×0.93; the younger kids are unchanged. Hands: dad (0.82, 0.95, 0.82),
+mom (0.8, 0.95, 0.8), the elder kids (0.85, 0.97, 0.85), the younger kids (0.86, 0.97, 0.86).
+The forearm's y scale also shortens the hand, which is its child.
+- Rule: hanging straight, the fingertips end at the hip–knee midpoint (mid-thigh), and the forearm
+  is no longer than the upper arm (adults and elder kids).
+- The hand is 0.105–0.114 of the height, about real (0.11).
+- A real person's wrist at 0.48 of height does not apply here: the big heads and short legs put
+  these figures' hips at 0.40–0.44 of height, against 0.52 for a real person.
+- Measured with `node autobuild/run_tool.mjs arm_probe`.
 
 **As built since D3 (P2-1b second pass, REVIEW).** Each member is its own body from the two
 Quaternius low-poly packs, so cut and pieces differ, not only size (heights unchanged):
