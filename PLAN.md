@@ -61,7 +61,7 @@ are typed by the players (see PT3-3).
   file and its credits row only if nothing else uses them (the user said never delete: move it
   to `godot/content/music/candidates/` instead). Test: table-driven check of when music is wanted
   (menu, lobby, results yes; match no) so the rule cannot drift. No frames.
-- [ ] **PT3-2 Cash sounds are paper.** Grabbing and dropping a bundle currently sounds like a gun
+- [x] **PT3-2 Cash sounds are paper.** *(Done 2026-11-18: Kenney RPG Audio (CC0) page flutters for grab, book thuds for banked cash, `drop` (leather bag) and `bundle_land` (book thud) events from the confirmed world; old coin/cloth files in `art/audio/sfx/retired/`. Unheard: REVIEW. See PROGRESS.md.)* Grabbing and dropping a bundle currently sounds like a gun
   being loaded. Replace the **grab** with a paper rustle or a quick banknote flutter, and the
   **drop and the landing** with a soft paper-bundle thud. CC0 only (Kenney, OpenGameArt CC0,
   freesound CC0 downloadable without an account, or similar); logged in `ASSETS.md` and `CREDITS.md`

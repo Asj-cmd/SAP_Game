@@ -2,6 +2,23 @@
 
 Newest first. One entry per task: date, task id, what changed, what the frames showed, numbers, what is left.
 
+## 2026-11-18 — PT3-2 Cash sounds are paper
+- Files (Kenney RPG Audio, CC0, already in gitignored `autobuild/Incoming/kenney/rpg-audio/` with its SOURCE.txt; unmodified, lengths from `ogg_info.mjs`):
+  - `grab_1` = bookFlip2 (0.43 s), `grab_2` = bookFlip3 (0.23 s). These are page flutters; bookFlip1 is 0.77 s, over the cap.
+  - `cash_1` = bookPlace1 (0.28 s), `cash_2` = bookPlace2 (0.35 s). These are soft thuds; banking cash used to play the coin clicks (handleCoins), the likely "gun being loaded".
+  - new `drop` = dropLeather (0.42 s); new `bundle_land` = bookPlace3 (0.26 s).
+  - No new file has click, latch, snap, cock, reload or metal in its name. Every sound starts within 0.04 s.
+- The old grab_1/2 (cloth) and cash_1/2 (coins) moved to `godot/art/audio/sfx/retired/`, not deleted. That folder has a `.gdignore` and is in the export `exclude_filter`.
+- Levels: `audio_probe --ends` rms over the first 0.25 s. Old grab 65 against flutters 15 / 22; old cash 60 against book thuds 124 / 140 / 131; dropLeather 77. The event dB match them: grab -4 → +3, cash -4 → -11, drop -7, bundle_land -13 (quieter than the drop, as the brief wanted).
+- Code (`GreyBoxMain`, confirmed world only, nothing written back):
+  - A carry that ends with the bundle in flight and no sideways speed plays `drop` at the carrier.
+  - `_bundle_landings` plays `bundle_land` where a bundle that left a hand stops flying uncaught.
+  - The first version thudded all eight bundles at the round start and at the reset (the sim settles them on their markers). Now only a bundle let go from a hand counts.
+  - `--anim-log` prints `anim drop` / `anim bundle_land`.
+- Checked: three headless `--solo --anim-log` runs, 80-120 s, no script errors. The last run, after the fix, had 10 grabs, 9 drops and 8 landings: each drop is followed by its landing within 0.1-0.2 s. The one exception is a bundle dropped at 73.9 s that landed at the 79.0 s round reset. No landings at round start. Nothing was heard (headless; REVIEW).
+- Full verify, run once: **healthy**. Test pins unchanged. Symmetry 190 of 190. Bot 3v3: team_a won, 526 s, 45 s stalls, deterministic. 1v1: 13 s stalls. Tick budget 0 / 2 / 7 (4v4 not gated). net_smoke: 1645 ticks agree. Render counters within limits.
+- Left: nothing for PT3-2. Next: PT3-3 (no brief yet).
+
 ## 2026-11-18 — PT3-1 Music only outside matches, and a quirky track
 - Rule: `GameAudio.music_wanted(screen)`, true for `menu`, `lobby`, `results`; false for `match`, `end_sequence` and any unknown screen. `set_screen` replaces `set_in_match` and the -12 dB duck: a change of screen tweens 1.0 s to 0 dB or to -80 dB, then pauses, so the track resumes where it stopped. The jingles are unchanged (own players on the Music bus), so they play over the fade.
 - Different from the brief: instead of calls added in `results_panel.gd` / `lobby_panel.gd`, `GreyBoxMain._music_screen()` works out the screen every frame from what is open (lobby open > results visible > match ready > menu) and passes it to `set_screen`, which does nothing unless the screen changed. Then no path that opens a screen can forget the call. PT2-7 adds `&"end_sequence"` there (a comment says so).
