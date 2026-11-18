@@ -56,14 +56,6 @@ func headroom(clear_height: float) -> float:
 ## the cost, and it is what makes taking the crawl space a decision rather than
 ## the obvious move.
 @export var crouch_speed_scale: float = 0.55
-## Seconds of unbroken forward running before the arms-up panic run starts (D9).
-## The count drives the animation only; it gives no speed (P4-8).
-##
-## Counted in ticks by MovementSystem while the player holds forward, stands
-## upright and actually moves. Letting go, stopping, being walled off,
-## crouching or being seized starts the count again; a jump or a fall with
-## forward still held does not, so hopping a fence mid-run keeps the pace.
-@export var panic_after_seconds: float = 2.0
 ## Multiplier on move_speed while the actor stands on ground its own team owns
 ## (its house and its side of the fence): defenders are faster at home (P4-8,
 ## REVIEW). Streets and the other family's ground give 1.0. It multiplies with

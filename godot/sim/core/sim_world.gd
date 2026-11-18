@@ -351,10 +351,6 @@ func invalidate_intent() -> void:
 		var entity: SimEntity = entities[entity_id]
 		if entity.is_actor():
 			entity.move_intent = Vector3.ZERO
-			# Part of the same move command, so thrown away with it; and a run
-			# never carries over a whistle into the next round.
-			entity.forward_held = false
-			entity.forward_ticks = 0
 			entity.held_jumps = 0
 
 ## Does this system run this tick? Dormant systems receive neither commands

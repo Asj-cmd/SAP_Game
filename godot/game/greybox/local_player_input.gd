@@ -47,9 +47,6 @@ var _has_sent_crouch: bool = false
 ## Last intent handed to the simulation. Intent persists there, so re-sending
 ## an unchanged one every tick would be noise.
 var _last_sent: Vector3 = Vector3.ZERO
-## Pushing forward (MoveCommand.forward), and the value last sent with a move.
-var _forward: bool = false
-var _last_forward_sent: bool = false
 ## The world's intent epoch as of the last command sent.
 var _intent_epoch: int = -1
 
@@ -75,7 +72,6 @@ func poll(delta: float) -> void:
 	if suspended:
 		_mouse_motion = Vector2.ZERO
 		_intent = Vector3.ZERO
-		_forward = false
 		_crouch = false
 		# Keep the edge latches current so a key held through the panel is not
 		# read as a fresh press when it closes.
@@ -97,9 +93,6 @@ func poll(delta: float) -> void:
 
 	var travel: Vector2 = _read_travel()
 	_intent = camera.intent_from(travel)
-	# Mostly forward: W (alone or with A/D), or the stick pushed up. What the
-	# panic run is earned with (D9); the sim decides whether it is earned.
-	_forward = travel.y < -0.5
 
 	# SPACE is jump - where every player's thumb already goes for it, and the
 	# verb used most often by far.
@@ -205,22 +198,16 @@ func drain(world: SimWorld, tick: int) -> Array[SimCommand]:
 	if _intent_epoch != world.intent_epoch:
 		_intent_epoch = world.intent_epoch
 		_last_sent = Vector3.ZERO
-		_last_forward_sent = false
 		# Stance is standing intent too, and is discarded by the same
 		# invalidation - so it has to be re-declared for the same reason.
 		_has_sent_crouch = false
 
-	# A change of the forward flag alone is a change too: a stick eased across
-	# the forward line can leave the intent equal within tolerance, and the run
-	# must still end (or start counting) on that tick.
-	var forward: bool = _forward and _intent != Vector3.ZERO
-	if not _intent.is_equal_approx(_last_sent) or forward != _last_forward_sent:
+	if not _intent.is_equal_approx(_last_sent):
 		_last_sent = _intent
-		_last_forward_sent = forward
 		if _intent == Vector3.ZERO:
 			commands.append(MoveCommand.stop(actor_id, tick))
 		else:
-			commands.append(MoveCommand.move(actor_id, _intent, tick, forward))
+			commands.append(MoveCommand.move(actor_id, _intent, tick))
 
 	if _jump_pressed:
 		_jump_pressed = false

@@ -73,8 +73,6 @@ func handle(world: SimWorld, command: SimCommand) -> void:
 		return
 	# A held actor may keep sending intent - it simply does not get to use it.
 	actor.move_intent = _clamp_intent(move.intent)
-	# Intent too: whether it EARNS the panic run is decided in step().
-	actor.forward_held = move.forward
 
 ## Clamps to unit length, so an over-long vector buys no extra speed.
 ##
@@ -125,8 +123,8 @@ func _advance(world: SimWorld, actor: SimEntity) -> void:
 ##
 ## Tested at the DESTINATION rather than swept. Bodies move one at a time against
 ## the others' current positions, so passing through needs a SINGLE step of more
-## than gap + diameter (over 80); the fastest step is a panic run's 21.6 a tick.
-## Two panic runners close at about 43 a tick between them, which does not
+## than gap + diameter (over 80); the fastest step is a home-side walk's ~19.4
+## a tick. Two runners close at about 39 a tick between them, which does not
 ## matter, and movement_system_test measures every head-on gap from 41 to 90
 ## (P4-4). A swept body-versus-body test would cost more than the case is worth.
 ## Revisit if a single step ever nears a body's width.
@@ -232,7 +230,6 @@ func _resolve(world: SimWorld, actor: SimEntity) -> SimEntity.MotionState:
 	if actor.is_captured:
 		actor.velocity = Vector3.ZERO
 		actor.stance = SimEntity.Stance.STANDING
-		actor.forward_ticks = 0
 		# A jump asked for in jail is spent here, never kept: left set, it fired
 		# by itself on the tick of release. Counted instead, so every machine
 		# agrees that a jailed body hopped in place (presentation only; D9).
@@ -251,15 +248,6 @@ func _resolve(world: SimWorld, actor: SimEntity) -> SimEntity.MotionState:
 	var state: SimEntity.MotionState = SimEntity.MotionState.IDLE
 	var travelling: bool = heading.length_squared() >= INTENT_DEADZONE_SQUARED
 
-	# The panic run's count (D9). Everything that ends a run and is known before
-	# the move ends it here, so the speed below never carries a boost into a
-	# crouch or a stop. A jump or a fall is NOT on the list: forward held through
-	# the air keeps the run.
-	var running: bool = travelling and actor.forward_held \
-		and actor.stance == SimEntity.Stance.STANDING
-	if not running:
-		actor.forward_ticks = 0
-
 	if travelling:
 		var speed: float = _speed_for(world, actor)
 		actor.velocity.x = heading.x * speed
@@ -271,10 +259,6 @@ func _resolve(world: SimWorld, actor: SimEntity) -> SimEntity.MotionState:
 		if not moved:
 			actor.velocity.x = 0.0
 			actor.velocity.z = 0.0
-		if running:
-			# Walled off ends the run; otherwise count, stopping at the threshold
-			# so the number stays small and means the same under any tuning.
-			actor.forward_ticks = mini(actor.forward_ticks + 1, _panic_ticks(world)) if moved else 0
 	else:
 		actor.velocity.x = 0.0
 		actor.velocity.z = 0.0
@@ -365,22 +349,6 @@ func _speed_for(world: SimWorld, actor: SimEntity) -> float:
 	if here != null and here.is_owned_by(actor.team):
 		speed *= world.tuning.home_speed_scale
 	return speed
-
-## Is this actor in the panic run (D9)? Forward held, upright, and the count
-## has reached panic_after_seconds. Static so tools can ask without a system.
-static func is_panicking(world: SimWorld, actor: SimEntity) -> bool:
-	if world.tuning == null or not actor.forward_held or actor.is_captured:
-		return false
-	if actor.stance != SimEntity.Stance.STANDING:
-		return false
-	return actor.forward_ticks >= _panic_ticks(world)
-
-## The panic threshold in ticks; never below 1, so a zero authored delay still
-## needs one tick of real running rather than boosting anyone holding forward.
-static func _panic_ticks(world: SimWorld) -> int:
-	if world.tuning == null:
-		return 1
-	return maxi(1, SimWorld.seconds_to_ticks(world.tuning.panic_after_seconds))
 
 ## The collision radius this body presents right now.
 ##

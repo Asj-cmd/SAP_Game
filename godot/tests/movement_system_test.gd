@@ -25,7 +25,6 @@ func _initialize() -> void:
 	_test_actors_are_solid()
 	_test_stance()
 	_test_jump()
-	_test_panic_run()
 	_test_home_speed()
 	_test_held_actor()
 	_test_bodies_like_walls()
@@ -686,71 +685,6 @@ func _test_jump() -> void:
 	low.step([JumpCommand.jump(croucher.id)] as Array[SimCommand])
 	_check("jump/refused while crouched", croucher.is_grounded, true)
 
-## The panic run (D9): forward held long enough, upright and actually moving,
-## drives the arms-up animation and gives no speed (P4-8). Each row is a script of phases (a command on the phase's
-## first tick, then that many ticks), and what the last tick must show: the
-## count, and how far the body went on that tick against an unboosted 1 a tick.
-func _test_panic_run() -> void:
-	var probe: TuningDef = TuningDef.new()
-	var boost: float = 1.0 # the panic run gives no speed (P4-8)
-	var carry: float = probe.carry_speed_scale
-	var crouch: float = probe.crouch_speed_scale
-	var after: int = 6 # panic_after_seconds 0.2 at 30 ticks a second
-	var cases: Array[Dictionary] = [
-		{"name": "no boost on the tick the count reaches the threshold",
-		 "phases": [["fwd", after]], "count": after, "step": 1.0},
-		{"name": "still no speed change on the tick after",
-		 "phases": [["fwd", after + 1]], "count": after, "step": boost},
-		{"name": "a move without the forward flag never boosts",
-		 "phases": [["side", 30]], "count": 0, "step": 1.0},
-		{"name": "letting go of forward resets",
-		 "phases": [["fwd", 10], ["side", 1]], "count": 0, "step": 1.0},
-		{"name": "stopping resets",
-		 "phases": [["fwd", 10], ["stop", 1], ["fwd", 1]], "count": 1, "step": 1.0},
-		{"name": "crouching resets, and the crouch gets no boost",
-		 "phases": [["fwd", 10], ["crouch", 1]], "count": 0, "step": crouch},
-		{"name": "a jump with forward held keeps the run",
-		 "phases": [["fwd", 10], ["jump", 8]], "count": after, "step": boost, "airborne": true},
-		{"name": "a carrier keeps the carry pace, no more",
-		 "phases": [["fwd", after + 1]], "count": after, "step": carry * boost, "carrying": true},
-		{"name": "walled off resets",
-		 "phases": [["fwd", 16]], "count": 0, "step": 0.0, "z": 180.0},
-		{"name": "being seized resets",
-		 "phases": [["fwd", 10], ["held", 1], ["none", 1]], "count": 1, "step": 1.0},
-	]
-	for case: Dictionary in cases:
-		var world: SimWorld = _verb_world()
-		world.tuning.move_speed = 30.0 # one unit a tick
-		world.tuning.panic_after_seconds = 0.2
-		var start_z: float = case.get("z", 10.0)
-		var runner: SimEntity = _add_actor(world, Vector3(50, FLOOR + VERB_RADIUS, start_z))
-		if case.get("carrying", false):
-			var cash: SimEntity = world.add_entity(SimEntity.new(SimEntity.NO_ENTITY, SimEntity.Kind.CARRIABLE))
-			runner.carrying_id = cash.id
-			cash.carried_by = runner.id
-		_settle(world)
-		var before: float = runner.position.z
-		for phase: Array in case["phases"]:
-			var what: String = phase[0]
-			for i: int in int(phase[1]):
-				var commands: Array[SimCommand] = []
-				if i == 0:
-					match what:
-						"fwd": commands.append(MoveCommand.move(runner.id, Vector3(0, 0, 1), world.tick, true))
-						"side": commands.append(MoveCommand.move(runner.id, Vector3(0, 0, 1), world.tick, false))
-						"stop": commands.append(MoveCommand.stop(runner.id, world.tick))
-						"crouch": commands.append(StanceCommand.crouch(runner.id))
-						"jump": commands.append(JumpCommand.jump(runner.id))
-				runner.is_captured = what == "held"
-				before = runner.position.z
-				world.step(commands)
-			runner.is_captured = false
-		var label: String = "panic/%s" % case["name"]
-		_check(label + " (count)", runner.forward_ticks, case["count"])
-		_close(label + " (pace)", runner.position.z - before, case["step"])
-		if case.has("airborne"):
-			_check(label + " (in the air)", runner.is_grounded, false)
-
 ## Defenders are faster at home (P4-8): the zone under the body is owned by its
 ## team. Each row: the zone's owner, the body's team, stance and cash, and the
 ## step it must make on one tick against an unscaled 1 a tick.
@@ -766,8 +700,6 @@ func _test_home_speed() -> void:
 		 "step": probe.carry_speed_scale * home},
 		{"name": "crouched at home", "owner": &"team_a", "team": &"team_a", "crouched": true,
 		 "step": probe.crouch_speed_scale * home},
-		{"name": "panicking at home gets only the home factor", "owner": &"team_a", "team": &"team_a",
-		 "panic": true, "step": home},
 	]
 	for case: Dictionary in cases:
 		var world: SimWorld = _verb_world()
@@ -782,12 +714,9 @@ func _test_home_speed() -> void:
 		_settle(world)
 		if case.get("crouched", false):
 			world.step([StanceCommand.crouch(runner.id)])
-		if case.get("panic", false):
-			runner.forward_ticks = SimWorld.seconds_to_ticks(world.tuning.panic_after_seconds)
-		var fwd: bool = case.get("panic", false)
-		world.step([MoveCommand.move(runner.id, Vector3(0, 0, 1), world.tick, fwd)])
+		world.step([MoveCommand.move(runner.id, Vector3(0, 0, 1), world.tick)])
 		var before: float = runner.position.z
-		world.step([MoveCommand.move(runner.id, Vector3(0, 0, 1), world.tick, fwd)])
+		world.step([MoveCommand.move(runner.id, Vector3(0, 0, 1), world.tick)])
 		_close("home/%s" % case["name"], runner.position.z - before, case["step"])
 
 ## A jailed actor (D9) may send anything: none of it moves the body, a jump is
@@ -813,7 +742,7 @@ func _test_held_actor() -> void:
 			var commands: Array[SimCommand] = []
 			for what: String in sends.get(i, []):
 				match what:
-					"move": commands.append(MoveCommand.move(prisoner.id, Vector3(1, 0, 0), world.tick, true))
+					"move": commands.append(MoveCommand.move(prisoner.id, Vector3(1, 0, 0), world.tick))
 					"crouch": commands.append(StanceCommand.crouch(prisoner.id))
 					"jump": commands.append(JumpCommand.jump(prisoner.id))
 			world.step(commands)
@@ -836,7 +765,7 @@ func _test_held_actor() -> void:
 const CROWD_FLOOR: float = 10.0
 
 ## A big flat floor with the GAME's tuning (TuningDef defaults: radius 20, pace
-## 540, panic x1.2, jump 900, gravity 2000, a 180 body), so the rows measure the
+## 540, jump 900, gravity 2000, a 180 body), so the rows measure the
 ## numbers a player meets rather than a scaled-down rig.
 func _crowd_world() -> SimWorld:
 	var room: ZoneDef = ZoneDef.new()
@@ -889,16 +818,16 @@ func _test_bodies_like_walls() -> void:
 	var fwd: Vector3 = Vector3(1, 0, 0)
 	var back: Vector3 = Vector3(-1, 0, 0)
 	var cases: Array[Dictionary] = []
-	# (a) head-on at the panic pace, every gap from just over a diameter to 90.
+	# (a) head-on at walking pace, every gap from just over a diameter to 90.
 	for gap: int in range(41, 91):
-		cases.append({"name": "head-on panic runners %d apart" % gap, "group": "a", "ticks": 12,
-			"bodies": [{"x": 500.0, "intent": fwd, "panic": true},
-				{"x": 500.0 + gap, "intent": back, "panic": true}]})
+		cases.append({"name": "head-on runners %d apart" % gap, "group": "a", "ticks": 12,
+			"bodies": [{"x": 500.0, "intent": fwd},
+				{"x": 500.0 + gap, "intent": back}]})
 	cases.append_array([
-		{"name": "b: a panic runner into a standing body", "ticks": 30, "still": 1,
-		 "bodies": [{"x": 500.0, "intent": fwd, "panic": true}, {"x": 600.0}]},
-		{"name": "b: a panic runner glancing a standing body", "ticks": 30, "still": 1,
-		 "bodies": [{"x": 500.0, "intent": fwd, "panic": true}, {"x": 600.0, "z": 215.0}]},
+		{"name": "b: a runner into a standing body", "ticks": 30, "still": 1,
+		 "bodies": [{"x": 500.0, "intent": fwd}, {"x": 600.0}]},
+		{"name": "b: a runner glancing a standing body", "ticks": 30, "still": 1,
+		 "bodies": [{"x": 500.0, "intent": fwd}, {"x": 600.0, "z": 215.0}]},
 		{"name": "c: a running jump at a standing body from 60", "ticks": 30, "still": 1,
 		 "bodies": [{"x": 500.0, "intent": fwd, "jump": true}, {"x": 560.0}]},
 		{"name": "c: a running jump at a standing body from 120", "ticks": 30, "still": 1,
@@ -931,8 +860,6 @@ func _test_bodies_like_walls() -> void:
 		for i: int in bodies.size():
 			var spec: Dictionary = case["bodies"][i]
 			bodies[i].is_captured = spec.get("held", false)
-			if spec.get("panic", false):
-				bodies[i].forward_ticks = SimWorld.seconds_to_ticks(world.tuning.panic_after_seconds)
 			starts.append(bodies[i].position)
 		var inside: bool = false
 		var through: bool = false
@@ -943,7 +870,7 @@ func _test_bodies_like_walls() -> void:
 				for i: int in bodies.size():
 					var spec: Dictionary = case["bodies"][i]
 					if spec.has("intent"):
-						commands.append(MoveCommand.move(bodies[i].id, spec["intent"], world.tick, spec.get("panic", false)))
+						commands.append(MoveCommand.move(bodies[i].id, spec["intent"], world.tick))
 					if spec.get("jump", false):
 						commands.append(JumpCommand.jump(bodies[i].id))
 			var before: Array[Vector3] = []
@@ -993,4 +920,4 @@ func _test_bodies_like_walls() -> void:
 			continue
 		_check(label + " (never inside)", inside, false)
 		_check(label + " (never through)", through, false)
-	_check("walls/a: head-on panic runners never pass through (gaps 41-90)", failed_a, PackedStringArray())
+	_check("walls/a: head-on runners never pass through (gaps 41-90)", failed_a, PackedStringArray())

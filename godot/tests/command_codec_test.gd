@@ -12,7 +12,7 @@ extends SceneTree
 ## Fidelity is asserted on BIT PATTERNS, never approximately. An approximate
 ## comparison passes for exactly the drift it is supposed to catch.
 
-const EXPECTED_CHECKS: int = 24
+const EXPECTED_CHECKS: int = 23 # 24 until PT2-2 removed the forward-flag move row
 
 var _passed: int = 0
 var _failed: int = 0
@@ -51,9 +51,6 @@ func _check(case_name: String, actual: Variant, expected: Variant) -> void:
 func _test_round_trip() -> void:
 	var sent: Array[SimCommand] = [
 		MoveCommand.move(7, Vector3(0.30000001192092896, 0.0, -0.949999988079071), 41),
-		# The forward flag is the panic run's only input (P4-1): a move that lost
-		# it on the wire would read as a strafe and end the run.
-		MoveCommand.move(7, Vector3(0.30000001192092896, 0.0, -0.949999988079071), 41, true),
 		MoveCommand.stop(7, 42),
 		CarryCommand.pick_up(7, 19, 43),
 		CarryCommand.drop(7, 44),
