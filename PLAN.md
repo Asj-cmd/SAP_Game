@@ -54,7 +54,7 @@ other task here is verified by tests and numbers. The family display names come 
   `HOW_TO_PLAY.md` how to swap it (which file, which format, rebuild the exe). Do not use any meme
   clip. Log every file in `ASSETS.md` and `CREDITS.md` (name, author, licence, URL), with the CC0
   proof next to it as for the other assets. The export must include the sfx folder. No frames.
-- [ ] **PT2-5 Bring back the realistic house.** The user says the house looked more realistic and
+- [x] **PT2-5 Bring back the realistic house.** *(Done 2026-11-18: nothing had been lost; what looked flat was never textured. Carpets, rugs, upholstery, ceiling, jail concrete and path now textured; furniture wood and worktops world-triplanar; walls shade darker toward the floor. Frames in `autobuild/frames/pt2_5/`. See PROGRESS.md.)* The user says the house looked more realistic and
   polished before; now it looks as flat and cartoony as the figures. The intended contrast is a
   realistic house with silly figures (D2). Compare an older commit's frames (around P3-2 / P3-3) with
   today's (a git worktree at the old commit is fine; do not touch the working tree). Find what

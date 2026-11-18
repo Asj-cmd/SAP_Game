@@ -2,59 +2,6 @@
 
 Written by the planner from a quick read. If a fact here is wrong, the code and `DECISIONS.md` win.
 
-## PT2-5 — Bring back the realistic house
-
-**Approach**
-1. Diagnose by reading code first, no frames yet. The reference is commit `23ad3fd` (P3-3b: textured shell
-   and furniture, before P3-4 exterior, P3-5 lighting and P3-6 merge). Diff it against HEAD for
-   `godot/art/theme/default_theme.tres`, `godot/game/art/art_theme.gd`, `shell_builder.gd`, `mesh_merge.gd`,
-   `furniture_dresser.gd`, `godot/game/greybox/world_backdrop.gd`, `player_settings.gd`.
-2. Suspects found in a quick read, check each:
-   - `interior_energy` went 1.2 → 0.4 in P3-5, and room lamps are off: interiors may be lit only by ambient and fill,
-     which flattens them.
-   - `MeshMerge` (P3-6) appends every surface into one SurfaceTool per material. `SurfaceTool.append_from` takes the
-     vertex format of what is appended first: if a piece without UVs or tangents comes first, the merged surface can
-     lose UVs and its textures draw as one flat colour. Check that the merged furniture, cash and tree meshes keep
-     `ARRAY_TEX_UV` and normals.
-   - Roughness changes in the theme (several surfaces 0.7 → 0.55 etc.), tints added in P3-4 / P3-7.
-   - P7-2 quality presets: what High does to the shadow atlas size (`shadow_size: -1`) and `scaling_3d_scale`.
-   - Texture imports: mipmaps / VRAM compression settings in the `.import` files of `godot/art/textures/*`.
-3. Fix on the **High** preset: restore textures (UVs through the merge), materials, interior light. Medium and Low
-   may keep the cheaper settings. Room lamps stay off unless the gate still passes with them (P3-5 measured
-   +4.2 ms per indoor view; it will not).
-4. Before half of the frame set: `git worktree add ../cg_before 23ad3fd` (never touch the working tree), one
-   `--import` there, then the views below with that commit's own `views.json` (P3-8 moved some views; compare by name).
-   Copy the results to `autobuild/frames/pt2_5/before_<view>.png`. Remove the worktree after (`git worktree remove`).
-5. After half: the same views on HEAD into `autobuild/frames/pt2_5/after_<view>.png`
-   (`node autobuild/verify.mjs --frames-only --views=...`).
-6. Log in `DECISIONS.md` what flattened it and what you changed (REVIEW for the look), and STYLE.md §4 if the lighting
-   numbers change.
-
-**Already decided**
-- Reference commit `23ad3fd`. Realistic house, silly figures (D2): only the house changes.
-- The fix goes in theme data and the merge / builder code; High preset only where it costs GPU.
-- Budgets are what the full verify gates (draws and triangles of three views). No separate `render_stats.mjs` timing runs.
-
-**Files likely touched**
-- `godot/art/theme/default_theme.tres`, `godot/game/art/art_theme.gd`, `godot/game/art/mesh_merge.gd`,
-  `godot/game/art/shell_builder.gd`, `godot/game/greybox/world_backdrop.gd`, `godot/game/greybox/player_settings.gd`
-- `DECISIONS.md`, `STYLE.md`, `PROGRESS.md`
-
-**Done means**
-- Full `node autobuild/verify.mjs` once at the end: healthy, render counters within limits.
-- **Frames (one before/after set, at most one redo of the after half):** views `room_a_gf_kitchen`, `room_a_up_study`,
-  `room_a_up_bedroom`, `room_a_gf_fronthall`, `cam_kitchen_look_down`, `ext_a_south`. Each after frame must show
-  textured surfaces with visible grain (wood floors, tile, plaster, brick), furniture with its own shading and
-  texture (not one flat colour per piece), walls, floor and ceiling clearly different in brightness, a sun shadow on
-  the exterior, and look at least as realistic as its before frame. In PROGRESS.md describe what each before and
-  after frame actually shows.
-
-**Do NOT**
-- Change collision, zones, `build_house.gd` geometry, `house.tscn`, or anything in `content/`.
-- Touch the figures, hair (PT2-8) or UI (PT2-6).
-- Add Forward+-only features (SSAO, SSR, SDFGI, volumetric fog) or new downloaded textures (the CC0 ones in `godot/art/textures/` are enough).
-- Run render sweeps, more capture sets, or bot work.
-
 ## PT2-6 — UI art pass
 
 **Approach**

@@ -389,7 +389,16 @@ cheap parts, each measured (P1-1's rule: run `render_stats.mjs --views=room_` be
   redraws the whole shell. Lamps come back only if P3-6 splits the shell per room. The ceiling
   fitting (a drum shade, unshaded, warm or cold white by room) is drawn anyway (`interior_fittings`).
 - **Room character from materials:** the jail has blue-grey painted block walls and a cool grey
-  concrete floor; the kitchen warm tiles; ceilings a step darker than walls (`ceiling` 0.8).
+  concrete floor; the kitchen warm tiles; ceilings a step darker than walls (`ceiling` 0.8; PT2-5
+  made it a textured off-white, still darker than the walls because only ambient reaches it).
+- **PT2-5 (2026-11-18): every interior surface has grain.** Carpets, rugs and upholstery use a
+  fine engine-made noise "weave" (`NoiseTexture2D` in the theme, 0.84 to 1.0); the ceiling is an
+  off-white painted ceiling with a finer, fainter grain (0.93 to 1.0) instead of the flat 0.8 grey;
+  the jail's concrete floor and the lot path use their Poly Haven textures; furniture wood is the
+  oak laminate, world-triplanar (UV-free, so the Kenney palette UVs don't matter); worktops are the
+  concrete texture in dark grey. Interior walls shade from 0.7 at the floor to 1.0 at the ceiling
+  (`wall_shade_floor`, vertex colour from `ShellBuilder`), standing in for the light falloff the
+  missing room lamps would give. Lighting numbers unchanged.
 - **Contact shadows** (`ContactShadows`, one MultiMesh): a soft disc on the floor under every
   figure (radius 30 × height/180) and every loose bundle (radius 45, so it shows past the bundle),
   alpha 0.35, widening and fading with height, on the floor below a jumping body.

@@ -2,6 +2,18 @@
 
 Newest first. One entry per task: date, task id, what changed, what the frames showed, numbers, what is left.
 
+## 2026-11-18 — PT2-5 Bring back the realistic house
+- Start: the tree was dirty with an earlier session's unfinished PT2-5 edits to `default_theme.tres` (anisotropic filtering, concrete texture on the jail floor, textured ceiling, an unused noise "weave"). It was clearly this task, so it was kept and finished.
+- Diagnosis (code, against `23ad3fd`): nothing was lost. `MeshMerge` keeps UVs (`append_from` ORs the formats), room lamps were off then too, High = theme shadow size at scale 1.0, texture imports have mipmaps. The flat look comes from surfaces that were never textured: carpets, rugs, upholstery, ceiling (a flat 0.8 grey since P3-5), jail concrete, lot path, and the Kenney furniture (one flat colour per piece).
+- Changes (theme data + `ShellBuilder`): noise weave on carpets/rugs/fabric; an off-white ceiling with a fainter grain; concrete on the jail floor, pavement on the lot path; world-triplanar oak on furniture wood and dark concrete on worktops; interior walls shade 0.7 → 1.0 floor to ceiling by vertex colour (`ArtTheme.wall_shade_floor`). Lighting unchanged. DECISIONS rows (REVIEW), STYLE §4.
+- Before frames: `git worktree add` was refused by this session's permissions, so the before half is the older captures on disk, copied to `autobuild/frames/pt2_5/*.png`; after = `pt2_5/after/`. What they show:
+  - before `cam_study_vault_a` / `cam_bedroom_vault_a` / `cam_kitchen_look_down` (2026-11-14): plaster walls and tiles textured; carpet one flat olive-green colour; ceiling a flat tan; furniture flat brown with no grain.
+  - before `room_a_*` (2026-11-16): the same, with a flat slate-blue study carpet and a flat grey-brown ceiling taking the top third of the frame.
+  - after, first shot: the ceiling plaster came out as muddy tan stucco with large blotches, and the carpets as coarse sandy mottling. Used the one redo on both: finer, lower-contrast weave (0.84–1.0, freq 0.14) and a separate faint off-white ceiling grain.
+  - after redo: `room_a_up_study`: blue-grey carpet with a fine even weave, off-white ceiling with faint grain, beige walls visibly darker at the foot, desk and chest of drawers with wood grain. `room_a_up_bedroom`: beige carpet still a little sandy but fine-grained, wardrobe and bed frame grained, grey bedding textured. `room_a_gf_fronthall`: oak plank floor, grained console table, faintly textured rug, the stair wall shaded. `room_a_gf_kitchen` / `cam_kitchen_look_down`: tiles as before, cabinets wood-grained, the island worktop a dark speckled stone. `ext_a_south`: brick house, railing and post shadows on the pavement (sun shadow on), no change. In every interior frame the ceiling, walls and floor differ clearly in brightness. Interiors are still lit flatly (no lamps); that is the remaining limit.
+- Full verify, run once: healthy; 3v3 bot team_a 526 s, 45 s stalls, deterministic; 1v1 13 s; symmetry 190 of 190; tick budget 0 / 2 / 9 (4v4 not gated); net_smoke 1646 ticks agree; render counters approach_from_south 416 draws / 205k tris, cam_railing_backed 362 / 183k, room_b_gf_kitchen 331 / 146k (all within limits).
+- Left: PT2-6.
+
 ## 2026-11-17 — PT2-4 Music and stings
 - Files (all CC0, rows in ASSETS.md and CREDITS.md, proof pages + SOURCE.txt in gitignored `autobuild/Incoming/music`, `boing`, `kenney/music-jingles`):
   - `art/audio/music/loop.ogg`: "jazz improvisation looped", Alex McCulloch (OpenGameArt), 131.9 s, the site's own .ogg. Measured: sound runs 0.23..128.20 s, then 3.7 s of silence, so `GameAudio.MUSIC_LOOP_END` = 128.3 s seeks back to 0 (in `_process`).

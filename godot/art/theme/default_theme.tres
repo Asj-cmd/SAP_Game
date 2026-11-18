@@ -20,13 +20,13 @@
 
 [sub_resource type="Gradient" id="weave_ramp"]
 offsets = PackedFloat32Array(0, 1)
-colors = PackedColorArray(0.74, 0.74, 0.74, 1, 1, 1, 1, 1)
+colors = PackedColorArray(0.84, 0.84, 0.84, 1, 1, 1, 1, 1)
 
 [sub_resource type="FastNoiseLite" id="weave_noise"]
 noise_type = 1
 seed = 11
-frequency = 0.06
-fractal_octaves = 4
+frequency = 0.14
+fractal_octaves = 3
 
 [sub_resource type="NoiseTexture2D" id="weave"]
 width = 256
@@ -34,6 +34,23 @@ height = 256
 seamless = true
 color_ramp = SubResource("weave_ramp")
 noise = SubResource("weave_noise")
+
+[sub_resource type="Gradient" id="ceiling_ramp"]
+offsets = PackedFloat32Array(0, 1)
+colors = PackedColorArray(0.93, 0.93, 0.93, 1, 1, 1, 1, 1)
+
+[sub_resource type="FastNoiseLite" id="ceiling_noise"]
+noise_type = 1
+seed = 5
+frequency = 0.08
+fractal_octaves = 4
+
+[sub_resource type="NoiseTexture2D" id="ceiling_grain"]
+width = 256
+height = 256
+seamless = true
+color_ramp = SubResource("ceiling_ramp")
+noise = SubResource("ceiling_noise")
 
 [sub_resource type="StandardMaterial3D" id="ext_pavement"]
 resource_name = "ext_pavement"
@@ -214,10 +231,10 @@ texture_filter = 5
 
 [sub_resource type="StandardMaterial3D" id="ceiling"]
 resource_name = "ceiling"
-albedo_color = Color(1.18, 1.17, 1.13, 1)
-albedo_texture = ExtResource("t_plaster")
+albedo_color = Color(0.97, 0.97, 0.96, 1)
+albedo_texture = SubResource("ceiling_grain")
 roughness = 0.95
-uv1_scale = Vector3(0.0035, 0.0035, 1)
+uv1_scale = Vector3(0.004, 0.004, 1)
 texture_filter = 5
 
 [sub_resource type="StandardMaterial3D" id="trim"]
