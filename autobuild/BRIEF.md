@@ -2,60 +2,6 @@
 
 Written by the planner from a quick read. If a fact here is wrong, the code and `DECISIONS.md` win.
 
-## PT4-5 — Minimap pointers per member
-
-**Approach**
-1. Extend `TeamTellOverlay.Body` (`game/greybox/team_tell_overlay.gd`) with `member: StringName`
-   and `heading: float`. Fill both in `GreyBoxMain._update_tell` (`greybox_main.gd`, around line
-   1783):
-   - the member from `ArtTheme.current().member_for(team, slot, …)`, the same call
-     `FamilyLineup` uses, so kid swap (`family_order_by_team`) is honoured. Find how the lineup gets
-     the slot and reuse it;
-   - the heading from the drawn facing (`_facings[entity_id]`), not from the camera.
-2. Write one pure static function, for example
-   `TeamTellOverlay.pointer(member, mine, heading) -> {shape, radius, points: PackedVector2Array}`
-   in map axes (after `_turn`). `_draw_map` only draws what it returns.
-3. Shapes:
-   - dad: a square;
-   - mom: a diamond;
-   - any `*_boy`: a triangle whose apex is the facing;
-   - any `*_girl`: a circle.
-   Each one except the triangle gets a short notch or tick pointing the way it faces.
-   Fill: the family colour (`ArtTheme.family_colour`). Each shape has a thin dark rim, as the dots
-   have now.
-4. The player's own body: 1.3× radius plus a 2 px cream outline. It replaces the white camera arrow.
-5. Draw every actor body of both families, bots and players alike. Draw the own body last, so it
-   sits on top.
-
-**Already decided**
-- Base radius 5 px; own body 6.5 px. Elder and younger children share the son and daughter shapes.
-- Both families are drawn on the minimap. This reverses STYLE §2.4's "(b) teammates only". The
-  user's PT4-5 text asks for each figure in its family colour, bots and players alike. Log as
-  **REVIEW** in `DECISIONS.md`, and keep it one constant (`MAP_SHOWS_ENEMIES := true`) so it is
-  cheap to undo. Update the minimap line in `STYLE.md` §2.4.
-- The marker (`_draw_marks`) stays teammates only. Do not change it.
-- Heading convention: use the same yaw the body is drawn with. Check one known case, a body facing
-  +z in world space, and confirm its notch points the way `_turn` maps +z.
-
-**Files likely touched**
-`godot/game/greybox/team_tell_overlay.gd`, `godot/game/greybox/greybox_main.gd`,
-`godot/tests/match_status_test.gd` (the overlay's case table goes here, next to the other HUD
-helpers), `autobuild/test_baseline.json`, `STYLE.md`, `DECISIONS.md`, `PROGRESS.md`, `PLAN.md`.
-
-**Done means**
-- One table-driven test of `pointer(...)` over dad, mom, elder_girl, elder_boy, younger_girl and
-  younger_boy, each with `mine` true and false: the shape name, the radius (5 / 6.5), and for two
-  headings (0 and 90°) that the facing point or notch sits in the expected direction. Ratchet the
-  pin.
-- The full `node autobuild/verify.mjs`, run ONCE at the end: healthy.
-
-**Do NOT**
-- Shoot frames (not a frame task).
-- Add a new test file.
-- Read the sim from the overlay; it gets everything from `GreyBoxMain`.
-- Change the minimap outline from PT4-4, or the marker.
-- Add icons or textures; these are plain polygons.
-
 ## PT4-6 — Hands and arms
 
 **Approach**

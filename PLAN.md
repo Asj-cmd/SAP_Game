@@ -132,7 +132,7 @@ are typed by the players (see PT3-3).
   results). (3) Hide the "[F1] debug HUD" label unless the game is a debug/dev build
   (`OS.is_debug_build()`); the exe is a release build, so friends do not see it. No frames: check by
   tests and by what the code draws.
-- [ ] **PT4-5 Minimap pointers per member.** Each figure on the minimap is a shape in its family
+- [x] **PT4-5 Minimap pointers per member.** *(Done 2026-11-18: `TeamTellOverlay.pointer` (square / diamond / triangle / circle, notch or apex the drawn facing, own 6.5 px with a cream outline), both families drawn (`MAP_SHOWS_ENEMIES`, REVIEW); member from `member_for` with kid swap, heading from the drawn yaw; `match_status_test` 15 -> 63. No frames. See PROGRESS.md.)* Each figure on the minimap is a shape in its family
   colour: **dad square, mom diamond, son triangle, daughter circle** (elder and younger boys / girls
   keep the son and daughter shapes), each pointing the way it faces (a short pointer or notch;
   triangle points itself). The player's own one is outlined and slightly bigger. Bots and players

@@ -2,6 +2,27 @@
 
 Newest first. One entry per task: date, task id, what changed, what the frames showed, numbers, what is left.
 
+## 2026-11-18 — PT4-5 Minimap pointers per member
+- `TeamTellOverlay.Body` gains `member` and `heading`, both filled in `GreyBoxMain._update_tell`:
+  - `member` comes from `ArtTheme.member_for(team, slot, kid_swap)`, the same call that picks the drawn figure, so kid swap is honoured.
+  - `heading` is the drawn yaw from `_facings` (atan2(x, z)), not the camera.
+- New pure `TeamTellOverlay.pointer(member, mine, heading, up)` returns the shape, radius, facing, polygon, notch and tip in map pixels. `_draw_map` draws only what it returns, through `_draw_pointer`.
+  - Dad is a square and mom a diamond, both turned with the facing. Any `*_boy` is a triangle with its apex the facing. Any `*_girl` (and a body with no member) is a circle.
+  - Every shape except the triangle has a 4 px notch the way it faces.
+  - Each is filled in its family colour with a dark rim. The radius is 5 px; your own is 6.5 px with a 2 px cream outline and is drawn last, replacing the white camera arrow.
+  - `_turn` became the static `turn(world, up)` so the test can use it.
+- Both families are drawn, bots and players alike (`MAP_SHOWS_ENEMIES = true`, REVIEW). The marker over heads stays teammates only. STYLE §2.4 is updated.
+- Known case checked in the test, with up = world +z: a body facing +z (heading 0) points up the screen, and one facing +x (heading 90°) points screen left, which is +x as seen looking along +z.
+- Tests: `match_status_test` 15 → 63, pinned. For dad, mom, elder/younger girl and elder/younger boy, each with mine true and false, it checks the shape, the radius (5 / 6.5), and the tip direction at headings 0 and 90° (apex for the triangle, notch for the others). A headless 4v4 `--solo --team-tell=minimap,kid_swap` run (35 s) printed no script errors.
+- Not looked at (no frames, per the diet): the shapes' size and legibility on the 210 px map are unconfirmed by eye.
+- Full verify, run once: **healthy**.
+  - 20 suites at their pins (match_status 63). Symmetry 190 of 190.
+  - Bot 3v3: team_b won, 402 s, 67 s stalls. 1v1: team_a, 8 s stalls. Both deterministic and unchanged.
+  - Tick budget 0 / 3 / 8 (gate is ≤5; 4v4 not gated).
+  - net_smoke: 1643 ticks agree.
+  - Render counters within limits (416 / 364 / 330 draws).
+- Left: someone looking at the minimap in a match. Next: PT4-6 (a frame task).
+
 ## 2026-11-18 — PT4-4 HUD fixes
 - **Cash bar: what the cause was.** None of the brief's code candidates. The bar's code was right both in the exe the user played (`build/CashGrab.exe`, built 2026-11-17 22:24, before PT2-6; `git show 9804c26` has the same split and colour lookup) and now.
   - `autobuild/frames/pt2_6/hud.png` (opened, not re-shot) shows sage from the left and terracotta from the right at 1 v 5, split right.
