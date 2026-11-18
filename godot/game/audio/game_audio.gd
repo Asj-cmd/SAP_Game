@@ -32,6 +32,9 @@ const EVENTS: Dictionary = {
 	&"land": {"files": ["land"], "db": -6.0},
 	&"cash": {"files": ["cash_1", "cash_2"], "db": -4.0},
 	&"sting": {"files": ["sting"], "db": -6.0},
+	# PT2-2: a carrier spotted by the family whose cash it holds. Placeholder: the
+	# sting, pitched up; PT2-4 may give it its own file.
+	&"spotted": {"files": ["sting"], "db": -5.0, "pitch": 1.25},
 	&"tick": {"files": ["tick"], "db": -8.0},
 	&"ui": {"files": ["ui_click"], "db": -8.0},
 }
@@ -125,7 +128,7 @@ func play_flat(event: StringName) -> void:
 		return
 	player.stream = stream
 	player.volume_db = float(EVENTS[event]["db"])
-	player.pitch_scale = 1.0
+	player.pitch_scale = float(EVENTS[event].get("pitch", 1.0))
 	player.play()
 
 ## Called once per body per frame with where it is and whether it is walking on the floor.

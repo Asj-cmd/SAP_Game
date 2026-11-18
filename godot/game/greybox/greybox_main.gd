@@ -119,6 +119,16 @@ var _animators: Dictionary[int, FigureAnimator] = {}
 var _anim_carrying: Dictionary[int, int] = {}
 var _anim_captured: Dictionary[int, bool] = {}
 var _anim_sentence: Dictionary[int, int] = {}
+## Spotted startle (PT2-2), presentation only: per carrier, the bundle it held
+## when last spotted and the tick that happened. Re-arms after SPOTTED_COOLDOWN,
+## or at once when the carrier holds a different bundle (or none).
+var _spotted_bundle: Dictionary[int, int] = {}
+var _spotted_tick: Dictionary[int, int] = {}
+## A defender of the cash's family this close (horizontal, units) and within
+## SPOTTED_HEIGHT vertically spots the carrier. No line of sight test (REVIEW).
+const SPOTTED_DISTANCE: float = 600.0
+const SPOTTED_HEIGHT: float = 200.0
+const SPOTTED_COOLDOWN: float = 8.0
 var _anim_last_seen: Dictionary[int, Vector3] = {}
 ## `--anim-log`: print every one-shot as it fires (who, which, sim time), to find
 ## the moment a follow sheet should catch.
@@ -1560,12 +1570,10 @@ func _animate(drawn: SimWorld, truth: SimWorld, mine: int, remote: bool, delta: 
 		if entity == null:
 			continue
 		var motion: SimEntity = entity
-		var motion_world: SimWorld = truth
 		if not remote or entity_id == mine:
 			var local: SimEntity = drawn.get_entity(entity_id)
 			if local != null:
 				motion = local
-				motion_world = drawn
 		var animator: FigureAnimator = _animators[entity_id]
 		var was_carrying: int = _anim_carrying.get(entity_id, SimEntity.NO_ENTITY)
 		if was_carrying != SimEntity.NO_ENTITY and entity.carrying_id != was_carrying:
@@ -1604,17 +1612,62 @@ func _animate(drawn: SimWorld, truth: SimWorld, mine: int, remote: bool, delta: 
 		audio.body(entity_id, motion.position, motion.is_grounded,
 			not entity.is_captured and motion.velocity.length() > 1.0, entity_id == mine)
 		animator.update(motion, entity.is_carrying(), entity.is_captured, move_speed, delta,
-			level.tuning.crouch_speed_scale, MovementSystem.is_panicking(motion_world, motion))
+			level.tuning.crouch_speed_scale)
 	for victim: int in seized:
 		_act_nearest(truth, victim, false)
 		_feedback_body(truth, victim, mine, true)
 	for victim: int in freed:
 		_act_nearest(truth, victim, true)
 		_feedback_body(truth, victim, mine, false)
+	_spot_carriers(truth, mine)
 	for entity_id: int in _animators:
 		var seen: SimEntity = truth.get_entity(entity_id)
 		if seen != null:
 			_anim_last_seen[entity_id] = seen.position
+
+## The spotted startle (PT2-2). From the CONFIRMED world, each frame: a body
+## carrying another family's cash, with a free member of that family within
+## SPOTTED_DISTANCE (and SPOTTED_HEIGHT), is spotted - once per carry, then not
+## again for SPOTTED_COOLDOWN while it holds the same bundle. The carrier's figure
+## jolts and both of them hear the sting. Presentation only: nothing here reaches
+## the sim, the bots or the network; every machine works it out for itself.
+func _spot_carriers(truth: SimWorld, mine: int) -> void:
+	var cooldown: int = SimWorld.seconds_to_ticks(SPOTTED_COOLDOWN)
+	var actors: Array[int] = truth.actor_ids()
+	for carrier_id: int in actors:
+		var carrier: SimEntity = truth.get_entity(carrier_id)
+		if carrier == null or not carrier.is_carrying() or carrier.is_captured:
+			_spotted_bundle.erase(carrier_id)
+			continue
+		var bundle: SimEntity = truth.get_entity(carrier.carrying_id)
+		if bundle == null or bundle.team == &"" or bundle.team == carrier.team:
+			continue
+		if _spotted_bundle.get(carrier_id, SimEntity.NO_ENTITY) == bundle.id:
+			var since: int = truth.tick - _spotted_tick.get(carrier_id, truth.tick)
+			if since >= 0 and since < cooldown:
+				continue
+		var spotter: int = SimEntity.NO_ENTITY
+		for other_id: int in actors:
+			var other: SimEntity = truth.get_entity(other_id)
+			if other == null or other.team != bundle.team or other.is_captured:
+				continue
+			var gap: Vector3 = other.position - carrier.position
+			if absf(gap.y) < SPOTTED_HEIGHT and Vector2(gap.x, gap.z).length() <= SPOTTED_DISTANCE:
+				spotter = other_id
+				break
+		if spotter == SimEntity.NO_ENTITY:
+			continue
+		_spotted_bundle[carrier_id] = bundle.id
+		_spotted_tick[carrier_id] = truth.tick
+		if _animators.has(carrier_id):
+			_animators[carrier_id].startle()
+		if carrier_id == mine and not _cameras.is_empty():
+			_cameras[0].nudge(NUDGE_LANDING)
+		if carrier_id == mine or spotter == mine:
+			audio.play_flat(&"spotted")
+		if _anim_log:
+			print("anim spotted  %s:%d by %d  t=%.1f" % [carrier.team, carrier.slot, spotter,
+				truth.tick * SimWorld.SECONDS_PER_TICK])
 
 ## "You", or "<family> <member>" (for example "<family> dad").
 func _who_text(entity: SimEntity, mine: int) -> String:
@@ -1852,12 +1905,17 @@ func _drawn_height(entity_id: int, entity: SimEntity, view: MeshInstance3D,
 		# the view itself, its contact shadow and the camera do not move.
 		# A jail hop (P4-3) lifts it the same way: drawn only, the sim's body
 		# stays on the holding spot, and so do its shadow and the camera.
-		var dip: float = _animators[entity_id].settle_dip() - _animators[entity_id].hop_lift()
+		# The spotted startle (PT2-2) lifts it and leans it back about the feet
+		# (forward is local +z, so back is a negative x turn); drawn only too.
+		var figure_anim: FigureAnimator = _animators[entity_id]
+		var dip: float = figure_anim.settle_dip() - figure_anim.hop_lift() - figure_anim.startle_lift()
+		var lean: float = -figure_anim.startle_lean()
 		for child: Node in view.get_children():
 			var held: Node3D = child as Node3D
 			if held != null:
 				held.scale = Vector3.ONE
 				held.position = Vector3(0.0, -eased * 0.5 - dip, 0.0)
+				held.rotation.x = lean
 		return eased
 	for child: Node in view.get_children():
 		var figure: Node3D = child as Node3D
@@ -1950,6 +2008,8 @@ func _clear_animators() -> void:
 	_anim_captured.clear()
 	_anim_sentence.clear()
 	_anim_last_seen.clear()
+	_spotted_bundle.clear()
+	_spotted_tick.clear()
 	_fb_scores.clear()
 	_fb_air = 0
 	feedback.clear_lines()

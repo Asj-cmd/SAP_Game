@@ -65,6 +65,14 @@ const ACTION_SPAN: Dictionary[StringName, Vector2] = {
 ## its plain idle pose.
 const SETTLE_DEPTH: float = 6.0
 const SETTLE_TIME: float = 0.2
+## Spotted startle (PT2-2): a carrier seen by the family whose cash it holds
+## jolts once, drawn only: up STARTLE_HEIGHT over STARTLE_RISE, back to 0 by
+## STARTLE_TIME, leaning back up to STARTLE_LEAN degrees about the feet. No clip,
+## no speed change; it ends at exactly 0 (D2: stiff, no squash and stretch).
+const STARTLE_HEIGHT: float = 10.0
+const STARTLE_RISE: float = 0.08
+const STARTLE_TIME: float = 0.5
+const STARTLE_LEAN: float = 4.0
 ## One-shot fade-in, seconds. The grab has none: the carry clip lifts the arms
 ## (and the bundle drawn on the hands) the frame carrying begins, so a fade-in
 ## showed the bundle overhead for a moment before the reach down to take it.
@@ -86,7 +94,7 @@ const HELD_DEADZONE: float = 0.05
 
 ## The base clips the Transition holds. Order is the input order.
 const BASE_CLIPS: Array[StringName] = [
-	&"idle", &"walk", &"jog", &"panic_run", &"crouch_idle", &"crouch_walk",
+	&"idle", &"walk", &"jog", &"crouch_idle", &"crouch_walk",
 	&"jump_start", &"jump_air", &"jump_land",
 	&"carry_idle", &"carry_walk", &"carry_jog", &"carry_crouch_idle",
 	&"carry_crouch_walk", &"carry_jump_start", &"carry_jump_air", &"carry_jump_land",
@@ -107,6 +115,8 @@ var clip: StringName = &"idle"
 var _act_clip: AnimationNodeAnimation = null
 var _action: AnimationNodeOneShot = null
 var _settle_left: float = 0.0
+## Seconds into a spotted startle; -1 when none is playing.
+var _startle_for: float = -1.0
 var _hand_l: int = -1
 var _hand_r: int = -1
 var _airborne_for: float = 0.0
@@ -200,12 +210,12 @@ func _build_tree(clips: AnimationLibrary, skeleton_path: String) -> void:
 ## Static and pure: the whole choice in one place.
 static func base_clip(entity: SimEntity, carrying: bool, captured: bool, speed: float,
 		move_speed: float, airborne_for: float, jump_for: float, land_left: float,
-		hop_for: float = -1.0, panicking: bool = false) -> StringName:
+		hop_for: float = -1.0) -> StringName:
 	var carry: String = "carry_" if carrying else ""
 	var crouched: bool = entity.stance == SimEntity.Stance.CROUCHED
 	if captured or entity.motion_state == SimEntity.MotionState.HELD:
-		# In place, from the intent (D9). Never the panic run (the sim's count is
-		# 0 in jail) and never a carry clip (a seized carrier drops the cash).
+		# In place, from the intent (D9). Never a carry clip (a seized carrier
+		# drops the cash).
 		if hop_for >= 0.0:
 			return &"jump_start" if hop_for < HOP_START else &"jump_air"
 		if land_left > 0.0 and speed < STILL_SPEED:
@@ -228,10 +238,6 @@ static func base_clip(entity: SimEntity, carrying: bool, captured: bool, speed: 
 		return StringName(carry + "idle")
 	if speed < move_speed * WALK_FRACTION:
 		return StringName(carry + "walk")
-	if panicking and carry == "":
-		# Carrying, the arms already hold the cash overhead (D9): a panicking
-		# carrier is a faster carry_jog.
-		return &"panic_run"
 	return StringName(carry + "jog")
 
 ## Advances the figure by `delta` seconds. `entity` gives the MOTION to draw
@@ -239,7 +245,7 @@ static func base_clip(entity: SimEntity, carrying: bool, captured: bool, speed: 
 ## once); `carrying` and `captured` are OUTCOMES and come from the confirmed
 ## world (GreyBoxMain._render: a guest never guesses at an outcome).
 func update(entity: SimEntity, carrying: bool, captured: bool, move_speed: float,
-		delta: float, crouch_scale: float = 0.55, panicking: bool = false) -> void:
+		delta: float, crouch_scale: float = 0.55) -> void:
 	if tree == null:
 		return
 	var speed: float = Vector2(entity.velocity.x, entity.velocity.z).length()
@@ -287,7 +293,7 @@ func update(entity: SimEntity, carrying: bool, captured: bool, move_speed: float
 		_settle_left = maxf(0.0, _settle_left - delta)
 
 	var wanted: StringName = base_clip(entity, carrying, captured, speed, move_speed,
-		_airborne_for, _jump_for, _land_left, _hop_for, panicking)
+		_airborne_for, _jump_for, _land_left, _hop_for)
 	if wanted != clip:
 		clip = wanted
 		tree.set(&"parameters/loco/transition_request", String(wanted))
@@ -301,7 +307,28 @@ func update(entity: SimEntity, carrying: bool, captured: bool, move_speed: float
 	if carrying and not _was_carrying:
 		act(&"grab")
 	_was_carrying = carrying
+	if _startle_for >= 0.0:
+		_startle_for += delta
+		if _startle_for >= STARTLE_TIME:
+			_startle_for = -1.0
 	tree.advance(delta)
+
+## Starts the spotted startle (PT2-2) from the top; presentation only.
+func startle() -> void:
+	_startle_for = 0.0
+
+## How far above its feet the figure is drawn by the startle (world units, >= 0):
+## a quick rise, then a slower straight fall back to 0.
+func startle_lift() -> float:
+	if _startle_for < 0.0:
+		return 0.0
+	if _startle_for < STARTLE_RISE:
+		return STARTLE_HEIGHT * _startle_for / STARTLE_RISE
+	return STARTLE_HEIGHT * maxf(0.0, 1.0 - (_startle_for - STARTLE_RISE) / (STARTLE_TIME - STARTLE_RISE))
+
+## The startle's lean back, radians, following the lift.
+func startle_lean() -> float:
+	return deg_to_rad(STARTLE_LEAN) * startle_lift() / STARTLE_HEIGHT
 
 ## Plays a one-shot over the arms: throw, grab or interact (seize / free).
 func act(name: StringName) -> void:

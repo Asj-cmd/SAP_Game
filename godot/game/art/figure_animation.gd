@@ -9,9 +9,9 @@ extends RefCounted
 ## stands in its rest pose as before.
 ##
 ## Clips (names the driver plays; `carry_*` = the same with the cash held over
-## the head): idle, walk, walk_loose, jog, sprint, panic_run, crouch_idle,
+## the head): idle, walk, walk_loose, jog, sprint, crouch_idle,
 ## crouch_walk, jump_start, jump_air, jump_land, grab, interact, throw, and
-## the arm-only layers arms_carry / arms_panic. Locomotion loops carry a
+## the arm-only layer arms_carry. Locomotion loops carry a
 ## `stride_speed` meta (model units per second at playback speed 1).
 ## In play the set is driven by FigureAnimator (P2-3); this class serves the
 ## still poses of the capture tool.

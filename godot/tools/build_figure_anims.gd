@@ -23,7 +23,7 @@ extends SceneTree
 ##  - Clips the sim moves vertically (jumps) may dip the pelvis but never raise
 ##    it: the sim owns the body's height (`no_lift`).
 ##  - Arm poses that are not in the library (cash held overhead like a brick,
-##    the panic run's arms up, the two-handed push of a throw) are solved by
+##    the two-handed push of a throw) are solved by
 ##    two-bone IK on the figure's own rest skeleton, stored as local rotations of
 ##    clavicle-relative arm bones, so they ride the torso of whatever clip they
 ##    are laid over.
@@ -70,11 +70,8 @@ const CLIPS: Array[Dictionary] = [
 	{"name": "walk", "src": "Walk_Formal_Loop", "loop": true, "carry": true},
 	{"name": "walk_loose", "src": "Walk_Loop", "loop": true},
 	{"name": "jog", "src": "Jog_Fwd_Loop", "loop": true, "carry": true},
-	# No carry_sprint: the sprint's lean tips overhead arms forward, and a
-	# panicking carrier runs as carry_jog, faster (D9: the cash is already overhead).
+	# No carry_sprint: the sprint's lean tips overhead arms forward.
 	{"name": "sprint", "src": "Sprint_Loop", "loop": true},
-	# The jog, not the sprint: the sprint's deep athletic lean is acting (D2).
-	{"name": "panic_run", "src": "Jog_Fwd_Loop", "loop": true, "arms": "panic"},
 	# Crouch: the library holds its hands up by the face, a sneak (acting, D2);
 	# here the arms hang stiff ("rest" = the idle arms, riding the bent torso).
 	{"name": "crouch_idle", "src": "Crouch_Idle_Loop", "still": true, "arms": "rest", "carry": true, "carry_arms": "carry_crouch"},
@@ -91,7 +88,6 @@ const CLIPS: Array[Dictionary] = [
 	{"name": "throw", "src": "Idle_Loop", "still_body": true, "to": 0.9,
 		"arms": [[0.0, "carry"], [0.12, "throw_back"], [0.3, "throw_push"], [0.5, "throw_push"], [0.9, "rest"]]},
 	{"name": "arms_carry", "src": "Idle_Loop", "still": true, "arms": "carry", "arms_only": true},
-	{"name": "arms_panic", "src": "Idle_Loop", "still": true, "arms": "panic", "arms_only": true},
 ]
 
 var _opts: Dictionary[String, String] = {}
@@ -301,10 +297,6 @@ func _arm_poses(bones: Skeleton3D, crouch: Animation) -> Dictionary[String, Dict
 		# Cash held stiffly over the head like a brick (D9): hands together a
 		# hand-width apart above the crown, elbows out to the sides.
 		"carry": [Vector3(-0.30, 0.86, 0.10), Vector3(1.0, -0.2, -0.3)],
-		# Panic run (D9): both arms straight up and a little wide, as if chased.
-		# Aimed a little BACK in the rest torso, so they stand upright over the
-		# run's forward lean instead of reaching ahead.
-		"panic": [Vector3(0.26, 0.95, -0.12), Vector3(1.0, 0.0, -0.4)],
 		# Throw: hands drawn back behind the head, then pushed forward together.
 		"throw_back": [Vector3(-0.28, 0.66, -0.22), Vector3(1.0, -0.3, -0.4)],
 		"throw_push": [Vector3(-0.26, 0.20, 0.92), Vector3(1.0, -0.6, 0.0)],

@@ -4,11 +4,6 @@
     "loop": false,
     "stride_speed": 0.0
   },
-  "arms_panic": {
-    "length": 0.033,
-    "loop": false,
-    "stride_speed": 0.0
-  },
   "carry_crouch_idle": {
     "length": 0.033,
     "loop": false,
@@ -93,11 +88,6 @@
     "length": 0.33,
     "loop": false,
     "stride_speed": 0.0
-  },
-  "panic_run": {
-    "length": 0.933,
-    "loop": true,
-    "stride_speed": 524.8
   },
   "sprint": {
     "length": 0.667,
