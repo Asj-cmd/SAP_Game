@@ -42,7 +42,7 @@ are typed by the players (see PT3-3).
   each frame with the Read tool and say in `PROGRESS.md` what it actually shows; if any shows a gap,
   fix it and redo once. **Frames allowed: one set (every flight in both houses), at most one redo.**
 
-- [ ] **PT3-1 Music only outside matches, and a quirky track.** Background music plays in the main
+- [x] **PT3-1 Music only outside matches, and a quirky track.** *(Done 2026-11-18: `GameAudio.music_wanted` (menu, lobby, results) read each frame from what is open, 1 s fades, paused under a match; menu track "Trouble in the Garden" (HaelDB, CC0) in `content/music/menu.ogg`, two more CC0 candidates and the old jazz in `content/music/candidates/` (not exported). Unheard: REVIEW. See PROGRESS.md.)* Background music plays in the main
   menu, the lobby and the results panel only. It fades out (about 1 s) when a match starts and fades
   back in when the results panel appears (after PT2-7's end sequence and jingle, once that exists; the
   win or lose jingle stays and plays over the fade). Nothing plays under the match itself (the

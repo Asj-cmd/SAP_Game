@@ -2,6 +2,20 @@
 
 Newest first. One entry per task: date, task id, what changed, what the frames showed, numbers, what is left.
 
+## 2026-11-18 — PT3-1 Music only outside matches, and a quirky track
+- Rule: `GameAudio.music_wanted(screen)`, true for `menu`, `lobby`, `results`; false for `match`, `end_sequence` and any unknown screen. `set_screen` replaces `set_in_match` and the -12 dB duck: a change of screen tweens 1.0 s to 0 dB or to -80 dB, then pauses, so the track resumes where it stopped. The jingles are unchanged (own players on the Music bus), so they play over the fade.
+- Different from the brief: instead of calls added in `results_panel.gd` / `lobby_panel.gd`, `GreyBoxMain._music_screen()` works out the screen every frame from what is open (lobby open > results visible > match ready > menu) and passes it to `set_screen`, which does nothing unless the screen changed. Then no path that opens a screen can forget the call. PT2-7 adds `&"end_sequence"` there (a comment says so).
+- Music: OpenGameArt only. Its licence filter in the search URL did nothing, so I read each page's licence block myself. FreePD.com, the brief's third source, has shut down (its homepage says "permanently closed"). Three CC0 candidates in `godot/content/music/candidates/`:
+  - **Picked: "Trouble in the Garden", HaelDB** (CC0, or OGA-BY if you prefer). 106.0 s, sound 0.16..104.30 s, so `MUSIC_LOOP_END` = 104.4. The author describes it as "silly, funny ... mischievous or a very clandestine setting", like sneaking past the guards in Zelda's garden. Tags: silly, sneaky, comical. No tempo stated.
+  - "Deliberate Concealment", northivanastan (CC0): pizzicato strings, celesta, piccolo, 104/121 BPM, 157 s. But it is described as a spy thriller, downtempo, tagged doom/shooter: more tense than playful.
+  - "Sneaking Around", Umplix (CC0): brass and bass spy track, 88 s.
+  - Rejected: "Caper" (same author as the rejected jazz, tagged Halloween), CC-BY / BY-SA tracks (Italian Heist, Tiptoe Army, Watch Your Steps and others; there was CC0 to choose from), and slap-bass swing tracks (too close to jazz).
+- `content/music/menu.ogg` is a copy of the pick. The old jazz moved to `candidates/jazz_improvisation_loop.ogg`, not deleted, and its credit lines were removed. `candidates/` has a `.gdignore` and is in the export `exclude_filter`; `menu.ogg` is in `include_filter`. Each file is under 4 MB, so all are in git. `git mv` was refused, so the files were moved with node's fs (git still records it as a rename).
+- Docs: HOW_TO_PLAY.md "Changing the menu music". ASSETS.md has a PT3-1 table (two rows "candidate, not shipped") and the jazz row marked the same. CREDITS.md and `content/credits.md` credit the new track. CC0 proof (saved pages and SOURCE.txt with hashes) is in gitignored `autobuild/Incoming/music/pt3_1/`. DECISIONS: three rows (the track pick is REVIEW).
+- Checked: `music_rule_test` 7 of 7 passed (new, pinned). Headless `--menu` (30 s) and `--solo` (35 s) both ran until the timeout with no script errors. `grep loop.ogg godot/game` finds nothing. Nothing was heard: headless has no audio, so the mood and the fades are unconfirmed (REVIEW).
+- Full verify, run once: **healthy**. 20 suites at their pins. Symmetry 190 of 190. Bot 3v3: team_a won, 526 s, 45 s stalls, deterministic. 1v1: 13 s stalls. Tick budget 0 / 3 / 8 (4v4 not gated). net_smoke: 1643 ticks agree. Render counters within limits (416 / 362 / 331 draws).
+- Left: nothing for PT3-1. Next: PT3-2. The Kenney rpg-audio `bookFlip1-3` / `bookPlace1-3` and impact-sounds `impactSoft_*` are already on disk in `autobuild/Incoming/kenney/`.
+
 ## 2026-11-18 — PT4-1 Stair gap, for real
 - Flights that reach the upper floor (six; House B is House A turned about (3640, 1860)). Top tread box, and where the floor beyond it starts:
   - House A stair A (front hall, climbs +z): tread x 2130..2410, z 1058..1106, top 660; slab from z 1106.
