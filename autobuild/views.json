@@ -68,6 +68,12 @@
     { "name": "ext_backstair_a", "at": [2050, 620, 3450], "look": [1100, 480, 2580] },
     { "name": "ext_backstair_b", "at": [5230, 620, 270], "look": [6180, 480, 1140] },
     { "name": "cam_fence_gate", "chase": [3250, 300, 1860], "facing": [4300, 300, 1860] },
-    { "name": "cam_backstair_top", "chase": [880, 660, 2580], "facing": [1700, 660, 2580], "pitch": -15 }
+    { "name": "cam_backstair_top", "chase": [880, 660, 2580], "facing": [1700, 660, 2580], "pitch": -15 },
+    { "name": "pt4_1_ha_stair_a", "chase": [2330, 660, 1160], "facing": [2330, 300, 400], "pitch": -35 },
+    { "name": "pt4_1_ha_stair_b", "chase": [460, 660, 1630], "facing": [460, 300, 2300], "pitch": -35 },
+    { "name": "pt4_1_ha_back", "chase": [980, 660, 2540], "facing": [1700, 300, 2540], "pitch": -35 },
+    { "name": "pt4_1_hb_stair_a", "chase": [4950, 660, 2560], "facing": [4950, 300, 3320], "pitch": -35 },
+    { "name": "pt4_1_hb_stair_b", "chase": [6820, 660, 2090], "facing": [6820, 300, 1420], "pitch": -35 },
+    { "name": "pt4_1_hb_back", "chase": [6300, 660, 1180], "facing": [5580, 300, 1180], "pitch": -35 }
   ]
 }

@@ -563,6 +563,67 @@ func _flight_sides(treads: Array[AABB]) -> void:
 			to[run] = high_nose
 			to.y = last.end.y + 4.0 - board * 0.5
 			_beam(house, &"trim", from, to, across, 3.0, board)
+			_top_cap(house, last, along, run, side, plane, climb)
+
+## PT4-1. The stairwell is cut a body radius wider than the flight on its open
+## flank (build_house `_stairwell`), so a body on the side of a high tread does
+## not have its shoulder inside the upper slab. Beside the TOP tread that strip
+## was a slot down to the floor below, at the very edge a player steps off the
+## landing onto. The top tread's top is the upper floor's top, so the strip is
+## drawn closed there: the floor carried over to the tread, with the slab's edge
+## and ceiling round it. Drawn only: a 40-wide body cannot drop into a 20-wide
+## slot, and closing it in collision would put the slab into the shoulder of a
+## body on the tread below (stances would move).
+func _top_cap(house: House, last: AABB, along: int, run: int, side: float, plane: float,
+		climb: float) -> void:
+	var best: AABB = AABB()
+	var gap: float = INF
+	for i: int in _blockers.size():
+		var box: AABB = _blockers[i]
+		if i == _skip or _shape(box) != Shape.SLAB or absf(box.end.y - last.end.y) > TINY:
+			continue
+		if box.position[run] >= last.end[run] - TINY or box.end[run] <= last.position[run] + TINY:
+			continue
+		var distance: float = (plane - box.end[along]) if side < 0.0 else (box.position[along] - plane)
+		if distance > TINY and distance < gap:
+			gap = distance
+			best = box
+	if gap > WALL_MAX:
+		return
+	var cap: AABB = AABB()
+	cap.position[along] = minf(plane, plane + side * gap)
+	cap.size[along] = gap
+	cap.position[run] = last.position[run]
+	cap.size[run] = last.size[run]
+	cap.position.y = best.position.y
+	cap.size.y = last.end.y - best.position.y
+	# Top, underside, and the end facing down the flight; the other three sides
+	# are flush with the tread, the slab beside it and the slab past the top.
+	for face: Vector2 in [Vector2(1, 1.0), Vector2(1, -1.0), Vector2(run, -climb)]:
+		var axis: int = int(face.x)
+		var sign: float = face.y
+		var u: int = (axis + 1) % 3
+		var w: int = (axis + 2) % 3
+		var face_plane: float = cap.end[axis] if sign > 0.0 else cap.position[axis]
+		var corners: Array[Vector3] = []
+		for corner: Vector2 in [Vector2(cap.position[u], cap.position[w]),
+				Vector2(cap.end[u], cap.position[w]), Vector2(cap.end[u], cap.end[w]),
+				Vector2(cap.position[u], cap.end[w])]:
+			var p: Vector3 = Vector3.ZERO
+			p[axis] = face_plane
+			p[u] = corner.x
+			p[w] = corner.y
+			corners.append(p)
+		var normal: Vector3 = Vector3.ZERO
+		normal[axis] = sign
+		var centre: Vector3 = cap.get_center()
+		centre[axis] = face_plane + sign * PROBE
+		var room: ZoneDef = _room_at(centre)
+		var key: StringName = _key(cap, house, Shape.SLAB, axis, sign, room)
+		var shade: Vector2 = Vector2.ZERO
+		if room != null and String(key).begins_with("wall:"):
+			shade = Vector2(room.bounds.position.y, room.bounds.end.y)
+		_quad(house, key, corners, normal, shade)
 
 ## A straight bar from `a` to `b` whose section is `width` across (along
 ## `across`, horizontal) and `height` tall, measured vertically: its sides stay
