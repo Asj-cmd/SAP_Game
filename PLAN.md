@@ -47,7 +47,7 @@ other task here is verified by tests and numbers. The family display names come 
   Settings, saved with the other settings. Footsteps default to 40 percent and can be turned off
   (slider at 0). Route each kind of sound to its own audio bus so the sliders work for every sound
   that exists now and for the ones PT2-4 adds. Table-driven test for the saved values. No frames.
-- [ ] **PT2-4 Music and stings.** One CC0 background music loop (Kenney, OpenGameArt CC0 or similar;
+- [x] **PT2-4 Music and stings.** *(Done 2026-11-17: CC0 jazz loop (Alex McCulloch, OpenGameArt), Kenney pizzicato win/lose jingles at MATCH_END for the local family, a CC0 boing in `content/sfx/jailed.ogg` at the seize; HOW_TO_PLAY, ASSETS, CREDITS. Nothing heard (headless). See PROGRESS.md.)* One CC0 background music loop (Kenney, OpenGameArt CC0 or similar;
   calm, slightly silly, not looping annoyingly fast), a short win jingle, a short lose jingle and a
   jail sound. The jail sound is a CC0 cartoon "boink" for now, loaded from the one file
   `godot/content/sfx/jailed.ogg` so the user can replace it with their own recording later; say in

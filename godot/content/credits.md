@@ -16,6 +16,11 @@ Textures from Poly Haven (polyhaven.com) and ambientCG (ambientcg.com), CC0 1.0:
 
 ## Sound effects
 Footsteps, impacts, cloth, coins, clicks and bell: Kenney (kenney.nl) Impact Sounds, Interface Sounds and RPG Audio, CC0 1.0.
+Jail "boink": "Boings" by EZduzziteh (opengameart.org/node/183317), CC0.
+
+## Music
+"jazz improvisation looped" by Alex McCulloch (Pro Sensory), opengameart.org/content/jazz-improvisation-looped, CC0.
+Win and lose jingles: Music Jingles by Kenney (kenney.nl), CC0 1.0.
 
 ## Engine
 Made with Godot Engine (godotengine.org), MIT licence. Copyright 2014-present Godot Engine contributors; copyright 2007-2014 Juan Linietsky, Ariel Manzur. The full licence text ships with the game.

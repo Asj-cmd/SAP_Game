@@ -2,65 +2,6 @@
 
 Written by the planner from a quick read. If a fact here is wrong, the code and `DECISIONS.md` win.
 
-## PT2-4 — Music and stings
-
-**Approach**
-1. Jingles: the Kenney `music-jingles` pack is already fetched (PT2-3 entry, gitignored in
-   `autobuild/Incoming/kenney/music-jingles/`, CC0, sha256 in PROGRESS.md). Pick from the **pizzicato**
-   set (plucked strings sound polite and a bit silly, which suits deadpan; 8-bit and steel do not). Win = a short
-   one that ends going up, lose = a short one that ends going down; 1.5 to 3 s each. You cannot listen: choose by
-   file length (ffprobe or the .ogg header via node) and file order, and log the pick as REVIEW so the user can swap.
-   Copy them as `godot/art/audio/music/jingle_win.ogg` and `jingle_lose.ogg`.
-2. Music loop: Kenney has none. Look for ONE CC0 loop, calm and slightly silly (light jazz, lounge, easy
-   listening, or quirky acoustic; tempo under ~110 bpm; at least 60 s long so the loop does not grate). Places to
-   look, in order: OpenGameArt filtered to CC0, then Free Music Archive artists who release everything CC0
-   (Loyalty Freak Music, HoliznaCC0). Keep the licence page text or URL as the CC0 proof. Save as
-   `godot/art/audio/music/loop.ogg` (OGG Vorbis; convert with ffmpeg if it is installed, else take an .ogg
-   original). `GameAudio` already plays `MUSIC_PATH` on the Music bus, quieter in a match.
-3. Jail sound: a CC0 cartoon "boink". Look first in Kenney packs through `node autobuild/fetch_kenney.mjs <slug>`
-   (`impact-sounds`, `interface-sounds`, `digital-audio`), then OpenGameArt CC0 "boing". If neither has a fitting
-   one, generate it (a ~0.35 s sine whose pitch falls from ~600 to ~180 Hz with a little wobble, written as a WAV by a
-   small node script and converted, or an `AudioStreamWAV` saved by a Godot tool script) and log it as our own (CC0).
-   It goes in `godot/content/sfx/jailed.ogg` (new folder; the user will replace it).
-4. `GameAudio`: rows carry an optional `"path"` (full res:// path) that wins over `SFX_DIR + file`, so `jailed`
-   can live in `content/sfx/`. New rows: `win` and `lose` (bus `Music`, flat), `jailed` (bus `SFX`).
-   In `match_state`, at the change to MATCH_END play `win` or `lose` for the local seat's team instead of
-   `sting` (ROUND_END keeps `sting`); this needs the local team passed in or set once. Keep it one call site so
-   PT2-7 can move the jingle into its end sequence. A machine with no local seat (dedicated) plays nothing.
-5. Jailed: where the seize sound is triggered now (find it from `play(&"seize"` / the captured-state change in
-   `greybox_main.gd`), also play `jailed` at the victim's position (`own` true for the local victim). The seize
-   thump stays.
-6. Export: add `content/sfx/*` to `include_filter` in `godot/export_presets.cfg`.
-7. Docs: `HOW_TO_PLAY.md` gets a short section "Changing the jail sound": the file `godot/content/sfx/jailed.ogg`,
-   OGG Vorbis, mono or stereo, 44.1 or 48 kHz, keep it under about 2 s, same file name, then rebuild with
-   `node autobuild/build.mjs` (it imports first). `ASSETS.md` and `CREDITS.md`: one row per file (name, author,
-   licence, URL, CC0 proof, modified?), and replace the "Music: none shipped" line.
-
-**Already decided**
-- Pizzicato jingles; jingles on the Music bus (the Music slider controls them). REVIEW.
-- The boink is a deliberate exception to D2's "no cartoon sounds", because the task asks for it and the user plans to
-  replace it. Log as REVIEW.
-- No meme clips, nothing non-CC0. If no verifiable CC0 music loop is found after two sources fail, ship the rest,
-  mark the task `[~]` with "loop missing" in PROGRESS.md and move on; do not synthesise music.
-- The `spotted` row may keep the pitched sting (PT2-2); do not change it.
-
-**Files likely touched**
-- `godot/game/audio/game_audio.gd`, `godot/game/greybox/greybox_main.gd` (local team to GameAudio; jailed trigger)
-- `godot/art/audio/music/` (new files: `loop.ogg`, `jingle_win.ogg`, `jingle_lose.ogg`), `godot/content/sfx/jailed.ogg` (new folder and file)
-- `godot/export_presets.cfg`, `HOW_TO_PLAY.md`, `ASSETS.md`, `CREDITS.md`, `DECISIONS.md`
-- maybe a small fetch or tone script under `autobuild/` (new)
-
-**Done means**
-- One headless `--solo` run (about 60 s) and one `--menu` run print no script errors (sound is not heard headless; say so).
-- `node autobuild/build.mjs` gives `BUILD: ok` (it smoke-runs the exe).
-- Full `node autobuild/verify.mjs` once at the end, just before the final commit: healthy, test pins unchanged.
-- No frames.
-
-**Do NOT**
-- Write a test (audio is presentation). Touch `sim/`, the snapshot or the network.
-- Restyle the settings panel (PT2-6) or build the end sequence (PT2-7).
-- Use paid packs, credits, YouTube rips, "royalty free" non-CC0 music, or CC-BY without a credit line.
-
 ## PT2-5 — Bring back the realistic house
 
 **Approach**

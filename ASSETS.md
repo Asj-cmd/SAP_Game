@@ -101,8 +101,19 @@ Packs: impact-sounds (https://kenney.nl/assets/impact-sounds), interface-sounds 
 | free | rpg-audio metalLatch | free an ally |
 | land | impact-sounds impactSoft_medium_000 | landing |
 | cash_1, cash_2 | rpg-audio handleCoins, handleCoins2 | deposit |
-| sting | interface-sounds bong_001 | round / match end; also the `spotted` alarm (PT2-2), the same file played at pitch 1.25 as a placeholder until PT2-4 |
+| sting | interface-sounds bong_001 | round end (and a match with no winner); also the `spotted` alarm (PT2-2), the same file played at pitch 1.25 |
 | tick | interface-sounds tick_001 | countdown |
 | ui_click | interface-sounds click_001 | every button |
 
-Music: none shipped (no CC0 loop fetched; GameAudio plays res://art/audio/music/loop.ogg if one is added).
+## Music and stings (PT2-4), fetched 2026-11-17
+CC0 proof for each source sits next to the download in `autobuild/Incoming/` (gitignored): the saved page plus a SOURCE.txt with URL, licence and hashes.
+
+| File | Name / author | Licence | URL | Modified? | sha256 of the shipped file |
+|---|---|---|---|---|---|
+| `godot/art/audio/music/loop.ogg` | "jazz improvisation looped", Pro Sensory (Alex McCulloch) | CC0 | https://opengameart.org/content/jazz-improvisation-looped | No: the site's own .ogg rendition of the .mp3 (131.9 s). GameAudio restarts it at 128.3 s, skipping 3.7 s of trailing silence | 46581d10…16d6 |
+| `godot/art/audio/music/jingle_win.ogg` | Music Jingles `jingles_PIZZI02`, Kenney | CC0 1.0 | https://kenney.nl/assets/music-jingles | No (0.96 s, a rising scale) | 4967dc3c…3e3e |
+| `godot/art/audio/music/jingle_lose.ogg` | Music Jingles `jingles_PIZZI07`, Kenney | CC0 1.0 | https://kenney.nl/assets/music-jingles | No (1.32 s, falling by semitones) | 91870588…ce7c |
+| `godot/content/sfx/jailed.ogg` | "Boings" `bung_01.mp3`, EZduzziteh | CC0 | https://opengameart.org/node/183317 | Yes: silence trimmed to 0.35 s, 10 ms fades, MP3 → Ogg Vorbis q5 (`godot/tools/decode_audio.gd` + `autobuild/encode_ogg.mjs`) | e32ce9da…5223 |
+
+Kenney zip sha256 in `autobuild/Incoming/kenney/music-jingles/SOURCE.txt`. The `spotted` alarm still reuses `sting` at pitch 1.25 (PT2-2). The user may replace `jailed.ogg` with their own recording (HOW_TO_PLAY.md); log it here as theirs.
+Encoder used for jailed.ogg: `wasm-media-encoders` 0.7.0 (npm, MIT; libvorbis BSD), installed outside the repo, not shipped.
