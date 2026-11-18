@@ -8,6 +8,6 @@ id = &"house_4v4"
 display_name = "House 4v4"
 team_size = 4
 round_seconds = 240.0
-pre_round_seconds = 2.0
+pre_round_seconds = 3.0
 capture_seconds = 30.0
 capture_escalation_seconds = 6.0

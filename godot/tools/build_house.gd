@@ -189,19 +189,17 @@ const BACK_STAIR_DEPTH: float = FLIGHT_W ## out from the wall, like the indoor f
 ## of cells across. See WORLD_AUTHORING §11.
 const CELL: float = 40.0
 
-## §9: team spawns sit in the team's OWN yard, spread along the back and side
-## faces. House-local, so `_place` mirrors them onto B's own yard. Negative x
-## is the back (west) face; the third and fourth sit off the front (south, low
-## z) face so a squad does not spawn in a single line. One per seat at the
-## largest team size, 4v4 (D8): slot N spawns on marker N, and a missing marker
-## clamps onto the last one, which put two bodies on one point. The fourth is
-## 500 along from the third and 440 short of the front door's jamb, so it does
-## not start a body in the doorway. Slots 0-2 are unchanged, so only 4v4 moves.
+## §9: team spawns sit in the team's OWN yard. PT4-2: the whole family starts
+## in one row on the front lawn (south, low z, the 350-deep front strip), in
+## slot order, 250 apart, so the round-start lineup shows them together. The
+## row ends 390 short of the front door's jamb (x ~1440), so no body starts in
+## the doorway. House-local, so `_place` mirrors them onto B's own front lawn.
+## One per seat at the largest team size, 4v4 (D8): slot N spawns on marker N.
 const SPAWN_LOCAL: Array[Vector2] = [
-	Vector2(-150.0, 500.0),
-	Vector2(-150.0, 1400.0),
-	Vector2(500.0, -150.0),
-	Vector2(1000.0, -150.0),
+	Vector2(300.0, -150.0),
+	Vector2(550.0, -150.0),
+	Vector2(800.0, -150.0),
+	Vector2(1050.0, -150.0),
 ]
 
 var _solids: Array[AABB] = []
@@ -772,7 +770,7 @@ func _stamp(turned: bool, team: StringName, side: String) -> void:
 			_place(AABB(Vector3(room[2], room[4], room[3]),
 				Vector3(QUAD, STOREY, QUAD)), turned), false)
 
-	# §9: spawns in the team's own yard, along the back and side faces.
+	# §9 / PT4-2: spawns in one row on the team's own front lawn.
 	for i: int in SPAWN_LOCAL.size():
 		_marker("spawn_%s_%d" % [team, i], _place_point(Vector3(
 			SPAWN_LOCAL[i].x, GROUND + BODY, SPAWN_LOCAL[i].y), turned))

@@ -13,7 +13,7 @@ extends SceneTree
 ## also drives the sim the way the slice does, so "the grey box runs" is a
 ## claim with evidence rather than a screenshot nobody kept.
 
-const EXPECTED_CHECKS: int = 20
+const EXPECTED_CHECKS: int = 35
 
 var _passed: int = 0
 var _failed: int = 0
@@ -23,6 +23,7 @@ func _initialize() -> void:
 	print("=== Grey-box level ===")
 	_test_both_variants_load()
 	_test_playable()
+	_test_spawn_lineup()
 	_test_tuning_tracks_defaults()
 
 	if _passed + _failed != EXPECTED_CHECKS:
@@ -88,8 +89,8 @@ func _test_playable() -> void:
 	world.populate_roster()
 
 	world.step([MatchCommand.start()])
-	# Through the countdown and into play.
-	for i: int in 90:
+	# Through the countdown (3 s since PT4-2) and into play.
+	for i: int in 150:
 		world.step([])
 	_check("play/reaches the live phase", world.is_live(), true)
 	# The win target is derived from the level, so a vault that lost a cash
@@ -116,6 +117,61 @@ func _test_playable() -> void:
 	var halted_at: float = walker.position.x
 	world.step([])
 	_check("play/stops when released", is_equal_approx(walker.position.x, halted_at), true)
+
+## PT4-2: each family starts in one row on its own front lawn. Per team size the
+## spawns must be the turned twin of the other house's (about the lot centre),
+## keep every body two radii from every other, start no body inside a blocker,
+## and come out the same on a second load.
+const LOT_CENTRE: Vector2 = Vector2(3640.0, 1860.0)
+
+func _spawns(team_size: int) -> Dictionary[StringName, Array]:
+	var level: GreyBoxLevel = GreyBoxLevel.new(GreyBoxLevel.SafeVariant.B,
+		GreyBoxLevel.LEVEL_PATH, team_size)
+	var out: Dictionary[StringName, Array] = {}
+	for team: TeamDef in level.teams:
+		var points: Array = []
+		for slot: int in team_size:
+			points.append(team.spawn_point_for_slot(slot))
+		out[team.id] = points
+	return out
+
+func _test_spawn_lineup() -> void:
+	var level: GreyBoxLevel = GreyBoxLevel.new()
+	var radius: float = level.tuning.actor_radius
+	var height: float = level.tuning.actor_height
+	for team_size: int in [2, 3, 4]:
+		var label: String = "spawn/%dv%d" % [team_size, team_size]
+		var spawns: Dictionary[StringName, Array] = _spawns(team_size)
+		var a: Array = spawns.get(&"team_a", [])
+		var b: Array = spawns.get(&"team_b", [])
+		var unmirrored: PackedStringArray = PackedStringArray()
+		for slot: int in mini(a.size(), b.size()):
+			var pa: Vector3 = a[slot]
+			var pb: Vector3 = b[slot]
+			var twin: Vector3 = Vector3(2.0 * LOT_CENTRE.x - pa.x, pa.y, 2.0 * LOT_CENTRE.y - pa.z)
+			if not pb.is_equal_approx(twin):
+				unmirrored.append("slot %d: %s vs %s" % [slot, pa, pb])
+		_check("%s one point per seat" % label, [a.size(), b.size()], [team_size, team_size])
+		_check("%s mirrored" % label, ", ".join(unmirrored), "")
+		var everyone: Array = a + b
+		var crowded: PackedStringArray = PackedStringArray()
+		var walled: PackedStringArray = PackedStringArray()
+		for i: int in everyone.size():
+			var p: Vector3 = everyone[i]
+			for j: int in range(i + 1, everyone.size()):
+				var q: Vector3 = everyone[j]
+				if Vector2(p.x, p.z).distance_to(Vector2(q.x, q.z)) < 2.0 * radius:
+					crowded.append("%s / %s" % [p, q])
+			var body: AABB = AABB(Vector3(p.x - radius, p.y, p.z - radius),
+				Vector3(2.0 * radius, height, 2.0 * radius))
+			for box: AABB in level.collision.blockers:
+				if box.intersects(body):
+					walled.append("%s in %s" % [p, box])
+			if not level.collision.contains(p, radius):
+				walled.append("%s outside the shell" % p)
+		_check("%s no two bodies overlap" % label, ", ".join(crowded), "")
+		_check("%s no body starts in a blocker" % label, ", ".join(walled), "")
+		_check("%s same points on a second load" % label, _spawns(team_size), spawns)
 
 ## The grey box may only DIFFER from TuningDef's defaults on purpose.
 ##
