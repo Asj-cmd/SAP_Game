@@ -2,6 +2,11 @@
 
 Newest first. One entry per task: date, task id, what changed, what the frames showed, numbers, what is left.
 
+## 2026-11-17 — P7-4 Release sweep
+- `node autobuild/build.mjs`: BUILD: ok 118.5 MB, no script errors. Full verify healthy, run once: tick budget 1v1 1, 3v3 3 of 600 over (limit 5), 4v4 7 (not gated); bot matches deterministic, winner team_a (3v3 526 s, 45 s stalls; 1v1 13 s); symmetry 190 of 190; net_smoke 1650 ticks agree; render counters within limits. No frames (testing diet). PROJECT_MEMORY §2 refreshed. `build/` is gitignored.
+- Every PLAN task is done or deferred (`[-]`). Tag `v0.1.0-rc1` created locally.
+- Left for the user: GodotSteam + Steamworks app (BLOCKED.md); a human playtest; the REVIEW items in DECISIONS.md; push the tag with `git push origin v0.1.0-rc1`.
+
 ## 2026-11-17 — P7-3 Docs
 - Root `README.md` now leads with the Godot game (pitch, play it, controls, developers); the Three.js guide is the last section, unchanged. `godot/PLAYTEST.md` fixed where stale (lobby panel and Start, Esc pause, first-run guide, top bar, no neutral ground / jail, no more "grey-box"); build line and performance table kept. New `STORE_CHECKLIST.md` (sizes from memory, marked check on Steamworks; fees and accounts user only).
 - Credits: main-menu "Credits" button opens a scrollable RichTextLabel (`#` headings bold, nothing else parsed; missing file shows "Credits: see CREDITS.md"). Text is `godot/content/credits.md`, a copy of `CREDITS.md` that `build.mjs` refreshes before exporting; in the preset's `include_filter`. `CREDITS.md` rewritten to cover every shipped source in `ASSETS.md` (added the Quaternius animated men/women and modular packs, Poly Haven samples).

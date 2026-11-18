@@ -367,7 +367,7 @@ removed on purpose (do not rebuild it). No ragdoll, knockback, slide, shove or d
   needs export templates installed (write BLOCKED.md if missing; do not download 800 MB unprompted — ask in the report).
 - [x] **P7-2 Quality settings and performance** on the dev machine (windowed, real GPU): record FPS in `PLAYTEST.md`.
 - [x] **P7-3 Docs.** *(Done 2026-11-17: README rewritten for the Godot game, PLAYTEST.md brought up to date, Credits button + `content/credits.md` copy, STORE_CHECKLIST.md. See PROGRESS.md.)* Update `README.md`, `PLAYTEST.md`, credits screen from `CREDITS.md`, a store-page asset checklist.
-- [ ] **P7-4 Release sweep.** Full `verify.mjs --frames` over every room, final PROGRESS entry, tag `v0.1.0-rc1`.
+- [x] **P7-4 Release sweep.** *(Done 2026-11-17: build.mjs + full verify, no frames per the testing diet; tag v0.1.0-rc1 local.)* Full `verify.mjs --frames` over every room, final PROGRESS entry, tag `v0.1.0-rc1`.
 
 ## Backlog — do NOT start unless every task above is done
 

@@ -38,17 +38,21 @@ session-shaped interface, prediction with rollback, snapshot reconciliation,
 lobby with seats that outlive their occupants, reconnect by token. A grey-box
 playable with a third-person camera, and capture tooling that can look anywhere.
 
-**Not started.** The Steam transport backend (interface proven, backend is
-plumbing). Physics chaos. Characters and appearance. The verbs still owed —
-slide and drop-from-height. Any art at all.
+**v1 task list done (2026-11-17).** Every PLAN task is done or deferred by the
+user (bot balance, P3-3d/e/f). Verbs, family art, house and exterior, HUD, menus,
+lobby, audio, feedback, first-run guide, loss/lag tests, Steam transport (against
+a fake), Windows export (`node autobuild/build.mjs`, 118.5 MB) and docs are in.
+Release candidate `v0.1.0-rc1` is tagged locally. **Still waits on the user:**
+GodotSteam and a Steamworks app (BLOCKED.md), a human playtest, the REVIEW items
+in DECISIONS.md, and pushing the tag.
 
 **Verbs built since.** Crouch (a smaller collision body, slower, fits gaps a
 standing body cannot), jump (an impulse, capped to the headroom the VISIBLE
 body has), and throw (a deterministic ballistic arc, not a physics body).
 Vault was built and then removed: jump does the same traversal and cannot clip
 by construction, which the vault could and did. The three of them are
-simulation state that presentation reads, per ARCHITECTURE §9 - only the crouch
-is drawn so far, and jump and throw still look like nothing in particular.
+simulation state that presentation reads, per ARCHITECTURE §9; all are drawn
+since P2-3/P4-2. Slide and drop-from-height are not in v1 (D9).
 
 **Known constraint.** The development machine is a GeForce GT 730M, which cannot
 run Godot's Forward+ renderer — it crashes during shader-cache load. Compatibility
