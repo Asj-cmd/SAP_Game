@@ -416,6 +416,21 @@ cheap parts, each measured (P1-1's rule: run `render_stats.mjs --views=room_` be
   cash lands. No stars, no speed lines, no confetti, no screen-filling flashes.
 - Sounds are ordinary household sounds (P5-3).
 
+### 5.1 Interface (PT2-6)
+
+- One Theme for every screen, built in code: `UiTheme` (`godot/game/greybox/ui_theme.gd`); its
+  consts are the look. A plain painted sign, like an estate agent's board: cream cards with a 3 px
+  charcoal border and 6 px corners, charcoal text, charcoal buttons with cream lettering, mustard for
+  hover and focus. Flat colours only; no gradients, glow or glass.
+- Fonts: Anton (display: titles, buttons, HUD names, counts, the clock) and Inter (body text). Never
+  the engine's default font.
+- Motion: a screen fades in and rises 12 px over 0.15 s; a button grows to 1.04 on hover and 0.97
+  while held. No bounce, no shake, no confetti, no flashing (D2).
+- Family colours appear only on the HUD bar and the results card; everywhere else the UI is cream,
+  charcoal and mustard. Over the world, text is cream with a charcoal outline.
+- Family display names come only from `content/family_names.cfg` (FamilyNames); a line after a
+  name is plural ("<NAME> WIN").
+
 ## 6. What "polished" means
 
 A view is polished when all of these hold in a clean frame (`--capture-clean`), opened and

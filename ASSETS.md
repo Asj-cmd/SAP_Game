@@ -117,3 +117,17 @@ CC0 proof for each source sits next to the download in `autobuild/Incoming/` (gi
 
 Kenney zip sha256 in `autobuild/Incoming/kenney/music-jingles/SOURCE.txt`. The `spotted` alarm still reuses `sting` at pitch 1.25 (PT2-2). The user may replace `jailed.ogg` with their own recording (HOW_TO_PLAY.md); log it here as theirs.
 Encoder used for jailed.ogg: `wasm-media-encoders` 0.7.0 (npm, MIT; libvorbis BSD), installed outside the repo, not shipped.
+
+## UI fonts and icons (PT2-6), fetched 2026-11-18
+Fonts from the Google Fonts repository on GitHub (`google/fonts`, `ofl/<family>/`), each with its OFL.txt shipped beside it (the export's `include_filter` takes `art/ui/fonts/*.txt`). Icons from Kenney's Game Icons (`node autobuild/fetch_kenney.mjs game-icons`; zip sha256 7a86d8d58e0b851e22004b3c70bf90b003632bbf9ac633424daa3bb17d9e7e4e; licence file and SOURCE.txt in gitignored `autobuild/Incoming/kenney/game-icons/`; `Kenney-License.txt` copied beside the icons).
+
+| File | Name / author | Licence | URL | Modified? | sha256 of the shipped file |
+|---|---|---|---|---|---|
+| `godot/art/ui/fonts/Anton-Regular.ttf` | Anton, Vernon Adams / The Anton Project Authors | SIL OFL 1.1 (`Anton-OFL.txt`) | https://github.com/google/fonts/tree/main/ofl/anton | No | a4ba3a92…7cab |
+| `godot/art/ui/fonts/Inter-Variable.ttf` | Inter (variable, opsz + wght), Rasmus Andersson / The Inter Project Authors | SIL OFL 1.1 (`Inter-OFL.txt`) | https://github.com/google/fonts/tree/main/ofl/inter | No (renamed from `Inter[opsz,wght].ttf`; weights 450 and 650 picked at run time) | 29160a80…9031 |
+| `godot/art/ui/icons/locked.png` | Game Icons `PNG/White/2x/locked.png`, Kenney | CC0 1.0 | https://kenney.nl/assets/game-icons | No (HUD: jailed) | b83e9f3d…9cd1 |
+| `godot/art/ui/icons/unlocked.png` | Game Icons `unlocked.png`, Kenney | CC0 1.0 | https://kenney.nl/assets/game-icons | No (HUD: free a teammate) | fd9e8d85…6a80 |
+| `godot/art/ui/icons/trophy.png` | Game Icons `trophy.png`, Kenney | CC0 1.0 | https://kenney.nl/assets/game-icons | No (results card) | 9525a3a0…8714 |
+| `godot/art/ui/icons/exclamation.png` | Game Icons `exclamation.png`, Kenney | CC0 1.0 | https://kenney.nl/assets/game-icons | No. Not used (copied, then this session's permissions refused deleting it) | 60faed66…9928 |
+
+The HUD's banknote icon is drawn in code (`UiTheme.cash_icon`); the pack has none.

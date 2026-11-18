@@ -13,7 +13,7 @@ const BAR_HEIGHT: float = 28.0
 const BAR_TOP: float = 22.0
 const BAR_WIDTH_SHARE: float = 0.56
 const EASE_SECONDS: float = 0.3
-const PLATE_SIZE: Vector2 = Vector2(132.0, 64.0)
+const PLATE_SIZE: Vector2 = Vector2(132.0, 76.0)
 const LAST_SECONDS: int = 10
 const PIP_RADIUS: float = 7.0
 const NOTE_SIZE: Vector2 = Vector2(36.0, 22.0)
@@ -185,9 +185,9 @@ func refresh(world: SimWorld, level: GreyBoxLevel, mine: SimEntity, input: Local
 	_late = world.match_phase == SimWorld.MatchPhase.PLAYING and seconds_left <= LAST_SECONDS
 	_clock.add_theme_color_override("font_color", UiTheme.CHARCOAL if _late else UiTheme.CREAM)
 	_round.add_theme_color_override("font_color", UiTheme.CHARCOAL if _late else Color(UiTheme.CREAM, 0.75))
-	_place(_clock, _plate_rect.position + Vector2(0.0, 2.0), Vector2(PLATE_SIZE.x, 44.0))
+	_place(_clock, _plate_rect.position + Vector2(0.0, 0.0), Vector2(PLATE_SIZE.x, 50.0))
 	_round.text = "ROUND %d" % world.round_number
-	_place(_round, _plate_rect.position + Vector2(0.0, 42.0), Vector2(PLATE_SIZE.x, 18.0))
+	_place(_round, _plate_rect.position + Vector2(0.0, 52.0), Vector2(PLATE_SIZE.x, 18.0))
 
 	_chip.visible = false
 	_jail.visible = false

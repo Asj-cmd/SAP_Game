@@ -910,8 +910,8 @@ func _active_camera() -> Camera3D:
 ## seen from a camera circling the lot once every MENU_ORBIT_SECONDS. Built the
 ## first time the menu opens; after a match the match's own geometry is reused.
 const MENU_ORBIT_SECONDS: float = 90.0
-const MENU_ORBIT_RADIUS: float = 4300.0
-const MENU_ORBIT_HEIGHT: float = 1700.0
+const MENU_ORBIT_RADIUS: float = 6200.0
+const MENU_ORBIT_HEIGHT: float = 2900.0
 const MENU_ORBIT_LOOK_HEIGHT: float = 200.0
 var _menu_camera: Camera3D = null
 var _menu_orbit: float = 0.35

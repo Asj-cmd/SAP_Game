@@ -22,5 +22,11 @@ Jail "boink": "Boings" by EZduzziteh (opengameart.org/node/183317), CC0.
 "jazz improvisation looped" by Alex McCulloch (Pro Sensory), opengameart.org/content/jazz-improvisation-looped, CC0.
 Win and lose jingles: Music Jingles by Kenney (kenney.nl), CC0 1.0.
 
+## Fonts and icons
+Anton by Vernon Adams and the Anton Project Authors (github.com/googlefonts/AntonFont), SIL Open Font License 1.1.
+Inter by Rasmus Andersson and the Inter Project Authors (github.com/rsms/inter), SIL Open Font License 1.1.
+The licence texts ship with the game (art/ui/fonts/*-OFL.txt).
+Interface icons: Game Icons by Kenney (kenney.nl), CC0 1.0.
+
 ## Engine
 Made with Godot Engine (godotengine.org), MIT licence. Copyright 2014-present Godot Engine contributors; copyright 2007-2014 Juan Linietsky, Ariel Manzur. The full licence text ships with the game.

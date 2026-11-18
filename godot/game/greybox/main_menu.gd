@@ -246,25 +246,26 @@ func _build_title() -> Control:
 	title.add_theme_constant_override("shadow_offset_x", TITLE_SHADOW)
 	title.add_theme_constant_override("shadow_offset_y", TITLE_SHADOW)
 	title.add_theme_constant_override("shadow_outline_size", 14)
-	title.add_theme_constant_override("line_spacing", -34)
-	title.rotation = deg_to_rad(TITLE_TILT_DEG)
-	title.resized.connect(func() -> void: title.pivot_offset = title.size * 0.5)
-	side.add_child(title)
+	title.add_theme_constant_override("line_spacing", -52)
 	var strap: PanelContainer = PanelContainer.new()
 	strap.theme_type_variation = UiTheme.PLATE
-	strap.size_flags_horizontal = Control.SIZE_SHRINK_BEGIN
-	strap.rotation = deg_to_rad(TITLE_TILT_DEG)
 	var strap_text: Label = Label.new()
 	strap_text.text = "Steal their cash. Keep yours."
 	strap_text.add_theme_font_override("font", UiTheme.body_bold())
 	strap_text.add_theme_font_size_override("font_size", 22)
 	strap_text.add_theme_color_override("font_color", UiTheme.CREAM)
 	strap.add_child(strap_text)
-	var strap_holder: MarginContainer = MarginContainer.new()
-	strap_holder.add_theme_constant_override("margin_left", 18)
-	strap_holder.add_theme_constant_override("margin_top", 6)
-	strap_holder.add_child(strap)
-	side.add_child(strap_holder)
+	# A container resets its children's rotation when it lays them out, so the
+	# tilted sign sits in a plain Control: title and strap placed by hand.
+	var sign: Control = Control.new()
+	sign.custom_minimum_size = Vector2(560.0, 420.0)
+	sign.add_child(title)
+	sign.add_child(strap)
+	title.position = Vector2(10.0, 0.0)
+	strap.position = Vector2(40.0, 350.0)
+	for part: Control in [title, strap]:
+		part.rotation = deg_to_rad(TITLE_TILT_DEG)
+	side.add_child(sign)
 	return side
 
 func _build_howto() -> VBoxContainer:
