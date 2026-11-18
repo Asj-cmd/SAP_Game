@@ -22,9 +22,11 @@ const OTHER_BODY_DB: float = -5.0
 const MUSIC_MENU_DB: float = 0.0
 const MUSIC_MATCH_DB: float = -12.0
 
-## event -> {files: [names without .ogg], db: float}
+## event -> {files: [names without .ogg], db: float, optional pitch: float, optional
+## bus: StringName (default `DEFAULT_BUS`)}. Each bus has its own volume slider (PT2-3).
+const DEFAULT_BUS: StringName = &"SFX"
 const EVENTS: Dictionary = {
-	&"step": {"files": ["step_wood_1", "step_wood_2", "step_wood_3"], "db": -8.0},
+	&"step": {"files": ["step_wood_1", "step_wood_2", "step_wood_3"], "db": -8.0, "bus": &"Footsteps"},
 	&"grab": {"files": ["grab_1", "grab_2"], "db": -4.0},
 	&"throw": {"files": ["throw"], "db": -3.0},
 	&"seize": {"files": ["seize_thump", "seize_cloth"], "db": -2.0},
@@ -116,6 +118,7 @@ func play(event: StringName, at: Vector3, own: bool = false) -> void:
 	# Plain linear fall-off to silence at the edge of hearing.
 	db += linear_to_db(maxf(1.0 - distance / HEARING_RANGE, 0.001))
 	player.stream = stream
+	player.bus = _bus_of(event)
 	player.volume_db = db
 	player.pitch_scale = _rng.randf_range(0.94, 1.06)
 	player.play()
@@ -127,6 +130,7 @@ func play_flat(event: StringName) -> void:
 	if stream == null or player == null:
 		return
 	player.stream = stream
+	player.bus = _bus_of(event)
 	player.volume_db = float(EVENTS[event]["db"])
 	player.pitch_scale = float(EVENTS[event].get("pitch", 1.0))
 	player.play()
@@ -196,6 +200,10 @@ func _pick(event: StringName) -> AudioStream:
 	if stream != null:
 		_streams[file] = stream
 	return stream
+
+func _bus_of(event: StringName) -> StringName:
+	var row: Dictionary = EVENTS.get(event, {})
+	return StringName(row.get("bus", DEFAULT_BUS))
 
 func _free_player() -> AudioStreamPlayer:
 	for player: AudioStreamPlayer in _pool:

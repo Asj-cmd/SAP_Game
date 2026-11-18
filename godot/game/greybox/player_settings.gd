@@ -30,6 +30,9 @@ var sensitivity: float = 1.0
 var master_volume: float = 1.0
 var effects_volume: float = 1.0
 var music_volume: float = 0.6
+## Footsteps have their own bus and slider (PT2-3); 0 turns them off.
+const FOOTSTEPS_DEFAULT: float = 0.4
+var footsteps_volume: float = FOOTSTEPS_DEFAULT
 var keys: Dictionary[StringName, int] = DEFAULT_KEYS.duplicate()
 ## The first-run guide has been finished (or skipped) on this machine.
 var guide_done: bool = false
@@ -92,6 +95,8 @@ func set_volume(bus: StringName, value: float) -> void:
 			effects_volume = value
 		&"Music":
 			music_volume = value
+		&"Footsteps":
+			footsteps_volume = value
 	apply_audio()
 	save()
 
@@ -101,11 +106,16 @@ func volume_of(bus: StringName) -> float:
 			return master_volume
 		&"SFX":
 			return effects_volume
+		&"Footsteps":
+			return footsteps_volume
 	return music_volume
 
-## Pushes the three volumes to the audio buses (a missing bus is skipped).
+## The buses a volume slider drives.
+const AUDIO_BUSES: Array[StringName] = [&"Master", &"SFX", &"Music", &"Footsteps"]
+
+## Pushes the volumes to the audio buses (a missing bus is skipped; 0 mutes it).
 func apply_audio() -> void:
-	for bus: StringName in [&"Master", &"SFX", &"Music"]:
+	for bus: StringName in AUDIO_BUSES:
 		var index: int = AudioServer.get_bus_index(bus)
 		if index >= 0:
 			AudioServer.set_bus_volume_db(index, linear_to_db(maxf(volume_of(bus), 0.0001)))
@@ -166,33 +176,45 @@ func _load() -> void:
 	if _transient():
 		_quality_override()
 		return
+	load_from(PATH)
+	_quality_override()
+
+## Reads every saved value from `path`; a missing file leaves the defaults. Returns
+## whether the file was read. Separate from `_load` so a test can use its own file.
+func load_from(path: String) -> bool:
 	var file: ConfigFile = ConfigFile.new()
-	if file.load(PATH) != OK:
-		return
+	if file.load(path) != OK:
+		return false
 	sensitivity = clampf(float(file.get_value("controls", "sensitivity", sensitivity)),
 		SENSITIVITY_MIN, SENSITIVITY_MAX)
 	master_volume = clampf(float(file.get_value("audio", "master", master_volume)), 0.0, 1.0)
 	effects_volume = clampf(float(file.get_value("audio", "effects", effects_volume)), 0.0, 1.0)
 	music_volume = clampf(float(file.get_value("audio", "music", music_volume)), 0.0, 1.0)
+	footsteps_volume = clampf(float(file.get_value("audio", "footsteps", footsteps_volume)), 0.0, 1.0)
 	guide_done = bool(file.get_value("firstrun", "guide_done", guide_done))
 	var q: String = str(file.get_value("video", "quality", quality))
 	quality = q if QUALITY.has(q) else "high"
 	fullscreen = bool(file.get_value("video", "fullscreen", fullscreen))
 	vsync = bool(file.get_value("video", "vsync", vsync))
 	max_fps = int(file.get_value("video", "max_fps", max_fps))
-	_quality_override()
 	for action: StringName in ACTIONS:
 		keys[action] = int(file.get_value("keys", String(action), keys[action]))
+	return true
 
 func save() -> void:
 	if _transient():
 		return
+	save_to(PATH)
+
+## Writes every value to `path`, keeping the file's other sections (TeamTell's).
+func save_to(path: String) -> void:
 	var file: ConfigFile = ConfigFile.new()
-	file.load(PATH)  # keep other sections; a missing file is fine
+	file.load(path)  # keep other sections; a missing file is fine
 	file.set_value("controls", "sensitivity", sensitivity)
 	file.set_value("audio", "master", master_volume)
 	file.set_value("audio", "effects", effects_volume)
 	file.set_value("audio", "music", music_volume)
+	file.set_value("audio", "footsteps", footsteps_volume)
 	file.set_value("firstrun", "guide_done", guide_done)
 	file.set_value("video", "quality", quality)
 	file.set_value("video", "fullscreen", fullscreen)
@@ -200,4 +222,4 @@ func save() -> void:
 	file.set_value("video", "max_fps", max_fps)
 	for action: StringName in ACTIONS:
 		file.set_value("keys", String(action), keys[action])
-	file.save(PATH)
+	file.save(path)

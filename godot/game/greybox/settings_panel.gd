@@ -1,6 +1,6 @@
 class_name SettingsPanel
 extends VBoxContainer
-## Mouse sensitivity, the three volumes, and the keyboard keys. Shared by the
+## Mouse sensitivity, the four volumes (master, music, effects, footsteps), and the keyboard keys. Shared by the
 ## main menu and the pause panel. Every change is saved at once (PlayerSettings).
 ##
 ## A key is rebound by clicking it and pressing the new one; Esc cancels. Mouse
@@ -24,12 +24,14 @@ func _init() -> void:
 
 	_slider("Mouse sensitivity", settings.sensitivity, PlayerSettings.SENSITIVITY_MIN,
 		PlayerSettings.SENSITIVITY_MAX, func(v: float) -> void: PlayerSettings.current().set_sensitivity(v))
-	_slider("Master volume", settings.master_volume, 0.0, 1.0,
+	_slider("Master", settings.master_volume, 0.0, 1.0,
 		func(v: float) -> void: PlayerSettings.current().set_volume(&"Master", v))
-	_slider("Effects volume", settings.effects_volume, 0.0, 1.0,
-		func(v: float) -> void: PlayerSettings.current().set_volume(&"SFX", v))
-	_slider("Music volume", settings.music_volume, 0.0, 1.0,
+	_slider("Music", settings.music_volume, 0.0, 1.0,
 		func(v: float) -> void: PlayerSettings.current().set_volume(&"Music", v))
+	_slider("Effects", settings.effects_volume, 0.0, 1.0,
+		func(v: float) -> void: PlayerSettings.current().set_volume(&"SFX", v))
+	_slider("Footsteps (0 = off)", settings.footsteps_volume, 0.0, 1.0,
+		func(v: float) -> void: PlayerSettings.current().set_volume(&"Footsteps", v))
 
 	add_child(HSeparator.new())
 	var quality_box: OptionButton = OptionButton.new()
