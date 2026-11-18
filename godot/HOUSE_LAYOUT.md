@@ -100,7 +100,10 @@ included, base to top. A void larger than strictly necessary is invisible; one
 that is wrong by even a small margin is not. It is grown by a body radius (20) at
 the base end and on the open flank, but NOT past the top tread (PT2-1): the top
 tread is level with the upstairs floor, so growth there only left a visible 20-unit
-gap between the last step and the floor.
+gap between the last step and the floor. (PT4-1: the game loads the BAKED level,
+`content/levels/house.tres`; a `house.tscn` change does nothing until
+`tools/bake_blockout_headless.gd` re-bakes it. The open-flank strip beside the top
+tread is drawn closed by `ShellBuilder._top_cap`, drawing only.)
 
 ## 3. Quadrants and coordinates
 

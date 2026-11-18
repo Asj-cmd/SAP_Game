@@ -30,7 +30,7 @@ changes the rule from P5-0 that the family display names come only from
 `godot/content/family_names.cfg`: the file now holds only the defaults, and the names a match shows
 are typed by the players (see PT3-3).
 
-- [ ] **PT4-1 Stair gap, for real.** PT2-1 was ticked, but the user still sees a gap between the top
+- [x] **PT4-1 Stair gap, for real.** *(Done 2026-11-18: PT2-1's fix never reached the baked `content/levels/house.tres` the game loads; re-baked. The open-flank slot beside each top tread is drawn closed (`ShellBuilder._top_cap`). Measured drawn gap 0 on all six flights; six frames from the landings in `autobuild/frames/pt4_1_*.png` show no gap. See PROGRESS.md.)* PT2-1 was ticked, but the user still sees a gap between the top
   tread and the upper floor, with the green lawn visible through it. Fix **every flight in both
   houses**, including the outside back stairs (list them first: the inside flights, the back stairs,
   anything else that reaches the upper floor). Find why PT2-1's fix did not reach what the user sees
