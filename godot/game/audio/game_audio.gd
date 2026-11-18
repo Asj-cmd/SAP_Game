@@ -42,12 +42,18 @@ const DEFAULT_BUS: StringName = &"SFX"
 const JAILED_PATH: String = "res://content/sfx/jailed.ogg"
 const EVENTS: Dictionary = {
 	&"step": {"files": ["step_wood_1", "step_wood_2", "step_wood_3"], "db": -8.0, "bus": &"Footsteps"},
-	&"grab": {"files": ["grab_1", "grab_2"], "db": -4.0},
+	&"grab": {"files": ["grab_1", "grab_2"], "db": 3.0},
 	&"throw": {"files": ["throw"], "db": -3.0},
 	&"seize": {"files": ["seize_thump", "seize_cloth"], "db": -2.0},
 	&"free": {"files": ["free"], "db": -3.0},
 	&"land": {"files": ["land"], "db": -6.0},
-	&"cash": {"files": ["cash_1", "cash_2"], "db": -4.0},
+	&"cash": {"files": ["cash_1", "cash_2"], "db": -11.0},
+	# PT3-2: paper, not metal. `grab` is a banknote flutter, `cash` (banked) and
+	# `drop` (let go straight down) a soft bundle thud, `bundle_land` a quieter one
+	# where a thrown or dropped bundle comes to rest. The dB levels bring each file to
+	# the loudness of the files they replaced (rms of the first 0.25 s, audio_probe).
+	&"drop": {"files": ["drop"], "db": -7.0},
+	&"bundle_land": {"files": ["bundle_land"], "db": -13.0},
 	&"sting": {"files": ["sting"], "db": -6.0},
 	# PT2-4: match end, heard by the local seat's family only (Kenney pizzicato jingles,
 	# on the Music bus so the Music slider sets them), and the jail "boink" (REVIEW).

@@ -95,15 +95,21 @@ Packs: impact-sounds (https://kenney.nl/assets/impact-sounds), interface-sounds 
 | File | From | Event |
 |---|---|---|
 | step_wood_1-3 | impact-sounds footstep_wood_000-002 | footsteps |
-| grab_1, grab_2 | rpg-audio cloth1, cloth2 | grab |
+| grab_1, grab_2 | rpg-audio bookFlip2, bookFlip3 (PT3-2: a paper flutter, 0.43 s / 0.23 s; sha256 3409042a…f73c, c85db5dc…67be) | grab |
+| `retired/grab_1`, `retired/grab_2` | rpg-audio cloth1, cloth2 | **Retired, not shipped** (PT3-2) |
 | throw | rpg-audio cloth3 | throw |
 | seize_thump, seize_cloth | impact-sounds impactSoft_heavy_000; rpg-audio cloth4 | caught |
 | free | rpg-audio metalLatch | free an ally |
 | land | impact-sounds impactSoft_medium_000 | landing |
-| cash_1, cash_2 | rpg-audio handleCoins, handleCoins2 | deposit |
+| cash_1, cash_2 | rpg-audio bookPlace1, bookPlace2 (PT3-2: a soft paper-bundle thud, 0.28 s / 0.35 s; 26f3ce60…d977, 831874e8…731e) | deposit |
+| drop | rpg-audio dropLeather (PT3-2, 0.42 s; 097e1d3b…1a45) | a carrier lets go of a bundle straight down |
+| bundle_land | rpg-audio bookPlace3 (PT3-2, 0.26 s; b1afa711…b06e) | a thrown or dropped bundle comes to rest |
+| `retired/cash_1`, `retired/cash_2` | rpg-audio handleCoins, handleCoins2 | **Retired, not shipped** (PT3-2: the coin clicks the user heard as a gun being loaded) |
 | sting | interface-sounds bong_001 | round end (and a match with no winner); also the `spotted` alarm (PT2-2), the same file played at pitch 1.25 |
 | tick | interface-sounds tick_001 | countdown |
 | ui_click | interface-sounds click_001 | every button |
+
+PT3-2: every new cash file is an unmodified Kenney file, under 0.6 s, with no leading silence (sound starts at 0.00-0.04 s). Their levels are set in the `GameAudio.EVENTS` dB, matched to the old files by rms over the first 0.25 s (`tools/audio_probe.gd --ends`). None has click, latch, snap, cock, reload or metal in its name. `godot/art/audio/sfx/retired/` has a `.gdignore` and is in the export `exclude_filter`.
 
 ## Music and stings (PT2-4), fetched 2026-11-17
 CC0 proof for each source sits next to the download in `autobuild/Incoming/` (gitignored): the saved page plus a SOURCE.txt with URL, licence and hashes.

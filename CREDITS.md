@@ -15,7 +15,7 @@ Two sample props from Poly Haven (polyhaven.com), CC0 1.0: Wooden Table 02 and A
 Textures from Poly Haven (polyhaven.com) and ambientCG (ambientcg.com), CC0 1.0: brick, concrete, tiles, roof tiles, plaster, laminate, asphalt, bark, pavement, gravel and weathered planks.
 
 ## Sound effects
-Footsteps, impacts, cloth, coins, clicks and bell: Kenney (kenney.nl) Impact Sounds, Interface Sounds and RPG Audio, CC0 1.0.
+Footsteps, impacts, cloth, paper, leather, clicks and bell: Kenney (kenney.nl) Impact Sounds, Interface Sounds and RPG Audio, CC0 1.0.
 Jail "boink": "Boings" by EZduzziteh (opengameart.org/node/183317), CC0.
 
 ## Music

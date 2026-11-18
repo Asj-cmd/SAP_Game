@@ -117,6 +117,11 @@ var _bundle_base: Dictionary[int, Vector3] = {}
 ## last driven from, to spot one-shots (_animate).
 var _animators: Dictionary[int, FigureAnimator] = {}
 var _anim_carrying: Dictionary[int, int] = {}
+## Bundle id -> in flight last frame, from the confirmed world (PT3-2 landing thud).
+var _bundle_flying: Dictionary[int, bool] = {}
+var _bundle_held: Dictionary[int, bool] = {}
+## Bundles let go from a hand and not yet landed (the ones that thud).
+var _bundle_let_go: Dictionary[int, bool] = {}
 var _anim_captured: Dictionary[int, bool] = {}
 var _anim_sentence: Dictionary[int, int] = {}
 ## Spotted startle (PT2-2), presentation only: per carrier, the bundle it held
@@ -1670,6 +1675,12 @@ func _animate(drawn: SimWorld, truth: SimWorld, mine: int, remote: bool, delta: 
 			if bundle != null and bundle.in_flight \
 					and Vector2(bundle.velocity.x, bundle.velocity.z).length() > 1.0:
 				_act(truth, entity_id, &"throw")
+			elif bundle != null and bundle.in_flight:
+				# Let go straight down (PT3-2): a soft paper thud at the carrier.
+				audio.play(&"drop", entity.position, entity_id == mine)
+				if _anim_log:
+					print("anim drop  %s:%d  t=%.1f" % [entity.team, entity.slot,
+						truth.tick * SimWorld.SECONDS_PER_TICK])
 		if was_carrying == SimEntity.NO_ENTITY and entity.is_carrying():
 			_anim_fired[&"grab"] = entity_id
 			audio.play(&"grab", entity.position, entity_id == mine)
@@ -1711,10 +1722,34 @@ func _animate(drawn: SimWorld, truth: SimWorld, mine: int, remote: bool, delta: 
 		_act_nearest(truth, victim, true)
 		_feedback_body(truth, victim, mine, false)
 	_spot_carriers(truth, mine)
+	_bundle_landings(truth)
 	for entity_id: int in _animators:
 		var seen: SimEntity = truth.get_entity(entity_id)
 		if seen != null:
 			_anim_last_seen[entity_id] = seen.position
+
+## A thrown or dropped bundle that comes to rest makes a soft thud where it lies
+## (PT3-2). Read from the CONFIRMED world: a bundle that left somebody's hands
+## (`_bundle_let_go`) and then stops being in flight, unless someone caught it.
+## Only let-go bundles: a round start also settles every bundle on its marker,
+## which would be eight thuds at once. Presentation only.
+func _bundle_landings(truth: SimWorld) -> void:
+	for bundle_id: int in truth.entities:
+		var bundle: SimEntity = truth.entities[bundle_id]
+		if not bundle.is_carriable():
+			continue
+		if _bundle_held.get(bundle_id, false) and not bundle.is_held() and bundle.in_flight:
+			_bundle_let_go[bundle_id] = true
+		elif bundle.is_held():
+			_bundle_let_go.erase(bundle_id)
+		_bundle_held[bundle_id] = bundle.is_held()
+		var was_flying: bool = _bundle_flying.get(bundle_id, bundle.in_flight)
+		if was_flying and not bundle.in_flight and _bundle_let_go.has(bundle_id):
+			_bundle_let_go.erase(bundle_id)
+			audio.play(&"bundle_land", bundle.position)
+			if _anim_log:
+				print("anim bundle_land  %d  t=%.1f" % [bundle_id, truth.tick * SimWorld.SECONDS_PER_TICK])
+		_bundle_flying[bundle_id] = bundle.in_flight
 
 ## The spotted startle (PT2-2). From the CONFIRMED world, each frame: a body
 ## carrying another family's cash, with a free member of that family within
@@ -2096,6 +2131,9 @@ func _cash_model() -> PackedScene:
 func _clear_animators() -> void:
 	_animators.clear()
 	_anim_carrying.clear()
+	_bundle_flying.clear()
+	_bundle_held.clear()
+	_bundle_let_go.clear()
 	_anim_captured.clear()
 	_anim_sentence.clear()
 	_anim_last_seen.clear()

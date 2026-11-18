@@ -34,6 +34,20 @@ The sound a player hears when they are caught and sent to jail is **one file**:
 
 If the file is missing the game simply plays no jail sound. Its volume follows the Effects slider.
 
+## Cash sounds
+
+The cash sounds are plain OGG Vorbis files in `godot/art/audio/sfx/`. Replace a file under the
+same name to change a sound (keep each short, under about half a second, with no silence at the
+start), then rebuild with `node autobuild/build.mjs`:
+
+- `grab_1.ogg`, `grab_2.ogg`: picking up a bundle (a paper flutter; one of the two at random);
+- `cash_1.ogg`, `cash_2.ogg`: a bundle banked at home (a soft paper thud);
+- `drop.ogg`: a carrier lets go of a bundle;
+- `bundle_land.ogg`: a thrown or dropped bundle hits the ground.
+
+The sounds they replaced are kept in `godot/art/audio/sfx/retired/` (not in the exe). Their volume
+follows the Effects slider.
+
 ## Changing the menu music
 
 Music plays only around a match: in the main menu, the lobby and the results panel. It fades
