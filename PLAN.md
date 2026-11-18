@@ -17,6 +17,75 @@ roughly 60% of your turn budget.
   look at the frame, conventions), `godot/DESIGN_DIRECTION.md` (settled design — do not reopen
   without new evidence).
 
+## Playtest 2 (user, 2026-11-17): do these eight first, in this order
+
+Written after the user's second playtest of the exe. They come before everything else, so the loop
+takes them first. Planner and workers are Opus (Fable needs paid usage credits): no task here is
+tagged with a worker model. Milestone is still a friends playtest: a working, simple version beats a
+polished one, except where the task is about looks (PT2-5, PT2-6, PT2-8). Frames: only PT2-5, PT2-6,
+PT2-7 and PT2-8 may capture frames (one set at the end, at most one redo; see `PROMPT.md`). Every
+other task here is verified by tests and numbers. The family display names come only from
+`godot/content/family_names.cfg` (never write them as fixed text).
+
+- [ ] **PT2-1 Stair gap.** In both houses the upper floor stops short of the top stair tread (user's
+  screenshot: a visible gap between the last step and the upstairs floor). The staircase position is
+  right; extend the upper floor / landing (shell, collision and nav) so it meets the top tread. Check
+  every flight, including the new outside back stairs. The symmetry probe passes; the full
+  `verify.mjs` is the gate. No frames.
+- [ ] **PT2-2 Remove the panic run; add a "spotted" startle.** Delete the arms-up panic run: the sim
+  state (`is_panicking`, the forward-held tracking if nothing else uses it), the animation, the bot
+  code that deals with it, and the tests that pinned it. Replace it with a "spotted" moment: the first
+  time a defender comes within the old panic distance of a player who is carrying that defender's
+  family's cash, the carrier plays a one-shot stiff startle jolt (about 0.5 s; presentation only, no
+  speed change, never in the sim's decisions) and an alarm sting plays for both players. Add a
+  cooldown so it does not repeat constantly (log the value in `DECISIONS.md` as REVIEW). Keep the 1.08x
+  home-side defender speed boost. Update D9 (the panic run row becomes the spotted startle; keep the
+  home-side speed row). If the removal changes the snapshot, bump the format and keep the net smoke
+  test green. No frames. (The alarm sting needs a sound: use a placeholder from the PT2-4 pool or a
+  short generated tone, and log it in `ASSETS.md`.)
+- [ ] **PT2-3 Audio settings.** Separate **Music**, **Effects** and **Footsteps** volume sliders in
+  Settings, saved with the other settings. Footsteps default to 40 percent and can be turned off
+  (slider at 0). Route each kind of sound to its own audio bus so the sliders work for every sound
+  that exists now and for the ones PT2-4 adds. Table-driven test for the saved values. No frames.
+- [ ] **PT2-4 Music and stings.** One CC0 background music loop (Kenney, OpenGameArt CC0 or similar;
+  calm, slightly silly, not looping annoyingly fast), a short win jingle, a short lose jingle and a
+  jail sound. The jail sound is a CC0 cartoon "boink" for now, loaded from the one file
+  `godot/content/sfx/jailed.ogg` so the user can replace it with their own recording later; say in
+  `HOW_TO_PLAY.md` how to swap it (which file, which format, rebuild the exe). Do not use any meme
+  clip. Log every file in `ASSETS.md` and `CREDITS.md` (name, author, licence, URL), with the CC0
+  proof next to it as for the other assets. The export must include the sfx folder. No frames.
+- [ ] **PT2-5 Bring back the realistic house.** The user says the house looked more realistic and
+  polished before; now it looks as flat and cartoony as the figures. The intended contrast is a
+  realistic house with silly figures (D2). Compare an older commit's frames (around P3-2 / P3-3) with
+  today's (a git worktree at the old commit is fine; do not touch the working tree). Find what
+  flattened it (texture loss in the P3-6 mesh merge, lighting and shadow changes in P3-5, material or
+  quality-preset changes, the P7-2 presets) and restore textures, materials and lighting on the
+  **High** preset while staying inside the P1-1 budgets (the draws, triangles and GPU numbers the
+  full verify gates). Log what you found in `DECISIONS.md`. **Frames allowed: one before/after set at
+  the end, at most one redo.**
+- [ ] **PT2-6 UI art pass.** The main menu, settings, pause, lobby, HUD and results screens look
+  bland, like a web page or an .io game. Make them look like a polished commercial game: one shared
+  Godot Theme; a real display font plus a readable body font (OFL or CC0, logged in `ASSETS.md` and
+  `CREDITS.md`); styled panels and buttons with hover and press states and small animations; a title
+  logo on the main menu over a live or rendered view of the two houses; icons in the HUD; a proper
+  tug-of-war cash bar with the family colours, names and counts; a clear round timer. Keep the
+  deadpan tone, no confetti. Fix "THE GRABBS WINS": the result line is plural, so "WIN" (the family
+  display names come from `family_names.cfg`; build the line so it never says "WINS" after a family
+  name). Keeps the P5-0 rules (names only from the `.cfg`). **Frames allowed: one set of every screen
+  at the end, at most one redo.**
+- [ ] **PT2-7 Match end sequence.** An end-of-match sequence of about 4 to 6 s before the results
+  panel: the camera circles the winning family doing a stiff deadpan victory pose holding cash, the
+  losers stand blank; a big original title such as "THE <WINNERS> GOT RICH." in the winners' view and
+  "THE <LOSERS> GOT ROBBED." in the losers' view (the exact lines live in ONE content file, with the
+  family display name filled in at run time); the win or lose jingle from PT2-4. Skippable with any
+  key. Presentation only: the sim and the network do not change. **Frames allowed: one set at the end,
+  at most one redo.**
+- [ ] **PT2-8 Funnier hair.** The son's mohawk is clearly bigger. The daughter gets two shabby, uneven
+  pigtails. Mom gets a tall stiff beehive or a curly perm (the planner picks the funnier one and says
+  which in the brief). Dad is unchanged. Same in both families, elder and younger variants following
+  the same idea (P2-6 rules: plain painted solid shapes in the figure material, colours in the
+  theme). **Frames allowed: one lineup at the end, at most one redo.**
+
 ## Where the project actually stands (measured at the start of the autobuild)
 
 Measured on branch `claude/godot-port` at merge commit `5ac27d6` (the user's 29 local commits from
@@ -249,7 +318,7 @@ Fable needs paid usage credits (2026-11-17), so the tags were removed from the o
   `HOW_TO_PLAY.md`. *Verify:* one table-driven test of the loader (both lines, spaces, quotes, empty
   value, missing file, comment lines) and a search showing the names appear in no file but the
   `.cfg`; then the full `verify.mjs`. No frame captures.
-- [x] **P2-6 Hair and builds: make each family member recognisable** (worker: fable) *(Done 2026-11-17: hair shapes and dad's belly generated in `tools/rerig_character.gd` (`--hair=`, `--belly=`); hair colours and mom's / dad's builds in the theme; a member's drawn height is its body's, hair not counted. Frames in `autobuild/frames/p2_6/`; the lineup's 20 m and 40 m shots are blocked by the P3-4 exterior and show nothing. See PROGRESS.md.)* (the user's design notes from
+- [x] **P2-6 Hair and builds: make each family member recognisable** *(Done 2026-11-17: hair shapes and dad's belly generated in `tools/rerig_character.gd` (`--hair=`, `--belly=`); hair colours and mom's / dad's builds in the theme; a member's drawn height is its body's, hair not counted. Frames in `autobuild/frames/p2_6/`; the lineup's 20 m and 40 m shots are blocked by the P3-4 exterior and show nothing. See PROGRESS.md.)* (the user's design notes from
   playtest; keep their spirit, refine as needed). Dad has a belly (dad bod) and a comb-over. Mom is a
   little jacked (broad shoulders, strong arms) with a tall stiff hairdo. The son has a small mohawk.
   The daughter has two pigtails. The elder and younger variants follow the same idea (the elder and
@@ -393,3 +462,5 @@ A stash on this machine holds session 7's unfinished P3-3f sweep statistics (`gi
 
 - Trial of simple hand-drawn faces (our own dot eyes and line mouth) as a switchable setting; it
   would change D2.
+- The user may supply their own recorded "fahhh" for the jail sound: it replaces
+  `godot/content/sfx/jailed.ogg` (PT2-4) and is logged in `ASSETS.md` as the user's own recording.

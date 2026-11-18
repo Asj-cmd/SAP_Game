@@ -7,7 +7,7 @@
 //   briefHeadings(briefText)    task ids that have a section in BRIEF.md (a "## P3-4 ..." heading)
 //   hasBriefFor(briefText, id)  true when BRIEF.md has a section for that task
 
-const TASK_LINE = /^- \[[ ~]\] \*\*(P\d+-\d+[a-z]*)\b/m;
+const TASK_LINE = /^- \[[ ~]\] \*\*(PT?\d+-\d+[a-z]*)\b/m;
 
 export function firstOpenTaskId(planText) {
   return String(planText).match(TASK_LINE)?.[1] ?? null;
@@ -34,7 +34,7 @@ export function pickWorkerModel(planText, { workerModel = null, tagOff = new Set
 }
 
 export function briefHeadings(briefText) {
-  return [...String(briefText).matchAll(/^##\s+(P\d+-\d+[a-z]*)\b/gm)].map((m) => m[1]);
+  return [...String(briefText).matchAll(/^##\s+(PT?\d+-\d+[a-z]*)\b/gm)].map((m) => m[1]);
 }
 
 export function hasBriefFor(briefText, id) {
