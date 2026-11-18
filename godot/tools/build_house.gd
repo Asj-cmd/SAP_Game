@@ -710,13 +710,15 @@ func _straight_flight(x: float, z: float, base: float, dir: float) -> void:
 ##
 ## `dir` matches _straight_flight: the footprint runs from the base (at `z`)
 ## to the top of the flight, `STAIR_LANDING + FLIGHT_RUN` further along in
-## whichever direction the stair climbs. Both ENDS are grown regardless of
-## `dir` - a body overhangs the bottom of the run stepping on, and the top of
-## it stepping off.
+## whichever direction the stair climbs. Only the BASE end is grown along the
+## run. PT2-1: the top end used to be grown too, which left a BODY-wide strip
+## with no floor between the top tread and the upstairs slab - the gap a player
+## saw. The top tread's top IS the slab's top (UPPER), so a body overhanging
+## the top tread there stands on floor, not inside it; nothing needs the strip.
 func _stairwell(x: float, z: float, dir: float, open_side: float) -> Rect2:
 	var far: float = z + dir * (STAIR_LANDING + FLIGHT_RUN)
-	var lo: float = minf(z, far) - BODY
-	var hi: float = maxf(z, far) + BODY
+	var lo: float = minf(z, far) - (BODY if dir > 0.0 else 0.0)
+	var hi: float = maxf(z, far) + (BODY if dir < 0.0 else 0.0)
 	var from_x: float = x - (BODY if open_side < 0.0 else 0.0)
 	var to_x: float = x + FLIGHT_W + (BODY if open_side > 0.0 else 0.0)
 	return Rect2(from_x, lo, to_x - from_x, hi - lo)

@@ -2,50 +2,6 @@
 
 Written by the planner from a quick read. If a fact here is wrong, the code and `DECISIONS.md` win.
 
-## PT2-1 — Stair gap
-
-**Approach**
-1. Measure first, no frames: in `godot/tools/build_house.gd`, the indoor flights are `_straight_flight`
-   (12 treads of RUN 48, first riser STAIR_LANDING 120 past the base, top tread top = GROUND + STOREY = UPPER)
-   and the hole in the upper slab is `_stairwell(...)`, passed to `_slab_at` from `_upper()` (~line 584).
-2. The likely cause: `_stairwell` grows the hole by BODY (20) past BOTH ends of the footprint, so at the
-   TOP end there is a 20-unit strip with no slab between the last tread and the upstairs floor. Work out
-   the exact numbers (top tread's far edge vs the hole's far edge, slab top vs tread top) for stair A
-   (dir +1) and stair B (dir −1) and write them in PROGRESS.md.
-3. Fix: stop growing the hole at the TOP end only (keep the growth at the base end and on the open flank).
-   The top tread and the slab are at the same height, so a body overhanging there stands on floor, not in it.
-   If the numbers show a different cause (slab top ≠ tread top, an off-by-one RUN), fix that instead.
-4. Check the outside back staircase (`_back_stair`): top step spans PLATFORM_X1..+RUN at UPPER, platform
-   is PLATFORM_X0..PLATFORM_X1 with top UPPER − SLAB + SLAB = UPPER; also check the platform meets the
-   Landing B door's sill (no strip between platform and the wall/door opening). Fix only if a gap is measured.
-5. Re-bake the level: run `tools/build_house.gd` through `node autobuild/run_tool.mjs` (writes
-   `res://game/blockout/house.tscn`). The shell (`game/art/shell_builder.gd`) and nav are built from the
-   blockers at load, so they follow; check nothing in the shell hard-codes the old hole size (handrails /
-   string boards near the top of each flight).
-6. Run the content validator / symmetry probe only via the final full verify.
-
-**Already decided**
-- The staircase positions do not move (task says so). Only the hole's top edge (or whatever the measured cause is) changes.
-- No banister or collision added at the top; the open flank stays open (see the long comment above `_straight_flight`).
-- Log one line in `DECISIONS.md` (not REVIEW): "PT2-1: stairwell hole no longer grown past the top tread; why; undo = restore the `+ BODY` on that end".
-
-**Files likely touched**
-- `godot/tools/build_house.gd` (`_stairwell`, maybe `_back_stair`)
-- `godot/game/blockout/house.tscn` (re-baked output)
-- `godot/game/art/shell_builder.gd` (only if it derives the stair opening itself)
-- `DECISIONS.md`, `PROGRESS.md`, `PLAN.md`
-
-**Done means**
-- The measured before/after numbers for both indoor flights and the back stair are in PROGRESS.md (gap 0).
-- Full `node autobuild/verify.mjs`, run ONCE at the end before committing: healthy; symmetry probe exact
-  (190 of 190 or whatever it prints now, all twins); bot matches deterministic with a winner; tick budget within limits.
-- No frames.
-
-**Do NOT**
-- Move the stairs, change STEP/RUN/STOREY, or add walls next to treads (the comment explains five failed tries).
-- Touch bot steering, run sweeps, capture frames, or add test files.
-- Break the twin: both houses come from the same `_draw_house` placed twice; never special-case one house.
-
 ## PT2-2 — Remove the panic run; add a "spotted" startle
 
 **Approach**

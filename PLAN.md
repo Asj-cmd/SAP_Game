@@ -27,7 +27,7 @@ PT2-7 and PT2-8 may capture frames (one set at the end, at most one redo; see `P
 other task here is verified by tests and numbers. The family display names come only from
 `godot/content/family_names.cfg` (never write them as fixed text).
 
-- [ ] **PT2-1 Stair gap.** In both houses the upper floor stops short of the top stair tread (user's
+- [x] **PT2-1 Stair gap.** *(Done 2026-11-17: the stairwell hole was grown 20 past the top tread; now it ends at the tread. Back stair measured, no gap. See PROGRESS.md.)* In both houses the upper floor stops short of the top stair tread (user's
   screenshot: a visible gap between the last step and the upstairs floor). The staircase position is
   right; extend the upper floor / landing (shell, collision and nav) so it meets the top tread. Check
   every flight, including the new outside back stairs. The symmetry probe passes; the full

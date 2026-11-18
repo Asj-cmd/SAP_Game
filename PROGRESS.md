@@ -2,6 +2,12 @@
 
 Newest first. One entry per task: date, task id, what changed, what the frames showed, numbers, what is left.
 
+## 2026-11-17 — PT2-1 Stair gap
+- Cause, measured in `build_house.gd`: `_stairwell` grew the upper-slab hole by BODY (20) past BOTH ends of the flight. The top tread's top is UPPER (= the slab's top), so at the top end there was a 20-unit strip with no floor. Stair A (dir +1): top tread z 708..756, hole ended at 776, so the gap was 756..776. Stair B (dir -1): top tread z 1334..1382, hole started at 1314, so the gap was 1314..1334. Now the hole ends at 756 / 1334: gap 0. The base-end and open-flank growth are kept.
+- Back staircase (`_back_stair`): top step x 680..728 at UPPER; platform x 380..680, top UPPER; the platform starts at z = HOUSE, the wall's outer face, and the upper slab runs under the door opening to HOUSE at UPPER. Gap 0, no change.
+- Re-baked `house.tscn`: still 301 blockers, the four slab pieces at the stair tops are 20 longer. The shell and nav are built from the blockers at load, so they follow. HOUSE_LAYOUT.md note added.
+- Full verify, run once: healthy. Symmetry exact 190 of 190; bot 3v3 team_a 526 s, 45 s stalls, deterministic; 1v1 13 s stalls; tick budget 0 / 3 / 1 (4v4 not gated); net_smoke 1647 ticks agree. No frames (testing diet).
+
 ## 2026-11-17 — P7-4 Release sweep
 - `node autobuild/build.mjs`: BUILD: ok 118.5 MB, no script errors. Full verify healthy, run once: tick budget 1v1 1, 3v3 3 of 600 over (limit 5), 4v4 7 (not gated); bot matches deterministic, winner team_a (3v3 526 s, 45 s stalls; 1v1 13 s); symmetry 190 of 190; net_smoke 1650 ticks agree; render counters within limits. No frames (testing diet). PROJECT_MEMORY §2 refreshed. `build/` is gitignored.
 - Every PLAN task is done or deferred (`[-]`). Tag `v0.1.0-rc1` created locally.

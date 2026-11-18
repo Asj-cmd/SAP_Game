@@ -97,7 +97,10 @@ from outside saw the character clip through solid floor mid-climb. The stair
 already owns its whole corner of the room — nothing else needs that ceiling —
 so the fix is to stop being clever and cut the entire footprint, landing
 included, base to top. A void larger than strictly necessary is invisible; one
-that is wrong by even a small margin is not.
+that is wrong by even a small margin is not. It is grown by a body radius (20) at
+the base end and on the open flank, but NOT past the top tread (PT2-1): the top
+tread is level with the upstairs floor, so growth there only left a visible 20-unit
+gap between the last step and the floor.
 
 ## 3. Quadrants and coordinates
 
