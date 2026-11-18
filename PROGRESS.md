@@ -2,6 +2,14 @@
 
 Newest first. One entry per task: date, task id, what changed, what the frames showed, numbers, what is left.
 
+## 2026-11-17 — PT2-3 Audio settings
+- New bus `Footsteps` (bus 3, sends to Master) in `default_bus_layout.tres`. `GameAudio.EVENTS` rows take an optional `bus` (default SFX); `play` / `play_flat` set the pool player's bus per event, so `step` plays on Footsteps and every other event (incl. `land`) stays on SFX; music on Music, UI clicks on SFX. PT2-4's rows only need a `bus` key if they want another bus.
+- `PlayerSettings`: `footsteps_volume` (default 0.4), handled by `set_volume` / `volume_of` / `apply_audio` (bus list `AUDIO_BUSES`; 0 mutes the bus), saved as `[audio] footsteps`. `_load` / `save` now call new `load_from(path)` / `save_to(path)` with `PATH`; transient runs still neither read nor write.
+- `SettingsPanel`: sliders Master, Music, Effects, "Footsteps (0 = off)", same helper; no restyle (PT2-6).
+- New `player_settings_test` (35 checks, pinned in `test_baseline.json`): no file / empty file / old file without footsteps / footsteps 0 / out-of-range clamped / other sections only, then a save-load round trip that keeps another section. Uses `user://settings_test.cfg`, deleted after.
+- Checked: the test 35 of 35; headless `--menu` (20 s) and `--solo` (45 s) runs printed no errors. Full verify, run once: healthy; bot 3v3 team_a 526 s, 45 s stalls, deterministic; 1v1 13 s; symmetry 190 of 190; tick budget 0 / 2 / 7 (4v4 not gated); net_smoke 1652 ticks agree. No frames (testing diet), so the settings screen with the new row has not been looked at, and no sound was heard (headless).
+- Left: PT2-4.
+
 ## 2026-11-17 — PT2-2 Remove the panic run; add a "spotted" startle
 - Removed: `SimEntity.forward_held` / `forward_ticks` (fields, copy, digest), their reset in `invalidate_intent`, `MoveCommand.forward` and its byte on the wire, `TuningDef.panic_after_seconds` (no .tres set it), `MovementSystem.is_panicking` / `_panic_ticks` and the count in `_resolve`, the forward flag in `LocalPlayerInput`, the `panic_run` / `arms_panic` clips and the panic IK pose (`figure_anims.res` rebuilt: 22 clips, was 24), the `panicking` argument of `FigureAnimator`. Snapshot `FORMAT` 4 -> 5. `home_speed_scale` 1.08 and the 0.85 carry factor untouched. A grep for "panic" over godot/ code finds only the two snapshot format history lines.
 - Added (presentation only): `GreyBoxMain._spot_carriers` reads the confirmed world each frame; a body carrying another family's bundle (`bundle.team`) with a free member of that family within 600 horizontal / 200 vertical is spotted, then not again for 8 s while it holds the same bundle. `FigureAnimator.startle()`: drawn lift 10 over 0.08 s, back to 0 by 0.5 s, lean back up to 4° about the feet; the camera nudge for your own body; `GameAudio` event `spotted` (the sting at pitch 1.25, flat) for the carrier and the spotter. REVIEW row in DECISIONS.md; ASSETS.md notes the reused file.

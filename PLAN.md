@@ -43,7 +43,7 @@ other task here is verified by tests and numbers. The family display names come 
   home-side speed row). If the removal changes the snapshot, bump the format and keep the net smoke
   test green. No frames. (The alarm sting needs a sound: use a placeholder from the PT2-4 pool or a
   short generated tone, and log it in `ASSETS.md`.)
-- [ ] **PT2-3 Audio settings.** Separate **Music**, **Effects** and **Footsteps** volume sliders in
+- [x] **PT2-3 Audio settings.** *(Done 2026-11-17: `Footsteps` bus + slider (default 0.4, 0 = off), Music / Effects / Footsteps saved under `[audio]`, per-event bus in `GameAudio.EVENTS`; `player_settings_test` 35 checks. See PROGRESS.md.)* Separate **Music**, **Effects** and **Footsteps** volume sliders in
   Settings, saved with the other settings. Footsteps default to 40 percent and can be turned off
   (slider at 0). Route each kind of sound to its own audio bus so the sliders work for every sound
   that exists now and for the ones PT2-4 adds. Table-driven test for the saved values. No frames.
