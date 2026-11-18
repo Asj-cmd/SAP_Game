@@ -2,6 +2,25 @@
 
 Newest first. One entry per task: date, task id, what changed, what the frames showed, numbers, what is left.
 
+## 2026-11-18 — PT3-3 Players name their families
+- `FamilyNames` (`godot/game/greybox/family_names.gd`) keeps the typed names on each machine: `set_typed`, `typed_of`, `typed_all`, `clear_typed`, and a `revision` counter so panels know to redraw. `name_of` returns the typed name as "<Name> Family" (a name whose last word is already "family" stays as typed) or the default. `FALLBACK` and `content/family_names.cfg` now hold only "Green Family" / "Orange Family". Every place that shows a name already went through `name_of` (cash bar, results, status line, round and match headlines, debug HUD), so they all follow. The minimap and team-tell markers draw no text, so nothing changed there.
+- Cleaning: `FamilyNames.clean` calls `LobbyState.clean_name` (net/). This differs from the brief, which put the rule in `FamilyNames`: the wire decoder in net/ has to clean too, and net/ may not depend on game/. It is still one function. Letters are characters whose upper and lower case differ, so accents and Cyrillic are kept; digits, symbols and emoji are removed. Spaces, `-` and `'` are kept, runs of spaces collapse, the ends are trimmed, and the text is cut to 16 and trimmed again. Typing allows one trailing space while the field has focus (`FamilyNameBox.typing_filter`); without that, "Van Der" could not be typed.
+- Network: `MatchChannel.TAG_LOBBY` = 6, body `LobbyState` (version byte 1, then per team a length byte and UTF-8).
+  - Host to guest: sent in `_admit` after the seat (covers join and reconnect) and broadcast on every change.
+  - Guest to host: the host takes only the sender's own family, only from a seated peer, only while its world is WAITING, then rebroadcasts. A malformed body decodes to {} and is dropped.
+  - Not in the sim, snapshot, input stream or hash. net_smoke still agrees on every tick.
+- UI: new `FamilyNameBox` (family colour swatch, LineEdit with max 16, Clear).
+  - Host's lobby: two boxes; its own family is editable and both have Clear.
+  - NEW guest lobby panel: shown while a seated guest's confirmed world is in WAITING. Own box editable, no code, bots, Start or Clear; "Waiting for the host to start". It closes when the match starts, and the mouse is captured again. Before this, a guest had no lobby screen at all.
+  - Main menu: two boxes under Team size, above Play solo. They write the names directly, so a solo game uses them. Host and Join clear the names first. Names are not saved (brief).
+- Result lines are singular now: "<NAME> WINS THE MATCH", "<NAME> WINS ROUND n" (REVIEW).
+- Old names: reworded in DECISIONS (2 rows), PLAN (PT2-6 text) and PROGRESS (PT2-6 frame notes) as "the old default names". `git grep -i` for each old surname now returns nothing. There is no "custom family names" item in any backlog, so none was deleted.
+- Docs: HOW_TO_PLAY.md "Changing the family names" rewritten (lobby boxes, solo boxes, rules, defaults file). `godot/PLAYTEST.md` has a paragraph on naming your family.
+- Tests: `family_names_test` 26 -> 52 (a 16-case table for `clean`: empty, 16 / 17 chars, cut on a space, digits, symbols, emoji, tab and newline, accents, Cyrillic, only spaces, trim, collapse, hyphen and apostrophe; plus display, fallback and cleared cases; the parse cases now expect the new defaults). `lobby_test` 42 -> 57 (round trip, frame tag, cleaning on encode and on decode, nine malformed bodies: empty, version only, wrong version, version 0, length past the end, missing second name, trailing bytes, over-long, not UTF-8). Both pins ratcheted.
+- Checked: headless `--menu` and `--solo`, 25-30 s each, no script errors. NOT checked: a real two-window host and guest typing names. The guest panel and the echo path are untested by eye, and nothing was captured, per the diet.
+- Full verify, run once: **healthy**. 20 suites at their pins. Symmetry 190 of 190. Bot 3v3: team_a won, 526 s, 45 s stalls, deterministic. 1v1: 13 s stalls. Tick budget 0 / 2 / 8 (4v4 not gated). net_smoke: 1630 ticks agree. Render counters within limits.
+- Left: a human two-PC check of the lobby names. Next: PT4-2 (brief ready).
+
 ## 2026-11-18 — PT3-2 Cash sounds are paper
 - Files (Kenney RPG Audio, CC0, already in gitignored `autobuild/Incoming/kenney/rpg-audio/` with its SOURCE.txt; unmodified, lengths from `ogg_info.mjs`):
   - `grab_1` = bookFlip2 (0.43 s), `grab_2` = bookFlip3 (0.23 s). These are page flutters; bookFlip1 is 0.77 s, over the cap.

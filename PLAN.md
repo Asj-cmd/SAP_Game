@@ -71,7 +71,7 @@ are typed by the players (see PT3-3).
   effects; they play on the Effects bus (PT2-3). Keep the event names and the one file per event the
   audio table already uses, so swapping is a file change. Say in `HOW_TO_PLAY.md` which files they
   are. Move the replaced files to a `retired` folder next to them rather than deleting. No frames.
-- [ ] **PT3-3 Players name their families.** Remove the two old fixed family names everywhere (code,
+- [x] **PT3-3 Players name their families.** *(Done 2026-11-18: `FamilyNames` typed store + `clean` (one rule, in `LobbyState.clean_name`), shown as "<Name> Family", defaults "Green Family" / "Orange Family" in the cfg; lobby name boxes for host and (new) guest lobby panel, solo boxes on the menu; `MatchChannel.TAG_LOBBY` (host is the truth). Old names gone from tracked files. Not tried by two people. See PROGRESS.md.)* Remove the two old fixed family names everywhere (code,
   scenes, tests, docs, `family_names.cfg`, `HOW_TO_PLAY.md`, `PLAYTEST.md`, credits): nothing may
   contain them as text any more. Instead:
   1. **Lobby.** Each family has a name box. Any player seated on that family can type its surname;
