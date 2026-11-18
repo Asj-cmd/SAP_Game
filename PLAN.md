@@ -17,6 +17,75 @@ roughly 60% of your turn budget.
   look at the frame, conventions), `godot/DESIGN_DIRECTION.md` (settled design — do not reopen
   without new evidence).
 
+## Playtest 3 (user, 2026-11-18): do these three first, then PT2-7 and PT2-8 below
+
+Written after the user's third playtest. Order: PT3-1, PT3-2, PT3-3, then the two open Playtest 2
+tasks (PT2-7, PT2-8) further down. Planner and workers are Opus; no task is tagged with a worker
+model. None of the three tasks here may capture frames: they are checked by tests and numbers (the
+full `verify.mjs` once at the end, `PROMPT.md`). PT3-3 changes the rule from P5-0 that the family
+display names come only from `godot/content/family_names.cfg`: the file now holds only the defaults,
+and the names a match shows are typed by the players (see PT3-3).
+
+- [ ] **PT3-1 Music only outside matches, and a quirky track.** Background music plays in the main
+  menu, the lobby and the results panel only. It fades out (about 1 s) when a match starts and fades
+  back in when the results panel appears (after PT2-7's end sequence and jingle, once that exists; the
+  win or lose jingle stays and plays over the fade). Nothing plays under the match itself (the
+  Music slider from PT2-3 still controls the volume). Replace the current jazz loop (Alex McCulloch,
+  OpenGameArt; the user says it sounds like phone hold music and irritates them). Pick quirky,
+  sneaky, cartoon-heist music (pizzicato, light percussion, playful), free to use commercially:
+  **CC0 first; CC-BY only if credited in `CREDITS.md`**; no other licence, no meme clips. Download
+  three candidates into `godot/content/music/candidates/` (each short or trimmed; if one is big,
+  keep it out of git with a `.gitignore` line, and the export must not include the `candidates`
+  folder), listen is not possible, so choose by title, description, tempo, loop length and how the
+  source describes it, and say in `PROGRESS.md` which you picked and why. Use the best as
+  `godot/content/music/menu.ogg` (loops cleanly, not annoyingly short or fast). Write in
+  `HOW_TO_PLAY.md` how to swap one in by renaming (which file, which format, rebuild the exe). Log
+  all three candidates in `ASSETS.md` (the unused ones marked "candidate, not shipped") and the one
+  used in `CREDITS.md`, each with author, licence, URL and the licence proof. Remove the old jazz
+  file and its credits row only if nothing else uses them (the user said never delete: move it
+  to `godot/content/music/candidates/` instead). Test: table-driven check of when music is wanted
+  (menu, lobby, results yes; match no) so the rule cannot drift. No frames.
+- [ ] **PT3-2 Cash sounds are paper.** Grabbing and dropping a bundle currently sounds like a gun
+  being loaded. Replace the **grab** with a paper rustle or a quick banknote flutter, and the
+  **drop and the landing** with a soft paper-bundle thud. CC0 only (Kenney, OpenGameArt CC0,
+  freesound CC0 downloadable without an account, or similar); logged in `ASSETS.md` and `CREDITS.md`
+  with proof of the licence. **Nothing metallic or click-like**: reject any candidate whose title or
+  description says click, latch, snap, cock, reload or metal; prefer "paper", "page turn", "flutter",
+  "cloth", "thud", "bag drop". Short (under about 0.6 s), trimmed, normalised to match the other
+  effects; they play on the Effects bus (PT2-3). Keep the event names and the one file per event the
+  audio table already uses, so swapping is a file change. Say in `HOW_TO_PLAY.md` which files they
+  are. Move the replaced files to a `retired` folder next to them rather than deleting. No frames.
+- [ ] **PT3-3 Players name their families.** Remove the two old fixed family names everywhere (code,
+  scenes, tests, docs, `family_names.cfg`, `HOW_TO_PLAY.md`, `PLAYTEST.md`, credits): nothing may
+  contain them as text any more. Instead:
+  1. **Lobby.** Each family has a name box. Any player seated on that family can type its surname;
+     the host sees both boxes and can clear either with a Clear button. Rules, enforced where the
+     text is entered AND where it is received: at most 16 characters, only letters, spaces, hyphens
+     and apostrophes (strip anything else, trim ends, collapse runs of spaces). One small shared
+     function does the cleaning (`FamilyNames.clean`, table-driven test: empty, 16 vs 17 characters,
+     digits, symbols, emoji, accents, only spaces, hyphen and apostrophe kept).
+  2. **Network.** The names travel in the lobby / session state to all players, as part of the
+     existing lobby message (not the sim snapshot, not the match input stream); a joining or
+     reconnecting player receives the current names; a change by a team-mate or the host reaches
+     everyone within a second. A late or malformed message is cleaned and ignored if invalid; the
+     host's copy is the truth (last typed wins). Keep the net smoke test green and add a table case
+     for the new message.
+  3. **Shown everywhere**: the cash bar, results, status line, the match-end titles from PT2-7
+     (PT2-7 must use these names), round messages, minimap and team-tell labels, the debug HUD.
+  4. **Solo games.** A name box for each family on the solo setup screen (above Play solo, next to
+     the team-size picker).
+  5. **Defaults when a name is empty**: "Green Family" and "Orange Family" (after the family
+     colours; the first family is the green one, the second the rust orange one). The defaults live
+     in `godot/content/family_names.cfg`, which keeps its two lines (`team_a_name=`, `team_b_name=`)
+     and now holds ONLY these two defaults; the loader's own fallback if the file is missing is the
+     same two words. Internal ids stay `team_a` / `team_b`.
+  6. Update `HOW_TO_PLAY.md` (the "Changing the family names" section now explains the lobby boxes
+     and the defaults file) and `PLAYTEST.md`. Delete the "custom family names" item from the
+     backlog if it exists (none is listed at the moment: say so in `PROGRESS.md`). Log the changed
+     rule against P5-0 in `DECISIONS.md`.
+  *Verify:* the table-driven tests above, a search showing neither old name appears anywhere in the
+  repo's tracked files, then the full `verify.mjs`. No frames.
+
 ## Playtest 2 (user, 2026-11-17): do these eight first, in this order
 
 Written after the user's second playtest of the exe. They come before everything else, so the loop
@@ -77,9 +146,12 @@ other task here is verified by tests and numbers. The family display names come 
   panel: the camera circles the winning family doing a stiff deadpan victory pose holding cash, the
   losers stand blank; a big original title such as "THE <WINNERS> GOT RICH." in the winners' view and
   "THE <LOSERS> GOT ROBBED." in the losers' view (the exact lines live in ONE content file, with the
-  family display name filled in at run time); the win or lose jingle from PT2-4. Skippable with any
-  key. Presentation only: the sim and the network do not change. **Frames allowed: one set at the end,
-  at most one redo.**
+  family name filled in at run time: **the names the players typed in the lobby (PT3-3)**, or the
+  defaults from `family_names.cfg` when a box was left empty; build the line so a name ending in "s"
+  or not still reads right); the win or lose jingle from PT2-4. Skippable with any key. Presentation
+  only: the sim and the network messages do not change (PT3-3's names are already on every
+  machine). The results panel follows the sequence, and PT3-1's music comes back in then.
+  **Frames allowed: one set at the end, at most one redo.**
 - [ ] **PT2-8 Funnier hair.** The son's mohawk is clearly bigger. The daughter gets two shabby, uneven
   pigtails. Mom gets a tall stiff beehive or a curly perm (the planner picks the funnier one and says
   which in the brief). Dad is unchanged. Same in both families, elder and younger variants following
@@ -464,3 +536,5 @@ A stash on this machine holds session 7's unfinished P3-3f sweep statistics (`gi
   would change D2.
 - The user may supply their own recorded "fahhh" for the jail sound: it replaces
   `godot/content/sfx/jailed.ogg` (PT2-4) and is logged in `ASSETS.md` as the user's own recording.
+- A swear-word filter for the family names (PT3-3) before strangers can play together on Steam
+  (today only friends play, so the names are only length- and character-limited).
