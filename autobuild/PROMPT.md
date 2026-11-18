@@ -17,8 +17,8 @@ Milestone: a friends playtest. Prefer a working, simple version over a polished 
 - Run the full `node autobuild/verify.mjs` ONCE per task, at the end, just before committing. Never
   at the start of a session. Run `node autobuild/verify.mjs --quick` only if you suspect you broke
   something.
-- No frame captures, contact sheets, sweeps or probes, unless the task is P2-6, P4-8, P3-7, P3-8, PT2-5, PT2-6, PT2-7 or PT2-8.
-  For those eight: ONE capture set, at the end, opened with the Read tool and described in
+- No frame captures, contact sheets, sweeps or probes, unless the task is P2-6, P4-8, P3-7, P3-8, PT2-5, PT2-6, PT2-7, PT2-8, PT4-1, PT4-6 or PT4-7.
+  For those eleven: ONE capture set, at the end, opened with the Read tool and described in
   `PROGRESS.md` as what each frame actually showed (not what it should have shown), and at most ONE
   redo of what looks wrong. Every other task is verified by tests and numbers only.
 - While working you may run the one test file for what you changed (`tests/*_test.gd`, with Godot).
@@ -40,7 +40,8 @@ ticked, delete its section from `BRIEF.md` in the same commit. If there is no se
 
 **Finish the game, not the bots.** (Set by the user 2026-11-15.)
 - Do not start bot-balance work, side sweeps or seed sweeps. A bot problem is only worth a session
-  if `verify.mjs` fails because of it. Tasks marked `[-]` are deferred by the user: never start them.
+  if `verify.mjs` fails because of it. (One exception, set by the user 2026-11-18: the task PT4-8,
+  bots catching thieves, with staged chase scenarios only, no sweeps.) Tasks marked `[-]` are deferred by the user: never start them.
 - `verify.mjs` is the only match gate, and the one check allowed to run longer than 10 minutes. Never
   run any other check longer than 10 minutes.
 - Prefer what a player sees or feels (art, house, verbs, UI) over metrics.

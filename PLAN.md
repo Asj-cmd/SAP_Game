@@ -17,14 +17,30 @@ roughly 60% of your turn budget.
   look at the frame, conventions), `godot/DESIGN_DIRECTION.md` (settled design — do not reopen
   without new evidence).
 
-## Playtest 3 (user, 2026-11-18): do these three first, then PT2-7 and PT2-8 below
+## Playtests 3 and 4 (user, 2026-11-18): do these first, in this order
 
-Written after the user's third playtest. Order: PT3-1, PT3-2, PT3-3, then the two open Playtest 2
-tasks (PT2-7, PT2-8) further down. Planner and workers are Opus; no task is tagged with a worker
-model. None of the three tasks here may capture frames: they are checked by tests and numbers (the
-full `verify.mjs` once at the end, `PROMPT.md`). PT3-3 changes the rule from P5-0 that the family
-display names come only from `godot/content/family_names.cfg`: the file now holds only the defaults,
-and the names a match shows are typed by the players (see PT3-3).
+Written after the user's third and fourth playtests. Order: PT4-1, PT3-1, PT3-2, PT3-3, PT4-2, PT4-3,
+PT4-4, PT4-5, PT4-6, PT4-7, then the two open Playtest 2 tasks (PT2-7, PT2-8) further down, then
+PT4-8 (last, below PT2-8). Planner and workers are Opus; no task is tagged with a worker model.
+**Each task is checked as written: never tick a task the user would still see broken** (PT2-1 was
+ticked and the user still sees the gap: PT4-1 is the redo). Frames: only PT4-1, PT4-6 and PT4-7
+(and PT2-7, PT2-8) may capture them, one set at the end and at most one redo (`PROMPT.md`); every
+other task here is checked by tests and numbers, with the full `verify.mjs` once at the end. PT3-3
+changes the rule from P5-0 that the family display names come only from
+`godot/content/family_names.cfg`: the file now holds only the defaults, and the names a match shows
+are typed by the players (see PT3-3).
+
+- [ ] **PT4-1 Stair gap, for real.** PT2-1 was ticked, but the user still sees a gap between the top
+  tread and the upper floor, with the green lawn visible through it. Fix **every flight in both
+  houses**, including the outside back stairs (list them first: the inside flights, the back stairs,
+  anything else that reaches the upper floor). Find why PT2-1's fix did not reach what the user sees
+  (the visible shell mesh, the floor slab, the stair mesh, the merged mesh, the string board or tread
+  nosing may each end at a different place from the collision and nav it measured) and fix what is
+  DRAWN as well as what is collided with. Collision and nav must still agree with the drawing, and the
+  symmetry probe passes. **Done only when one frame per flight, taken from the top looking down at
+  the top tread (a camera that stands on the landing), shows no gap and no light through it.** Open
+  each frame with the Read tool and say in `PROGRESS.md` what it actually shows; if any shows a gap,
+  fix it and redo once. **Frames allowed: one set (every flight in both houses), at most one redo.**
 
 - [ ] **PT3-1 Music only outside matches, and a quirky track.** Background music plays in the main
   menu, the lobby and the results panel only. It fades out (about 1 s) when a match starts and fades
@@ -85,6 +101,56 @@ and the names a match shows are typed by the players (see PT3-3).
      rule against P5-0 in `DECISIONS.md`.
   *Verify:* the table-driven tests above, a search showing neither old name appears anywhere in the
   repo's tracked files, then the full `verify.mjs`. No frames.
+- [ ] **PT4-2 Family spawn.** At round start each family spawns **together in a lineup in front of
+  its own house** (or in its ground-floor hall if that plays better: pick one, say why in
+  `DECISIONS.md`), facing the camera for about 3 s while its member names show, then play starts.
+  Deterministic in the sim and mirrored for both houses (the symmetry probe still passes). If the
+  round start already has a frozen countdown, reuse it; no new rule beyond "everyone holds still and
+  faces the lineup camera until play starts". The names shown are each member's role (Dad, Mom, Son,
+  Daughter, with elder / younger where that applies) and who plays it: the player's name or "Bot"
+  (PT3-3's family names above the lineup). The 3 s lineup is a presentation phase on top of the
+  sim's own start, so snapshot and network changes are only what the spawn positions need. Table-
+  driven test: spawn positions per team size (2v2, 3v3, 4v4), mirrored, no overlap with walls or
+  each other, same result on every run. No frames.
+- [ ] **PT4-3 Choose your family member.** The solo setup screen lets the player pick Dad, Mom, Son,
+  Daughter or "Random" (default Random); today the user always gets the dad. Online, each player
+  picks in the lobby, next to their family's name box (PT3-3); no duplicates within a family; the
+  host's copy of the choices is the truth (a second player picking a taken member is refused and sees
+  why); bots take what is left; Random by default and Random never takes a member another player has
+  picked. Offer only the members that exist at the chosen team size. The choice travels in the lobby
+  message (as PT3-3's names do), not in the match input stream, and a rejoining player keeps their
+  member (as the playtest guide already promises). Table-driven test: duplicates, Random, every
+  team size, rejoin. No frames.
+- [ ] **PT4-4 HUD fixes.** From the user's screenshots: (1) the cash bar shows the same terracotta
+  on both sides and stays centred at 0 against 6. It must be the **first family's colour from the
+  left** and the **second family's colour from the right**, and the split must follow each family's
+  share of banked cash (0 against 0 is centred; 0 against 6 is all one side). Check with a
+  table-driven test of the split and of the two colours (read from the theme, not typed in). (2) The
+  minimap is an empty dark box with grey squares, and it also shows on the main menu behind the
+  panel. Make it a readable top-down outline of both lots and both houses (walls, the fence line,
+  the gate), drawn from the level data, shown **only in a match** (never on the menu, lobby or
+  results). (3) Hide the "[F1] debug HUD" label unless the game is a debug/dev build
+  (`OS.is_debug_build()`); the exe is a release build, so friends do not see it. No frames: check by
+  tests and by what the code draws.
+- [ ] **PT4-5 Minimap pointers per member.** Each figure on the minimap is a shape in its family
+  colour: **dad square, mom diamond, son triangle, daughter circle** (elder and younger boys / girls
+  keep the son and daughter shapes), each pointing the way it faces (a short pointer or notch;
+  triangle points itself). The player's own one is outlined and slightly bigger. Bots and players
+  alike. Presentation only. Table-driven test of the shape and size per member and that facing is
+  read from the figure's heading. No frames.
+- [ ] **PT4-6 Hands and arms.** The dad's palms look too big and his arms too long; check all six
+  members (both families' figures, elder and younger variants where they exist). Scale hands and
+  forearms so they look normal next to the bodies, keeping the carry and throw poses working (the
+  IK arm poses from P2-2 must still reach and hold a bundle overhead; check by the numbers the
+  anim tests already give). Presentation only; no collision or sim change. **Frames allowed: one
+  lineup of all members (plus one close shot of dad carrying) at the end, at most one redo.**
+- [ ] **PT4-7 Menu and HUD polish.** Move the team-tell checkboxes from the main menu to Settings.
+  Hide the host address behind a small "Advanced" toggle (Host just works; the address and the
+  Tailscale note appear only when Advanced is open). Clear the fog / wash from the menu backdrop so
+  the houses look crisp. Give buttons and cards one consistent finish (shadow, hover, press) through
+  the shared `UiTheme`, not per screen. Tidy the results card. Keep the deadpan tone and the
+  P5-0 / PT3-3 name rules. **Frames allowed: one set of every screen (menu, settings, pause, lobby,
+  HUD, results) at the end, at most one redo.**
 
 ## Playtest 2 (user, 2026-11-17): do these eight first, in this order
 
@@ -157,6 +223,19 @@ other task here is verified by tests and numbers. The family display names come 
   which in the brief). Dad is unchanged. Same in both families, elder and younger variants following
   the same idea (P2-6 rules: plain painted solid shapes in the figure material, colours in the
   theme). **Frames allowed: one lineup at the end, at most one redo.**
+- [ ] **PT4-8 Bots catch thieves (last).** The user easily catches bots running off with cash, but
+  bot defenders cannot catch the user, and bots carrying cash home ignore an opponent who runs into
+  them on their own side. Fix: defenders prioritise (1) any opponent carrying their family's cash and
+  (2) any opponent close by on their side, **including while the bot itself is carrying** (it drops
+  the cash to seize if that is better), with a pursuit that **cuts the thief off** (aims at where the
+  thief will be, toward the thief's way home or the nearest gate) rather than trailing behind. Goal:
+  a bot defender catches a fleeing human about as often as the human catches a bot. Check with two or
+  three short **staged chase scenarios** (a bot defender against a human-like runner with cash; a
+  carrying bot meeting an intruder on its own side) in `bot_match` or one table-driven test, with the
+  catch counts written in `PROGRESS.md`, plus the full `verify.mjs`. **No sweeps, no seed sweeps, no
+  balance tuning beyond this**: this is the only bot task the user wants now (the exception to
+  "Finish the game, not the bots" in `PROMPT.md`); the rest of "Backlog: bots" stays deferred. Keep
+  the sim deterministic and the bot tick inside its time budget. No frames.
 
 ## Where the project actually stands (measured at the start of the autobuild)
 
@@ -536,5 +615,5 @@ A stash on this machine holds session 7's unfinished P3-3f sweep statistics (`gi
   would change D2.
 - The user may supply their own recorded "fahhh" for the jail sound: it replaces
   `godot/content/sfx/jailed.ogg` (PT2-4) and is logged in `ASSETS.md` as the user's own recording.
-- A swear-word filter for the family names (PT3-3) before strangers can play together on Steam
-  (today only friends play, so the names are only length- and character-limited).
+- A swear-word filter for family names before strangers can play together on Steam (PT3-3: today
+  only friends play, so names are only length- and character-limited).

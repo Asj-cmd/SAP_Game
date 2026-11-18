@@ -20,7 +20,7 @@ turns and about 15 minutes: be quick and concrete.
    - **Files likely touched**: paths. Check that they exist (Glob/Grep); say "new" for files to create.
    - **Done means** (exact checks): which tests and numbers must hold; the gate is the full
      `node autobuild/verify.mjs`, run ONCE by the worker at the end, just before committing, never at
-     the start (testing diet, `PROMPT.md`). Only for the tasks P2-6, P4-8, P3-7, P3-8, PT2-5, PT2-6, PT2-7 and PT2-8 add which ONE
+     the start (testing diet, `PROMPT.md`). Only for the tasks P2-6, P4-8, P3-7, P3-8, PT2-5, PT2-6, PT2-7, PT2-8, PT4-1, PT4-6 and PT4-7 add which ONE
      capture set to shoot at the end, which views, what each must show, and that one redo is the most
      allowed. For every other task name no frames, sheets, sweeps or probes.
    - **Do NOT**: the tempting wrong turns for this task (for example bot-balance work, sweeps, new
@@ -30,7 +30,7 @@ turns and about 15 minutes: be quick and concrete.
    and `DECISIONS.md` win.
 
 4. **REDO.** You do not capture or judge frames, EXCEPT when the top entry of `PROGRESS.md` is one of
-   the tasks P2-6, P4-8, P3-7, P3-8, PT2-5, PT2-6, PT2-7 or PT2-8 (testing diet, `PROMPT.md`). Then, and only then, open the
+   the tasks P2-6, P4-8, P3-7, P3-8, PT2-5, PT2-6, PT2-7, PT2-8, PT4-1, PT4-6 or PT4-7 (testing diet, `PROMPT.md`). Then, and only then, open the
    frames that worker already made with the Read tool (never shoot new ones) and judge them yourself
    against `STYLE.md` and what the task asked for: say what you actually see, not what should be there.
    For any other top entry, skip this step. For each thing that looks wrong or unfinished, write a fix as a line starting `REDO:` at
