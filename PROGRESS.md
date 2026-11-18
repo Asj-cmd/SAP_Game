@@ -2,6 +2,34 @@
 
 Newest first. One entry per task: date, task id, what changed, what the frames showed, numbers, what is left.
 
+## 2026-11-18 — PT4-4 HUD fixes
+- **Cash bar: what the cause was.** None of the brief's code candidates. The bar's code was right both in the exe the user played (`build/CashGrab.exe`, built 2026-11-17 22:24, before PT2-6; `git show 9804c26` has the same split and colour lookup) and now.
+  - `autobuild/frames/pt2_6/hud.png` (opened, not re-shot) shows sage from the left and terracotta from the right at 1 v 5, split right.
+  - At 0 v 6 the bar is correctly all terracotta. With the round/clock text centred over it, that reads as "terracotta on both sides, centred".
+  - The old HUD printed "0 / 6" (banked / target) at each end, which reads as a score of 0 against 6. So the brief's "0/6 is the target readout" was the one that applied.
+- **Bar changes** (`match_hud.gd`):
+  - New `MatchHud.bar_layout(first, second, first_id, second_id, theme) -> {split, left, right}`. The colours come from `ArtTheme.family_colour` and are read every refresh. `_draw` takes only what it returns, and the hard-coded fallback colours and the `_colours` copy made in `_init` are gone.
+  - Each family name is drawn in its family colour (lightened 0.2), so an all-one-colour bar still shows whose end is whose.
+  - The counts show the banked number alone. The target is shown once, as "FIRST TO N" under the clock plate (REVIEW).
+- **Minimap**:
+  - New `MinimapOutline.build(level)` (`game/greybox/minimap_outline.gd`). It finds the parts the way `ExteriorBuilder` does: the lot from `collision.bounds`, the yards from the owned outdoor zones, each house as its rooms' union plus a 30 wall, and the fence from its collision boxes on the lot's middle x, with the gaps between them as gates.
+  - `TeamTellOverlay._draw_map` draws, in order: the dark lot, the yards a shade lighter, the houses lighter grey with 2 px cream walls, the fence as a 3 px dark line broken at the gates, and a faint lot edge. The rooms are gone. The figure dots and own arrow are unchanged (PT4-5 changes them).
+  - The old map fitted to `WorldBackdrop.widest_blocker`, the ground box, which is wider than the lot. That is why it looked like an empty box with small grey squares.
+- **Minimap only in a match:** `TeamTellOverlay.in_match` is set each frame in `_update_hud`. It is true only when the link is ready, the match is not at MATCH_END, the results are not showing, and no lobby is open or being waited on. `_tear_down` clears the flag and the outline. Before this, the old lot outline survived the return to the menu, so the box was drawn behind the menu panel. The menu backdrop never calls `_update_tell`.
+- **F1 hint:** "[F1] debug HUD" shows only if `OS.is_debug_build()`. A release host or guest still sees the network line, and F1 still works.
+- **Tests:**
+  - `match_status_test` 9 → 15: the layout table 0–0 → 0.5, 0–6 → 0.0, 6–0 → 1.0, 3–1 → 0.75, each with left = the theme's first colour and right = its second; the two colours differ; swapped ids swap the colours.
+  - `greybox_level_test` 35 → 40, on the baked level: 2 houses, both inside the lot; the fence has panels and at least one gate inside the lot's length; the same outline on a second build.
+  - Both pins ratcheted. A headless `--solo --team-tell=minimap` run (35 s) and a `--menu` run printed no script errors.
+- **Not checked:** I did not look at the minimap or bar (no frames, per the diet). Colours, line widths and the "FIRST TO N" placement are unconfirmed by eye.
+- **Full verify, run once: healthy.**
+  - 20 suites at their pins (match_status 15, greybox_level 40). Symmetry 190 of 190.
+  - Bot 3v3: team_b won, 402 s, 67 s stalls, deterministic. 1v1: team_a, 8 s stalls. Both unchanged from PT4-3.
+  - Tick budget 0 / 0 / 8 (4v4 not gated).
+  - net_smoke: 1638 ticks agree.
+  - Render counters within limits (416 / 364 / 330 draws).
+- **Left:** someone looking at the minimap. Next: PT4-5.
+
 ## 2026-11-18 — PT4-3 Choose your family member
 - Picked up a cut-off session's uncommitted net-layer work (`lobby.gd`, `lobby_seat.gd`, `lobby_state.gd`, `match_channel.gd`). It was one task, so I finished it rather than stashing.
 - Model (`Lobby`, pure): a member IS a seat slot.

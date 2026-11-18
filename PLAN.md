@@ -121,7 +121,7 @@ are typed by the players (see PT3-3).
   message (as PT3-3's names do), not in the match input stream, and a rejoining player keeps their
   member (as the playtest guide already promises). Table-driven test: duplicates, Random, every
   team size, rejoin. No frames.
-- [ ] **PT4-4 HUD fixes.** From the user's screenshots: (1) the cash bar shows the same terracotta
+- [x] **PT4-4 HUD fixes.** *(Done 2026-11-18: the bar's code was right; at 0 v 6 it is all terracotta and "0 / 6" is banked-of-target, which read as broken. Colours only via `MatchHud.bar_layout` (theme), names in family colours, banked counts + "FIRST TO N"; minimap = `MinimapOutline` (lot, yards, houses, fence with gates), drawn only in a match; F1 hint only in debug builds. No frames. See PROGRESS.md.)* From the user's screenshots: (1) the cash bar shows the same terracotta
   on both sides and stays centred at 0 against 6. It must be the **first family's colour from the
   left** and the **second family's colour from the right**, and the split must follow each family's
   share of banked cash (0 against 0 is centred; 0 against 6 is all one side). Check with a
