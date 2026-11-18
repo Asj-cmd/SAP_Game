@@ -63,7 +63,7 @@ other task here is verified by tests and numbers. The family display names come 
   **High** preset while staying inside the P1-1 budgets (the draws, triangles and GPU numbers the
   full verify gates). Log what you found in `DECISIONS.md`. **Frames allowed: one before/after set at
   the end, at most one redo.**
-- [ ] **PT2-6 UI art pass.** The main menu, settings, pause, lobby, HUD and results screens look
+- [x] **PT2-6 UI art pass.** *(Done 2026-11-18: `UiTheme` (Anton + Inter, cream cards, charcoal buttons, mustard hover); menu with a tilted sign title over a camera circling the two houses; restyled settings, pause, lobby, results, HUD (framed tug-of-war bar, names, counts, banknotes, clock plate, icons); "<NAME> WIN". Frames in `autobuild/frames/pt2_6/`. See PROGRESS.md.)* The main menu, settings, pause, lobby, HUD and results screens look
   bland, like a web page or an .io game. Make them look like a polished commercial game: one shared
   Godot Theme; a real display font plus a readable body font (OFL or CC0, logged in `ASSETS.md` and
   `CREDITS.md`); styled panels and buttons with hover and press states and small animations; a title
