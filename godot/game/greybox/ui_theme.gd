@@ -30,6 +30,14 @@ const BUTTON_SIZE: int = 22
 const TITLE_SIZE: int = 44
 const HUD_OUTLINE: int = 7
 
+## One finish for every card and button (PT4-7): a soft shadow under it, which a
+## held button nearly loses. Hover = HOVER_SCALE + the mustard fill; press =
+## PRESS_SCALE + SHADOW_PRESSED.
+const SHADOW_COLOUR: Color = CHARCOAL_SOFT
+const SHADOW_SIZE: int = 4
+const SHADOW_OFFSET: int = 3
+const SHADOW_PRESSED: int = 1
+
 const HOVER_SCALE: float = 1.04
 const PRESS_SCALE: float = 0.97
 const HOVER_SECONDS: float = 0.08
@@ -164,9 +172,9 @@ static func _build() -> Theme:
 	t.set_stylebox("focus", "RichTextLabel", StyleBoxEmpty.new())
 
 	# Panels.
-	t.set_stylebox("panel", "PanelContainer", _box(CREAM, CHARCOAL, BORDER, CORNER, PANEL_MARGIN))
+	t.set_stylebox("panel", "PanelContainer", _lift(_box(CREAM, CHARCOAL, BORDER, CORNER, PANEL_MARGIN), SHADOW_OFFSET))
 	_variation(t, CARD, "PanelContainer")
-	t.set_stylebox("panel", CARD, _box(CREAM, CHARCOAL, BORDER, CORNER, PANEL_MARGIN))
+	t.set_stylebox("panel", CARD, _lift(_box(CREAM, CHARCOAL, BORDER, CORNER, PANEL_MARGIN), SHADOW_OFFSET))
 	_variation(t, PLATE, "PanelContainer")
 	t.set_stylebox("panel", PLATE, _box(CHARCOAL, CHARCOAL, 0, 4, 8, 3))
 
@@ -244,10 +252,10 @@ static func _button_type(t: Theme, kind: StringName, font_size: int, pad: int) -
 
 static func _button_styles(t: Theme, kind: StringName, pad: int) -> void:
 	t.set_font("font", kind, display_font())
-	t.set_stylebox("normal", kind, _box(CHARCOAL, CHARCOAL, 0, CORNER, pad, 0, 18))
-	t.set_stylebox("hover", kind, _box(MUSTARD, CHARCOAL, BORDER, CORNER, pad, 0, 18))
-	t.set_stylebox("pressed", kind, _box(MUSTARD_DARK, CHARCOAL, BORDER, CORNER, pad, 0, 18))
-	t.set_stylebox("hover_pressed", kind, _box(MUSTARD_DARK, CHARCOAL, BORDER, CORNER, pad, 0, 18))
+	t.set_stylebox("normal", kind, _lift(_box(CHARCOAL, CHARCOAL, 0, CORNER, pad, 0, 18), SHADOW_OFFSET))
+	t.set_stylebox("hover", kind, _lift(_box(MUSTARD, CHARCOAL, BORDER, CORNER, pad, 0, 18), SHADOW_OFFSET))
+	t.set_stylebox("pressed", kind, _lift(_box(MUSTARD_DARK, CHARCOAL, BORDER, CORNER, pad, 0, 18), SHADOW_PRESSED))
+	t.set_stylebox("hover_pressed", kind, _lift(_box(MUSTARD_DARK, CHARCOAL, BORDER, CORNER, pad, 0, 18), SHADOW_PRESSED))
 	t.set_stylebox("disabled", kind, _box(GREY, GREY, 0, CORNER, pad, 0, 18))
 	var focus: StyleBoxFlat = _box(Color(0, 0, 0, 0), MUSTARD, BORDER, CORNER + 2, 0)
 	focus.expand_margin_left = 3
@@ -282,6 +290,14 @@ static func _box(fill: Color, edge: Color, border: int, corner: int, margin: int
 		box.shadow_color = Color(0.0, 0.0, 0.0, 0.35)
 		box.shadow_size = 0
 		box.shadow_offset = Vector2(shadow, shadow)
+	return box
+
+## PT4-7: the one finish for cards and buttons, a soft drop shadow straight down;
+## a held button's shadow shrinks to SHADOW_PRESSED, so it reads as pushed in.
+static func _lift(box: StyleBoxFlat, offset: int) -> StyleBoxFlat:
+	box.shadow_color = SHADOW_COLOUR
+	box.shadow_size = SHADOW_SIZE
+	box.shadow_offset = Vector2(0.0, offset)
 	return box
 
 static func _flat_margin(margin: int) -> StyleBoxEmpty:

@@ -43,7 +43,6 @@ var _settings: SettingsPanel = null
 var _settings_card: PanelContainer = null
 var _howto: PanelContainer = null
 var _credits: PanelContainer = null
-var _tell_boxes: Dictionary[StringName, CheckBox] = {}
 
 func _ready() -> void:
 	layer = 10
@@ -54,9 +53,6 @@ func open(problem: String = "") -> void:
 	var was_open: bool = visible
 	visible = true
 	_show(_column)
-	# F5-F8 in a match may have changed the team tell since the menu was built.
-	for option: StringName in _tell_boxes:
-		_tell_boxes[option].set_pressed_no_signal(TeamTell.current().is_on(option))
 	_error.text = problem
 	_error.visible = problem != ""
 	if not was_open:
@@ -84,12 +80,8 @@ func _build() -> void:
 	_root.theme = UiTheme.current()
 	add_child(_root)
 
-	# A light wash only: the two houses behind the menu are the picture.
-	var wash: ColorRect = ColorRect.new()
-	wash.color = Color(UiTheme.CHARCOAL, 0.18)
-	wash.set_anchors_preset(Control.PRESET_FULL_RECT)
-	wash.mouse_filter = Control.MOUSE_FILTER_IGNORE
-	_root.add_child(wash)
+	# PT4-7: no wash; the houses behind the menu are the picture, and the card
+	# carries its own readable panel.
 
 	var margins: MarginContainer = MarginContainer.new()
 	margins.set_anchors_preset(Control.PRESET_FULL_RECT)
@@ -171,21 +163,7 @@ func _build() -> void:
 		name_box.cleared.connect(func(team: StringName) -> void: FamilyNames.set_typed(team, ""))
 		column.add_child(name_box)
 
-	# The D3 team tell (an experiment; TeamTell, P2-4): how you tell your own
-	# family from the other one. Any combination; saved on this machine, and
-	# F5-F8 flip the same four in a match.
-	column.add_child(_note_label("Extra team tells (off = each family in its own colours)"))
-	var tell_row: HBoxContainer = HBoxContainer.new()
-	var tell: TeamTell = TeamTell.current()
-	for option: StringName in TeamTell.OPTIONS:
-		var box: CheckBox = CheckBox.new()
-		box.text = TeamTell.label(option).capitalize()
-		box.button_pressed = tell.is_on(option)
-		box.size_flags_horizontal = Control.SIZE_EXPAND_FILL
-		box.toggled.connect(func(on: bool) -> void: TeamTell.current().set_option(option, on))
-		tell_row.add_child(box)
-		_tell_boxes[option] = box
-	column.add_child(tell_row)
+	# PT4-7: the D3 team tell checkboxes moved to Settings.
 
 	var solo: Button = _button("Play solo  (against bots)")
 	solo.pressed.connect(func() -> void: solo_chosen.emit(_chosen_size(), _chosen_member()))
@@ -196,23 +174,37 @@ func _build() -> void:
 	# Hosting: the address is pre-filled with the best guess, because the join
 	# code CONTAINS it and a wrong one produces a code nobody can reach - the
 	# most common way a first networked session fails.
+	# PT4-7: Host alone by default; the address and its note sit behind a small
+	# "Advanced" toggle, collapsed on every launch (not saved). Host with it
+	# closed uses the same pre-filled address as before.
 	var found: Dictionary = NetworkAddress.best()
 	column.add_child(_heading("Host a game"))
 	var host_row: HBoxContainer = HBoxContainer.new()
+	host_row.add_theme_constant_override("separation", 8)
+	var host: Button = _button("Host")
+	host.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	host.pressed.connect(func() -> void:
+		host_chosen.emit(_address.text.strip_edges(), _chosen_size()))
+	host_row.add_child(host)
+	var advanced: Button = Button.new()
+	advanced.text = "Advanced"
+	advanced.toggle_mode = true
+	advanced.theme_type_variation = UiTheme.SMALL_BUTTON
+	advanced.custom_minimum_size = Vector2(120.0, 0.0)
+	host_row.add_child(advanced)
+	column.add_child(host_row)
+	var advanced_box: VBoxContainer = VBoxContainer.new()
+	advanced_box.visible = false
 	_address = LineEdit.new()
 	_address.text = found["address"]
 	_address.placeholder_text = "this computer's address"
 	_address.size_flags_horizontal = Control.SIZE_EXPAND_FILL
-	host_row.add_child(_address)
-	var host: Button = _button("Host")
-	host.custom_minimum_size = Vector2(120.0, 0.0)
-	host.pressed.connect(func() -> void:
-		host_chosen.emit(_address.text.strip_edges(), _chosen_size()))
-	host_row.add_child(host)
-	column.add_child(host_row)
+	advanced_box.add_child(_address)
 	_note = _note_label(found["note"])
 	_note.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
-	column.add_child(_note)
+	advanced_box.add_child(_note)
+	column.add_child(advanced_box)
+	advanced.toggled.connect(func(on: bool) -> void: advanced_box.visible = on)
 	# Only when the Steam add-on is present; otherwise the menu is unchanged.
 	if SteamTransport.available():
 		var host_steam: Button = _button("Host on Steam  (invite friends)")

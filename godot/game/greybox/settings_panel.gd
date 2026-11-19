@@ -1,6 +1,7 @@
 class_name SettingsPanel
 extends VBoxContainer
-## Mouse sensitivity, the four volumes (master, music, effects, footsteps), and the keyboard keys. Shared by the
+## Mouse sensitivity, the four volumes (master, music, effects, footsteps), picture,
+## the team tell options (PT4-7, from the menu), and the keyboard keys. Shared by the
 ## main menu and the pause panel. Every change is saved at once (PlayerSettings).
 ##
 ## A key is rebound by clicking it and pressing the new one; Esc cancels. Mouse
@@ -15,6 +16,7 @@ const COLUMN_WIDTH: float = 400.0
 
 var _rebinding: StringName = &""
 var _key_buttons: Dictionary[StringName, Button] = {}
+var _tell_boxes: Dictionary[StringName, CheckBox] = {}
 
 func _init() -> void:
 	var settings: PlayerSettings = PlayerSettings.current()
@@ -70,6 +72,28 @@ func _init() -> void:
 	sync.button_pressed = settings.vsync
 	sync.toggled.connect(func(on: bool) -> void: PlayerSettings.current().set_vsync(on))
 	_row(left, "VSync", sync)
+
+	# PT4-7: the D3 team tell (an experiment; TeamTell, P2-4), moved here from the
+	# main menu. Any combination; saved on this machine, and F5-F8 flip the same
+	# four in a match (refresh() re-reads them).
+	left.add_child(_heading("Team tell (experiment)"))
+	var tell_note: Label = Label.new()
+	tell_note.text = "All off = each family in its own colours."
+	tell_note.theme_type_variation = UiTheme.NOTE
+	left.add_child(tell_note)
+	var tell_grid: GridContainer = GridContainer.new()
+	tell_grid.columns = 2
+	tell_grid.add_theme_constant_override("h_separation", 12)
+	left.add_child(tell_grid)
+	var tell: TeamTell = TeamTell.current()
+	for option: StringName in TeamTell.OPTIONS:
+		var box: CheckBox = CheckBox.new()
+		box.text = TeamTell.label(option).capitalize()
+		box.button_pressed = tell.is_on(option)
+		box.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+		box.toggled.connect(func(on: bool) -> void: TeamTell.current().set_option(option, on))
+		tell_grid.add_child(box)
+		_tell_boxes[option] = box
 
 	right.add_child(_heading("Keys"))
 	var keys_label: Label = Label.new()
@@ -175,3 +199,6 @@ func is_rebinding() -> bool:
 func refresh() -> void:
 	_rebinding = &""
 	_refresh_keys()
+	# F5-F8 in a match may have changed the team tell since the panel was built.
+	for option: StringName in _tell_boxes:
+		_tell_boxes[option].set_pressed_no_signal(TeamTell.current().is_on(option))

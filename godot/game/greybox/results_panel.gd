@@ -7,6 +7,9 @@ extends CanvasLayer
 ## used (with the HUD bar): a band in the winners' colour and each family's name
 ## in its own. The line is singular ("<NAME> WINS THE MATCH", PT3-3): a display name
 ## reads "<Name> Family" (FamilyNames), one family.
+##
+## PT4-7: one title line, then a header and one aligned row per family (name in
+## its colour, rounds won, banked in the last round), the buttons in one row.
 
 signal play_again
 signal main_menu
@@ -14,10 +17,10 @@ signal main_menu
 var _root: Control = null
 var _title: Label = null
 var _band: ColorRect = null
-var _first_name: Label = null
-var _second_name: Label = null
-var _score: Label = null
-var _cash: Label = null
+## One row per family (PT4-7): name, rounds won, banked in the last round.
+var _names: Array[Label] = []
+var _rounds: Array[Label] = []
+var _banked: Array[Label] = []
 var _again: Button = null
 var _wait: Label = null
 
@@ -47,11 +50,6 @@ func _ready() -> void:
 	cup.custom_minimum_size = Vector2(0.0, 44.0)
 	cup.modulate = UiTheme.CHARCOAL
 	column.add_child(cup)
-	var over: Label = Label.new()
-	over.text = "MATCH OVER"
-	over.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
-	over.theme_type_variation = UiTheme.HEADING
-	column.add_child(over)
 	_title = Label.new()
 	_title.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
 	_title.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
@@ -62,49 +60,73 @@ func _ready() -> void:
 	_band.custom_minimum_size = Vector2(0.0, 10.0)
 	column.add_child(_band)
 
-	var score_row: HBoxContainer = HBoxContainer.new()
-	score_row.add_theme_constant_override("separation", 18)
-	column.add_child(score_row)
-	_first_name = _side_name(HORIZONTAL_ALIGNMENT_RIGHT)
-	score_row.add_child(_first_name)
-	_score = Label.new()
-	_score.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
-	_score.add_theme_font_override("font", UiTheme.display_font())
-	_score.add_theme_font_size_override("font_size", 64)
-	score_row.add_child(_score)
-	_second_name = _side_name(HORIZONTAL_ALIGNMENT_LEFT)
-	score_row.add_child(_second_name)
+	# PT4-7: one aligned row per family under a header: name (in its colour),
+	# rounds won, cash banked in the last round.
+	var table: GridContainer = GridContainer.new()
+	table.columns = 3
+	table.add_theme_constant_override("h_separation", 24)
+	table.add_theme_constant_override("v_separation", 8)
+	column.add_child(table)
+	table.add_child(_cell("", HORIZONTAL_ALIGNMENT_LEFT, true))
+	table.add_child(_cell("ROUNDS", HORIZONTAL_ALIGNMENT_CENTER, false))
+	table.add_child(_cell("BANKED LAST ROUND", HORIZONTAL_ALIGNMENT_CENTER, false))
+	for row: int in 2:
+		var name_label: Label = _cell("", HORIZONTAL_ALIGNMENT_LEFT, true)
+		name_label.theme_type_variation = &""
+		name_label.add_theme_font_override("font", UiTheme.display_font())
+		name_label.add_theme_font_size_override("font_size", 28)
+		name_label.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+		var rounds: Label = _cell("", HORIZONTAL_ALIGNMENT_CENTER, false)
+		rounds.theme_type_variation = &""
+		rounds.add_theme_font_override("font", UiTheme.display_font())
+		rounds.add_theme_font_size_override("font_size", 40)
+		var banked: Label = _cell("", HORIZONTAL_ALIGNMENT_CENTER, false)
+		banked.theme_type_variation = &""
+		banked.add_theme_font_override("font", UiTheme.display_font())
+		banked.add_theme_font_size_override("font_size", 28)
+		for each: Label in [name_label, rounds, banked]:
+			table.add_child(each)
+		_names.append(name_label)
+		_rounds.append(rounds)
+		_banked.append(banked)
 
-	_cash = Label.new()
-	_cash.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
-	_cash.theme_type_variation = UiTheme.NOTE
-	column.add_child(_cash)
 	column.add_child(HSeparator.new())
+	# Buttons: one row at the bottom, the main one first, equal widths.
+	var buttons: HBoxContainer = HBoxContainer.new()
+	buttons.add_theme_constant_override("separation", 12)
+	column.add_child(buttons)
 	_again = Button.new()
 	_again.text = "Play again"
 	_again.custom_minimum_size = Vector2(0.0, 46.0)
+	_again.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	_again.pressed.connect(func() -> void: play_again.emit())
-	column.add_child(_again)
+	buttons.add_child(_again)
 	_wait = Label.new()
 	_wait.text = "Waiting for the host"
 	_wait.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+	_wait.vertical_alignment = VERTICAL_ALIGNMENT_CENTER
+	_wait.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	_wait.theme_type_variation = UiTheme.NOTE
-	column.add_child(_wait)
+	buttons.add_child(_wait)
 	var menu: Button = Button.new()
 	menu.text = "Main menu"
-	menu.theme_type_variation = UiTheme.SMALL_BUTTON
+	menu.custom_minimum_size = Vector2(0.0, 46.0)
+	menu.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	menu.pressed.connect(func() -> void: main_menu.emit())
-	column.add_child(menu)
+	buttons.add_child(menu)
 	UiTheme.animate_buttons(_root)
 
-func _side_name(align: HorizontalAlignment) -> Label:
+## A table cell; `wide` cells take the spare width (the family name column).
+func _cell(text: String, align: HorizontalAlignment, wide: bool) -> Label:
 	var made: Label = Label.new()
+	made.text = text
 	made.horizontal_alignment = align
-	made.size_flags_horizontal = Control.SIZE_EXPAND_FILL
-	made.size_flags_vertical = Control.SIZE_SHRINK_CENTER
-	made.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
-	made.add_theme_font_override("font", UiTheme.display_font())
-	made.add_theme_font_size_override("font_size", 26)
+	made.vertical_alignment = VERTICAL_ALIGNMENT_CENTER
+	made.theme_type_variation = UiTheme.NOTE
+	if wide:
+		made.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	else:
+		made.custom_minimum_size = Vector2(110.0, 0.0)
 	return made
 
 ## The match result line for a winner's team id: "<NAME> WINS THE MATCH" (PT3-3:
@@ -121,17 +143,18 @@ func show_for(world: SimWorld, level: GreyBoxLevel, can_rematch: bool, winner: S
 	var colours: Dictionary[StringName, Color] = ArtTheme.current().family_colours
 	_title.text = title_for(won)
 	_band.color = colours.get(won, UiTheme.CHARCOAL)
-	var first: TeamDef = level.teams[0]
-	var second: TeamDef = level.teams[1]
-	_first_name.text = FamilyNames.name_of(first.id).to_upper()
-	_first_name.add_theme_color_override("font_color", _ink(colours.get(first.id, UiTheme.CHARCOAL)))
-	_second_name.text = FamilyNames.name_of(second.id).to_upper()
-	_second_name.add_theme_color_override("font_color", _ink(colours.get(second.id, UiTheme.CHARCOAL)))
-	_score.text = MatchStatus.rounds_text(world, level).replace("-", " - ")
-	var cash: PackedStringArray = PackedStringArray()
-	for team: TeamDef in level.teams:
-		cash.append("%s  %d" % [FamilyNames.name_of(team.id), world.score_for(team.id)])
-	_cash.text = "Banked in the last round:   " + "   |   ".join(cash)
+	for row: int in _names.size():
+		var team: TeamDef = level.teams[row] if row < level.teams.size() else null
+		_names[row].visible = team != null
+		_rounds[row].visible = team != null
+		_banked[row].visible = team != null
+		if team == null:
+			continue
+		var ink: Color = _ink(colours.get(team.id, UiTheme.CHARCOAL))
+		_names[row].text = FamilyNames.name_of(team.id).to_upper()
+		_names[row].add_theme_color_override("font_color", ink)
+		_rounds[row].text = str(world.round_wins_for(team.id))
+		_banked[row].text = str(world.score_for(team.id))
 	_again.visible = can_rematch
 	_wait.visible = not can_rematch
 	if not visible:

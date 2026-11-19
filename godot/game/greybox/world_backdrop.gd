@@ -150,6 +150,19 @@ static func environment(far: float, theme: ArtTheme) -> Array[Node]:
 	holder.environment = settings
 	return [sun, fill, sky_fill, holder] as Array[Node]
 
+## Behind the main menu (PT4-7) the haze starts only MENU_HAZE_BAND short of the
+## far plane: the orbit camera is ~6900 from the lot, so the match haze (from
+## `haze_from`) greyed both houses; the thin band left still blends the ground's
+## far edge into the sky. `on` false puts the match haze back.
+const MENU_HAZE_BAND: float = 2000.0
+
+static func menu_haze(holder: WorldEnvironment, far: float, theme: ArtTheme, on: bool) -> void:
+	if holder == null or holder.environment == null:
+		return
+	var end: float = far - HAZE_SHORT_OF_FAR
+	holder.environment.fog_depth_begin = end - MENU_HAZE_BAND if on \
+		else minf(theme.haze_from, end - 1.0)
+
 ## One warm light per indoor room, at the middle of its ceiling, pointing down
 ## (STYLE.md §4). No shadows: a shadowed spot is another pass over the scene.
 static func interior_lights(zones: Array[ZoneDef], theme: ArtTheme, ceiling_drop: float) -> Array[Node]:

@@ -994,6 +994,7 @@ var _menu_camera: Camera3D = null
 var _menu_orbit: float = 0.35
 
 func _show_menu_backdrop(on: bool) -> void:
+	_set_menu_haze(on)
 	if not on:
 		if _menu_camera != null:
 			_menu_camera.queue_free()
@@ -1017,7 +1018,14 @@ func _show_menu_backdrop(on: bool) -> void:
 		_menu_camera.fov = 50.0
 		add_child(_menu_camera)
 	_menu_camera.current = true
+	_set_menu_haze(true)
 	_orbit_menu_camera(0.0)
+
+## PT4-7: crisp houses behind the menu, the match's haze in a match.
+func _set_menu_haze(on: bool) -> void:
+	for node: Node in get_children():
+		if node is WorldEnvironment:
+			WorldBackdrop.menu_haze(node as WorldEnvironment, ChaseCamera.FAR_PLANE, ArtTheme.current(), on)
 
 func _orbit_menu_camera(delta: float) -> void:
 	if _menu_camera == null or level == null:
