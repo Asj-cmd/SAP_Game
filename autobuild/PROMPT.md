@@ -27,6 +27,8 @@ Milestone: a friends playtest. Prefer a working, simple version over a polished 
 - Do not write new test files except a table-driven test for a new simulation decision
   (`godot/CLAUDE.md` policy).
 
+**Wrap-up request.** If a message starting `USAGE WRAP-UP` appears (the loop shows it after a tool call when the 5-hour limit is nearly used), stop what you are doing at once: start nothing new, commit what you have as `<task> (part): ...` (no verify, no push; the loop pushes), put one line at the top of `PROGRESS.md` saying what is unfinished, and end your reply in one line.
+
 **Commit often.** Commit working progress at least every 45 minutes, with a message like
 `P1-4 (part): ...`. Part commits need no verify. A session can be cut off at 2 hours; uncommitted
 work is at risk. The one full `verify.mjs` run is just before the task's final commit (step 5).

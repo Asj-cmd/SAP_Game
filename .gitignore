@@ -47,3 +47,5 @@ autobuild/incoming/
 godot/art/characters/candidates/
 # throwaway theme copies a session made to test something (not shipped, not used); kept on disk
 godot/art/theme/_tmp_*.tres
+# the loop asks sessions to wrap up (5-hour guard); exists only while it does
+autobuild/WRAP_UP

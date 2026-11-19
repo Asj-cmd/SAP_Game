@@ -1,4 +1,9 @@
 {
+  "hooks": {
+    "PostToolUse": [
+      { "matcher": "*", "hooks": [ { "type": "command", "command": "node \"$CLAUDE_PROJECT_DIR/autobuild/wrap_hook.mjs\"" } ] }
+    ]
+  },
   "permissions": {
     "allow": [
       "Read", "Edit", "Write", "Glob", "Grep", "WebFetch", "WebSearch",

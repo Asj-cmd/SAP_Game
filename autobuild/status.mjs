@@ -33,7 +33,7 @@ export const nyTime = (ms) =>
 // The wait end is shown the same way, with the zone named.
 export const nyLabel = (ms) => `${nyTime(ms)} New York time`;
 
-export function render({ state, task, model, session, doing, lastCommit, now }) {
+export function render({ state, task, model, session, doing, usage, lastCommit, now }) {
   const iso = new Date(now).toISOString();
   return [
     "# Autobuild status",
@@ -44,6 +44,7 @@ export function render({ state, task, model, session, doing, lastCommit, now }) 
     `- Task: ${task ?? "-"}`,
     `- Model: ${model ?? "default"}`,
     `- Session: ${session ?? "-"}`,
+    `- Usage: ${usage ?? "-"}`,
     `- Last commit: ${lastCommit || "-"}`,
     `- Updated: ${iso} (${nyTime(now)}, New York)`,
     "",

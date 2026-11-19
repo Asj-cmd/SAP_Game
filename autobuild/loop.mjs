@@ -33,23 +33,35 @@
 //   rest of the run, with no wait. If the planner model hits its own limit, planning is skipped for the
 //   rest of the run. Limits that are not model-specific (5-hour, weekly) wait as above.
 //
+// Usage guard (usage.mjs, runner.mjs): the loop reads the 5-hour usage from the rate_limit_event lines of
+// `claude -p --output-format stream-json --verbose`. At USAGE_STOP_PCT (default 75) it starts no new
+// session and asks a running one to commit and finish (a hook, autobuild/wrap_hook.mjs, shows the session
+// the file autobuild/WRAP_UP). A session that has not finished by USAGE_HARD_PCT (default 80) or
+// WRAP_UP_MIN minutes (default 15) is cut off, and the loop commits and pushes what it left. Then the loop
+// waits for the 5-hour reset (+3 min) and carries on by itself. USAGE_STOP_PCT=0 turns the guard off.
+// The weekly limit: when it is really hit, the loop waits for its stated reset (up to 8 days) and restarts.
+//
 // Status heartbeat: at loop start, each worker / planner session start and end, each wait, a STOP, an
 // error stop and "No open tasks left", the loop writes autobuild/STATUS.md (state, task, model, session,
 // last commit, time) and commits and pushes that file ALONE as "status: <state>" (status.mjs). If only the
 // time would change, nothing is written. A failure to write or push is logged in one line and ignored.
 //
 // Env: MAX_TURNS (default 200)  ITER_TIMEOUT_MIN (default 120)  BACKOFF_MIN (default 30)
+//      USAGE_STOP_PCT (75)  USAGE_HARD_PCT (80)  WRAP_UP_MIN (15)
 //      STALL_LIMIT (default 3)  PLANNER_MODEL  WORKER_MODEL / CLAUDE_MODEL  PLANNER_TIMEOUT_MIN (default 25)
 //      GODOT_BIN (required, passed through to Claude's shell)
 
 import { spawnSync } from "node:child_process";
-import { appendFileSync, existsSync, mkdirSync, readFileSync, writeFileSync } from "node:fs";
+import { appendFileSync, existsSync, mkdirSync, readFileSync, unlinkSync, writeFileSync } from "node:fs";
+import { tmpdir } from "node:os";
 import { dirname, join, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
 import { isLimitMessage, planLimitWait, isConnectionProblem, connectionWaitMin, MAX_CONNECTION_WAITS, limitAction } from "./limits.mjs";
 import { firstOpenTaskId, hasBriefFor, briefHeadings, pickWorkerModel } from "./planning.mjs";
 import { isModelLimit, modelFamily, whyModelLimit, taggedFallback } from "./limits.mjs";
 import { makeStatus, nyLabel } from "./status.mjs";
+import { UsageTracker, readingFromEvent, textFromStream, preflight, monitorDecision, usageResetAt, pctOf, MIN, RESET_SLACK_MS } from "./usage.mjs";
+import { runClaude } from "./runner.mjs";
 
 const HERE = dirname(fileURLToPath(import.meta.url));
 const ROOT = resolve(HERE, "..");
@@ -66,6 +78,11 @@ const PLANNER_TIMEOUT_MIN = Number(process.env.PLANNER_TIMEOUT_MIN ?? 25);
 const PLANNER_TURNS = 40;
 const BACKOFF_MIN = Number(process.env.BACKOFF_MIN ?? 30);
 const STALL_LIMIT = Number(process.env.STALL_LIMIT ?? 3);
+const USAGE_STOP_PCT = Number(process.env.USAGE_STOP_PCT ?? 75); // 0 = guard off
+const USAGE_HARD_PCT = Number(process.env.USAGE_HARD_PCT ?? 80);
+const WRAP_UP_MIN = Number(process.env.WRAP_UP_MIN ?? 15);
+const WRAP_FILE = join(HERE, "WRAP_UP");
+const STREAM = ["--output-format", "stream-json", "--verbose"]; // events as they happen (usage), see usage.mjs
 const TRUST_RE = /Ignoring\b.*\bpermissions?\b|has not been trusted/i;
 const MAX_LIMIT_WAIT_MS = 8 * 24 * 60 * 60_000; // weekly limit plus a day of slack
 const FALLBACK_WORKER = "sonnet";
@@ -80,6 +97,8 @@ const tagOff = new Set(); // "(worker: X)" tags whose model hit its own limit: t
 const sh = (cmd, args, opts = {}) =>
   spawnSync(cmd, args, { cwd: ROOT, encoding: "utf8", shell: process.platform === "win32", ...opts });
 const git = (...a) => sh("git", a).stdout?.trim() ?? "";
+// git without a shell: arguments with spaces (commit messages) stay whole.
+const gitx = (...a) => spawnSync("git", a, { cwd: ROOT, encoding: "utf8" });
 const log = (m) => { const l = `[${new Date().toISOString()}] ${m}`; console.log(l); appendFileSync(join(LOGS, "loop.log"), l + "\n"); };
 const when = (ms) => new Date(ms).toLocaleString("en-US", { weekday: "short", month: "short", day: "numeric", hour: "numeric", minute: "2-digit" });
 // Sleeps in 5-minute steps against the real clock, so a PC that slept still wakes on time and a
@@ -125,8 +144,91 @@ ${frames}
 const startSha = git("rev-parse", "HEAD");
 const status = makeStatus({ root: ROOT, log });
 let cur = { task: null, model: null, session: null, doing: "loop start" }; // what the status file says is going on
-const setStatus = (state, extra = {}) => { cur = { ...cur, ...extra }; status.write({ state, ...cur }); };
+const setStatus = (state, extra = {}) => { cur = { ...cur, ...extra }; status.write({ state, ...cur, usage: tracker.summary() }); };
 let endReason = null; // why the loop stopped, for the final status
+const tracker = new UsageTracker();
+const GUARD = USAGE_STOP_PCT > 0;
+
+// Runs one Claude session and watches it: usage events update the tracker, and at the stop line the
+// session is asked to wrap up (WRAP_UP file, shown by the hook), later cut off if it does not finish.
+async function claudeSession(label, args, input, timeoutMin) {
+  let wrapSince = null, wrapWhy = null;
+  const onTick = () => {
+    if (!GUARD) return null;
+    const d = monitorDecision(tracker, { stopPct: USAGE_STOP_PCT, hardPct: USAGE_HARD_PCT, wrapMin: WRAP_UP_MIN, wrapSince });
+    if (d.action === "wrap" && wrapSince === null) {
+      wrapSince = Date.now(); wrapWhy = d.why;
+      try { writeFileSync(WRAP_FILE, `USAGE WRAP-UP (from the loop): ${d.why}. Start nothing new. Commit what you have NOW as "<task> (part): ..." (no verify; do not push, the loop pushes), put one line at the top of PROGRESS.md saying what is unfinished, then end your reply in one line.\n`); } catch { /* the hook is best effort; the loop cuts the session off later */ }
+      log(`${label}: ${d.why}: asked it to commit and finish (cut off after ${WRAP_UP_MIN} min or at ${USAGE_HARD_PCT}%)`);
+      setStatus("running", { doing: `${label} wrapping up: ${d.why}` });
+    } else if (d.action === "kill") {
+      log(`${label}: cutting it off: ${d.why}`);
+      return { kill: d.why };
+    }
+    return null;
+  };
+  const r = await runClaude({
+    args, input, cwd: ROOT, timeoutMs: timeoutMin * 60_000, onTick, tickMs: 5000,
+    onEvent: (ev) => { tracker.update(readingFromEvent(ev)); },
+  });
+  try { unlinkSync(WRAP_FILE); } catch { /* none */ }
+  return { ...r, wrapped: wrapSince !== null, wrapWhy };
+}
+// What `--output-format text` would have printed, for the limit / sign-in checks below.
+const decodedOut = (r) => `${textFromStream(r.stdout)}\n${r.stderr ?? ""}${r.error && r.error.code !== "ETIMEDOUT" ? `\n[could not start claude: ${r.error.message}]` : ""}`;
+const writeLogs = (name, r, out) => { writeFileSync(join(LOGS, name), out); try { writeFileSync(join(LOGS, name.replace(/\.log$/, ".jsonl")), r.stdout ?? ""); } catch { /* optional */ } };
+
+// One tiny call to learn the usage before the first session (stream-json prints it with the first reply).
+async function probeUsage() {
+  if (!GUARD) return;
+  const r = await runClaude({
+    args: ["-p", "--max-turns", "1", ...STREAM, "--model", "sonnet"], input: "Reply with the single word OK",
+    cwd: tmpdir(), timeoutMs: 3 * MIN, onEvent: (ev) => { tracker.update(readingFromEvent(ev)); },
+  });
+  const sum = tracker.summary();
+  log(sum ? `usage now: ${sum}; the loop starts no session at ${USAGE_STOP_PCT}% of the 5-hour limit` : `usage: could not read it (exit ${r.status}); relying on the limit messages`);
+}
+
+// Commit and keep what a cut-off session left, so nothing is lost and the next session sees a clean tree.
+function saveLeftovers(label, why) {
+  try {
+    if (!gitx("status", "--porcelain").stdout.trim()) return false;
+    const pf = join(ROOT, "PROGRESS.md");
+    if (existsSync(pf)) {
+      let t = readFileSync(pf, "utf8"); const nl = t.includes("\r\n") ? "\r\n" : "\n";
+      const i = t.indexOf("## 20");
+      const note = `> **UNFINISHED (${cur.task ?? label}):** ${label} was stopped by the loop (${why}) and the loop committed its files as they were. Look at the last commit, finish or fix it first, and run verify once at the end.` + nl + nl;
+      if (i >= 0) writeFileSync(pf, t.slice(0, i) + note + t.slice(i));
+    }
+    gitx("add", "-A");
+    const c = gitx("commit", "-q", "-m", `${cur.task ?? label} (part): stopped by the usage guard (${why}); saved by the loop\n\nCo-Authored-By: Claude Sonnet 5.5 <noreply@anthropic.com>`);
+    if (c.status !== 0) throw new Error((c.stderr || c.stdout || "").trim().slice(0, 150));
+    log(`${label}: committed what it left (${why})`);
+    return true;
+  } catch (e) { log(`${label}: could not save leftovers: ${String(e.message ?? e).slice(0, 200)}`); return false; }
+}
+
+// Wait for the 5-hour reset (STOP file ends it), then carry on by itself. "retry" or "stopped".
+function waitForUsageReset(until, pct, why) {
+  log(`usage guard: ${pct !== null ? pct + "% of the 5-hour limit used" : "stopping"} (${why}). Waiting until ${when(until)} (this PC's time), then carrying on by itself. Create a STOP file to end the wait.`);
+  writeReport(startSha, `Paused by the usage guard (${why}); resumes after ${when(until)}.`);
+  setStatus(`waiting for limit until ${nyLabel(until)}`, { doing: `paused at ${pct ?? "?"}% of the 5-hour limit (${why}); restarts by itself after the reset` });
+  const stopped = sleepUntil(until);
+  tracker.clear("five");
+  if (stopped) { log("STOP file found during the usage wait, ending."); writeReport(startSha, "Stopped by STOP file (during a usage wait)."); endReason = "STOP file (during a usage wait)"; return "stopped"; }
+  log("usage wait over, carrying on");
+  return "retry";
+}
+// After a session was wrapped up or cut off by the guard: save, push, wait. { res, progressed }
+function usageStop(label, r, before) {
+  const why = r.killedFor ?? r.wrapWhy ?? "usage guard";
+  saveLeftovers(label, why);
+  const progressed = git("rev-parse", "HEAD") !== before;
+  if (progressed) { const p = sh("git", ["push", "-u", "origin", "HEAD"]); log(p.status === 0 ? "pushed" : `push failed: ${(p.stderr ?? "").trim().slice(0, 200)}`); }
+  const f = tracker.fiveHour();
+  const until = f?.resetsAt ? f.resetsAt * 1000 + RESET_SLACK_MS : Date.now() + 30 * MIN;
+  return { res: waitForUsageReset(until, f ? pctOf(f.utilization) : null, why), progressed };
+}
 let stalls = 0, attempt = 0;
 let limitWaitedMs = 0, fallbackStep = 0, lastTarget = null; // reset whenever a session runs without hitting a limit
 let connectionWaits = 0; // sign-in/network waits in a row; reset whenever Claude gets through
@@ -138,6 +240,8 @@ function waitForLimit(out, label, last) {
   const now = Date.now();
   const plan = planLimitWait({ text: out, now, lastTarget, step: fallbackStep + 1, backoffMin: BACKOFF_MIN });
   if (plan.target === null) fallbackStep++; else lastTarget = plan.target;
+  const exact = usageResetAt(tracker, now); // the stream told us which window is full and when it resets
+  if (exact) { plan.until = exact + RESET_SLACK_MS; plan.source = "the usage events"; }
   const waitMs = plan.until - now;
   if (limitWaitedMs + waitMs > MAX_LIMIT_WAIT_MS) {
     const msg = `Usage limit: already waited ${(limitWaitedMs / 3_600_000).toFixed(1)} h in a row and the next wait ` +
@@ -184,7 +288,7 @@ function waitForConnection(label, logName, last) {
 // One short planner session: writes briefs for the next 3 open tasks into autobuild/BRIEF.md.
 // Never throws and never counts as a stall. Returns "done" (carry on to the worker), "retry" (it waited
 // out a limit or a connection problem; plan again) or "stop" (STOP file, or gave up waiting).
-function runPlanner(taskId, last) {
+async function runPlanner(taskId, last) {
   const promptFile = join(HERE, "PLANNER_PROMPT.md");
   if (!existsSync(promptFile)) {
     log("planner: autobuild/PLANNER_PROMPT.md is missing, skipping planning for the rest of this run");
@@ -193,19 +297,20 @@ function runPlanner(taskId, last) {
   }
   setStatus("running", { doing: "planner session", task: taskId, model: plannerModel, session: `before session ${last + 1}` });
   const before = git("rev-parse", "HEAD");
-  const args = ["-p", "--max-turns", String(PLANNER_TURNS), "--output-format", "text", "--model", plannerModel];
+  const args = ["-p", "--max-turns", String(PLANNER_TURNS), ...STREAM, "--model", plannerModel];
   if (flag("--skip-permissions")) args.push("--dangerously-skip-permissions");
   log(`planner: starting (model ${plannerModel}, first open task ${taskId}, HEAD ${before.slice(0, 8)})`);
   const started = Date.now();
-  const r = sh("claude", args, { input: readFileSync(promptFile, "utf8"), timeout: PLANNER_TIMEOUT_MIN * 60_000, maxBuffer: 256 * 1024 * 1024 });
+  const r = await claudeSession("planner", args, readFileSync(promptFile, "utf8"), PLANNER_TIMEOUT_MIN);
   const seconds = (Date.now() - started) / 1000;
-  const out = `${r.stdout ?? ""}\n${r.stderr ?? ""}${r.error && r.error.code !== "ETIMEDOUT" ? `\n[could not start claude: ${r.error.message}]` : ""}`;
+  const out = decodedOut(r);
   const logName = `planner-${String(++attempt).padStart(3, "0")}.log`;
-  writeFileSync(join(LOGS, logName), out);
+  writeLogs(logName, r, out);
   const progressed = git("rev-parse", "HEAD") !== before;
   const failed = r.status !== 0 || Boolean(r.error);
   log(`planner: exit ${r.status}${r.error?.code === "ETIMEDOUT" ? " (timed out)" : ""} after ${seconds.toFixed(1)} s, ${progressed ? "new commit" : "no new commit"}`);
 
+  if (r.wrapped || r.killedFor) return usageStop("planner", r, before).res === "retry" ? "retry" : "stop";
   if (!progressed && isLimitMessage(out)) {
     const act = limitAction(out, { role: "planner", model: plannerModel, fallback: FALLBACK_WORKER });
     if (act.kind === "skip-planner") {
@@ -235,24 +340,34 @@ function runPlanner(taskId, last) {
 
 log(`loop start on ${git("branch", "--show-current")} @ ${startSha.slice(0, 8)}; max ${MAX_ITERS} sessions, ${MAX_TURNS} turns each; ` +
   `planner ${plannerModel ?? "off"}, workers ${workerModel ?? "default model"}`);
+await probeUsage();
 setStatus("running", { doing: "loop started", task: firstOpenTaskId(planText()), model: workerModel ?? "default" });
 
 for (let i = 1; i <= MAX_ITERS; i++) {
   if (existsSync(join(ROOT, "STOP"))) { log("STOP file found, ending."); writeReport(startSha, "Stopped by STOP file."); endReason = "STOP file"; break; }
   if (openTasks() === 0) { log("No open tasks left."); writeReport(startSha, "Plan complete or fully blocked."); endReason = "No open tasks left"; break; }
 
+  // The 5-hour guard: no new session while usage is at the stop line.
+  if (GUARD) {
+    const pf = preflight(tracker, { stopPct: USAGE_STOP_PCT });
+    if (pf.wait) {
+      if (waitForUsageReset(pf.until, pf.pct, `not starting a session at ${pf.pct}%`) === "retry") { i--; continue; }
+      break;
+    }
+  }
+
   // Planner first, when the first open task has no brief yet.
   if (plannerModel) {
     const taskId = firstOpenTaskId(planText());
     if (taskId && !hasBriefFor(briefText(), taskId) && !plannerTried.has(taskId)) {
-      const res = runPlanner(taskId, i - 1);
+      const res = await runPlanner(taskId, i - 1);
       if (res === "retry") { i--; continue; }
       if (res === "stop") break;
     }
   }
 
   const prompt = readFileSync(join(HERE, "PROMPT.md"), "utf8");
-  const args = ["-p", "--max-turns", String(MAX_TURNS), "--output-format", "text"];
+  const args = ["-p", "--max-turns", String(MAX_TURNS), ...STREAM];
   // The model for this session: a "(worker: fable)" tag on the first open task, else WORKER_MODEL.
   const pick = pickWorkerModel(planText(), { workerModel, tagOff });
   // Status first, THEN read HEAD: the status commit must not look like the session's own commit.
@@ -262,12 +377,12 @@ for (let i = 1; i <= MAX_ITERS; i++) {
   if (flag("--skip-permissions")) args.push("--dangerously-skip-permissions");
   log(`session ${i}: starting (HEAD ${before.slice(0, 8)}, model ${pick.model ?? "default"}${pick.tagged ? ", tagged in PLAN.md" : ""})`);
   const started = Date.now();
-  const r = sh("claude", args, { input: prompt, timeout: ITER_TIMEOUT_MIN * 60_000, maxBuffer: 256 * 1024 * 1024 });
+  const r = await claudeSession(`session ${i}`, args, prompt, ITER_TIMEOUT_MIN);
   const seconds = (Date.now() - started) / 1000;
-  const out = `${r.stdout ?? ""}\n${r.stderr ?? ""}${r.error && r.error.code !== "ETIMEDOUT" ? `\n[could not start claude: ${r.error.message}]` : ""}`;
+  const out = decodedOut(r);
   // Numbered per launch, not per session, so a limit-blocked launch keeps its own log.
   const logName = `session-${String(++attempt).padStart(3, "0")}.log`;
-  writeFileSync(join(LOGS, logName), out);
+  writeLogs(logName, r, out);
 
   const after = git("rev-parse", "HEAD");
   const progressed = after !== before;
@@ -296,6 +411,14 @@ for (let i = 1; i <= MAX_ITERS; i++) {
     writeReport(startSha, `Ended: ${msg}`);
     endReason = "error: Claude ignored the permission list (folder not trusted; run claude once and choose Yes, proceed)";
     break;
+  }
+
+  // The 5-hour guard stopped or wrapped up this session: save what it left, push, wait for the reset.
+  if (r.wrapped || r.killedFor) {
+    const u = usageStop(`session ${i}`, r, before);
+    if (u.res !== "retry") break; // waitForUsageReset set endReason
+    if (u.progressed) stalls = 0; else i--; // a session that made nothing does not count
+    continue;
   }
 
   // Usage limit: checked BEFORE the fast-failure rule, so a limit is never treated as a broken install.
