@@ -241,6 +241,18 @@ var _team_size: int = GreyBoxLevel.DEFAULT_TEAM_SIZE
 var _menu: MainMenu = null
 var _pause: PauseMenu = null
 var _results: ResultsPanel = null
+## The match end sequence (PT2-7), between MATCH_END and the results panel.
+var _end: EndSequence = null
+## The sequence has run (or was skipped, or is not wanted) for this match end:
+## the results panel may open. Cleared whenever the match is not over.
+var _end_done: bool = false
+## This session has seen the match NOT over, so a MATCH_END now is one that
+## happened while watching (joining a finished match shows no sequence).
+var _end_saw_play: bool = false
+## `--capture-screen=end`: the winner the capture pretends (mid-match world).
+var _end_forced: StringName = &""
+## The drawn-only figures in the shot, each {"art", "holder", "bundle"}.
+var _end_cast: Array[Dictionary] = []
 ## Started from the menu rather than from flags, so a failure goes back there
 ## with its reason instead of leaving a dead screen behind a banner.
 var _from_menu: bool = false
@@ -294,6 +306,8 @@ func _ready() -> void:
 	add_child(_results)
 	_results.play_again.connect(_ask_rematch)
 	_results.main_menu.connect(func() -> void: _return_to_menu(""))
+	_end = EndSequence.new()
+	add_child(_end)
 	# Plays this window through a whole session by injected input (debug).
 	if PlaytestPilot.requested(OS.get_cmdline_user_args()):
 		add_child(PlaytestPilot.new(self))
@@ -335,6 +349,10 @@ func _read_command_line() -> void:
 	_advertise = _argument("--advertise=", "")
 	_dedicated = OS.get_cmdline_user_args().has("--dedicated")
 	_dedicated_wait = float(_argument("--dedicated-wait=", "15"))
+	# Debug: a headless run that has to reach the match end (PT2-7) gets there faster.
+	var speed_up: float = float(_argument("--time-scale=", "1"))
+	if speed_up > 1.0:
+		Engine.time_scale = minf(speed_up, 8.0)
 	_identity = _argument("--identity=", "")
 	_backend = _argument("--backend=", "enet")
 	var invited: String = _invite_lobby()
@@ -504,6 +522,9 @@ func _tear_down() -> void:
 	_match_hud.visible = false
 	_headline.visible = false
 	_lineup.hide(null)
+	_stop_end_sequence()
+	_end_done = false
+	_end_saw_play = false
 	_tell_team = &""
 	_tell_overlay.bodies = []
 	_tell_overlay.in_match = false
@@ -668,6 +689,19 @@ func _pose_screen(screen: String) -> void:
 			if world != null and level != null:
 				_screen_hold = true
 				_results.show_for(world, level, true, level.teams[0].id)
+		"end":
+			# The end sequence (PT2-7) over a mid-match world, from this seat's
+			# view: `--capture-end-view=win` (default) makes its family the winner,
+			# `lose` the other one; the shot is `--capture-end-at=` s in (1.0).
+			var own: SimEntity = world.get_entity(_local_actor()) if world != null else null
+			if own != null and level != null:
+				var losing: bool = _argument("--capture-end-view=", "win") == "lose"
+				for team: TeamDef in level.teams:
+					if (team.id == own.team) != losing:
+						_end_forced = team.id
+				_screen_hold = true
+				await get_tree().create_timer(float(_argument("--capture-end-at=", "1.0"))).timeout
+				return
 	await get_tree().create_timer(0.5).timeout
 
 ## One shot per viewpoint, through the ordinary render path.
@@ -1308,6 +1342,7 @@ func _process(delta: float) -> void:
 	_draw_paths()
 	_render(_accumulator / SimWorld.SECONDS_PER_TICK, delta)
 	_update_lineup()
+	_update_end_sequence(delta)
 	_track_cameras(delta)
 	_update_hud()
 
@@ -1387,12 +1422,163 @@ func _lineup_player(entity: SimEntity, mine: int) -> String:
 			return seat.name
 	return "Player"
 
+## The match end sequence (PT2-7, EndSequence): when the confirmed world first
+## shows MATCH_END with a winner, the winners stand in a row on their front lawn
+## holding cash overhead, the losers blank behind them, and a camera swings round
+## them under the title; the results panel opens when it ends or is skipped.
+## A drawn match, a dedicated host, the debug split and joining a match that had
+## already ended go straight to the results. Drawn only: the sim is untouched.
+## Out in front of the winners' spawn row, and the losers' offset along it.
+const END_WINNERS_OUT: float = 200.0
+const END_LOSER_SPACING: float = 120.0
+
+func _update_end_sequence(delta: float) -> void:
+	var truth: SimWorld = link.outcome_world()
+	var over: bool = link.is_ready() and truth.match_phase == SimWorld.MatchPhase.MATCH_END
+	if not over and _end_forced == &"":
+		if link.is_ready():
+			_end_saw_play = true
+		_end_done = false
+		_stop_end_sequence()
+		return
+	if _end.running:
+		_end.advance(delta)
+		_hold_end_bundles()
+		if _end.finished:
+			print("END_SEQUENCE done after %.1f s; results" % _end.elapsed)
+			_stop_end_sequence()
+			_end_done = true
+		return
+	if _end_done:
+		return
+	var winner: StringName = _end_forced if _end_forced != &"" else truth.match_winner
+	var own: SimEntity = truth.get_entity(_local_actor())
+	var wanted: bool = winner != &"" and own != null and not _dedicated and not _split_screen \
+		and players.size() == 1 and not _cameras.is_empty() and level != null \
+		and (_end_saw_play or _end_forced != &"")
+	if not wanted:
+		_end_done = true
+		# Joining a match that had already ended stays silent, as it always did.
+		if _end_forced == &"" and _end_saw_play:
+			audio.match_end_jingle(winner, own.team if own != null else &"")
+		return
+	_start_end_sequence(winner, own.team)
+
+func _start_end_sequence(winner: StringName, own_team: StringName) -> void:
+	_stop_end_sequence()
+	var size: int = level.mode.team_size
+	var ground_lift: float = level.tuning.actor_radius
+	var won: TeamDef = null
+	var lost: TeamDef = null
+	for team: TeamDef in level.teams:
+		if team.id == winner:
+			won = team
+		else:
+			lost = team
+	if won == null:
+		_end_done = true
+		return
+	var feet: Array[Vector3] = []
+	for slot: int in size:
+		feet.append(won.spawn_point_for_slot(slot) - Vector3(0.0, ground_lift, 0.0))
+	var indoors: Vector3 = Vector3.ZERO
+	for point: Vector3 in won.cash_points:
+		indoors += point
+	if not won.cash_points.is_empty():
+		indoors /= float(won.cash_points.size())
+	var framed: Array[Vector3] = FamilyLineup.frame(feet, indoors, 0.0)
+	var out: Vector3 = framed[1]
+	var along: Vector3 = out.cross(Vector3.UP).normalized()
+	var heading: float = atan2(out.x, out.z)
+	var length: float = 0.0
+	for slot: int in feet.size():
+		length = maxf(length, absf((feet[slot] - feet[0]).dot(along)))
+	var spacing: float = length / float(maxi(1, size - 1)) if size > 1 else END_LOSER_SPACING * 2.0
+
+	for slot: int in size:
+		_cast_figure(winner, slot, feet[slot] + out * END_WINNERS_OUT, heading, &"carry_idle", true)
+	if lost != null:
+		for slot: int in size:
+			_cast_figure(lost.id, slot, feet[slot] + along * (spacing * 0.5), heading, &"idle", false)
+	for view: MeshInstance3D in _actor_views.values():
+		view.visible = false
+
+	var names: Dictionary[StringName, String] = {}
+	for team: TeamDef in level.teams:
+		names[team.id] = FamilyNames.name_of(team.id)
+	var title: String = EndSequence.title_for(winner, own_team, names)
+	var colour: Color = ArtTheme.current().family_colour(winner if winner == own_team else own_team)
+	var centre: Vector3 = framed[0] + out * END_WINNERS_OUT
+	_end.begin(_cameras[0].rig.get_parent(), centre, out, along, length, title, colour)
+	print("END_SEQUENCE start: %s, %d figures, title \"%s\"" % [winner, _end_cast.size(), title])
+	if _pause.is_open():
+		_set_paused(false)
+	audio.match_end_jingle(winner, own_team)
+
+## One drawn-only figure for the end sequence, held still in `clip`; `bundle`
+## puts a cash bundle on its hands.
+func _cast_figure(team: StringName, slot: int, at: Vector3, heading: float,
+		clip: StringName, bundle: bool) -> void:
+	var holder: Node3D = _figure_instance(team, null, slot)
+	if holder == null:
+		return
+	holder.position = at
+	holder.rotation = Vector3(0.0, heading, 0.0)
+	add_child(holder)
+	holder.set_meta(&"shadow_radius", ArtTheme.current().contact_shadow_radius
+		* float(holder.get_meta(&"drawn_height", ACTOR_HEIGHT)) / ACTOR_HEIGHT)
+	_shadow_extras.append(holder)
+	var art: Node3D = holder.get_child(0) as Node3D
+	FigureAnimation.pose(art, clip, 0.5)
+	var cast: Dictionary = {"holder": holder, "art": art, "bundle": null}
+	if bundle and _cash_model() != null:
+		var prop: Node3D = _cash_model().instantiate() as Node3D
+		ArtTheme.current().dress(prop, ArtTheme.current().cash)
+		add_child(prop)
+		prop.rotation = Vector3(0.0, heading, 0.0)
+		prop.position = at + Vector3(0.0, float(holder.get_meta(&"drawn_height", ACTOR_HEIGHT)) + CARRY_GAP, 0.0)
+		cast["bundle"] = prop
+	_end_cast.append(cast)
+
+## Each winner's bundle on its hands as posed (FigureAnimator.hands_point's rule:
+## the wrists' midpoint, the bundle's bottom CARRY_HAND_LIFT above it).
+func _hold_end_bundles() -> void:
+	for cast: Dictionary in _end_cast:
+		var prop: Node3D = cast["bundle"]
+		if prop == null:
+			continue
+		var found: Array[Node] = (cast["art"] as Node3D).find_children("*", "Skeleton3D", true, false)
+		if found.is_empty():
+			continue
+		var skeleton: Skeleton3D = found[0] as Skeleton3D
+		var left: int = skeleton.find_bone("hand_l")
+		var right: int = skeleton.find_bone("hand_r")
+		if left < 0 or right < 0:
+			continue
+		var mid: Vector3 = (skeleton.get_bone_global_pose(left).origin
+			+ skeleton.get_bone_global_pose(right).origin) * 0.5
+		prop.position = skeleton.global_transform * mid + Vector3(0.0, CARRY_HAND_LIFT, 0.0)
+
+## Ends the sequence (if running) and frees its figures.
+func _stop_end_sequence() -> void:
+	if _end != null:
+		_end.end(_cameras[0].camera if not _cameras.is_empty() else null)
+	for cast: Dictionary in _end_cast:
+		var holder: Node3D = cast["holder"]
+		_shadow_extras.erase(holder)
+		holder.queue_free()
+		if cast["bundle"] != null:
+			(cast["bundle"] as Node3D).queue_free()
+	_end_cast.clear()
+
 ## Which screen the music rule (`GameAudio.music_wanted`, PT3-1) sees this frame,
-## read from what is open rather than set at each place a screen opens. PT2-7's end
-## sequence adds `&"end_sequence"` here, between the match and the results panel.
+## read from what is open rather than set at each place a screen opens. The end
+## sequence (PT2-7) is silent apart from its jingle, between match and results.
 func _music_screen() -> StringName:
 	if _lobby != null and _lobby.is_open():
 		return &"lobby"
+	if _end != null and _end.running:
+		return &"end_sequence"
 	if _results != null and _results.visible:
 		return &"results"
 	if link != null and link.is_ready():
@@ -1658,8 +1844,9 @@ func _render(alpha: float, delta: float) -> void:
 			travelled = _held_heading(keys, delta)
 		_face(entity_id, entity, view, travelled, delta)
 		# Held, carrying and captured are read from the CONFIRMED world on every
-		# role. A guest never guesses at an outcome.
-		view.visible = true
+		# role. A guest never guesses at an outcome. The end sequence (PT2-7)
+		# draws its own figures and hides the real bodies.
+		view.visible = not _end.running
 
 	if not _cameras.is_empty():
 		audio.set_listener(_cameras[0].world_position())
@@ -2646,10 +2833,18 @@ func _build_hud() -> void:
 func _update_hud() -> void:
 	var truth: SimWorld = link.outcome_world()
 	# The debug HUD carries the same numbers, on the same rows of screen.
-	_status.visible = link.is_ready() and _debug_hud_visible
-	_match_hud.visible = link.is_ready() and not _debug_hud_visible
-	_headline.visible = link.is_ready()
+	# The end sequence (PT2-7) has the screen to itself: no HUD, no headline.
+	var sequence: bool = _end.running
+	_status.visible = link.is_ready() and _debug_hud_visible and not sequence
+	_match_hud.visible = link.is_ready() and not _debug_hud_visible and not sequence
+	_headline.visible = link.is_ready() and not sequence
 	var ended: bool = link.is_ready() and truth.match_phase == SimWorld.MatchPhase.MATCH_END and not _split_screen
+	if sequence:
+		ended = false
+		if _pause.is_open():
+			_set_paused(false)
+	elif ended and not _end_done:
+		ended = false
 	if ended:
 		_results.show_for(truth, level, link.role != MatchLink.Role.GUEST)
 		if _pause.is_open():
@@ -2665,13 +2860,15 @@ func _update_hud() -> void:
 		_status.text = MatchStatus.line(truth, level, mine)
 		if _match_hud.visible:
 			_match_hud.refresh(truth, level, mine, players[0] if not players.is_empty() else null)
-		_guide.visible = not _debug_hud_visible and not _lobby_wait and not _lobby.is_open()
+		_guide.visible = not _debug_hud_visible and not _lobby_wait and not _lobby.is_open() \
+			and not sequence
 		if _guide.visible:
 			_guide.refresh(truth, mine, get_process_delta_time())
 		_headline.text = MatchStatus.headline(truth, level, link.role != MatchLink.Role.GUEST)
 	# The minimap is match HUD: not under the lobby, the results or a match that ended.
 	_tell_overlay.in_match = link.is_ready() and not ended and not _results.visible \
-		and not _lobby_wait and not _lobby.is_open()
+		and not _lobby_wait and not _lobby.is_open() and not sequence \
+		and truth.match_phase != SimWorld.MatchPhase.MATCH_END
 	_hud.visible = _debug_hud_visible
 	_hud_hint.visible = not _debug_hud_visible
 	if not _debug_hud_visible:

@@ -116,7 +116,8 @@ var press_hold: PackedFloat32Array = PackedFloat32Array()
 ## hud or results. Debug only: results are shown from a mid-match world with a
 ## winner picked for the picture; nothing reaches the simulation.
 var screen: String = ""
-const SCREENS: PackedStringArray = ["menu", "settings", "pause", "lobby", "hud", "results"]
+## `end` (PT2-7): the match end sequence, see GreyBoxMain._pose_screen.
+const SCREENS: PackedStringArray = ["menu", "settings", "pause", "lobby", "hud", "results", "end"]
 
 ## How many shots this request will write.
 func shot_count() -> int:

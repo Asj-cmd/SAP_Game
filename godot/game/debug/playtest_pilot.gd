@@ -463,7 +463,13 @@ func _step_rematch() -> void:
 	if _phase() != SimWorld.MatchPhase.MATCH_END:
 		_note("rematch", false, "match never ended")
 		return
+	# The first Enter skips the end sequence (PT2-7) if it is still running; the
+	# second asks for the rematch from the results panel.
+	await _wait(0.6)
 	await _key_tap(KEY_ENTER)
+	await _wait(0.4)
+	if _phase() == SimWorld.MatchPhase.MATCH_END:
+		await _key_tap(KEY_ENTER)
 	var restarted: bool = await _until(_restarted, 5.0)
 	var wins: int = 0
 	for team_id: StringName in _world().sorted_team_ids():

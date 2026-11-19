@@ -219,10 +219,10 @@ func body(entity_id: int, position: Vector3, grounded: bool, walking: bool, own:
 	else:
 		_air_frames[entity_id] = _air_frames.get(entity_id, 0) + 1
 
-## Match-level sounds from the confirmed world: a deposit, the countdown, round/match end.
-## `local_team` is the family of the seat this machine plays (&"" for none, e.g. a
-## dedicated host): at MATCH_END it hears the win or lose jingle, nobody else anything.
-func match_state(world: SimWorld, local_team: StringName = &"") -> void:
+## Match-level sounds from the confirmed world: a deposit, the countdown, round end.
+## The match-end jingle is not here: GreyBoxMain calls `match_end_jingle` when its
+## end sequence starts (PT2-7), or at once when there is none.
+func match_state(world: SimWorld, _local_team: StringName = &"") -> void:
 	for team_id: StringName in world.teams:
 		var score: int = world.score_for(team_id)
 		if _scores.has(team_id) and score > _scores[team_id]:
@@ -232,10 +232,6 @@ func match_state(world: SimWorld, local_team: StringName = &"") -> void:
 	if phase != _phase:
 		if phase == SimWorld.MatchPhase.ROUND_END:
 			play_flat(&"sting")
-		elif phase == SimWorld.MatchPhase.MATCH_END and _phase != -1:
-			# The one call site for the match-end jingle (PT2-7 may move it into its
-			# end sequence). `_phase != -1`: joining a match that already ended is silent.
-			_match_end_jingle(world.match_winner, local_team)
 		_last_count_second = -1
 		_phase = phase
 	if phase == SimWorld.MatchPhase.COUNTDOWN:
@@ -245,7 +241,10 @@ func match_state(world: SimWorld, local_team: StringName = &"") -> void:
 				play_flat(&"tick")
 			_last_count_second = second
 
-func _match_end_jingle(winner: StringName, local_team: StringName) -> void:
+## The match-end jingle (PT2-4), heard by the local seat's family only: win or
+## lose, or the plain sting for a drawn match. `local_team` &"" (a dedicated host)
+## hears nothing. Called once per match end, by GreyBoxMain (PT2-7).
+func match_end_jingle(winner: StringName, local_team: StringName) -> void:
 	if local_team == &"":
 		return
 	if winner == &"":
