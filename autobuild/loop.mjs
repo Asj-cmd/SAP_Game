@@ -41,6 +41,8 @@
 // waits for the 5-hour reset (+3 min) and carries on by itself. USAGE_STOP_PCT=0 turns the guard off.
 // The weekly limit: when it is really hit, the loop waits for its stated reset (up to 8 days) and restarts.
 //
+// Lock: autobuild/loop.lock holds this process's PID while it runs (start-loop.cmd, watchdog.mjs read it).
+//
 // Status heartbeat: at loop start, each worker / planner session start and end, each wait, a STOP, an
 // error stop and "No open tasks left", the loop writes autobuild/STATUS.md (state, task, model, session,
 // last commit, time) and commits and pushes that file ALONE as "status: <state>" (status.mjs). If only the
@@ -62,6 +64,7 @@ import { isModelLimit, modelFamily, whyModelLimit, taggedFallback } from "./limi
 import { makeStatus, nyLabel } from "./status.mjs";
 import { UsageTracker, readingFromEvent, textFromStream, preflight, monitorDecision, usageResetAt, pctOf, MIN, RESET_SLACK_MS } from "./usage.mjs";
 import { runClaude } from "./runner.mjs";
+import { liveLock, lockPath, writeLock, removeOwnLock } from "./lock.mjs";
 
 const HERE = dirname(fileURLToPath(import.meta.url));
 const ROOT = resolve(HERE, "..");
@@ -142,6 +145,13 @@ ${frames}
 }
 
 const startSha = git("rev-parse", "HEAD");
+// The lock file holds our PID so start-loop.cmd and the watchdog know a loop is running. Removed on every
+// exit (a crash or a power cut leaves it behind; a dead PID counts as stale).
+const LOCK = lockPath(HERE);
+if (liveLock(LOCK)) { console.log("Loop already running (autobuild/loop.lock holds a live PID). Not starting a second one."); process.exit(0); }
+writeLock(LOCK);
+process.on("exit", () => removeOwnLock(LOCK));
+for (const sig of ["SIGINT", "SIGTERM", "SIGHUP"]) process.on(sig, () => process.exit(130));
 const status = makeStatus({ root: ROOT, log });
 let cur = { task: null, model: null, session: null, doing: "loop start" }; // what the status file says is going on
 const setStatus = (state, extra = {}) => { cur = { ...cur, ...extra }; status.write({ state, ...cur, usage: tracker.summary() }); };
