@@ -158,6 +158,11 @@ extends Resource
 ## repath_seconds. A human re-aims many times a second; 0.9 s left bots running
 ## at where the thief used to be.
 @export var chase_repath_seconds: float = 0.3
+## A chase whose target's lead point moved at most this far since the route was
+## built keeps the route and only moves its last point, if the last leg is still
+## a straight walk (BotDirector._retarget). A route search costs most of a tick;
+## this is what keeps the 0.3 s re-aim inside the 3v3 tick budget.
+@export var chase_retarget_radius: float = 400.0
 
 func decide_ticks() -> int:
 	return maxi(1, SimWorld.seconds_to_ticks(decide_seconds))

@@ -36,6 +36,10 @@ var nav: NavGraph = null
 ## bot cannot perturb anything else in the world.
 var _rng: SimRandom = null
 
+## The key in the crew's claim table that says a route search has already run
+## this tick (see _plan). Task keys are "kind:target:zone", so it cannot clash.
+const ROUTE_SLOT: String = "#route"
+
 var _task: BotTask = null
 var _route: PackedVector3Array = PackedVector3Array()
 var _leg: int = 0
@@ -143,9 +147,9 @@ func drain(world: SimWorld, tick: int, claims: Dictionary[String, int]) -> Array
 		# The world moves under a held task: cash gets picked up, prisoners get
 		# moved to a pen. A route to where the target used to be is worse than
 		# no route, because the bot walks it confidently.
-		_plan(world, me, tick)
+		_plan(world, me, tick, false, claims, true)
 
-	commands.append_array(_steer(world, me, tick))
+	commands.append_array(_steer(world, me, tick, claims))
 	commands.append_array(_act(world, me, tick))
 	return commands
 
@@ -204,7 +208,7 @@ func _decide(world: SimWorld, me: SimEntity, tick: int, claims: Dictionary[Strin
 		_act_after_tick = tick + profile.reaction_ticks()
 	if not _task.is_none():
 		claims[_task.key()] = actor_id
-	_plan(world, me, tick)
+	_plan(world, me, tick, false, claims, true)
 
 ## Everything worth considering, before any of it is judged.
 ##
@@ -326,7 +330,24 @@ func _threats(world: SimWorld, me: SimEntity, task: BotTask) -> int:
 ## turned out not to be the lever - A* settles a quarter of the nodes and still
 ## lost to the flood in GDScript, three different queues deep. Searching LESS
 ## OFTEN is.
-func _plan(world: SimWorld, me: SimEntity, tick: int, force: bool = false) -> void:
+##
+## A `gated` plan shares the crew's one route search per tick (ROUTE_SLOT in
+## `claims`). If somebody already searched this tick, it waits a tick and asks
+## again (the timed re-plan in drain picks it up); a decision that waits walks
+## its old route for that tick. Every caller in a match is gated; ungated is for
+## a lone director driven by a test. PT4-8's 0.3 s
+## chase re-plan made searches land on the same tick often enough to spike the
+## 3v3 tick past its budget; staggering them is the P0-2 lever (search less AT
+## ONCE), not a cheaper search. Every machine drains the crew in the same
+## order, so who waits is the same everywhere.
+func _plan(
+	world: SimWorld,
+	me: SimEntity,
+	tick: int,
+	force: bool = false,
+	claims: Dictionary[String, int] = {},
+	gated: bool = false
+) -> void:
 	# A chase re-aims more often (PT4-8): the target is a running body.
 	var chasing: bool = _task.kind == BotTask.Kind.DEFEND
 	_next_repath_tick = tick + (profile.chase_repath_ticks() if chasing else profile.repath_ticks())
@@ -369,15 +390,54 @@ func _plan(world: SimWorld, me: SimEntity, tick: int, force: bool = false) -> vo
 	# has not is stuck, whatever it believes it is doing.
 	var reach: float = profile.arrive_radius * profile.arrive_radius
 	var moved: bool = me.position.distance_squared_to(_checked_at) > reach
+	var checked_before: Vector3 = _checked_at
 	_checked_at = me.position
 	if not force and moved and _leg < _route.size() 		and _planned_kind == _task.kind and _planned_target == _task.target_id 		and destination.distance_squared_to(_planned_for) <= reach:
 		return
+	if not force and moved and _retarget(me, destination):
+		return
 
+	if gated and claims.has(ROUTE_SLOT):
+		# Not looked at after all: the next tick's look still measures
+		# progress from the last real one.
+		_checked_at = checked_before
+		_next_repath_tick = tick + 1
+		return
+	claims[ROUTE_SLOT] = actor_id
 	_leg = 0
 	_planned_for = destination
 	_planned_kind = _task.kind
 	_planned_target = _task.target_id
 	_route = nav.route(me.position, destination)
+
+## Keeps a chase route by moving its last point onto the target's new lead
+## point, instead of searching again (PT4-8 tick cost). True when it did.
+##
+## One route search costs 20-26 ms of a 33 ms tick on the house graph, and a
+## chase asked for one at every decision (0.4 s) and every chase re-plan
+## (0.3 s), because a running target always moves more than arrive_radius in
+## between. Measured, that put a search on most ticks of a 3v3 once three or
+## four bots were chasing, and any second search or distance flood on the same
+## tick went over budget. A route already ends at the true destination
+## (NavGraph.route), so following a target that moved a little is only a
+## different last point: kept while the same chase is being walked, the new
+## point is within chase_retarget_radius of the old one, and the last leg to it
+## is still a straight walk. Anything else searches, as before.
+func _retarget(me: SimEntity, destination: Vector3) -> bool:
+	if _task.kind != BotTask.Kind.DEFEND or _route.is_empty():
+		return false
+	if _planned_kind != _task.kind or _planned_target != _task.target_id or _leg >= _route.size():
+		return false
+	var limit: float = profile.chase_retarget_radius
+	if destination.distance_squared_to(_planned_for) > limit * limit:
+		return false
+	var last: int = _route.size() - 1
+	var from_point: Vector3 = _route[last - 1] if _leg < last else me.position
+	if not nav.surface.is_reachable_between(from_point, destination):
+		return false
+	_route[last] = destination
+	_planned_for = destination
+	return true
 
 ## Where the bot should physically go for its current task.
 ##
@@ -421,7 +481,7 @@ func _lead_point(me: SimEntity, target: SimEntity, speed: float) -> Vector3:
 # ---- doing ----
 
 ## Follows the route, and reports travel as intent - never as a position.
-func _steer(world: SimWorld, me: SimEntity, tick: int) -> Array[SimCommand]:
+func _steer(world: SimWorld, me: SimEntity, tick: int, claims: Dictionary[String, int]) -> Array[SimCommand]:
 	# Closing in on a thief (PT4-8): near, on its floor, and a straight walk
 	# away, the route has nothing more to say - run at where it is going.
 	var straight: Vector3 = _close_in_heading(world, me)
@@ -515,7 +575,7 @@ func _steer(world: SimWorld, me: SimEntity, tick: int) -> Array[SimCommand]:
 		# finishing at all.
 		if tick >= _next_repath_tick:
 			# Forced: the route in hand is exactly what is not working.
-			_plan(world, me, tick, true)
+			_plan(world, me, tick, true, claims, true)
 			return _stop_if_moving(tick)
 
 		# Re-routed recently and still boxed in. Walking at the waypoint it
