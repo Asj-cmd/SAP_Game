@@ -2,41 +2,6 @@
 
 Written by the planner from a quick read. If a fact here is wrong, the code and `DECISIONS.md` win.
 
-## PT4-7 — Menu and HUD polish
-
-REDO (from PT4-6):
-REDO: The lineup frames look right (hands end at mid-thigh, small mitts, nothing sticks out). The carry frames do not: in `autobuild/frames/pt4_6/dad_carry_1.png` the carrying dad's hands show as a flat cream slab standing across the FRONT face of the bundle, fingers reaching into its top half; in `dad_carry_2.png` his raised palm is a flat slab cut into the bundle's side. The bundle there was a prop at `hands_point` + 6, the same place play puts it, so the live carry likely clips the same way. Fix first, numbers only, no new frames: extend `tools/arm_probe.gd` to print each member's fingertip height in `carry_idle` against the bundle's bottom (`hands_point` + `CARRY_HAND_LIFT`). If fingertips sit more than 2 cm above that bottom, tip the hands back at the wrist in the carry pose (`game/art/figure_animator.gd`, the `hand_l` / `hand_r` bones after the arm IK) so the palms lie under the bundle; do not raise `CARRY_HAND_LIFT` (that sinks nothing but floats the bundle) and do not touch the sim. Write the before/after fingertip numbers in PROGRESS.md under PT4-7. Then do PT4-7.
-
-**Approach**
-1. Main menu (`main_menu.gd` ~line 174): remove the team-tell CheckBox block (`_tell_boxes`, `TeamTell.OPTIONS` loop) and add the same rows to `settings_panel.gd` under a heading "Team tell (experiment)". Same `TeamTell.current().set_option` calls; the F5–F8 keys are unchanged. Settings opens from both the menu and pause, so it shows in both.
-2. Host row: Host button alone by default. A small "Advanced" toggle button (SMALL_BUTTON style) under it shows/hides the address LineEdit and the Tailscale note. The address is still pre-filled exactly as now, so Host with Advanced closed behaves the same as today.
-3. Menu backdrop crisp: delete the charcoal wash `ColorRect` (`main_menu.gd` ~line 88). The fog comes from `WorldBackdrop` (`world_backdrop.gd` ~line 140: depth fog from `theme.haze_from`, the orbit camera is ~6900 away). While the menu backdrop shows (`_show_menu_backdrop` in `greybox_main.gd` ~line 996), use the environment with `fog_enabled = false`; restore it when a match starts. Keep the card readable with the card's own panel, not a full-screen wash.
-4. One button/card finish in `ui_theme.gd`: a soft drop shadow on `CARD` and on buttons (StyleBoxFlat `shadow_size` 4, `shadow_offset` (0, 3), `CHARCOAL_SOFT`), hover = existing `HOVER_SCALE` plus a slightly lighter fill, press = `PRESS_SCALE` plus shadow offset 1. Remove any per-screen StyleBox overrides that duplicate this (grep `add_theme_stylebox_override` in `game/greybox/`).
-5. Results card (`results_panel.gd`): one title line, then a two-column row per family (name in family colour, rounds won, cash banked), buttons at the bottom aligned; consistent margins from `PANEL_MARGIN`. Keep `ResultsPanel.title_for` text rules (PT3-3: "<NAME> WINS THE MATCH").
-6. Capture one set at the end (below), look, fix at most once.
-
-**Already decided**
-- Team tell lives only in Settings, not on the menu. Not REVIEW.
-- "Advanced" collapsed by default every launch (not saved). Log it, REVIEW.
-- Menu backdrop: no fog and no wash; log REVIEW.
-- Shadow/hover/press numbers above; all in `UiTheme`, not per screen. Log REVIEW.
-- Deadpan: no bounce, no confetti, no colour flashes; names only from `FamilyNames` (PT3-3).
-
-**Files likely touched**
-`godot/game/greybox/main_menu.gd`, `settings_panel.gd`, `ui_theme.gd`, `results_panel.gd`, `greybox_main.gd` (`_show_menu_backdrop`), `world_backdrop.gd` (only if a fog switch is needed there), `lobby_panel.gd` / `pause_menu.gd` only to drop duplicate style overrides. REDO: `godot/game/art/figure_animator.gd`, `godot/tools/arm_probe.gd`. `DECISIONS.md`, `PROGRESS.md`, `PLAN.md`.
-
-**Done means**
-- Menu shows no team-tell checkboxes; Settings shows all `TeamTell.OPTIONS` and toggling one changes `TeamTell.current()`; Host with Advanced closed starts hosting with the pre-filled address.
-- REDO numbers in PROGRESS.md (fingertips at or below bundle bottom + 2 cm for every member that carries over its head).
-- Full `node autobuild/verify.mjs` run ONCE at the end, just before committing: healthy, every suite at its pin.
-- Frames: ONE capture set at the end, `--capture-screen=` menu, settings, pause, lobby, hud, results (into `autobuild/frames/pt4_7/`). Menu: houses crisp with no grey haze or dark wash, no checkboxes, Host + Advanced only. Settings: the team-tell rows present. Every card/button: same shadow and finish. Results: tidy aligned rows, family colours, correct title. At most one redo.
-
-**Do NOT**
-- Touch the sim, net messages, team-tell logic, or the cash-bar/HUD layout PT4-4 settled.
-- Add a test file (UI is never tested). No bots, no sweeps.
-- Restyle every screen from scratch or add new fonts/colours outside `UiTheme`.
-- Remove fog from matches (it hides the far plane there).
-
 ## PT2-7 — Match end sequence
 
 **Approach**

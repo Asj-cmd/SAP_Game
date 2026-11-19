@@ -144,7 +144,7 @@ are typed by the players (see PT3-3).
   IK arm poses from P2-2 must still reach and hold a bundle overhead; check by the numbers the
   anim tests already give). Presentation only; no collision or sim change. **Frames allowed: one
   lineup of all members (plus one close shot of dad carrying) at the end, at most one redo.**
-- [ ] **PT4-7 Menu and HUD polish.** Move the team-tell checkboxes from the main menu to Settings.
+- [x] **PT4-7 Menu and HUD polish.** *(Done 2026-11-18: REDO first, carry hands tipped back at the wrist, fingertips 0.6–1.7 cm over the bundle bottom (were 3.0–6.4). Team tell in Settings; Host + "Advanced" (address and note behind it); menu backdrop with no wash and haze only in the last 2000 before the far plane; one soft shadow / press finish in `UiTheme`; results card one title line + aligned rows per family. Frames in `autobuild/frames/pt4_7/`. See PROGRESS.md.)* Move the team-tell checkboxes from the main menu to Settings.
   Hide the host address behind a small "Advanced" toggle (Host just works; the address and the
   Tailscale note appear only when Advanced is open). Clear the fog / wash from the menu backdrop so
   the houses look crisp. Give buttons and cards one consistent finish (shadow, hover, press) through

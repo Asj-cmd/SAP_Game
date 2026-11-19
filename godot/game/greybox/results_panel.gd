@@ -39,7 +39,7 @@ func _ready() -> void:
 	centre.set_anchors_preset(Control.PRESET_FULL_RECT)
 	_root.add_child(centre)
 	var column: VBoxContainer = VBoxContainer.new()
-	column.custom_minimum_size = Vector2(560.0, 0.0)
+	column.custom_minimum_size = Vector2(620.0, 0.0)
 	column.add_theme_constant_override("separation", 12)
 	centre.add_child(UiTheme.card(column))
 
@@ -54,7 +54,8 @@ func _ready() -> void:
 	_title.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
 	_title.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
 	_title.theme_type_variation = UiTheme.TITLE
-	_title.add_theme_font_size_override("font_size", 52)
+	# PT4-7: one line for the default names at this card width (52 wrapped).
+	_title.add_theme_font_size_override("font_size", 40)
 	column.add_child(_title)
 	_band = ColorRect.new()
 	_band.custom_minimum_size = Vector2(0.0, 10.0)

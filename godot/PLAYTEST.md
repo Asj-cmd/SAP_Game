@@ -51,9 +51,10 @@ and **Quit**.
 
 ### The host
 
-Press **Host**. The address box is filled in for you: if Tailscale is running
+Press **Host**. The address is filled in for you: if Tailscale is running
 it picks your Tailscale address (`100.x.y.z`), otherwise your home-network
-address. The note under the box says which, and who can reach it.
+address. To see or change it, press **Advanced** next to Host: the address box
+and a note saying which address it is, and who can reach it, open under it.
 
 A **lobby panel** shows a **code** like `05ZG-0001-W5FG`, already copied - paste
 it to the other players in whatever chat you use. The panel also has the team

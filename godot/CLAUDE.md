@@ -108,7 +108,7 @@ node autobuild/team_tell_frames.mjs [--sets=none,marker,minimap,wristband,kid_sw
 godot --path godot -- --team-tell=marker,wristband --capture-clean --capture-hud ...   # a team tell set; --capture-hud keeps marker/minimap
 ```
 
-The team tell (P2-4) is a per-machine setting (`TeamTell`): menu checkboxes, F5-F8 in a
+The team tell (P2-4) is a per-machine setting (`TeamTell`): checkboxes in Settings (PT4-7), F5-F8 in a
 match, `--team-tell=`. All four options are off by default: the family outfits are the tell,
 and `wristband` switches them back to identical plain clothes. Capture runs ignore the player's saved choice.
 
