@@ -208,7 +208,7 @@ other task here is verified by tests and numbers. The family display names come 
   display names come from `family_names.cfg`; build the line so it never says "WINS" after a family
   name). Keeps the P5-0 rules (names only from the `.cfg`). **Frames allowed: one set of every screen
   at the end, at most one redo.**
-- [ ] **PT2-7 Match end sequence.** An end-of-match sequence of about 4 to 6 s before the results
+- [x] **PT2-7 Match end sequence.** *(Done 2026-11-18: `EndSequence`, 5 s, skippable after 0.5 s: winners in a row on their lawn holding drawn bundles in `carry_idle`, losers in `idle` behind, a 150 deg camera arc, "THE <NAME> GOT RICH." / "THE <NAME> GOT ROBBED." from `content/end_titles.cfg`, jingle at its start, silent music, results after. Frames in `autobuild/frames/pt2_7/`. See PROGRESS.md.)* An end-of-match sequence of about 4 to 6 s before the results
   panel: the camera circles the winning family doing a stiff deadpan victory pose holding cash, the
   losers stand blank; a big original title such as "THE <WINNERS> GOT RICH." in the winners' view and
   "THE <LOSERS> GOT ROBBED." in the losers' view (the exact lines live in ONE content file, with the

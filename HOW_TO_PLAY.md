@@ -34,6 +34,19 @@ If a line is empty, or the file is missing, the game uses "Green Family" and "Or
 defaults are read on each PC from its own file; the typed names are the same on every PC (the
 host's copy wins).
 
+## Changing the match end titles
+
+When a match is won, the game shows about five seconds of the winning family holding their cash on
+their front lawn before the results (any key skips it). The big line on screen comes from one small
+text file, `godot/content/end_titles.cfg`:
+
+- `win=` is what the winning family sees, `lose=` what the losing family sees.
+- `{name}` is replaced by the family's name in capitals (the typed name, or the default above), for
+  example `THE GREEN FAMILY GOT RICH.`
+- Edit the text after the `=` in Notepad, save, and start the game again (rebuild the exe with
+  `node autobuild/build.mjs` for the exe to have it). An empty line or a missing file uses the two
+  lines above.
+
 ## Changing the jail sound
 
 The sound a player hears when they are caught and sent to jail is **one file**:

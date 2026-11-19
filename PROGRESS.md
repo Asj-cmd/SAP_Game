@@ -2,6 +2,30 @@
 
 Newest first. One entry per task: date, task id, what changed, what the frames showed, numbers, what is left.
 
+## 2026-11-18 — PT2-7 Match end sequence
+- New `game/greybox/end_sequence.gd` (`EndSequence`). `GreyBoxMain._update_end_sequence` starts it when the confirmed world first shows MATCH_END with a winner. The results panel now opens only when the sequence ends (5.0 s) or is skipped (any key, mouse button or pad button after 0.5 s; the key is used up, so Enter skips but does not also rematch).
+- **Shot.** Drawn-only figures stand there and the real bodies are hidden while it runs; nothing touches the sim, snapshot or network.
+  - The winners stand in a row 200 in front of their own spawn row, on their front lawn, held in `carry_idle`, each with a drawn bundle placed on the wrists' midpoint + `CARRY_HAND_LIFT` every frame.
+  - The losers stand in `idle` on the spawn row behind them, offset half a slot so they show in the gaps.
+  - The camera sweeps a 150° arc centred on the way out of the house, not the brief's 180°: at ±90° it would look straight down the row. Logged.
+- **Title** from ONE file, `content/end_titles.cfg` (`win=THE {name} GOT RICH.`, `lose=THE {name} GOT ROBBED.`), with `{name}` = `FamilyNames.name_of` upper-cased (typed name or default). 72 px HUD_BIG in the named family's colour, on its own canvas layer. Added to the export `include_filter`. HOW_TO_PLAY has a "Changing the match end titles" section.
+- **Audio.** The jingle moved from `GameAudio.match_state` to `GameAudio.match_end_jingle`, called when the sequence starts. With no sequence (drawn match, dedicated host, F2 split, joined an already-ended match) the results open at once and the jingle/sting plays then, as before (joining an ended match is still silent). The music screen is `&"end_sequence"` (silent) while it runs; the menu music comes back with the results (`music_rule_test` already had the case).
+- HUD, headline, first-run guide and minimap hide during the sequence; pause closes. `PlaytestPilot._step_rematch` taps Enter twice (skip, then rematch).
+- Debug: `--capture-screen=end [--capture-end-view=win|lose] [--capture-end-at=s]`; `--time-scale=N` (≤8).
+- **Headless solo to a real match end** (`--headless --solo --team-size=1 --time-scale=8`): `END_SEQUENCE start: team_b, 2 figures, title "THE GREEN FAMILY GOT ROBBED."`, then `END_SEQUENCE done after 5.0 s; results`. No script errors. (The local seat was idle, so the bot family won.)
+- **Frames** (one set, no redo used), 3v3, in `autobuild/frames/pt2_7/`:
+  - `win_1s.png`: camera low by the street at the start of the arc, looking along the green house's brick front. "THE GREEN FAMILY GOT RICH." in sage across the top. Three green figures (dad near on the right, mom, elder girl) each hold a green banknote bundle on their hands over their heads. The three orange figures stand between and behind them against the wall. No wall or fence between camera and bodies.
+  - `win_3s.png`: camera square in front. The row reads clearly: green winners in front with bundles overhead, orange losers (elder girl, mom with beehive, dad) standing behind in the gaps, arms hanging. Lawn, path and street in the foreground. The orange elder girl's idle pose leans forward a little with bent knees, more slouch than "blank"; I left it (it is the shipped idle clip).
+  - `lose_2s.png`: the same at the orange house: orange winners holding bundles, green losers behind. "THE GREEN FAMILY GOT ROBBED." in sage. The bundle sits on the orange elder girl's head and hands.
+  - `results.png`: the PT4-7 card, unchanged ("GREEN FAMILY WINS THE MATCH", two aligned rows, Play again | Main menu).
+- Full verify, run once: **healthy**.
+  - 20 suites at their pins. Symmetry 190 of 190.
+  - Bot 3v3: team_b, 402 s, 67 s stalls. 1v1: team_a, 8 s stalls. Both deterministic and unchanged from PT4-7.
+  - Tick budget 0 / 4 over at 1v1 / 3v3 (gate ≤5). 4v4 showed 50 over (not gated; 4 last run). No sim code changed, so this is laptop timing noise.
+  - net_smoke: 1636 ticks agree.
+  - Render counters within limits (416 / 364 / 330 draws).
+- Left: nobody has heard the jingle over the sequence or tried the skip by hand. A typed 16-letter name may wrap the title to two lines (autowrap on). Next: PT2-8.
+
 ## 2026-11-18 — PT4-7 Menu and HUD polish
 - **REDO from PT4-6 first (carry hands clipping the bundle), numbers only.**
   - The previous session had already extended `tools/arm_probe.gd` (uncommitted) to print, in `carry_idle`, the highest fingertip (any `*_leaf_*` bone) against the bundle's bottom (`hands_point` + 6). This was one task, so I finished it.
