@@ -52,3 +52,4 @@ autobuild/WRAP_UP
 # running-loop lock and the watchdog's log
 autobuild/loop.lock
 autobuild/watchdog.log
+autobuild/watchdog.state.json

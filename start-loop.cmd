@@ -5,6 +5,8 @@ set PLANNER_MODEL=opus
 set WORKER_MODEL=opus
 set MAX_TURNS=120
 cd /d C:\Users\Jampa\cashgrab-auto
+rem Run by hand (no argument): forget earlier watchdog crashes. The watchdog passes "watchdog".
+if not "%1"=="watchdog" node autobuild\watchdog.mjs --reset
 node autobuild\lock.mjs --check
 if %ERRORLEVEL%==0 (
   echo Loop already running

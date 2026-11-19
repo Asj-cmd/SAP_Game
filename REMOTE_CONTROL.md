@@ -50,4 +50,5 @@ Two helpers: **start-loop.cmd** starts the loop in its own window, and a **watch
 - It does **not** restart a loop that ended because the plan is finished, or after a STOP.
 - A loop that stops on an error (for example Claude is signed out) will be restarted every 30 minutes and
   stop again. If STATUS.md keeps saying "stopped: error ...", fix the cause (run `claude`, `/login`) or create STOP.
+- **If the watchdog says "stopped: repeated crash, check the terminal"** (in `autobuild\STATUS.md` and `autobuild\watchdog.log`), it restarted the loop 3 times in a row and each time the loop was gone within 10 minutes, so it gave up and does nothing more. Open the loop's terminal over Chrome Remote Desktop, read the error, fix it (usually a Claude sign-in: run `claude`, type `/login`), then run start-loop.cmd. Running it by hand resets the count.
 - Look at `autobuild\STATUS.md` (also on GitHub) for what it is doing, and `autobuild\watchdog.log` for what the watchdog did.
