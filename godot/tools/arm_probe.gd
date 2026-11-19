@@ -129,6 +129,16 @@ func _report() -> void:
 			print("    hands mid relative to feet %s" % (mid - (art.get_parent() as Node3D).global_position))
 			print("  carry %-13s hands_y %.1f  head_joint %.1f  crown %.1f  hands-crown %.1f  hands apart %.1f  tips %.1f/%.1f" % [
 				who.id, mid.y, crown, h, mid.y - h, apart, tip.y, _world(bones, &"middle_04_leaf_r").y])
+			# PT4-7 REDO: the highest fingertip (any *_leaf bone of either hand)
+			# against the bundle's bottom (hands_point + CARRY_HAND_LIFT).
+			var bottom: float = mid.y + 6.0
+			var top_tip: float = -INF
+			for b: int in bones.get_bone_count():
+				var bn: String = bones.get_bone_name(b)
+				if bn.contains("_leaf_"):
+					top_tip = maxf(top_tip, _world(bones, StringName(bn)).y)
+			print("  carry %-13s bundle bottom %.1f  highest fingertip %.1f  tip above bottom %.1f" % [
+				who.id, bottom, top_tip, top_tip - bottom])
 			continue
 		var upper: float = shoulder.distance_to(elbow)
 		var fore: float = elbow.distance_to(wrist)

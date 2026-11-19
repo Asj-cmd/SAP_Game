@@ -288,7 +288,7 @@ func _arm_poses(bones: Skeleton3D, crouch: Animation) -> Dictionary[String, Dict
 	for side: String in ["l", "r"]:
 		var outward: Vector3 = Vector3(signf(_at(bones, "upperarm_" + side).x - pelvis.x), 0.0, 0.0)
 		var target: Vector3 = crouched_head + outward * 0.09 + up * 0.24 + forward * 0.04
-		_solve_arm(bones, side, target, outward - up * 0.2, low)
+		_solve_arm(bones, side, target, outward - up * 0.2, low, _carry_hand_aim(forward, outward))
 	poses["carry_crouch"] = low
 	bones.reset_bone_poses()
 	# Each pose: per side, hand target = shoulder + (out, up, forward) in reach
@@ -310,9 +310,22 @@ func _arm_poses(bones: Skeleton3D, crouch: Animation) -> Dictionary[String, Dict
 			var bend: Vector3 = specs[pose][1]
 			var target: Vector3 = shoulder + (outward * aim.x + up * aim.y + forward * aim.z) * reach
 			var pole: Vector3 = outward * bend.x + up * bend.y + forward * bend.z
-			_solve_arm(bones, side, target, pole, table)
+			var hand_aim: Vector3 = _carry_hand_aim(forward, outward) if pose == "carry" else Vector3.ZERO
+			_solve_arm(bones, side, target, pole, table, hand_aim)
 		poses[pose] = table
 	return poses
+
+## PT4-7 (PT4-6 REDO): in the carry poses the hand is tipped back at the wrist so
+## the fingers point forward (a little inward) and only slightly up, palms under
+## the bundle. With the hand straight along the forearm the fingers stood 3-6 cm
+## up into the bundle's front face. Direction in skeleton space.
+const CARRY_HAND_RISE_DEG: float = 20.0
+const CARRY_HAND_INWARD: float = 0.3
+
+func _carry_hand_aim(forward: Vector3, outward: Vector3) -> Vector3:
+	var flat: Vector3 = (forward - outward * CARRY_HAND_INWARD).normalized()
+	var rise: float = deg_to_rad(CARRY_HAND_RISE_DEG)
+	return (flat * cos(rise) + Vector3.UP * sin(rise)).normalized()
 
 ## Poses the body (not the arms) as `clip` at `t`: rotations only, which is all
 ## the arm IK needs to know where the shoulders and head are.
@@ -325,8 +338,10 @@ func _bend_into(bones: Skeleton3D, clip: Animation, t: float) -> void:
 
 ## Two-bone IK for one arm on the skeleton's CURRENT pose (arms at rest): writes
 ## local rotations for clavicle (unchanged), upper arm, forearm and hand
-## (unchanged) into `table`.
-func _solve_arm(bones: Skeleton3D, side: String, target: Vector3, pole: Vector3, table: Dictionary) -> void:
+## (unchanged, or turned so the fingers point along `hand_aim` when it is not
+## zero) into `table`.
+func _solve_arm(bones: Skeleton3D, side: String, target: Vector3, pole: Vector3, table: Dictionary,
+		hand_aim: Vector3 = Vector3.ZERO) -> void:
 	var clav: int = bones.find_bone("clavicle_" + side)
 	var upper: int = bones.find_bone("upperarm_" + side)
 	var lower: int = bones.find_bone("lowerarm_" + side)
@@ -354,6 +369,14 @@ func _solve_arm(bones: Skeleton3D, side: String, target: Vector3, pole: Vector3,
 	table["upperarm_" + side] = (clav_global.inverse() * upper_global).get_rotation_quaternion()
 	table["lowerarm_" + side] = (upper_global.inverse() * lower_global).get_rotation_quaternion()
 	table["hand_" + side] = bones.get_bone_rest(hand).basis.get_rotation_quaternion()
+	if hand_aim != Vector3.ZERO:
+		# The hand's length axis: wrist to the middle finger's first joint.
+		var finger: int = bones.find_bone("middle_01_" + side)
+		var axis_local: Vector3 = Vector3.UP if finger < 0 else bones.get_bone_rest(finger).origin.normalized()
+		var hand_global: Basis = lower_global * bones.get_bone_rest(hand).basis
+		var axis: Vector3 = (hand_global * axis_local).normalized()
+		hand_global = Basis(Quaternion(axis, hand_aim.normalized())) * hand_global
+		table["hand_" + side] = (lower_global.inverse() * hand_global).get_rotation_quaternion()
 
 ## Root travel per second of a root-motion clip, library metres.
 func _travel(clip: Animation) -> float:
