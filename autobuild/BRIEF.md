@@ -4,6 +4,8 @@ Written by the planner from a quick read. If a fact here is wrong, the code and 
 
 ## PT4-8 — Bots catch thieves (last)
 
+**Status 2026-11-19:** step 3 was run. Only the new code fails (pre-PT4-8 0 of 600, current 5 and 11), so PT4-8 stays [~] and waits for a planner decision (top of PROGRESS.md). PT5-1 is ticked; do not re-run its verify for PT4-8.
+
 **Approach**
 1. The code, tests and docs are done (`0f2e250`, `3225d56`, `83eb205`, `fde314f`). Do NOT rewrite them.
    The only thing left is one healthy full `node autobuild/verify.mjs`.
@@ -31,68 +33,6 @@ symmetry 190/190, bot match 3v3 + 1v1 deterministic with a winner, net smoke OK,
 
 **Do NOT**: sweeps, seed sweeps, balance tuning, touching `sim/ai/` to "save" tick time, raising
 `max_over_budget_ticks`, two verifies at once (they collide on the net_smoke port).
-
-## PT5-1 — Player names
-
-**Approach**
-1. One cleaning rule in `net/lobby_state.gd`: `static func clean_player(text) -> String` (next to
-   `clean_name`, because net/ must apply it on receive and must not reach into game/). Rule: letters
-   (the `_is_letter` test), digits 0-9, spaces, hyphens, apostrophes; strip the rest, collapse space
-   runs, trim, cut to 16 (`MAX_TYPED_PLAYER = 16`), trim again; empty → `"Player"` is applied by the
-   callers that need a shown name (keep `clean_player("")` == `""` so the test can tell the two apart).
-2. Saved setting: `PlayerSettings` gains `player_name: String` in a new `[player]` section of
-   `user://settings.cfg` (`name=`), loaded/saved like `[audio]`; saved value is cleaned on load.
-3. Main menu (`main_menu.gd`): one "Your name" LineEdit (max_length 16, cleaned on `text_changed`
-   like the family boxes), placed above the team-size picker. Saved when it loses focus / on Play,
-   Host or Join.
-4. Seating: solo and host call `link.seat_local(<own name or "Player">, ...)` (today greybox_main
-   passes `"Host"`, `greybox_main.gd:1115`). Guests: the guest's name travels in its lobby request.
-   Add a `name` to `LobbyState` requests (the guest sends `LobbyState.request(slot)` with its name;
-   send one on connect and again when it picks a member). Bump `LobbyState.VERSION` 2 → 3; a v2 body
-   is refused (null), like the snapshot format rule.
-5. Host (`match_link.gd:340` today admits `"Player %d" % peer`): admit with "Player", then when the
-   request with a name arrives, clean it and set the seat's `display_name` through one `Lobby` method
-   (`Lobby.rename(identity, name)`) that also de-duplicates: if another human seat already shows the
-   same name (case-insensitive), add " 2", " 3", ... (the suffix fits inside `MAX_PLAYER` 24, so the
-   16-char cap still holds for the typed part). Rejoin keeps the seat's name (`Lobby.admit` already
-   keeps `display_name` for an existing identity: keep it that way and do not overwrite with "Player").
-6. Shown everywhere, from one helper in game/: `PlayerLabels.lineup_text(role, name, is_you, is_bot)`
-   (new small file, or a static in `family_lineup.gd`) → `"Dad - Sam (you)"`, `"Mom - Bot"`,
-   `"Son - Alex"`. Use it in `greybox_main.gd` `_lineup_player` / the lineup body text (line ~1407),
-   the lobby seat rows (`main_menu.gd` / wherever the lobby panel lists seats), `results_panel.gd`,
-   `end_sequence.gd` (name the winners' row if it names anyone), and the debug HUD line that names
-   bodies (`greybox_main.gd` ~2167, which returns "You").
-7. Docs: `HOW_TO_PLAY.md` (where to type your name), `PLAYTEST.md` (names now show), DECISIONS log.
-
-**Already decided**
-- Format: `"<Role> - <name>"`, local player gets `" (you)"` after their name; bots `"<Role> - Bot"`;
-  the role words are the existing lineup ones (Dad, Mom, Son, Daughter, elder/younger). REVIEW.
-- Default name when empty: `"Player"`; duplicates numbered `" 2"` onwards by the host only. REVIEW.
-- Names never enter the sim, the snapshot or the input stream; `scripts/state/player_state.gd`'s
-  `display_name` is not used for this.
-- The 16-char typed cap is separate from `MAX_PLAYER` (24, the wire cap that leaves room for " 2").
-- Log in `DECISIONS.md`: the format and default (REVIEW), LobbyState v3, `clean_player` living in net/.
-
-**Files likely touched**: `godot/net/lobby_state.gd`, `godot/net/lobby.gd`, `godot/net/lobby_seat.gd`
-(maybe), `godot/game/greybox/match_link.gd`, `godot/game/greybox/main_menu.gd`,
-`godot/game/greybox/player_settings.gd`, `godot/game/greybox/greybox_main.gd`,
-`godot/game/greybox/family_lineup.gd`, `godot/game/greybox/results_panel.gd`,
-`godot/game/greybox/end_sequence.gd`, `godot/tests/lobby_test.gd`,
-`godot/tests/player_settings_test.gd`, `godot/tests/match_status_test.gd` (lineup text cases),
-`autobuild/test_baseline.json` (ratchet), `HOW_TO_PLAY.md`, `PLAYTEST.md`, `DECISIONS.md`.
-
-**Done means**
-- Table cases added to the EXISTING test files (no new test file): `clean_player` (empty, 16 vs 17
-  chars, digits kept, symbols/emoji stripped, accents kept, only spaces, hyphen + apostrophe kept);
-  duplicates ("Sam", "Sam" → "Sam 2"; three Sams → "Sam 3"; case-insensitive); a v3 request with a
-  name round-trips encode/decode, a v2 body is refused; rejoin keeps "Sam"; lineup text for solo
-  (you + bots), 3v3 online (two named guests + bots) and a rejoined guest; `[player] name` save/load.
-- Pins ratcheted for `lobby_test`, `player_settings_test`, `match_status_test`.
-- One full `node autobuild/verify.mjs` at the end, healthy (net smoke must still agree: the lobby
-  message changed). Then the PT4-8 tick (see its section). No frames.
-
-**Do NOT**: put names in the sim or snapshot; add a second cleaning function in game/; let a guest's
-own copy decide its name (host is the truth); capture frames; touch bot code; rename internal ids.
 
 ## PT5-2 — Minimap that is easy to read
 

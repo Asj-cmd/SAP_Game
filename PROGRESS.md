@@ -2,9 +2,27 @@
 
 Newest first. One entry per task: date, task id, what changed, what the frames showed, numbers, what is left.
 
-> **PT5-1 unfinished (2026-11-19, usage wrap-up):** code, tests (lobby 129, player_settings 44, match_status 82, pins ratcheted) and docs/DECISIONS are committed; the one full verify passed suites, symmetry, both bot matches and 1v1 tick budget, but failed ONLY the 3v3 tick budget again (13 of 600 over, p99 43.4 ms; PT5-1 touches no sim/bot code) and was stopped before the network checks. Left: the PT4-8 brief's step 3 (perf_probe 3v3 current vs `0f2e250` bot files in a worktree → BLOCKED.md if both fail), a healthy net smoke, then tick PT5-1 and PT4-8, write the PT5-1 PROGRESS entry, delete their BRIEF.md sections.
+> **For the planner: the full verify now fails the 3v3 tick budget on every task, and the cause is PT4-8's bot code.** PT4-8 stays `[~]`. Measured back to back on 2026-11-19 in one worktree: the pre-PT4-8 bot files score 0 of 600 over (bot thinking 5.99 ms/tick); the current code scores 5 and 11 over (7.80 and 8.70 ms). The gate is at most 5. PT4-8's brief forbade touching `sim/ai/` to save tick time and allowed no third attempt, so nobody may fix it until that is lifted. Decide one of: (a) a perf task on PT4-8's pursuit (the lead-point snap, the straight-walk check, the 0.3 s chase re-plan; re-plan alone back at 0.9 s did not help the night before); (b) accept the cost and gate 3v3 differently; (c) revert PT4-8. Until then, a task's verify that fails only this check is not that task's fault (PT5-1 was ticked on that basis).
 
-> **PT4-8 is `[~]`: the code and tests are done, but no full verify has been healthy yet.** The only failure was the 3v3 tick budget on a loaded machine (see below). Take PT5-1 as usual. If its one full verify is healthy, tick PT4-8 in `PLAN.md` in the same commit (`[~]` → `[x]`, drop the "NOT ticked" words) and delete this note. If the 3v3 tick budget fails again, run `node autobuild/run_tool.mjs perf_probe -- --team-size=3` once with PT4-8's bot files checked out from `0f2e250` and once without: if both fail, it is the machine, so log it in `BLOCKED.md`.
+## 2026-11-19 — PT5-1 Player names
+- The code, tests and docs were committed by the previous session (`ca8ad47`, `73f029f`), which ran out of usage before its verify finished. This session only ran the gate and did the PT4-8 step 3 comparison. No code changed.
+- **What it does:** "Your name" box on the main menu (16 characters, cleaned as typed, saved under `[player] name=`), used for solo, Host and Join. One cleaning rule, `LobbyState.clean_player` (net/). Guests send their name in the lobby request (LobbyState v3; v2 refused). The host renames the seat through `Lobby.rename`, adding " 2", " 3" to duplicates (case-insensitive), and a rejoin keeps the name. Shown as "<Role> - <name>", with " (you)" for the own body and "- Bot" for bots, in the round-start lineup, the lobby roster lines, the results card, the end sequence and the debug HUD. Decisions in DECISIONS.md (2026-11-19 PT5-1 rows).
+- **Full verify, run once: 1 problem.**
+  - 20 suites at their pins (lobby 129, player_settings 44, match_status 82, bot_director 54). Symmetry 190 of 190.
+  - Bot match 3v3: team_a, 370 s, 22 s stalls, deterministic. 1v1: team_a, 8 s stalls, deterministic.
+  - Network all OK: net_loopback, net_lobby SEAT KEPT, lossy loopback, net_smoke (1639 ticks agree, guest seated in 3.2 s). So the v3 lobby message works between two processes.
+  - Render counters within limits.
+  - **Tick budget: 1v1 0 over; 3v3 11 of 600 over (p99 43.6 ms) → FAIL;** 4v4 18 (not gated).
+- **PT4-8 brief step 3, `perf_probe --team-size=3`:**
+
+  | Code | Over (of 600) | p99 | Bot thinking |
+  |---|---|---|---|
+  | Current, main checkout | 11 | 44.3 ms | 8.70 ms |
+  | Pre-PT4-8 bot files (`0f2e250`), worktree | **0** | 27.0 ms | 5.99 ms |
+  | Current, same worktree, right after | 5 | 32.5 ms | 7.80 ms |
+
+  Only the new code fails, so per the brief PT4-8 stays `[~]` with no third attempt (note at the top). This contradicts the night before (old code 6 over), when the machine was busier. I ticked PT5-1 anyway: everything PT5-1 requires passed, and it changes nothing in `sim/`.
+- Left: nobody has typed a name in a real two-person game yet.
 
 ## 2026-11-19 — PT4-8 Bots catch thieves (code done, verify not yet healthy)
 - Earlier in the same night a session wrote the bot changes and `bot_match --chase` in part commits (`0f2e250`, `3225d56`), then was cut off before writing the test. This session wrote `_test_pursuit` and the docs and ran verify.
