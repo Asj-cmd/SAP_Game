@@ -2,6 +2,8 @@
 
 Newest first. One entry per task: date, task id, what changed, what the frames showed, numbers, what is left.
 
+> **PT5-1 unfinished (2026-11-19, usage wrap-up):** code, tests (lobby 129, player_settings 44, match_status 82, pins ratcheted) and docs/DECISIONS are committed; the one full verify passed suites, symmetry, both bot matches and 1v1 tick budget, but failed ONLY the 3v3 tick budget again (13 of 600 over, p99 43.4 ms; PT5-1 touches no sim/bot code) and was stopped before the network checks. Left: the PT4-8 brief's step 3 (perf_probe 3v3 current vs `0f2e250` bot files in a worktree → BLOCKED.md if both fail), a healthy net smoke, then tick PT5-1 and PT4-8, write the PT5-1 PROGRESS entry, delete their BRIEF.md sections.
+
 > **PT4-8 is `[~]`: the code and tests are done, but no full verify has been healthy yet.** The only failure was the 3v3 tick budget on a loaded machine (see below). Take PT5-1 as usual. If its one full verify is healthy, tick PT4-8 in `PLAN.md` in the same commit (`[~]` → `[x]`, drop the "NOT ticked" words) and delete this note. If the 3v3 tick budget fails again, run `node autobuild/run_tool.mjs perf_probe -- --team-size=3` once with PT4-8's bot files checked out from `0f2e250` and once without: if both fail, it is the machine, so log it in `BLOCKED.md`.
 
 ## 2026-11-19 — PT4-8 Bots catch thieves (code done, verify not yet healthy)

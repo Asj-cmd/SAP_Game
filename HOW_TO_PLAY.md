@@ -3,6 +3,15 @@
 This page collects the settings you can change by editing a plain text file. The full playtest
 guide (two people over the internet) is `godot/PLAYTEST.md`.
 
+## Your name
+
+Type it once in the **Your name** box at the top of the main menu. It is saved (in the game's
+`settings.cfg`, section `[player]`) and used for Play solo, Host and Join. At most 16 characters:
+letters (accents are fine), digits, spaces, hyphens and apostrophes; anything else is removed as you
+type. An empty box means "Player". If two players in one game type the same name, the host adds
+" 2" (then " 3") to the later one. The name shows in the lobby, the round start lineup
+("Dad - Sam (you)"; bots say "Bot"), the match end, the results card and the debug HUD.
+
 ## Changing the family names
 
 The players name their own families. The name is shown in the score bar, the round and match

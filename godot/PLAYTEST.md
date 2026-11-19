@@ -131,10 +131,16 @@ cannot pick the same member: the second is told who took it. Random never takes
 a member somebody picked; it is drawn when the host presses Start, and bots play
 whoever is left. If you drop out and come back you get the same member.
 
+Type your own name once in "Your name" at the top of the main menu (up to 16
+letters, digits, spaces, hyphens and apostrophes; empty = "Player"). It is saved
+and used for Play solo, Host and Join. If two players type the same name the host
+adds " 2" to the second. Names show in the lobby (under each family's name box),
+the round start lineup, the match end and the results card.
+
 Every round starts with your family lined up on your own front lawn, facing you,
-for 3 seconds: your family's name above, and under each body its role (Dad, Mom,
-Daughter, Son) and who plays it ("You", "Bot", or the player). Nobody can move
-until the countdown ends, then the camera goes back behind you.
+for 3 seconds: your family's name above, and under each body its role and who
+plays it, for example "Dad - Sam (you)", "Mom - Alex", "Daughter - Bot". Nobody
+can move until the countdown ends, then the camera goes back behind you.
 
 The bar across the top is a tug of war: each family's colour fills from its own
 end in proportion to its banked cash, with the family names, cash, round wins and

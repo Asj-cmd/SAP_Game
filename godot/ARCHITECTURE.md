@@ -223,8 +223,8 @@ crew (`BotCrew`) and the lobby, and guests only predict. Two ways to run one,
 both the same game scene (`game/greybox/greybox_main.gd`) and the same
 `MatchLink.host(...)`:
 
-- **Listen host (default).** `--host` or the menu's Host. `link.seat_local("You")`
-  seats this machine's player first; it plays, with cameras, HUD and audio.
+- **Listen host (default).** `--host` or the menu's Host. `link.seat_local(<typed name>)`
+  seats this machine's player first (PT5-1: the name from `PlayerSettings`, "Player" if none); it plays, with cameras, HUD and audio.
   Bots fill empty seats when the match starts (`_begin_match`).
 - **Dedicated host.** `--headless --dedicated` (implies `--host`, skips the menu).
   No local seat, so the first guest gets the first seat. It prints the session
