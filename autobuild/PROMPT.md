@@ -6,7 +6,7 @@ Milestone: a friends playtest. Prefer a working, simple version over a polished 
    `godot/CLAUDE.md`, `godot/PROJECT_MEMORY.md`. Read other docs only when the task needs them.
 2. Run `git status`. If the working tree is dirty, a previous session was cut off: look at the diff,
    finish that work if it is clearly one task, otherwise `git stash` it with a message and continue.
-   Ignore changes that are only to .import files under godot/art - Godot rewrites them on every run; restore them with git checkout -- <file>.
+   Never touch `autobuild/STATUS.md` or commit it: the loop writes and commits that file itself. Ignore changes that are only to .import files under godot/art - Godot rewrites them on every run; restore them with git checkout -- <file>.
 3. Take the **first unchecked task** in `PLAN.md` that is not `[B]` or `[-]` and whose earlier
    dependencies are done. Do that one task properly. Do not run verify before you start (see the
    testing diet below).

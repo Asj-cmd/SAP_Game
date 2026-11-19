@@ -33,6 +33,11 @@
 //   rest of the run, with no wait. If the planner model hits its own limit, planning is skipped for the
 //   rest of the run. Limits that are not model-specific (5-hour, weekly) wait as above.
 //
+// Status heartbeat: at loop start, each worker / planner session start and end, each wait, a STOP, an
+// error stop and "No open tasks left", the loop writes autobuild/STATUS.md (state, task, model, session,
+// last commit, time) and commits and pushes that file ALONE as "status: <state>" (status.mjs). If only the
+// time would change, nothing is written. A failure to write or push is logged in one line and ignored.
+//
 // Env: MAX_TURNS (default 200)  ITER_TIMEOUT_MIN (default 120)  BACKOFF_MIN (default 30)
 //      STALL_LIMIT (default 3)  PLANNER_MODEL  WORKER_MODEL / CLAUDE_MODEL  PLANNER_TIMEOUT_MIN (default 25)
 //      GODOT_BIN (required, passed through to Claude's shell)
@@ -44,6 +49,7 @@ import { fileURLToPath } from "node:url";
 import { isLimitMessage, planLimitWait, isConnectionProblem, connectionWaitMin, MAX_CONNECTION_WAITS, limitAction } from "./limits.mjs";
 import { firstOpenTaskId, hasBriefFor, briefHeadings, pickWorkerModel } from "./planning.mjs";
 import { isModelLimit, modelFamily, whyModelLimit, taggedFallback } from "./limits.mjs";
+import { makeStatus, nyLabel } from "./status.mjs";
 
 const HERE = dirname(fileURLToPath(import.meta.url));
 const ROOT = resolve(HERE, "..");
@@ -117,6 +123,10 @@ ${frames}
 }
 
 const startSha = git("rev-parse", "HEAD");
+const status = makeStatus({ root: ROOT, log });
+let cur = { task: null, model: null, session: null, doing: "loop start" }; // what the status file says is going on
+const setStatus = (state, extra = {}) => { cur = { ...cur, ...extra }; status.write({ state, ...cur }); };
+let endReason = null; // why the loop stopped, for the final status
 let stalls = 0, attempt = 0;
 let limitWaitedMs = 0, fallbackStep = 0, lastTarget = null; // reset whenever a session runs without hitting a limit
 let connectionWaits = 0; // sign-in/network waits in a row; reset whenever Claude gets through
@@ -134,14 +144,16 @@ function waitForLimit(out, label, last) {
       `(until ${when(plan.until)}) would pass 8 days. Stopping. Check your plan's limits, then start the loop again.`;
     log(msg);
     writeReport(startSha, `Ended: ${msg}`);
+    endReason = "error: usage limit wait would pass 8 days";
     return "giveup";
   }
   log(`${label}: usage limit (${plan.source}). Not counted as a session.`);
   log(`waiting until ${when(plan.until)} (this PC's time; ${(waitMs / 3_600_000).toFixed(1)} h). Create a STOP file to end the wait.`);
   writeReport(startSha, `Waiting for the usage limit to reset: until ${when(plan.until)}. Last session ${last}.`);
+  setStatus(`waiting for limit until ${nyLabel(plan.until)}`, { doing: `waiting after ${label} hit a usage limit` });
   const stopped = sleepUntil(plan.until);
   limitWaitedMs += Date.now() - now;
-  if (stopped) { log("STOP file found during the usage-limit wait, ending."); writeReport(startSha, "Stopped by STOP file (during a usage-limit wait)."); return "stopped"; }
+  if (stopped) { log("STOP file found during the usage-limit wait, ending."); writeReport(startSha, "Stopped by STOP file (during a usage-limit wait)."); endReason = "STOP file (during a usage-limit wait)"; return "stopped"; }
   log("usage-limit wait over, trying again");
   return "retry";
 }
@@ -155,6 +167,7 @@ function waitForConnection(label, logName, last) {
       `type /exit, then start the loop again. Full text in autobuild/logs/${logName}.`;
     log(msg);
     writeReport(startSha, `Ended: ${msg}`);
+    endReason = "error: Claude cannot connect or sign in (run claude.cmd and /login)";
     return "giveup";
   }
   const mins = connectionWaitMin(connectionWaits++);
@@ -162,7 +175,8 @@ function waitForConnection(label, logName, last) {
   log(`${label}: connection/sign-in problem (wait ${connectionWaits} of ${MAX_CONNECTION_WAITS}). Not counted as a session.`);
   log(`connection/sign-in problem, waiting until ${when(until)} (this PC's time; ${mins} min). Create a STOP file to end the wait.`);
   writeReport(startSha, `Connection/sign-in problem: waiting until ${when(until)}, then retrying. Last session ${last}.`);
-  if (sleepUntil(until)) { log("STOP file found during the connection wait, ending."); writeReport(startSha, "Stopped by STOP file (during a connection wait)."); return "stopped"; }
+  setStatus(`waiting for connection until ${nyLabel(until)}`, { doing: `waiting after ${label} had a connection or sign-in problem` });
+  if (sleepUntil(until)) { log("STOP file found during the connection wait, ending."); writeReport(startSha, "Stopped by STOP file (during a connection wait)."); endReason = "STOP file (during a connection wait)"; return "stopped"; }
   log("connection wait over, trying again");
   return "retry";
 }
@@ -177,6 +191,7 @@ function runPlanner(taskId, last) {
     plannerModel = null;
     return "done";
   }
+  setStatus("running", { doing: "planner session", task: taskId, model: plannerModel, session: `before session ${last + 1}` });
   const before = git("rev-parse", "HEAD");
   const args = ["-p", "--max-turns", String(PLANNER_TURNS), "--output-format", "text", "--model", plannerModel];
   if (flag("--skip-permissions")) args.push("--dangerously-skip-permissions");
@@ -206,6 +221,7 @@ function runPlanner(taskId, last) {
   }
 
   plannerTried.add(taskId); // one go per task per run, whatever came of it
+  setStatus("running", { doing: `planner session ended (exit ${r.status}, ${progressed ? "new commit" : "no new commit"})` });
   limitWaitedMs = 0; fallbackStep = 0; lastTarget = null; connectionWaits = 0;
   const lines = out.split(/\r?\n/).filter((l) => l.trim() !== "");
   for (const l of lines.slice(-4)) log(`  planner | ${l}`);
@@ -219,10 +235,11 @@ function runPlanner(taskId, last) {
 
 log(`loop start on ${git("branch", "--show-current")} @ ${startSha.slice(0, 8)}; max ${MAX_ITERS} sessions, ${MAX_TURNS} turns each; ` +
   `planner ${plannerModel ?? "off"}, workers ${workerModel ?? "default model"}`);
+setStatus("running", { doing: "loop started", task: firstOpenTaskId(planText()), model: workerModel ?? "default" });
 
 for (let i = 1; i <= MAX_ITERS; i++) {
-  if (existsSync(join(ROOT, "STOP"))) { log("STOP file found, ending."); writeReport(startSha, "Stopped by STOP file."); break; }
-  if (openTasks() === 0) { log("No open tasks left."); writeReport(startSha, "Plan complete or fully blocked."); break; }
+  if (existsSync(join(ROOT, "STOP"))) { log("STOP file found, ending."); writeReport(startSha, "Stopped by STOP file."); endReason = "STOP file"; break; }
+  if (openTasks() === 0) { log("No open tasks left."); writeReport(startSha, "Plan complete or fully blocked."); endReason = "No open tasks left"; break; }
 
   // Planner first, when the first open task has no brief yet.
   if (plannerModel) {
@@ -234,11 +251,13 @@ for (let i = 1; i <= MAX_ITERS; i++) {
     }
   }
 
-  const before = git("rev-parse", "HEAD");
   const prompt = readFileSync(join(HERE, "PROMPT.md"), "utf8");
   const args = ["-p", "--max-turns", String(MAX_TURNS), "--output-format", "text"];
   // The model for this session: a "(worker: fable)" tag on the first open task, else WORKER_MODEL.
   const pick = pickWorkerModel(planText(), { workerModel, tagOff });
+  // Status first, THEN read HEAD: the status commit must not look like the session's own commit.
+  setStatus("running", { doing: "worker session", task: firstOpenTaskId(planText()), model: pick.model ?? "default", session: i });
+  const before = git("rev-parse", "HEAD");
   if (pick.model) args.push("--model", pick.model);
   if (flag("--skip-permissions")) args.push("--dangerously-skip-permissions");
   log(`session ${i}: starting (HEAD ${before.slice(0, 8)}, model ${pick.model ?? "default"}${pick.tagged ? ", tagged in PLAN.md" : ""})`);
@@ -275,6 +294,7 @@ for (let i = 1; i <= MAX_ITERS; i++) {
       ` Full text in autobuild/logs/${logName}.`;
     log(msg);
     writeReport(startSha, `Ended: ${msg}`);
+    endReason = "error: Claude ignored the permission list (folder not trusted; run claude once and choose Yes, proceed)";
     break;
   }
 
@@ -301,7 +321,7 @@ for (let i = 1; i <= MAX_ITERS; i++) {
     }
     const w = waitForLimit(out, `session ${i}`, i - 1);
     if (w === "retry") { i--; continue; } // the same session number runs again
-    break;
+    break; // waitForLimit set endReason
   }
 
   // Sign-in or network problem: also checked BEFORE the fast-failure rule. Wait and retry; the wait
@@ -309,7 +329,7 @@ for (let i = 1; i <= MAX_ITERS; i++) {
   if (failed && !progressed && isConnectionProblem(out)) {
     const w = waitForConnection(`Session ${i}`, logName, i - 1);
     if (w === "retry") { i--; continue; }
-    break;
+    break; // waitForConnection set endReason
   }
   limitWaitedMs = 0; fallbackStep = 0; lastTarget = null; connectionWaits = 0;
 
@@ -321,12 +341,15 @@ for (let i = 1; i <= MAX_ITERS; i++) {
       `Stopping instead of retrying. Reason above, full text in autobuild/logs/${logName}.`;
     log(msg);
     writeReport(startSha, `Ended: ${msg}`);
+    endReason = `error: session ${i} failed after ${seconds.toFixed(1)} s (Claude probably did not start)`;
     break;
   }
 
+  setStatus("running", { doing: `worker session ${i} ended (exit ${r.status}${timedOut ? ", timed out" : ""}, ${progressed ? "new commits" : "no new commits"})` });
   if (progressed) { stalls = 0; const p = sh("git", ["push", "-u", "origin", "HEAD"]); log(p.status === 0 ? "pushed" : `push failed: ${(p.stderr ?? "").trim().slice(0, 200)}`); }
-  else if (++stalls >= STALL_LIMIT) { log(`${STALL_LIMIT} sessions in a row with no commits, ending.`); writeReport(startSha, "Ended: no progress for several sessions. Read autobuild/logs/."); break; }
+  else if (++stalls >= STALL_LIMIT) { log(`${STALL_LIMIT} sessions in a row with no commits, ending.`); writeReport(startSha, "Ended: no progress for several sessions. Read autobuild/logs/."); endReason = `error: ${STALL_LIMIT} sessions in a row with no commits`; break; }
 
   writeReport(startSha, `Running. Last session ${i}.`);
 }
+setStatus(`stopped: ${endReason ?? "reached the session limit (--max-iters)"}`, { doing: "loop ended" });
 log("loop end");
