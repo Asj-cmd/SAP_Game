@@ -218,7 +218,7 @@ other task here is verified by tests and numbers. The family display names come 
   only: the sim and the network messages do not change (PT3-3's names are already on every
   machine). The results panel follows the sequence, and PT3-1's music comes back in then.
   **Frames allowed: one set at the end, at most one redo.**
-- [ ] **PT2-8 Funnier hair.** The son's mohawk is clearly bigger. The daughter gets two shabby, uneven
+- [x] **PT2-8 Funnier hair.** *(Done 2026-11-18: mohawks 16 / 13 cm on a wider ridge, mom's beehive a 34 cm tower leaning 12°, both girls' pigtails uneven (two offset blobs each, different length, tilt and size per side); five bodies re-rigged, dad byte-identical. Lineup in `autobuild/frames/pt2_8/`. See PROGRESS.md.)* The son's mohawk is clearly bigger. The daughter gets two shabby, uneven
   pigtails. Mom gets a tall stiff beehive or a curly perm (the planner picks the funnier one and says
   which in the brief). Dad is unchanged. Same in both families, elder and younger variants following
   the same idea (P2-6 rules: plain painted solid shapes in the figure material, colours in the

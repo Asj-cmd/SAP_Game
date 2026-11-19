@@ -2,6 +2,35 @@
 
 Newest first. One entry per task: date, task id, what changed, what the frames showed, numbers, what is left.
 
+## 2026-11-18 — PT2-8 Funnier hair
+- Followed the brief. All in `godot/tools/rerig_character.gd` `_build_hair` and the args in `autobuild/rerig_family.mjs`. Re-ran `rerig_family.mjs --only=male,casual,dress,alt,tank`; dad (`shirt`) was not rebuilt and his files are unchanged in git.
+  - **Mohawks:** `--hair-height` 8 → 16 (elder boy, `male`) and 6 → 13 (younger boy, `casual`), ridge base half-width 0.24 → 0.32. Measured: top 14.5 / 11.9 cm over the crown.
+  - **Mom:** the tall stiff beehive (the brief's pick over a perm). Lathe profile 21 → 34 cm, fattest 1.05 head widths about two thirds up, rounded top over the last ~9 cm (12 sides), lean 8 → 12°. Measured top 32.8 cm over the crown (the lean takes some height).
+  - **Pigtails:** each bunch is now two offset blobs, with fixed numbers (no random). Elder girl: one side hangs to 8 cm over the shoulder at 6°, ×1.08 thick; the other stops 6 cm higher, ×0.82, splayed 22°, and its lower blob kinks a further 7° out. Younger girl: one sticks out 25° up at full length; the other is set lower, at 5°, 30 % shorter; each has a smaller tuft kinked 18° down off its tip.
+- Triangles (budget 5,000): male 4,051, dress 3,919, alt 3,752, tank 3,459, casual 3,764. Hair alone is 64 (mohawk) to 468 (pigtails).
+- **Frames** (one set, no redo used), `node autobuild/family_lineup.mjs --import --out=autobuild/frames/pt2_8`. Plus a 3× crop of front and back, made from the same frames with a throwaway script outside the repo.
+  - `lineup_front.png` (left to right: younger boy, younger girl, elder boy, elder girl, mom, dad):
+    - The younger boy's crest is a broad black fin as tall as half his head; seen at a slight angle it reads almost as wide as the head.
+    - The elder boy's mohawk is a narrow black blade about twice the height it had in `pt4_6/lineup_front.png`.
+    - Younger girl: one bunch sticks out flat and low, the other angles up with a small tuft on its end. Visibly uneven.
+    - Elder girl: the image-left pigtail hangs to her collar, the image-right one ends higher and splays outward. Uneven, but less obvious than the younger girl's.
+    - Mom's red beehive is a tall rounded tower, clearly taller than before, reaching above the doorframe top behind her.
+    - Dad's comb-over is unchanged. Faces are blank and no hair pokes through them.
+  - `lineup_side.png`: both boys' crests are big dark arcs from forehead to nape, the beehive leans back, and the younger girl's bunches stick out at different angles.
+  - `lineup_back.png`: the same differences from behind. The elder girl's long side reaches lower than the splayed short side.
+  - `lineup_front_20m.png` / `_40m`: these cameras now stand in the street behind the boundary fence, so the lineup is a few specks through the railings. They cannot be used to judge the hair (logged; the tool's far shots need moving).
+- Full verify, run once: **healthy**.
+  - 20 suites at their pins. Symmetry 190 of 190.
+  - Bot 3v3: team_b, 402 s, 67 s stalls. 1v1: team_a, 8 s stalls. Both deterministic and unchanged.
+  - Tick budget 0 / 2 over at 1v1 / 3v3 (gate ≤5). 4v4 showed 9 (not gated).
+  - net_smoke: 1608 ticks agree.
+  - Render counters 416 / 364 / 330 draws, within limits.
+- Left:
+  - Nobody has seen the hair in live play at chase distance.
+  - The beehive will sit behind or through a carried bundle overhead (the lean helps; not checked in a carry frame).
+  - The far lineup shots in `family_lineup.mjs` need new camera spots.
+  - Every PLAN task above the backlog is now done except PT4-8 (bots catch thieves). Next: PT4-8.
+
 ## 2026-11-18 — PT2-7 Match end sequence
 - New `game/greybox/end_sequence.gd` (`EndSequence`). `GreyBoxMain._update_end_sequence` starts it when the confirmed world first shows MATCH_END with a winner. The results panel now opens only when the sequence ends (5.0 s) or is skipped (any key, mouse button or pad button after 0.5 s; the key is used up, so Enter skips but does not also rematch).
 - **Shot.** Drawn-only figures stand there and the real bodies are hidden while it runs; nothing touches the sim, snapshot or network.
