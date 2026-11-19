@@ -695,40 +695,69 @@ func _build_hair(style: String, cm: float, height: float, shoulder_y: float) -> 
 			for z: float in [0.38, 0.05, -0.28]:
 				_hair_arc(false, z, 0.085, -64.0, 64.0, _flat, 1.0, 1.09, 6)
 		"beehive":
+			# PT2-8: a tall stiff tower, ~34 cm over the crown, fattest two thirds
+			# up, a rounded top, leaning back 12 deg.
 			_hair_cap(_on_top_back, 1.08)
-			var lean: float = deg_to_rad(8.0)
+			var lean: float = deg_to_rad(12.0)
 			var axis: Vector3 = Vector3(0.0, cos(lean), -sin(lean) * _hf)
 			var top: float = 0.55 * _hr.y
 			var r: float = _hr.x
-			var profile: Array[Vector2] = [Vector2(0.0, 0.92 * r), Vector2(top + 2.0 * cm, 0.95 * r),
-				Vector2(top + 10.0 * cm, 0.98 * r), Vector2(top + 16.0 * cm, 0.86 * r),
-				Vector2(top + 19.5 * cm, 0.56 * r), Vector2(top + 21.0 * cm, 0.0)]
-			_hair_lathe(_hp(Vector3(0.0, 0.45, -0.12)), axis, profile)
+			var profile: Array[Vector2] = [Vector2(0.0, 0.92 * r), Vector2(top + 3.0 * cm, 0.96 * r),
+				Vector2(top + 12.0 * cm, 1.01 * r), Vector2(top + 19.0 * cm, 1.05 * r),
+				Vector2(top + 25.0 * cm, 1.0 * r), Vector2(top + 28.5 * cm, 0.9 * r),
+				Vector2(top + 31.0 * cm, 0.72 * r), Vector2(top + 32.8 * cm, 0.46 * r),
+				Vector2(top + 33.7 * cm, 0.22 * r), Vector2(top + 34.0 * cm, 0.0)]
+			_hair_lathe(_hp(Vector3(0.0, 0.45, -0.12)), axis, profile, 12)
 		"mohawk":
 			# One ridge down the middle, top of the forehead to the nape, no cap.
+			# PT2-8: a wider base (0.24 -> 0.32), height from --hair-height.
 			_crest = height
-			_hair_arc(true, 0.0, 0.24, 52.0, -125.0, _crest_at, 0.6, 1.0, 10)
+			_hair_arc(true, 0.0, 0.32, 52.0, -125.0, _crest_at, 0.6, 1.0, 10)
 		"pigtails_long":
 			_hair_cap(_on_top_back, 1.05)
-			# Two long bunches from behind the ears down to just above the shoulders.
-			var top_y: float = _hc.y + 0.2 * _hr.y
+			# PT2-8: two shabby, uneven bunches from behind the ears. One side
+			# hangs to just above the shoulder nearly straight; the other stops
+			# 6 cm higher, thinner, and splays out. Each is two offset blobs.
 			# (The member's Head scale in the theme stretches them ~17 % further down.)
-			var bottom_y: float = shoulder_y + 8.0 * cm
-			for s: float in [-1.0, 1.0]:
-				var at: Vector3 = _hp(Vector3(s * 0.85, 0.0, -0.45))
-				at.x += s * 1.0 * cm
-				at.y = (top_y + bottom_y) * 0.5
-				_hair_blob(at, Vector3(2.8 * cm, (top_y - bottom_y) * 0.5, 3.0 * cm),
-					Basis(Vector3.BACK, deg_to_rad(6.0) * s))
+			var top_y: float = _hc.y + 0.2 * _hr.y
+			# [side, cm above the shoulder, tilt deg, radius k, wobble cm]
+			for row: Array in [[-1.0, 8.0, 6.0, 1.08, 0.8], [1.0, 14.0, 22.0, 0.82, -0.9]]:
+				var s: float = row[0]
+				var pivot: Vector3 = _hp(Vector3(s * 0.85, 0.0, -0.45))
+				pivot.x += s * 1.0 * cm
+				pivot.y = top_y
+				var length: float = top_y - (shoulder_y + float(row[1]) * cm)
+				var tilt: float = deg_to_rad(float(row[2])) * s
+				var k: float = row[3]
+				var down: Vector3 = Basis(Vector3.BACK, tilt) * Vector3.DOWN
+				_hair_blob(pivot + down * length * 0.3, Vector3(2.8 * cm * k, length * 0.33, 3.0 * cm * k),
+					Basis(Vector3.BACK, tilt))
+				# The lower blob kinks a little further out and back.
+				var tilt2: float = tilt + deg_to_rad(7.0) * s
+				var down2: Vector3 = Basis(Vector3.BACK, tilt2) * Vector3.DOWN
+				var low: Vector3 = pivot + down * length * 0.5 + down2 * length * 0.22
+				low += Vector3(s * float(row[4]) * cm, 0.0, -0.6 * cm * _hf)
+				_hair_blob(low, Vector3(2.5 * cm * k, length * 0.27, 2.7 * cm * k), Basis(Vector3.BACK, tilt2))
 		"pigtails_short":
 			_hair_cap(_on_top_back, 1.05)
-			# Two short bunches set high, sticking out sideways and a little up.
-			for s: float in [-1.0, 1.0]:
-				var out: Vector3 = Vector3(s * cos(deg_to_rad(25.0)), sin(deg_to_rad(25.0)), 0.0)
-				var at: Vector3 = _hp(Vector3(s * 0.88, 0.42, -0.1)) + out * 4.0 * cm
+			# PT2-8: two short, uneven bunches set high: one sticks out 25 deg up,
+			# the other sits a little lower, nearly flat (5 deg) and 30 % shorter.
+			# Each is a bunch plus a smaller tuft kinked off its tip.
+			# [side, up deg, length k, root height]
+			for row: Array in [[-1.0, 25.0, 1.0, 0.42], [1.0, 5.0, 0.7, 0.34]]:
+				var s: float = row[0]
+				var up: float = row[1]
+				var k: float = row[2]
+				var out: Vector3 = Vector3(s * cos(deg_to_rad(up)), sin(deg_to_rad(up)), 0.0)
+				var at: Vector3 = _hp(Vector3(s * 0.88, float(row[3]), -0.1)) + out * 4.0 * cm * k
 				# The blob's long (y) axis is turned to lie along `out`.
-				_hair_blob(at, Vector3(3.8 * cm, 5.5 * cm, 3.8 * cm),
-					Basis(Vector3.BACK, -s * deg_to_rad(65.0)))
+				_hair_blob(at, Vector3(3.8 * cm, 5.5 * cm * k, 3.8 * cm),
+					Basis(Vector3.BACK, -s * deg_to_rad(90.0 - up)))
+				var up2: float = up - 18.0
+				var out2: Vector3 = Vector3(s * cos(deg_to_rad(up2)), sin(deg_to_rad(up2)), 0.0)
+				var tip: Vector3 = at + out * 4.2 * cm * k + out2 * 2.2 * cm + Vector3(0.0, 0.0, -0.8 * cm * _hf)
+				_hair_blob(tip, Vector3(2.4 * cm, 3.2 * cm * k, 2.6 * cm),
+					Basis(Vector3.BACK, -s * deg_to_rad(90.0 - up2)))
 		_:
 			return false
 	return true
