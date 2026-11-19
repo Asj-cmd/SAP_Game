@@ -407,7 +407,8 @@ func _lobby_members() -> void:
 	var truth: SimWorld = link.outcome_world()
 	if truth != null and truth.has_entity(link.actor_id):
 		mine = truth.get_entity(link.actor_id).slot
-	_lobby.show_members(link.lobby_view(), link.own_team(), mine, link.member_notice)
+	_lobby.show_members(link.lobby_view(), link.own_team(), mine, link.member_notice,
+		PlayerSettings.current().shown_name())
 
 ## A name typed in the lobby (PT3-3). Only the player's own family on a guest
 ## (the host checks that too); the host may type its own. Stored here at once,
@@ -688,7 +689,7 @@ func _pose_screen(screen: String) -> void:
 		"results":
 			if world != null and level != null:
 				_screen_hold = true
-				_results.show_for(world, level, true, level.teams[0].id)
+				_results.show_for(world, level, true, level.teams[0].id, _rosters())
 		"end":
 			# The end sequence (PT2-7) over a mid-match world, from this seat's
 			# view: `--capture-end-view=win` (default) makes its family the winner,
@@ -1109,10 +1110,12 @@ func _start(variant: GreyBoxLevel.SafeVariant) -> void:
 		return
 
 	world = link.outcome_world()
+	link.player_name = PlayerSettings.current().player_name
 	# Sit down before opening the door, or the first guest is given this body.
 	if not _dedicated:
-		# Named "Host": the name travels to guests (lineup, "taken by Host").
-		link.seat_local("Host", _wanted_member)
+		# PT5-1: the name typed on the menu ("Player" when none) travels to
+		# guests (lineup, lobby, "taken by <name>").
+		link.seat_local(PlayerSettings.current().shown_name(), _wanted_member)
 	_confirmed_frames.clear()
 	_seat_shown = SimEntity.NO_ENTITY
 	_build_seats()
@@ -1404,23 +1407,40 @@ func _update_lineup() -> void:
 	for i: int in row.size():
 		var entity: SimEntity = row[i]
 		var foot: Vector3 = entity.position - Vector3(0.0, ground_lift, 0.0)
-		bodies.append({"foot": foot, "text": "%s\n%s" % [words[i], _lineup_player(entity, mine)]})
+		bodies.append({"foot": foot, "text": _lineup_player(words[i], entity, mine)})
 	_lineup.show(_cameras[0].rig.get_parent(), middle, outward[own.team],
 		FamilyNames.name_of(own.team), theme.family_colour(own.team), bodies)
 
-## Who plays a body in the lineup: "You", "Bot", the player's name from the
-## lobby state (the host's copy on a guest, PT4-3), else "Player".
-func _lineup_player(entity: SimEntity, mine: int) -> String:
-	if entity.id == mine:
-		return "You"
-	if entity.is_bot:
-		return "Bot"
-	var view: LobbyState = link.lobby_view()
-	if view != null:
-		var seat: LobbyState.Seat = view.seat_at(entity.team, entity.slot)
-		if seat != null and seat.occupant == LobbyState.Occupant.HUMAN and seat.name != "":
-			return seat.name
-	return "Player"
+## Who plays a body in the lineup (PT5-1): "<Role> - <name>", with " (you)" for
+## this machine's player and "Bot" for a bot. The name is the lobby state's (the
+## host's copy on a guest), else this player's own typed name, else "Player".
+func _lineup_player(role: String, entity: SimEntity, mine: int) -> String:
+	var shown: String = FamilyLineup.seat_name(link.lobby_view(), entity.team, entity.slot)
+	if shown == "" and entity.id == mine:
+		shown = PlayerSettings.current().shown_name()
+	return FamilyLineup.player_text(role, shown, entity.id == mine, entity.is_bot and entity.id != mine)
+
+## Every member of `team_id` and who plays them (PT5-1), "Dad - Sam (you)", from
+## the lobby state; for the lobby panel, the results card and the debug HUD.
+func _roster_of(team_id: StringName) -> Array[String]:
+	if link == null:
+		return [] as Array[String]
+	var my_team: StringName = &""
+	var my_slot: int = -1
+	var truth: SimWorld = link.outcome_world()
+	if truth != null and truth.has_entity(link.actor_id):
+		my_team = truth.get_entity(link.actor_id).team
+		my_slot = truth.get_entity(link.actor_id).slot
+	return FamilyLineup.roster(link.lobby_view(), team_id, my_team, my_slot,
+		PlayerSettings.current().shown_name())
+
+## `_roster_of` for both families, team id -> lines (the results card).
+func _rosters() -> Dictionary:
+	var out: Dictionary = {}
+	if level != null:
+		for team: TeamDef in level.teams:
+			out[team.id] = _roster_of(team.id)
+	return out
 
 ## The match end sequence (PT2-7, EndSequence): when the confirmed world first
 ## shows MATCH_END with a winner, the winners stand in a row on their front lawn
@@ -1509,7 +1529,9 @@ func _start_end_sequence(winner: StringName, own_team: StringName) -> void:
 	var title: String = EndSequence.title_for(winner, own_team, names)
 	var colour: Color = ArtTheme.current().family_colour(winner if winner == own_team else own_team)
 	var centre: Vector3 = framed[0] + out * END_WINNERS_OUT
-	_end.begin(_cameras[0].rig.get_parent(), centre, out, along, length, title, colour)
+	# PT5-1: the winners by name under the title.
+	var players: String = "   ".join(PackedStringArray(_roster_of(winner)))
+	_end.begin(_cameras[0].rig.get_parent(), centre, out, along, length, title, colour, players)
 	print("END_SEQUENCE start: %s, %d figures, title \"%s\"" % [winner, _end_cast.size(), title])
 	if _pause.is_open():
 		_set_paused(false)
@@ -2846,7 +2868,7 @@ func _update_hud() -> void:
 	elif ended and not _end_done:
 		ended = false
 	if ended:
-		_results.show_for(truth, level, link.role != MatchLink.Role.GUEST)
+		_results.show_for(truth, level, link.role != MatchLink.Role.GUEST, &"", _rosters())
 		if _pause.is_open():
 			_set_paused(false)
 		_headline.visible = false  # the panel says it; the text stays for the pilot
@@ -2895,6 +2917,8 @@ func _update_hud() -> void:
 		lines.append("%s  cash %d  rounds %d" % [
 			FamilyNames.name_of(team.id), world.score_for(team.id), world.round_wins_for(team.id),
 		])
+		# PT5-1: who plays whom, as the lobby has it.
+		lines.append("    " + ", ".join(PackedStringArray(_roster_of(team.id))))
 
 	lines.append("")
 	for seat: int in players.size():

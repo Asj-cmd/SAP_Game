@@ -70,6 +70,10 @@ var _lobby_heard: LobbyState = null
 ## Why this machine's last member request was refused ("" = none). Set by the
 ## host for itself, or from the notice on the copy the host sent back.
 var member_notice: String = ""
+## The name this machine's player typed (PT5-1, PlayerSettings), "" for none.
+## A guest sends it to the host with every lobby frame; the host's copy decides
+## what it is shown as (cleaned, numbered if taken).
+var player_name: String = ""
 ## The host's own generator for Random members (never the sim's RNG).
 var _member_rng: RandomNumberGenerator = null
 
@@ -186,6 +190,7 @@ func seat_local(display_name: String, wanted: int = Lobby.RANDOM) -> int:
 	)
 	if seated.seat == null:
 		return SimEntity.NO_ENTITY
+	lobby.rename(identity, display_name)
 	_seat_of_peer[SessionTransport.HOST_PEER] = seated.seat
 	actor_id = seated.seat.actor_id
 	return actor_id
@@ -337,7 +342,13 @@ func _admit(peer: int, token: String) -> void:
 	# seat. Every other player's reconnect is untouched.
 	if token == identity:
 		token = "%s:%d" % [token.left(PlayerIdentity.MAX_LENGTH - 8), peer]
-	var seated: LobbyEvent = lobby.admit(token, peer, "Player %d" % peer, _authoritative.tick)
+	# PT5-1: a new player is "Player" (numbered if taken) until their name
+	# arrives in their first lobby frame; a returning one keeps the name they had.
+	var returning: bool = lobby.seat_of(token) != null
+	var seated: LobbyEvent = lobby.admit(token, peer, "" if returning else LobbyState.DEFAULT_PLAYER,
+		_authoritative.tick)
+	if seated.seat != null and not returning:
+		lobby.rename(token, LobbyState.DEFAULT_PLAYER)
 	if seated.seat == null:
 		# Genuinely full. Told rather than left guessing - a client that hears
 		# nothing cannot tell a full lobby from a broken connection.
@@ -396,7 +407,13 @@ func _receive(peer: int, payload: PackedByteArray) -> void:
 						failure = "the host is playing %dv%d, which this build does not have" \
 							% [host_size, host_size]
 					return
+				var was_seated: bool = actor_id != SimEntity.NO_ENTITY
 				actor_id = MatchChannel.seat_of(body)
+				# PT5-1: say what this player is called once seated (also after
+				# a reconnect, which is a new link).
+				if not was_seated and actor_id != SimEntity.NO_ENTITY and transport != null:
+					transport.send(SessionTransport.HOST_PEER,
+						MatchChannel.frame_lobby(LobbyState.introduce(player_name)))
 		MatchChannel.TAG_INPUT:
 			if role == Role.HOST:
 				_accept_input(peer, body)
@@ -432,7 +449,7 @@ func publish_names() -> void:
 		Role.GUEST:
 			if actor_id != SimEntity.NO_ENTITY:
 				transport.send(SessionTransport.HOST_PEER,
-					MatchChannel.frame_lobby(LobbyState.of_names(FamilyNames.typed_all())))
+					MatchChannel.frame_lobby(LobbyState.of_names(FamilyNames.typed_all(), player_name)))
 
 ## The host's lobby state (names and seats) to every guest. `notice_for` and
 ## `notice` send a refusal to that one peer instead of the plain copy.
@@ -461,7 +478,7 @@ func request_member(slot: int) -> void:
 		Role.GUEST:
 			if transport != null and actor_id != SimEntity.NO_ENTITY:
 				transport.send(SessionTransport.HOST_PEER,
-					MatchChannel.frame_lobby(LobbyState.request(slot)))
+					MatchChannel.frame_lobby(LobbyState.request(slot, player_name)))
 		_:
 			if lobby == null:
 				return
@@ -529,7 +546,16 @@ func _receive_lobby(peer: int, body: PackedByteArray) -> void:
 	match role:
 		Role.HOST:
 			var seat: LobbySeat = _seat_of_peer.get(peer, null)
-			if seat == null or not in_lobby():
+			if seat == null:
+				return
+			# PT5-1: every guest frame says what the guest is called; the host
+			# cleans and numbers it. A name is not a lobby-only thing (a guest
+			# rejoining mid-match says it again), so it is taken before the check.
+			var was_called: String = seat.display_name
+			lobby.rename(seat.identity, state.player)
+			if state.wanted == LobbyState.PLAYER_ONLY or not in_lobby():
+				if seat.display_name != was_called:
+					publish_lobby()
 				return
 			if state.wanted != LobbyState.NO_REQUEST:
 				var refused: String = lobby.choose(seat.identity, state.wanted)

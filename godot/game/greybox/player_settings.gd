@@ -2,7 +2,7 @@ class_name PlayerSettings
 extends RefCounted
 ## What this player chose on this machine: mouse sensitivity, volumes, keyboard keys.
 ##
-## Saved in `user://settings.cfg` in its own sections ([controls], [audio], [keys]);
+## Saved in `user://settings.cfg` in its own sections ([controls], [audio], [keys], [player]);
 ## TeamTell keeps its section in the same file and this never touches it. Capture
 ## runs, the pilot and the net smoke neither read nor write it, so injected default
 ## keys keep working (the same rule as TeamTell).
@@ -36,6 +36,9 @@ var footsteps_volume: float = FOOTSTEPS_DEFAULT
 var keys: Dictionary[StringName, int] = DEFAULT_KEYS.duplicate()
 ## The first-run guide has been finished (or skipped) on this machine.
 var guide_done: bool = false
+## The name this player typed on the main menu (PT5-1), cleaned by
+## `LobbyState.clean_player`; "" until they type one (shown as "Player").
+var player_name: String = ""
 
 ## Graphics presets (P7-2). `shadow_size` -1 = the theme's own size, 0 = sun shadow
 ## off; `scale` is the 3D render scale. MSAA stays off in every preset (D6).
@@ -80,6 +83,18 @@ func set_key(action: StringName, keycode: int) -> void:
 func reset_keys() -> void:
 	keys = DEFAULT_KEYS.duplicate()
 	save()
+
+## Stores the typed name, cleaned (PT5-1).
+func set_player_name(text: String) -> void:
+	var cleaned: String = LobbyState.clean_player(text)
+	if cleaned == player_name:
+		return
+	player_name = cleaned
+	save()
+
+## The name this player is shown as: the typed one, or "Player".
+func shown_name() -> String:
+	return player_name if player_name != "" else LobbyState.DEFAULT_PLAYER
 
 func set_sensitivity(value: float) -> void:
 	sensitivity = clampf(value, SENSITIVITY_MIN, SENSITIVITY_MAX)
@@ -192,6 +207,7 @@ func load_from(path: String) -> bool:
 	music_volume = clampf(float(file.get_value("audio", "music", music_volume)), 0.0, 1.0)
 	footsteps_volume = clampf(float(file.get_value("audio", "footsteps", footsteps_volume)), 0.0, 1.0)
 	guide_done = bool(file.get_value("firstrun", "guide_done", guide_done))
+	player_name = LobbyState.clean_player(str(file.get_value("player", "name", player_name)))
 	var q: String = str(file.get_value("video", "quality", quality))
 	quality = q if QUALITY.has(q) else "high"
 	fullscreen = bool(file.get_value("video", "fullscreen", fullscreen))
@@ -216,6 +232,7 @@ func save_to(path: String) -> void:
 	file.set_value("audio", "music", music_volume)
 	file.set_value("audio", "footsteps", footsteps_volume)
 	file.set_value("firstrun", "guide_done", guide_done)
+	file.set_value("player", "name", player_name)
 	file.set_value("video", "quality", quality)
 	file.set_value("video", "fullscreen", fullscreen)
 	file.set_value("video", "vsync", vsync)

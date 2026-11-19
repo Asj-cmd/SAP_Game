@@ -11,19 +11,31 @@ extends RefCounted
 ## entry for the sender's family), or a request to play a member (`wanted` = a
 ## slot or `Lobby.RANDOM`; the names are then ignored). No seats either way.
 ##
-## Layout, version 2: one version byte; for team_a and team_b in that order one
+## Version 3 (PT5-1): every guest frame also carries the name the guest typed
+## (`player`), which the host cleans, numbers if another player already shows it
+## (`Lobby.rename`) and puts on the guest's seat; the host's copy leaves it empty.
+## A guest that has only its name to say sends `wanted` = PLAYER_ONLY (on
+## connecting), so the host neither changes a family name nor a member.
+##
+## Layout, version 3: one version byte; for team_a and team_b in that order one
 ## length byte and that many bytes of UTF-8; `wanted` as one byte (255 = no
-## request, 254 = Random, else the slot); `notice` as a length byte and UTF-8;
-## a seat count byte, then per seat: team index (0 = team_a, 1 = team_b), slot,
+## request, 254 = Random, 253 = only the player's name, else the slot); `notice`
+## as a length byte and UTF-8; `player` as a length byte and UTF-8; a seat count
+## byte, then per seat: team index (0 = team_a, 1 = team_b), slot,
 ## occupant (`Occupant`), chosen (0 or 1), and the player's name as a length
 ## byte and UTF-8. Everything off the wire is untrusted: a body that is short,
 ## long, of another version, out of range or not UTF-8 decodes to null and is
 ## ignored, and every text that does decode is cleaned before anyone sees it.
 
-const VERSION: int = 2
+const VERSION: int = 3
 const TEAMS: Array[StringName] = [&"team_a", &"team_b"]
 ## Longest typed name, in characters.
 const MAX_TYPED: int = 16
+## Longest typed PLAYER name (PT5-1). The wire allows MAX_PLAYER, which leaves
+## room for the " 2" the host adds to a second player of the same name.
+const MAX_TYPED_PLAYER: int = 16
+## What a player who typed no name is called.
+const DEFAULT_PLAYER: String = "Player"
 ## A cleaned name is at most 16 characters, each at most 4 bytes of UTF-8.
 const MAX_NAME_BYTES: int = 64
 ## A player's shown name ("Player 3", a Steam name) and a refusal notice.
@@ -38,8 +50,11 @@ const MAX_SLOT: int = 7
 
 ## `wanted` when the frame asks for nothing (a name update, or the host's copy).
 const NO_REQUEST: int = -2
+## `wanted` when a guest says only its player name (PT5-1).
+const PLAYER_ONLY: int = -3
 const _WIRE_NO_REQUEST: int = 255
 const _WIRE_RANDOM: int = 254
+const _WIRE_PLAYER_ONLY: int = 253
 
 enum Occupant { EMPTY, HUMAN, BOT }
 
@@ -67,18 +82,26 @@ class Seat:
 var names: Dictionary[StringName, String] = {}
 var wanted: int = NO_REQUEST
 var notice: String = ""
+## The sender's typed player name (guest to host); "" on the host's copy.
+var player: String = ""
 var seats: Array[Seat] = []
 
-static func of_names(typed: Dictionary[StringName, String]) -> LobbyState:
+static func of_names(typed: Dictionary[StringName, String], typed_player: String = "") -> LobbyState:
 	var state: LobbyState = LobbyState.new()
 	state.names = typed.duplicate()
+	state.player = typed_player
 	return state
 
 ## A guest asking to play member `slot` (or `Lobby.RANDOM`).
-static func request(slot: int) -> LobbyState:
+static func request(slot: int, typed_player: String = "") -> LobbyState:
 	var state: LobbyState = LobbyState.new()
 	state.wanted = slot
+	state.player = typed_player
 	return state
+
+## A guest saying only what it is called (PT5-1), sent once it has a seat.
+static func introduce(typed_player: String) -> LobbyState:
+	return request(PLAYER_ONLY, typed_player)
 
 ## The lobby as everyone sees it: the names and every seat, from the host's copy.
 static func of_lobby(lobby: Lobby, typed: Dictionary[StringName, String]) -> LobbyState:
@@ -110,9 +133,12 @@ func encode() -> PackedByteArray:
 		body.append(_WIRE_NO_REQUEST)
 	elif wanted == Lobby.RANDOM:
 		body.append(_WIRE_RANDOM)
+	elif wanted == PLAYER_ONLY:
+		body.append(_WIRE_PLAYER_ONLY)
 	else:
 		body.append(clampi(wanted, 0, MAX_SLOT))
 	_put_text(body, clean_text(notice, MAX_NOTICE))
+	_put_text(body, clean_player(player))
 	var count: int = mini(seats.size(), MAX_SEATS)
 	body.append(count)
 	for i: int in count:
@@ -143,6 +169,8 @@ static func decode(body: PackedByteArray) -> LobbyState:
 		state.wanted = NO_REQUEST
 	elif raw_wanted == _WIRE_RANDOM:
 		state.wanted = Lobby.RANDOM
+	elif raw_wanted == _WIRE_PLAYER_ONLY:
+		state.wanted = PLAYER_ONLY
 	elif raw_wanted <= MAX_SLOT:
 		state.wanted = raw_wanted
 	else:
@@ -151,6 +179,10 @@ static func decode(body: PackedByteArray) -> LobbyState:
 	if said == null:
 		return null
 	state.notice = clean_text(String(said), MAX_NOTICE)
+	var typed_player: Variant = _take_text(body, at, MAX_PLAYER_BYTES)
+	if typed_player == null:
+		return null
+	state.player = clean_player(String(typed_player))
 	if at[0] >= body.size():
 		return null
 	var count: int = body[at[0]]
@@ -214,6 +246,20 @@ static func clean_name(text: String) -> String:
 				continue
 			kept += c
 	return kept.strip_edges().left(MAX_TYPED).strip_edges()
+
+## The one rule for a typed PLAYER name (PT5-1), applied where it is typed, where
+## it is loaded from the settings file AND where it arrives off the wire: the
+## family-name rule plus the digits 0-9 ("Sam2"). "" stays "" (callers that show
+## a name use DEFAULT_PLAYER for it), so a test can tell the two apart.
+static func clean_player(text: String) -> String:
+	var kept: String = ""
+	for i: int in text.length():
+		var c: String = text[i]
+		if c == " " or c == "-" or c == "'" or (c >= "0" and c <= "9") or _is_letter(c):
+			if c == " " and (kept == "" or kept.ends_with(" ")):
+				continue
+			kept += c
+	return kept.strip_edges().left(MAX_TYPED_PLAYER).strip_edges()
 
 ## A player's name or a notice: anything printable (digits too: "Player 3"),
 ## control characters removed, ends trimmed, cut to `limit` characters.

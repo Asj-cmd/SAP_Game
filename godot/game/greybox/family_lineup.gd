@@ -46,6 +46,50 @@ static func frame(spawns: Array[Vector3], indoors: Vector3, ground_lift: float) 
 		else Vector3(0.0, 0.0, signf(away.z))
 	return [middle, out]
 
+## How a body is named wherever a player is named (PT5-1): "<Role> - <name>",
+## " (you)" after the local player's own name, "<Role> - Bot" for a bot; a
+## player with no name is "Player". "Dad - Sam (you)", "Mom - Bot".
+static func player_text(role: String, shown: String, is_you: bool, is_bot: bool) -> String:
+	if is_bot:
+		return "%s - Bot" % role
+	var who: String = shown if shown != "" else LobbyState.DEFAULT_PLAYER
+	return "%s - %s%s" % [role, who, " (you)" if is_you else ""]
+
+## The name the lobby view shows for the person in member `slot` of `team_id`,
+## "" for a bot, an empty seat or no view.
+static func seat_name(view: LobbyState, team_id: StringName, slot: int) -> String:
+	if view == null:
+		return ""
+	var seat: LobbyState.Seat = view.seat_at(team_id, slot)
+	if seat == null or seat.occupant != LobbyState.Occupant.HUMAN:
+		return ""
+	return seat.name
+
+## Every member of `team_id` as the lobby view has them, one `player_text` each
+## in slot order; an empty seat reads "<Role> - (empty)". `my_team` / `my_slot`
+## mark the local player, whose own name is `own_name` until the view names them.
+static func roster(view: LobbyState, team_id: StringName, my_team: StringName, my_slot: int,
+		own_name: String = "") -> Array[String]:
+	var lines: Array[String] = []
+	if view == null:
+		return lines
+	var slots: Array[int] = []
+	for seat: LobbyState.Seat in view.seats:
+		if seat.team == team_id:
+			slots.append(seat.slot)
+	slots.sort()
+	var words: Array[String] = slot_words(team_id, slots.size())
+	for i: int in slots.size():
+		var seat: LobbyState.Seat = view.seat_at(team_id, slots[i])
+		var role: String = words[i] if i < words.size() else "Member %d" % (i + 1)
+		var you: bool = team_id == my_team and seat.slot == my_slot
+		if seat.occupant == LobbyState.Occupant.EMPTY and not you:
+			lines.append("%s - (empty)" % role)
+			continue
+		var shown: String = seat.name if seat.name != "" else (own_name if you else "")
+		lines.append(player_text(role, shown, you, seat.occupant == LobbyState.Occupant.BOT and not you))
+	return lines
+
 ## The role words of a family's first `count` slots (slot n draws member n of
 ## the theme's order, without the kid swap): the "Play as" pickers (PT4-3).
 static func slot_words(team_id: StringName, count: int) -> Array[String]:
@@ -104,7 +148,7 @@ func attach(layer: CanvasLayer) -> void:
 
 ## Shows the lineup this frame: the camera in `viewport` in front of the row,
 ## the name above it, and one label per body. `bodies` holds per body a
-## "foot" (its drawn feet, Vector3) and a "text" (two lines).
+## "foot" (its drawn feet, Vector3) and a "text" ("Dad - Sam (you)", PT5-1).
 func show(viewport: Node, middle: Vector3, out: Vector3, family_name: String,
 		colour: Color, bodies: Array[Dictionary]) -> void:
 	if _camera == null or not is_instance_valid(_camera) or _camera.get_parent() != viewport:

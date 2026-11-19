@@ -3,7 +3,7 @@ extends SceneTree
 ##
 ##   godot --headless --path godot --script res://tests/match_status_test.gd
 
-const EXPECTED_CHECKS: int = 63
+const EXPECTED_CHECKS: int = 82
 
 var _passed: int = 0
 var _failed: int = 0
@@ -25,6 +25,7 @@ func _initialize() -> void:
 			_failures.append("%d/%d: expected %s, got %s" % [case[0], case[1], case[2], got])
 	_test_bar_layout()
 	_test_map_pointers()
+	_test_player_labels()
 	var ran: int = _passed + _failed
 	if ran != EXPECTED_CHECKS:
 		_failed += 1
@@ -86,6 +87,53 @@ func _test_map_pointers() -> void:
 				var how: bool = (turned[&"notch"] as PackedVector2Array).is_empty() == (row[1] == &"triangle")
 				_count(shown and how, "%s at heading %s: tip %s, notch %s, expected toward %s"
 					% [label, heading[0], tip, turned[&"notch"], heading[1]])
+
+## PT5-1: how a body is named in the lineup, the lobby and the results, from the
+## lobby state: "<Role> - <name>", " (you)" for the local player, "Bot" for bots.
+func _test_player_labels() -> void:
+	print("=== Player labels ===")
+	var h: LobbyState.Occupant = LobbyState.Occupant.HUMAN
+	var b: LobbyState.Occupant = LobbyState.Occupant.BOT
+	var e: LobbyState.Occupant = LobbyState.Occupant.EMPTY
+	# role, shown name, you?, bot?, expected
+	var texts: Array[Array] = [
+		["Dad", "Sam", true, false, "Dad - Sam (you)"],
+		["Mom", "Alex", false, false, "Mom - Alex"],
+		["Daughter", "", false, true, "Daughter - Bot"],
+		["Son", "", false, false, "Son - Player"],
+		["Son", "", true, false, "Son - Player (you)"],
+	]
+	for row: Array in texts:
+		var got: String = FamilyLineup.player_text(row[0], row[1], row[2], row[3])
+		_count(got == row[4], "player_text %s: expected '%s', got '%s'" % [row, row[4], got])
+	# case, team_a seats [occupant, name] in slot order, my slot, own name, expected roster
+	var rosters: Array[Array] = [
+		["solo 3v3: you and two bots", [[h, "Sam"], [b, ""], [b, ""]], 0, "Sam",
+			["Dad - Sam (you)", "Mom - Bot", "Daughter - Bot"]],
+		["solo with no name typed", [[b, ""], [h, "Player"], [b, ""]], 1, "Player",
+			["Dad - Bot", "Mom - Player (you)", "Daughter - Bot"]],
+		["3v3 online: two named guests and a bot, seen by the second", [[h, "Sam"], [h, "Alex"], [b, ""]], 1, "Alex",
+			["Dad - Sam", "Mom - Alex (you)", "Daughter - Bot"]],
+		["3v3 online: a duplicate numbered by the host", [[h, "Sam"], [h, "Sam 2"], [b, ""]], 1, "Sam",
+			["Dad - Sam", "Mom - Sam 2 (you)", "Daughter - Bot"]],
+		["a guest before the host's copy names it", [[h, "Sam"], [h, ""], [e, ""]], 1, "Alex",
+			["Dad - Sam", "Mom - Alex (you)", "Daughter - (empty)"]],
+		["a rejoined guest, seen by the host", [[h, "Host"], [h, "Sam"], [b, ""], [e, ""]], 0, "Host",
+			["Dad - Host (you)", "Mom - Sam", "Daughter - Bot", "Son - (empty)"]],
+		["a guest away, a bot holding its seat", [[h, "Host"], [b, ""], [b, ""]], 0, "Host",
+			["Dad - Host (you)", "Mom - Bot", "Daughter - Bot"]],
+	]
+	for row: Array in rosters:
+		var view: LobbyState = LobbyState.new()
+		var seats: Array = row[1]
+		for slot: int in seats.size():
+			view.seats.append(LobbyState.Seat.make(&"team_a", slot, seats[slot][0], false, seats[slot][1]))
+			view.seats.append(LobbyState.Seat.make(&"team_b", slot, LobbyState.Occupant.BOT, false, ""))
+		var got: Array[String] = FamilyLineup.roster(view, &"team_a", &"team_a", row[2], row[3])
+		_count(str(got) == str(row[4]), "roster, %s: expected %s, got %s" % [row[0], row[4], got])
+		var other: Array[String] = FamilyLineup.roster(view, &"team_b", &"team_a", row[2], row[3])
+		_count(not " ".join(PackedStringArray(other)).contains("(you)"),
+			"roster, %s: the other family has a (you): %s" % [row[0], other])
 
 func _count(ok: bool, failure: String) -> void:
 	if ok:

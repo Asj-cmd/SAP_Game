@@ -152,6 +152,34 @@ func _emptiest_where(want_empty: bool) -> LobbySeat:
 			best = seat
 	return best
 
+# ---- player names (PT5-1) ----
+
+## Sets the name a seated player is shown as: `typed` cleaned
+## (`LobbyState.clean_player`), "Player" when that leaves nothing, and numbered
+## " 2", " 3", ... when another player's seat already shows it (case does not
+## matter). Only the host calls this, so the host's copy decides the numbers.
+## Returns the name given, or "" when `identity` holds no seat.
+func rename(identity: String, typed: String) -> String:
+	var mine: LobbySeat = seat_of(identity)
+	if mine == null:
+		return ""
+	var base: String = LobbyState.clean_player(typed)
+	if base == "":
+		base = LobbyState.DEFAULT_PLAYER
+	var shown: String = base
+	var number: int = 1
+	while _name_taken(shown, mine):
+		number += 1
+		shown = "%s %d" % [base, number]
+	mine.display_name = shown
+	return shown
+
+func _name_taken(shown: String, mine: LobbySeat) -> bool:
+	for seat: LobbySeat in seats:
+		if seat != mine and seat.is_persons() and seat.display_name.to_lower() == shown.to_lower():
+			return true
+	return false
+
 # ---- choosing a member (PT4-3) ----
 
 ## A player asks to play member `slot` of their own family, or RANDOM. Returns

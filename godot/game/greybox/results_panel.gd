@@ -19,6 +19,8 @@ var _title: Label = null
 var _band: ColorRect = null
 ## One row per family (PT4-7): name, rounds won, banked in the last round.
 var _names: Array[Label] = []
+## Per family, who played whom (PT5-1).
+var _players: Array[Label] = []
 var _rounds: Array[Label] = []
 var _banked: Array[Label] = []
 var _again: Button = null
@@ -85,8 +87,21 @@ func _ready() -> void:
 		banked.theme_type_variation = &""
 		banked.add_theme_font_override("font", UiTheme.display_font())
 		banked.add_theme_font_size_override("font_size", 28)
-		for each: Label in [name_label, rounds, banked]:
+		# PT5-1: under the family's name, who played whom ("Dad - Sam (you)").
+		var name_cell: VBoxContainer = VBoxContainer.new()
+		name_cell.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+		name_cell.add_theme_constant_override("separation", 0)
+		name_label.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+		name_cell.add_child(name_label)
+		var players: Label = Label.new()
+		players.theme_type_variation = UiTheme.NOTE
+		players.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+		players.add_theme_font_size_override("font_size", 15)
+		name_cell.add_child(players)
+		table.add_child(name_cell)
+		for each: Label in [rounds, banked]:
 			table.add_child(each)
+		_players.append(players)
 		_names.append(name_label)
 		_rounds.append(rounds)
 		_banked.append(banked)
@@ -139,7 +154,9 @@ static func title_for(winner: StringName) -> String:
 
 ## Fills and shows the panel from the confirmed world. `winner` overrides the
 ## world's winner (only the screen capture uses it, to show a result mid-match).
-func show_for(world: SimWorld, level: GreyBoxLevel, can_rematch: bool, winner: StringName = &"") -> void:
+## `rosters` maps team id -> that family's "Dad - Sam (you)" lines (PT5-1).
+func show_for(world: SimWorld, level: GreyBoxLevel, can_rematch: bool, winner: StringName = &"",
+		rosters: Dictionary = {}) -> void:
 	var won: StringName = winner if winner != &"" else world.match_winner
 	var colours: Dictionary[StringName, Color] = ArtTheme.current().family_colours
 	_title.text = title_for(won)
@@ -149,8 +166,12 @@ func show_for(world: SimWorld, level: GreyBoxLevel, can_rematch: bool, winner: S
 		_names[row].visible = team != null
 		_rounds[row].visible = team != null
 		_banked[row].visible = team != null
+		_players[row].visible = team != null
 		if team == null:
 			continue
+		var lines: Array = rosters.get(team.id, [])
+		_players[row].text = ", ".join(PackedStringArray(lines))
+		_players[row].visible = not lines.is_empty()
 		var ink: Color = _ink(colours.get(team.id, UiTheme.CHARCOAL))
 		_names[row].text = FamilyNames.name_of(team.id).to_upper()
 		_names[row].add_theme_color_override("font_color", ink)

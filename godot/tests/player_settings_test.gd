@@ -8,7 +8,7 @@ extends SceneTree
 ## without a key, a 0 that must stay 0 and out-of-range values are worth pinning.
 ## Uses its own file in user://, never the player's settings.cfg, and deletes it.
 
-const EXPECTED_CHECKS: int = 35
+const EXPECTED_CHECKS: int = 44
 const TEST_PATH: String = "user://settings_test.cfg"
 
 var _passed: int = 0
@@ -86,6 +86,34 @@ func _test_round_trip() -> void:
 	var after: ConfigFile = ConfigFile.new()
 	after.load(TEST_PATH)
 	_check("round trip: other section kept", after.get_value("team_tell", "marker", false), true)
+	_test_player_name()
+
+# PT5-1: the typed name is kept under [player] name=, cleaned when read back
+# (a hand-edited file), and shown as "Player" when empty.
+func _test_player_name() -> void:
+	# file text (null = no file), expected stored name, expected shown name
+	var cases: Array[Array] = [
+		["no name saved", "[audio]\nmaster=1.0\n", "", "Player"],
+		["a name", "[player]\nname=\"Sam\"\n", "Sam", "Sam"],
+		["a hand-edited name is cleaned", "[player]\nname=\"  S@m!!  Lee  \"\n", "Sm Lee", "Sm Lee"],
+		["only spaces", "[player]\nname=\"   \"\n", "", "Player"],
+	]
+	for case: Array in cases:
+		_remove()
+		var file: FileAccess = FileAccess.open(TEST_PATH, FileAccess.WRITE)
+		file.store_string(case[1])
+		file.close()
+		var settings: PlayerSettings = PlayerSettings.new()
+		settings.load_from(TEST_PATH)
+		_check("name, %s: stored" % case[0], settings.player_name, case[2])
+		_check("name, %s: shown" % case[0], settings.shown_name(), case[3])
+	_remove()
+	var written: PlayerSettings = PlayerSettings.new()
+	written.player_name = LobbyState.clean_player("Zoë O'Neil-2")
+	written.save_to(TEST_PATH)
+	var read: PlayerSettings = PlayerSettings.new()
+	read.load_from(TEST_PATH)
+	_check("name round trip", read.player_name, "Zoë O'Neil-2")
 
 func _remove() -> void:
 	if FileAccess.file_exists(TEST_PATH):

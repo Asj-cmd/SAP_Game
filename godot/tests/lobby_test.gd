@@ -14,7 +14,7 @@ extends SceneTree
 ## Joining is also checked for the thing that actually costs players: a code
 ## must survive being read aloud, and an invite must need no steps at all.
 
-const EXPECTED_CHECKS: int = 99
+const EXPECTED_CHECKS: int = 129
 const GRACE: int = 30
 
 var _passed: int = 0
@@ -31,6 +31,7 @@ func _initialize() -> void:
 	_test_host_loss()
 	_test_lobby_state()
 	_test_member_choice()
+	_test_player_names()
 
 	var ran: int = _passed + _failed
 	if ran != EXPECTED_CHECKS:
@@ -241,29 +242,35 @@ func _test_lobby_state() -> void:
 		var raw: PackedByteArray = text.to_utf8_buffer()
 		dirty.append(raw.size())
 		dirty.append_array(raw)
-	dirty.append_array(PackedByteArray([255, 0, 0]))
+	dirty.append_array(PackedByteArray([255, 0, 0, 0]))
 	_check("lobby state/decode cleans", LobbyState.decode(dirty).names, {&"team_a": "Smth", &"team_b": ""})
 
 	var v: int = LobbyState.VERSION
-	var bad_utf8: PackedByteArray = PackedByteArray([v, 2, 0xC3, 0x28, 0, 255, 0, 0])
+	var bad_utf8: PackedByteArray = PackedByteArray([v, 2, 0xC3, 0x28, 0, 255, 0, 0, 0])
 	var too_long: PackedByteArray = PackedByteArray([v, LobbyState.MAX_NAME_BYTES + 1])
-	too_long.resize(2 + LobbyState.MAX_NAME_BYTES + 1 + 4)
+	too_long.resize(2 + LobbyState.MAX_NAME_BYTES + 1 + 5)
+	var long_player: PackedByteArray = PackedByteArray([v, 0, 0, 255, 0, LobbyState.MAX_PLAYER_BYTES + 1])
+	long_player.resize(6 + LobbyState.MAX_PLAYER_BYTES + 1 + 1)
 	var malformed: Array[Array] = [
 		["empty body", PackedByteArray()],
 		["version only", PackedByteArray([v])],
 		["version 1 (names only)", PackedByteArray([1, 0, 0])],
-		["wrong version", PackedByteArray([v + 1, 0, 0, 255, 0, 0])],
+		# PT5-1: a version-2 body (no player name) is refused, not half-read.
+		["version 2 (no player name)", PackedByteArray([2, 0, 0, 255, 0, 0])],
+		["wrong version", PackedByteArray([v + 1, 0, 0, 255, 0, 0, 0])],
 		["version zero", PackedByteArray([0, 0, 0])],
 		["length past the end", PackedByteArray([v, 5, 65, 66])],
 		["second name missing", PackedByteArray([v, 1, 65])],
 		["no request byte", PackedByteArray([v, 0, 0])],
-		["request out of range", PackedByteArray([v, 0, 0, 9, 0, 0])],
-		["no seat count", PackedByteArray([v, 0, 0, 255, 0])],
-		["too many seats", PackedByteArray([v, 0, 0, 255, 0, 9])],
-		["seat cut short", PackedByteArray([v, 0, 0, 255, 0, 1, 0, 0])],
-		["seat of a third team", PackedByteArray([v, 0, 0, 255, 0, 1, 2, 0, 1, 0, 0])],
-		["seat occupant unknown", PackedByteArray([v, 0, 0, 255, 0, 1, 0, 0, 3, 0, 0])],
-		["trailing bytes", PackedByteArray([v, 0, 0, 255, 0, 0, 7])],
+		["request out of range", PackedByteArray([v, 0, 0, 9, 0, 0, 0])],
+		["no player name", PackedByteArray([v, 0, 0, 255, 0])],
+		["player name longer than allowed", long_player],
+		["no seat count", PackedByteArray([v, 0, 0, 255, 0, 0])],
+		["too many seats", PackedByteArray([v, 0, 0, 255, 0, 0, 9])],
+		["seat cut short", PackedByteArray([v, 0, 0, 255, 0, 0, 1, 0, 0])],
+		["seat of a third team", PackedByteArray([v, 0, 0, 255, 0, 0, 1, 2, 0, 1, 0, 0])],
+		["seat occupant unknown", PackedByteArray([v, 0, 0, 255, 0, 0, 1, 0, 0, 3, 0, 0])],
+		["trailing bytes", PackedByteArray([v, 0, 0, 255, 0, 0, 0, 7])],
 		["name longer than allowed", too_long],
 		["not UTF-8", bad_utf8],
 	]
@@ -383,3 +390,81 @@ func _test_member_choice() -> void:
 	var back: LobbyEvent = started.admit("p1", 21, "P1", 500, 0)
 	_check("member/a rejoin keeps the member", back.seat.slot, 1)
 	_check("member/and the pick", back.seat.chosen, true)
+
+# ---- 9. player names (PT5-1) ----
+
+## The one cleaning rule, numbering a name another player already shows, the
+## name in a guest's lobby frame, and a returning player keeping theirs.
+func _test_player_names() -> void:
+	# typed, cleaned
+	var cleaning: Array[Array] = [
+		["", ""],
+		["Sam", "Sam"],
+		["Abcdefghijklmnop", "Abcdefghijklmnop"],  # 16: kept whole
+		["Abcdefghijklmnopq", "Abcdefghijklmnop"],  # 17: cut to 16
+		["Sam2 4ever", "Sam2 4ever"],  # digits kept
+		["S@m!#$%^&*()_+=", "Sm"],  # symbols stripped
+		["Sam" + char(0x1F600), "Sam"],  # emoji stripped
+		["Zoë Ångström", "Zoë Ångström"],  # accents kept
+		["     ", ""],  # only spaces
+		["O'Neil-Smith", "O'Neil-Smith"],  # apostrophe and hyphen kept
+		["  Sam    Lee  ", "Sam Lee"],  # runs collapsed, ends trimmed
+		["Abcdefghijklmno pq", "Abcdefghijklmno"],  # the cut lands on a space: trimmed
+	]
+	for case: Array in cleaning:
+		_check("player name/clean '%s'" % case[0], LobbyState.clean_player(case[0]), case[1])
+
+	# typed in arrival order, shown names afterwards (the host numbers them)
+	var dupes: Array[Array] = [
+		["two Sams", ["Sam", "Sam"], ["Sam", "Sam 2"]],
+		["three Sams", ["Sam", "Sam", "Sam"], ["Sam", "Sam 2", "Sam 3"]],
+		["case does not matter", ["Sam", "SAM"], ["Sam", "SAM 2"]],
+		["empty is Player", ["", "", "Ana"], ["Player", "Player 2", "Ana"]],
+		["cleaned before comparing", ["Sam", " S@am "], ["Sam", "Sam 2"]],
+	]
+	for case: Array in dupes:
+		var lobby: Lobby = _lobby()
+		var typed: Array = case[1]
+		var shown: Array = []
+		for i: int in typed.size():
+			lobby.admit("p%d" % (i + 1), 11 + i, LobbyState.DEFAULT_PLAYER, 0)
+			lobby.rename("p%d" % (i + 1), typed[i])
+		for i: int in typed.size():
+			shown.append(lobby.seat_of("p%d" % (i + 1)).display_name)
+		_check("player name/%s" % case[0], shown, case[2])
+	var self_rename: Lobby = _lobby()
+	self_rename.admit("p1", 11, "Sam", 0)
+	_check("player name/saying your own name again is not a duplicate", self_rename.rename("p1", "Sam"), "Sam")
+	_check("player name/an unseated identity is not renamed", self_rename.rename("nobody", "Sam"), "")
+
+	# Version 3 frames carry the guest's name (a request, a names update, a hello).
+	var asked: LobbyState = LobbyState.decode(LobbyState.request(1, "Sam").encode())
+	_check("player name/a request carries the name", [asked.wanted, asked.player], [1, "Sam"])
+	var said: LobbyState = LobbyState.decode(LobbyState.introduce("Alex").encode())
+	_check("player name/an introduction asks for nothing else",
+		[said.wanted, said.player], [LobbyState.PLAYER_ONLY, "Alex"])
+	var family: Dictionary[StringName, String] = {&"team_a": "Smith"}
+	var named: LobbyState = LobbyState.decode(LobbyState.of_names(family, "B0b!!").encode())
+	_check("player name/a names update carries the name, cleaned", named.player, "B0b")
+	var host_copy: Lobby = _lobby()
+	host_copy.admit("p1", 11, "Sam", 0)
+	host_copy.admit("p2", 12, "Player", 0)
+	host_copy.rename("p2", "Sam")
+	var no_names: Dictionary[StringName, String] = {}
+	var heard: LobbyState = LobbyState.decode(LobbyState.of_lobby(host_copy, no_names).encode())
+	_check("player name/the host's copy shows the numbered name",
+		heard.seat_at(&"team_b", 0).name, "Sam 2")
+	_check("player name/the host's copy carries no player of its own", heard.player, "")
+
+	# A rejoin keeps the name: the host re-admits a returning identity with no
+	# name, and the guest saying it again is not a duplicate of itself.
+	var rejoin: Lobby = _lobby()
+	rejoin.admit("p1", 11, "Player", 0)
+	rejoin.rename("p1", "Sam")
+	rejoin.admit("p2", 12, "Player", 0)
+	rejoin.note_absence(11, 100)
+	rejoin.advance(100 + GRACE)
+	_check("player name/a name held for an absent player is taken", rejoin.rename("p2", "sam"), "sam 2")
+	rejoin.admit("p1", 31, "", 500)
+	_check("player name/a rejoin keeps the name", rejoin.seat_of("p1").display_name, "Sam")
+	_check("player name/and saying it again keeps it", rejoin.rename("p1", "Sam"), "Sam")

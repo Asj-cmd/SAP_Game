@@ -123,6 +123,31 @@ func _build() -> void:
 	_error.visible = false
 	column.add_child(_error)
 
+	# PT5-1: the player's own name, typed once and saved with the settings; used
+	# for Play solo, Host and Join. Empty = "Player".
+	var name_row: HBoxContainer = HBoxContainer.new()
+	var name_label: Label = Label.new()
+	name_label.text = "Your name"
+	name_label.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	name_row.add_child(name_label)
+	var name_field: LineEdit = LineEdit.new()
+	name_field.max_length = LobbyState.MAX_TYPED_PLAYER
+	name_field.placeholder_text = LobbyState.DEFAULT_PLAYER
+	name_field.custom_minimum_size = Vector2(220.0, 0.0)
+	name_field.text = PlayerSettings.current().player_name
+	name_field.text_changed.connect(func(text: String) -> void:
+		var typing: String = player_typing_filter(text)
+		if typing != text:
+			var caret: int = name_field.caret_column - (text.length() - typing.length())
+			name_field.text = typing
+			name_field.caret_column = clampi(caret, 0, typing.length())
+		PlayerSettings.current().set_player_name(typing))
+	name_field.focus_exited.connect(func() -> void:
+		name_field.text = PlayerSettings.current().player_name)
+	name_field.text_submitted.connect(func(_text: String) -> void: name_field.release_focus())
+	name_row.add_child(name_field)
+	column.add_child(name_row)
+
 	column.add_child(_heading("Play"))
 	# One choice for both solo and hosting, above both: the size is the match,
 	# not the way you reach it. Empty seats are filled with bots.
@@ -369,6 +394,19 @@ func _chosen_member() -> int:
 	if _member == null or _member.item_count == 0 or _member.selected <= 0:
 		return Lobby.RANDOM
 	return _member.get_selected_id() - 1
+
+## `LobbyState.clean_player`'s character rule for a name still being typed: no
+## leading or double space, but one trailing space is kept ("Sam Lee").
+static func player_typing_filter(text: String) -> String:
+	var kept: String = ""
+	for i: int in text.length():
+		var c: String = text[i]
+		if c == " ":
+			if kept != "" and not kept.ends_with(" "):
+				kept += c
+		elif LobbyState.clean_player(c) == c:
+			kept += c
+	return kept.left(LobbyState.MAX_TYPED_PLAYER)
 
 static func _size_name(size: int) -> String:
 	var label: String = "%dv%d" % [size, size]

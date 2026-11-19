@@ -38,6 +38,7 @@ const EYE: float = 170.0
 const LOOK: float = 120.0
 const FOV: float = 50.0
 const TITLE_SIZE: int = 72
+const PLAYERS_SIZE: int = 26
 
 var running: bool = false
 ## True once the sequence has run its length or been skipped; GreyBoxMain then
@@ -48,6 +49,7 @@ var elapsed: float = 0.0
 var _camera: Camera3D = null
 var _layer: CanvasLayer = null
 var _title: Label = null
+var _players: Label = null
 var _centre: Vector3 = Vector3.ZERO
 var _out: Vector3 = Vector3.FORWARD
 var _along: Vector3 = Vector3.RIGHT
@@ -65,18 +67,31 @@ func _ready() -> void:
 	root.set_anchors_preset(Control.PRESET_FULL_RECT)
 	root.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	_layer.add_child(root)
+	# The title, and under it (PT5-1) the winners by name, stacked so a title
+	# that wraps pushes the names down.
+	var stack: VBoxContainer = VBoxContainer.new()
+	stack.set_anchors_and_offsets_preset(Control.PRESET_TOP_WIDE)
+	stack.offset_left = 60.0
+	stack.offset_right = -60.0
+	stack.offset_top = 90.0
+	stack.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	root.add_child(stack)
 	_title = Label.new()
 	_title.theme = UiTheme.current()
 	_title.theme_type_variation = UiTheme.HUD_BIG
 	_title.add_theme_font_size_override("font_size", TITLE_SIZE)
 	_title.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
 	_title.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
-	_title.set_anchors_and_offsets_preset(Control.PRESET_TOP_WIDE)
-	_title.offset_left = 60.0
-	_title.offset_right = -60.0
-	_title.offset_top = 90.0
 	_title.mouse_filter = Control.MOUSE_FILTER_IGNORE
-	root.add_child(_title)
+	stack.add_child(_title)
+	_players = Label.new()
+	_players.theme = UiTheme.current()
+	_players.theme_type_variation = UiTheme.HUD
+	_players.add_theme_font_size_override("font_size", PLAYERS_SIZE)
+	_players.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+	_players.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+	_players.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	stack.add_child(_players)
 
 ## The title a viewer sees: the win line with the winners' name if the viewer's
 ## family won, else the lose line with the viewer's own family's name. `names`
@@ -125,7 +140,9 @@ static func parse_titles(text: String) -> Dictionary[String, String]:
 ## winners' row middle at their feet; `out` the way out of their house, `along`
 ## the row), wide enough for a row `row_length` long; the title in `colour`.
 func begin(viewport: Node, centre: Vector3, out: Vector3, along: Vector3,
-		row_length: float, title: String, colour: Color) -> void:
+		row_length: float, title: String, colour: Color, players: String = "") -> void:
+	_players.text = players
+	_players.visible = players != ""
 	_centre = centre
 	_out = out.normalized()
 	_along = along.normalized()

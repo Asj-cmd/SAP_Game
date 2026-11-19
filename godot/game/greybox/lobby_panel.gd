@@ -33,6 +33,7 @@ var _name_boxes: Dictionary[StringName, FamilyNameBox] = {}
 var _pickers: Dictionary[StringName, OptionButton] = {}
 var _picker_rows: Dictionary[StringName, HBoxContainer] = {}
 var _member_note: Label = null
+var _rosters: Dictionary[StringName, Label] = {}
 ## What the pickers were last built from, so they are rebuilt only on a change.
 var _members_shown: String = ""
 
@@ -93,6 +94,12 @@ func _ready() -> void:
 		box.cleared.connect(func(team: StringName) -> void: name_cleared.emit(team))
 		column.add_child(box)
 		_name_boxes[team_id] = box
+		# PT5-1: who plays whom in this family, "Dad - Sam (you)".
+		var roster: Label = Label.new()
+		roster.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+		roster.theme_type_variation = UiTheme.NOTE
+		column.add_child(roster)
+		_rosters[team_id] = roster
 		# PT4-3: "Play as" under the player's OWN family's box only.
 		var row: HBoxContainer = HBoxContainer.new()
 		var label: Label = Label.new()
@@ -181,14 +188,19 @@ func _show(team_size: int) -> void:
 ## Random, then each member at this team size. A member another player PICKED is
 ## disabled and says who; the player's own pick is selected, or Random when they
 ## have not picked. `notice` is why the last request was refused ("" = none).
-func show_members(view: LobbyState, own_team: StringName, my_slot: int, notice: String) -> void:
-	var key: String = "%s|%d|%s" % [own_team, my_slot, notice]
+func show_members(view: LobbyState, own_team: StringName, my_slot: int, notice: String,
+		own_name: String = "") -> void:
+	var key: String = "%s|%d|%s|%s" % [own_team, my_slot, notice, own_name]
 	if view != null:
 		for seat: LobbyState.Seat in view.seats:
 			key += "|%s:%d:%d:%d:%s" % [seat.team, seat.slot, seat.occupant, int(seat.chosen), seat.name]
 	if key == _members_shown:
 		return
 	_members_shown = key
+	for team_id: StringName in _rosters:
+		var lines: Array[String] = FamilyLineup.roster(view, team_id, own_team, my_slot, own_name)
+		_rosters[team_id].text = "   ".join(PackedStringArray(lines))
+		_rosters[team_id].visible = not lines.is_empty()
 	_member_note.text = notice
 	_member_note.visible = notice != ""
 	for team_id: StringName in _pickers:
