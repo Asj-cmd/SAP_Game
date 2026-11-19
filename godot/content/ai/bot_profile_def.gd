@@ -129,6 +129,36 @@ extends Resource
 ## moves; a path to where the cash used to be is worse than no path.
 @export var repath_seconds: float = 0.9
 
+@export_group("Catching thieves")
+## PT4-8, the user's playtests: a human easily caught bots running off with
+## cash, bot defenders could not catch the human, and a bot carrying cash home
+## walked past an intruder on its own side. Tuned against the staged chases in
+## `bot_match --chase`, not against people (REVIEW).
+##
+## Added to a DEFEND whose target is carrying this bot's family's cash. At 7000
+## a thief (4000 + 7000) outranks a rescue (6000): the cash is leaving now, the
+## prisoner will still be in the pen in a few seconds.
+@export var thief_bonus: float = 7000.0
+## An intruder this close (flat) is worth dealing with even while carrying: a
+## carrier offers DEFEND for nobody further away, and one this close gets
+## value_deposit on top so it beats banking. A carrier may seize (the rules
+## allow it), so it never has to drop the cash first.
+@export var alert_radius: float = 450.0
+## Added to a DEFEND whose target is within alert_radius: the near intruder
+## first, carrying or not.
+@export var alert_bonus: float = 2500.0
+## Pursuit aims where the target will be, up to this far ahead in time (its
+## velocity times the time this bot needs to cover the gap), so a chase cuts the
+## thief off instead of trailing behind it.
+@export var lead_max_seconds: float = 0.8
+## Inside this flat distance, with a clear line at chest height, a chaser stops
+## following its route and runs straight at the lead point.
+@export var close_in_radius: float = 350.0
+## The route to a moving target is rebuilt this often while chasing, instead of
+## repath_seconds. A human re-aims many times a second; 0.9 s left bots running
+## at where the thief used to be.
+@export var chase_repath_seconds: float = 0.3
+
 func decide_ticks() -> int:
 	return maxi(1, SimWorld.seconds_to_ticks(decide_seconds))
 
@@ -140,3 +170,6 @@ func unstick_ticks() -> int:
 
 func repath_ticks() -> int:
 	return maxi(1, SimWorld.seconds_to_ticks(repath_seconds))
+
+func chase_repath_ticks() -> int:
+	return maxi(1, SimWorld.seconds_to_ticks(chase_repath_seconds))

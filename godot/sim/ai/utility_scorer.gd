@@ -42,7 +42,8 @@ static func score(
 	threats: int,
 	committed: bool,
 	claimed_by_ally: bool,
-	noise: float
+	noise: float,
+	bonus: float
 ) -> float:
 	var value: float = base_value(profile, kind)
 	if value <= 0.0:
@@ -53,7 +54,10 @@ static func score(
 	if distance < 0.0:
 		return -INF
 
-	var total: float = value
+	# What this particular target adds (PT4-8: a thief with our cash, an
+	# intruder close by). Worked out by the director from profile fields, so
+	# there is still no number here.
+	var total: float = value + bonus
 	total -= distance * profile.cost_per_unit
 	total -= float(threats) * profile.risk_weight
 	if committed:

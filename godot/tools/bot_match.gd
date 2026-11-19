@@ -492,7 +492,7 @@ func _print_options(world: SimWorld, crew: BotCrew, body: SimEntity, ticks: int)
 		var threats: int = director._threats(world, body, task)
 		var claimed: bool = claims.has(task.key()) and claims[task.key()] != body.id
 		var score: float = UtilityScorer.score(profile, task.kind, distance, threats,
-			task.matches(director.current_task()), claimed, 0.0)
+			task.matches(director.current_task()), claimed, 0.0, director._bonus(world, body, task))
 		if task.kind == BotTask.Kind.PATROL and not task.matches(director.current_task()):
 			continue
 		lines.append("              %-8s %-14s score %8.0f  distance %6.0f  threats %d  %s to %s (stance %s)" % [

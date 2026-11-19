@@ -189,7 +189,8 @@ func _decide(world: SimWorld, me: SimEntity, tick: int, claims: Dictionary[Strin
 			_threats(world, me, task),
 			task.matches(_task),
 			claimed,
-			_rng.next_signed(profile.choice_noise)
+			_rng.next_signed(profile.choice_noise),
+			_bonus(world, me, task)
 		)
 		if score > best_score:
 			best_score = score
@@ -214,7 +215,8 @@ func _candidates(world: SimWorld, me: SimEntity) -> Array[BotTask]:
 	var tasks: Array[BotTask] = []
 
 	if me.is_carrying():
-		# Holding something: the only thing worth doing is banking it.
+		# Holding something: banking it is the errand. The one exception is an
+		# intruder close by (below, and _bonus).
 		for zone_id: StringName in world.zone_ids_in_resolution_order():
 			var zone: ZoneDef = world.zones[zone_id]
 			if zone.role == ZoneDef.Role.CASH_ROOM and zone.is_owned_by(me.team):
@@ -250,6 +252,10 @@ func _candidates(world: SimWorld, me: SimEntity) -> Array[BotTask]:
 			# the same condition CaptureSystem enforces. Proposing it anywhere
 			# else would have the bot charge across the map to bounce off a rule.
 			var standing: ZoneDef = world.zone_at(other.position)
+			# Carrying, only the intruder close by (PT4-8): one across the house
+			# is not worth turning round for with cash in hand.
+			if me.is_carrying() and _flat_distance(me.position, other.position) > profile.alert_radius:
+				continue
 			if standing != null and standing.is_owned_by(me.team) and standing.role != ZoneDef.Role.JAIL:
 				tasks.append(BotTask.make(
 					BotTask.Kind.DEFEND, entity_id, other.position, standing.id
@@ -263,6 +269,31 @@ func _candidates(world: SimWorld, me: SimEntity) -> Array[BotTask]:
 			nav.zone_point(world, world.zones[zone_id], me.position), zone_id
 		))
 	return tasks
+
+## What this task's particular target adds to its kind's value (PT4-8).
+##
+## Only DEFEND has any: a thief carrying our family's cash gets thief_bonus, and
+## an intruder within alert_radius gets alert_bonus. A carrier only ever sees
+## DEFENDs inside alert_radius (_candidates), and those get value_deposit on
+## top, so dealing with the intruder beats banking; DEPOSIT comes straight back
+## on the next decision. Whose cash it is: a carriable's `team` is the team it
+## belongs to (SimEntity), which is exactly what a player sees on the bundle.
+func _bonus(world: SimWorld, me: SimEntity, task: BotTask) -> float:
+	if task.kind != BotTask.Kind.DEFEND:
+		return 0.0
+	var target: SimEntity = world.get_entity(task.target_id)
+	if target == null:
+		return 0.0
+	var bonus: float = 0.0
+	if target.is_carrying():
+		var loot: SimEntity = world.get_entity(target.carrying_id)
+		if loot != null and loot.team == me.team:
+			bonus += profile.thief_bonus
+	if _flat_distance(me.position, target.position) <= profile.alert_radius:
+		bonus += profile.alert_bonus
+		if me.is_carrying():
+			bonus += profile.value_deposit
+	return bonus
 
 ## Enemies near enough to the destination to make going there expensive.
 ##
@@ -296,7 +327,9 @@ func _threats(world: SimWorld, me: SimEntity, task: BotTask) -> int:
 ## lost to the flood in GDScript, three different queues deep. Searching LESS
 ## OFTEN is.
 func _plan(world: SimWorld, me: SimEntity, tick: int, force: bool = false) -> void:
-	_next_repath_tick = tick + profile.repath_ticks()
+	# A chase re-aims more often (PT4-8): the target is a running body.
+	var chasing: bool = _task.kind == BotTask.Kind.DEFEND
+	_next_repath_tick = tick + (profile.chase_repath_ticks() if chasing else profile.repath_ticks())
 	# Re-rolled on every route, not only when the errand changes.
 	#
 	# Wobble is a CONSTANT angular error, and held for a whole journey it stops
@@ -315,7 +348,7 @@ func _plan(world: SimWorld, me: SimEntity, tick: int, force: bool = false) -> vo
 		_planned_kind = -1
 		return
 
-	var destination: Vector3 = _destination_of(world)
+	var destination: Vector3 = _destination_of(world, me)
 	# The world moves under a held task: cash gets picked up, prisoners get
 	# moved to a pen. A route to where the target used to be is worse than no
 	# route, because the bot walks it confidently. So the question is not "has
@@ -352,17 +385,48 @@ func _plan(world: SimWorld, me: SimEntity, tick: int, force: bool = false) -> vo
 ## chosen up to a second ago and the thing it is about may have moved. A rescue
 ## is the clearest case: the prisoner was seized in a doorway and is now in a
 ## pen on the other side of the map.
-func _destination_of(world: SimWorld) -> Vector3:
+func _destination_of(world: SimWorld, me: SimEntity) -> Vector3:
 	if _task.target_id != SimEntity.NO_ENTITY:
 		var target: SimEntity = world.get_entity(_task.target_id)
+		if target != null and _task.kind == BotTask.Kind.DEFEND:
+			return _lead_point(me, target, world.tuning.move_speed)
 		if target != null and _task.kind != BotTask.Kind.DEPOSIT:
 			return target.position
 	return _task.destination
+
+## Where to run to catch `target` (PT4-8): where it will be by the time this
+## body covers the gap, not where it is. Aiming at the body itself is a pursuit
+## that only ever arrives where the thief USED to be: at equal-ish speeds it
+## trails behind to the fence. Leading it cuts across its way home instead.
+##
+## Lead time is the flat gap over `speed`, capped at lead_max_seconds, using the
+## target's velocity - what anyone watching it run can see. The point is snapped
+## to the nearest stance and kept only if the target could walk straight there;
+## a lead through a wall or off a floor is no lead, and the body itself is.
+## A target standing still is its own lead point.
+func _lead_point(me: SimEntity, target: SimEntity, speed: float) -> Vector3:
+	var run: Vector3 = Vector3(target.velocity.x, 0.0, target.velocity.z)
+	if run.length_squared() <= 0.0 or speed <= 0.0:
+		return target.position
+	var ahead: float = clampf(_flat_distance(me.position, target.position) / speed, 0.0, profile.lead_max_seconds)
+	var lead: Vector3 = target.position + run * ahead
+	var node: int = nav.node_at(lead)
+	if node < 0:
+		return target.position
+	var spot: Vector3 = nav.surface.nodes[node]
+	if not nav.surface.is_reachable_between(target.position, spot):
+		return target.position
+	return spot
 
 # ---- doing ----
 
 ## Follows the route, and reports travel as intent - never as a position.
 func _steer(world: SimWorld, me: SimEntity, tick: int) -> Array[SimCommand]:
+	# Closing in on a thief (PT4-8): near, on its floor, and a straight walk
+	# away, the route has nothing more to say - run at where it is going.
+	var straight: Vector3 = _close_in_heading(world, me)
+	if straight != Vector3.ZERO:
+		return _send_intent(straight, tick)
 	while _leg < _route.size() and _has_reached(me, _route[_leg]):
 		_leg += 1
 	if _leg >= _route.size():
@@ -486,6 +550,30 @@ func _steer(world: SimWorld, me: SimEntity, tick: int) -> Array[SimCommand]:
 		return _stop_if_moving(tick)
 
 	return _send_intent(heading.normalized().rotated(Vector3.UP, _wobble), tick)
+
+## The heading straight at a DEFEND target's lead point, or zero when the route
+## should steer: the target is further than close_in_radius (flat), on another
+## floor, or the line to the lead point is not a walk. Reachable rather than in
+## sight, for the same reason as the route-follow below: a sight line has no
+## step-up allowance and a walk does.
+func _close_in_heading(world: SimWorld, me: SimEntity) -> Vector3:
+	if _task.kind != BotTask.Kind.DEFEND:
+		return Vector3.ZERO
+	var target: SimEntity = world.get_entity(_task.target_id)
+	if target == null or target.is_captured:
+		return Vector3.ZERO
+	if _flat_distance(me.position, target.position) > profile.close_in_radius:
+		return Vector3.ZERO
+	if absf(me.position.y - target.position.y) > nav.surface.step_up_height * 2.0:
+		return Vector3.ZERO
+	var aim: Vector3 = _lead_point(me, target, world.tuning.move_speed)
+	if not nav.surface.is_reachable_between(me.position, aim):
+		return Vector3.ZERO
+	var heading: Vector3 = aim - me.position
+	heading.y = 0.0
+	if heading.length_squared() <= 0.0:
+		return Vector3.ZERO
+	return heading.normalized()
 
 ## The neighbouring stance that gets closest to `goal`, or -1.
 ##
