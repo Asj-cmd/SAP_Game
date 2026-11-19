@@ -2,6 +2,8 @@
 
 Newest first. One entry per task: date, task id, what changed, what the frames showed, numbers, what is left.
 
+> **UNFINISHED (PT4-8, cut off mid-session):** `godot/tests/bot_director_test.gd` calls `_test_pursuit()` and expects 54 checks, but `_test_pursuit` is not written yet, so that suite fails until PT4-8 adds it (or reverts the call and `EXPECTED_CHECKS` to 46). Finish this first.
+
 ## 2026-11-18 — PT2-8 Funnier hair
 - Followed the brief. All in `godot/tools/rerig_character.gd` `_build_hair` and the args in `autobuild/rerig_family.mjs`. Re-ran `rerig_family.mjs --only=male,casual,dress,alt,tank`; dad (`shirt`) was not rebuilt and his files are unchanged in git.
   - **Mohawks:** `--hair-height` 8 → 16 (elder boy, `male`) and 6 → 13 (younger boy, `casual`), ridge base half-width 0.24 → 0.32. Measured: top 14.5 / 11.9 cm over the crown.

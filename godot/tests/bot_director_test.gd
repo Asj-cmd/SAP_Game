@@ -13,7 +13,7 @@ extends SceneTree
 ##   3. Filling a lobby is FAIR. A bot may never be the reason one side is
 ##      bigger, and declining to add one is a legitimate outcome.
 
-const EXPECTED_CHECKS: int = 46
+const EXPECTED_CHECKS: int = 54
 
 const RADIUS: float = 10.0
 const FLOOR_TOP: float = 10.0
@@ -31,6 +31,7 @@ func _initialize() -> void:
 	_test_arrival()
 	_test_takeover()
 	_test_intent_survives_a_countdown()
+	_test_pursuit()
 
 	# Counted BEFORE the guard's own failure is added, or a suite that skipped a
 	# case reports the total it was supposed to reach and reads as a paradox.
