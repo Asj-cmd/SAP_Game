@@ -448,3 +448,89 @@ func _test_intent_survives_a_countdown() -> void:
 		if command.kind == MoveCommand.KIND_MOVE:
 			declared += 1
 	_check("intent/and every bot re-declares", declared, crew.count())
+
+# ---- 6. catching thieves (PT4-8) ----
+
+## Who a defender goes for, and where it runs. A team_a bot stands at `me` (x),
+## a team_b body at `other` (x; the yard 100..300 is team_a's ground, 300+ is
+## team_b's vault). `loot` is whose cash the team_b body carries ("" = none),
+## `mine` whether the bot itself carries cash, `mate` the x of a captured
+## teammate (-1 = none), `alert` an alert_radius override (-1 = profile default).
+func _test_pursuit() -> void:
+	var cases: Array[Dictionary] = [
+		{"name": "a thief with our cash outranks a rescue", "me": 150.0, "other": 250.0,
+			"loot": "team_a", "mine": false, "mate": 170.0, "alert": 1.0, "want": BotTask.Kind.DEFEND},
+		{"name": "the same runner with its own cash does not", "me": 150.0, "other": 250.0,
+			"loot": "team_b", "mine": false, "mate": 170.0, "alert": 1.0, "want": BotTask.Kind.RESCUE},
+		{"name": "a carrier deals with an intruder inside alert_radius", "me": 150.0, "other": 250.0,
+			"loot": "", "mine": true, "mate": -1.0, "alert": -1.0, "want": BotTask.Kind.DEFEND},
+		{"name": "a carrier banks when the intruder is outside it", "me": 150.0, "other": 250.0,
+			"loot": "", "mine": true, "mate": -1.0, "alert": 50.0, "want": BotTask.Kind.DEPOSIT},
+		{"name": "a carrier banks when the near body is on their ground", "me": 290.0, "other": 330.0,
+			"loot": "", "mine": true, "mate": -1.0, "alert": -1.0, "want": BotTask.Kind.DEPOSIT},
+	]
+	for case: Dictionary in cases:
+		_check("pursuit/%s" % case["name"], _pursuit_choice(case), case["want"])
+
+	# The lead point: ahead of a runner, never more than lead_max_seconds of its
+	# run ahead, and the body itself when it stands still. `speed` is the
+	# chaser's; a slow chaser far away would lead by seconds without the cap.
+	var world: SimWorld = _world()
+	var me: SimEntity = world.get_entity(world.actor_ids()[0])
+	var runner: SimEntity = world.get_entity(world.actor_ids()[1])
+	var director: BotDirector = BotDirector.for_actor(me.id, _profile(), NavGraph.of(world.surface), 5)
+	var cap: float = director.profile.lead_max_seconds
+	var slack: float = 20.0 # snapping the lead to a stance moves it by under a cell
+	var leads: Array[Dictionary] = [
+		# 180 apart at 540: a third of a second, about 67 ahead.
+		{"name": "a runner is led", "me": 20.0, "at": 200.0, "run": 200.0, "speed": 540.0,
+			"least": 67.0 - slack, "most": 67.0 + slack},
+		{"name": "the lead is capped", "me": 50.0, "at": 150.0, "run": 200.0, "speed": 20.0,
+			"least": 200.0 * cap - slack, "most": 200.0 * cap + slack},
+		{"name": "a body standing still is its own lead", "me": 100.0, "at": 150.0, "run": 0.0, "speed": 540.0,
+			"least": 0.0, "most": 0.0},
+	]
+	for lead: Dictionary in leads:
+		me.position = Vector3(lead["me"], FLOOR_TOP + RADIUS, 100)
+		runner.position = Vector3(lead["at"], FLOOR_TOP + RADIUS, 100)
+		runner.velocity = Vector3(lead["run"], 0.0, 0.0)
+		var ahead: float = director._lead_point(me, runner, lead["speed"]).x - runner.position.x
+		_check("pursuit/lead: %s (%.1f ahead)" % [lead["name"], ahead],
+			ahead >= lead["least"] and ahead <= lead["most"], true)
+
+func _pursuit_choice(case: Dictionary) -> BotTask.Kind:
+	var world: SimWorld = _world(2)
+	var ours: Array[SimEntity] = []
+	var theirs: Array[SimEntity] = []
+	for actor_id: int in world.actor_ids():
+		var body: SimEntity = world.get_entity(actor_id)
+		(ours if body.team == &"team_a" else theirs).append(body)
+	var me: SimEntity = ours[0]
+	me.position = Vector3(case["me"], FLOOR_TOP + RADIUS, 100)
+	var other: SimEntity = theirs[0]
+	other.position = Vector3(case["other"], FLOOR_TOP + RADIUS, 100)
+	# The other pair out of the way: our second in team_a's vault (or captured,
+	# as the prisoner), their second in their own vault, on their ground.
+	ours[1].position = Vector3(30, FLOOR_TOP + RADIUS, 40)
+	theirs[1].position = Vector3(370, FLOOR_TOP + RADIUS, 160)
+	if case["mate"] >= 0.0:
+		ours[1].position = Vector3(case["mate"], FLOOR_TOP + RADIUS, 100)
+		ours[1].is_captured = true
+	if case["loot"] != "":
+		var stolen: SimEntity = SimEntity.new(SimEntity.NO_ENTITY, SimEntity.Kind.CARRIABLE)
+		stolen.team = StringName(case["loot"])
+		world.add_entity(stolen)
+		other.carrying_id = stolen.id
+		stolen.carried_by = other.id
+	if case["mine"]:
+		var held: SimEntity = SimEntity.new(SimEntity.NO_ENTITY, SimEntity.Kind.CARRIABLE)
+		held.team = &"team_b"
+		world.add_entity(held)
+		me.carrying_id = held.id
+		held.carried_by = me.id
+	var profile: BotProfileDef = _profile()
+	if case["alert"] >= 0.0:
+		profile.alert_radius = case["alert"]
+	var director: BotDirector = BotDirector.for_actor(me.id, profile, NavGraph.of(world.surface), 5)
+	director.drain(world, world.tick, {})
+	return director.current_task().kind
