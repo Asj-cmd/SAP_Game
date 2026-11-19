@@ -2,9 +2,29 @@
 
 Newest first. One entry per task: date, task id, what changed, what the frames showed, numbers, what is left.
 
-> **No open task left in PLAN.md (2026-11-19, after PT5-2):** everything is `[x]`, `[B]` or `[-]`, except PT4-8 `[~]`, which waits on the decision below. The planner needs to write new tasks.
+> **No open task left in PLAN.md (2026-11-19, after PT5-2; still true in the evening session):** everything is `[x]`, `[B]` or `[-]`, except PT4-8 `[~]`, which waits on the decision below. The planner needs to write new tasks.
 
-> **For the planner: the full verify now fails the 3v3 tick budget on every task, and the cause is PT4-8's bot code.** PT4-8 stays `[~]`. Measured back to back on 2026-11-19 in one worktree: the pre-PT4-8 bot files score 0 of 600 over (bot thinking 5.99 ms/tick); the current code scores 5 and 11 over (7.80 and 8.70 ms). The gate is at most 5. PT4-8's brief forbade touching `sim/ai/` to save tick time and allowed no third attempt, so nobody may fix it until that is lifted. Decide one of: (a) a perf task on PT4-8's pursuit (the lead-point snap, the straight-walk check, the 0.3 s chase re-plan; re-plan alone back at 0.9 s did not help the night before); (b) accept the cost and gate 3v3 differently; (c) revert PT4-8. Until then, a task's verify that fails only this check is not that task's fault (PT5-1 was ticked on that basis).
+> **For the planner: the full verify now fails the 3v3 tick budget on every task, and the cause is PT4-8's bot code.** PT4-8 stays `[~]`. Measured back to back on 2026-11-19 in one worktree: the pre-PT4-8 bot files score 0 of 600 over (bot thinking 5.99 ms/tick); the current code scores 5 and 11 over (7.80 and 8.70 ms). The gate is at most 5. PT4-8's brief forbade touching `sim/ai/` to save tick time and allowed no third attempt, so nobody may fix it until that is lifted. Decide one of: (a) a perf task on PT4-8's pursuit (the lead-point snap, the straight-walk check, the 0.3 s chase re-plan; re-plan alone back at 0.9 s did not help the night before); (b) accept the cost and gate 3v3 differently; (c) revert PT4-8. Until then, a task's verify that fails only this check is not that task's fault (PT5-1 was ticked on that basis). *(2026-11-19 evening: measurements below make (a) cheaper to scope; the per-call helpers are NOT the cost.)*
+
+## 2026-11-19 (evening) — no task; PT4-8 tick cost measured for the planner (no code changed)
+- PLAN.md has no open task: everything is `[x]`, `[B]` or `[-]`, except PT4-8 `[~]`, which waits on the planner (note above). Its brief forbids changing `sim/ai/` to save tick time, so I changed nothing. I only measured, so the planner can choose between (a), (b) and (c) with data.
+- Method: `node autobuild/run_tool.mjs perf_probe -- --team-size=3`, one run per variant, back to back. Each variant was a one-line early `return` put into `bot_director.gd` in the main tree and removed with `git checkout` straight after the run. A worktree was not possible: `git worktree add` needs a permission prompt nobody can answer in this loop. Nothing committed; the tree is clean.
+
+  | Variant | Over (of 600) | p99 | Worst | Bot thinking |
+  |---|---|---|---|---|
+  | Current code | 6 | 34.3 ms | 40.4 ms | 7.19 ms |
+  | `_close_in_heading` off (no per-tick straight-walk check) | 11 | 44.0 ms | 56.8 ms | 8.63 ms |
+  | `_lead_point` off (aim at the body itself) | 8 | 38.5 ms | 53.9 ms | 8.99 ms |
+  | `_bonus` off (no thief / alert bonus) | 5 | 33.0 ms | 40.5 ms | 6.78 ms |
+  | Pre-PT4-8 `sim/ai/` (from `0f2e250`) | **0** | 23.4 ms | 31.9 ms | 6.40 ms |
+
+- What it says:
+  - Removing either per-call helper does not bring the count down. The cost is not the reachability checks or the lead-point snap themselves.
+  - Removing the bonuses alone does not either.
+  - What is left: the 0.3 s chase re-plan (a route search to a moving target about 3× as often as before) and the carrier's DEFEND candidates. The night before, re-plan back at 0.9 s alone did not help. But these are single runs, and the same code scores 5, 6 and 11 on different runs.
+  - The fails are a few spikes (worst 40–57 ms against 32 ms before), not a higher average: bot thinking is only ~0.4–2.6 ms/tick above the old code. So route searches that land on the same tick are the likely shape.
+- Suggestion for (a), if the planner picks it: stagger chase re-plans so at most one bot runs a route search per tick (a scheduling change of the kind P0-2/P0-2b used), rather than making any one piece cheaper.
+- Left: the planner's decision on PT4-8, and new tasks.
 
 ## 2026-11-19 — PT5-2 Minimap that is easy to read
 - **What made it confusing** (read before changing anything): most players never saw a map at all, because it was drawn only with D3 option (b) on, and that is off by default. When it was on, it turned so your own house was at the bottom. It was a 210 px dark box in which both floors were one grey rectangle per house: no labels, no vaults, jails or cash, and no family colour on the houses. The brief's reading was right.
