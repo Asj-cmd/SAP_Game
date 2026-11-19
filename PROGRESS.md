@@ -2,7 +2,44 @@
 
 Newest first. One entry per task: date, task id, what changed, what the frames showed, numbers, what is left.
 
-> **UNFINISHED (PT4-8, cut off mid-session):** `godot/tests/bot_director_test.gd` calls `_test_pursuit()` and expects 54 checks, but `_test_pursuit` is not written yet, so that suite fails until PT4-8 adds it (or reverts the call and `EXPECTED_CHECKS` to 46). Finish this first.
+> **PT4-8 is `[~]`: the code and tests are done, but no full verify has been healthy yet.** The only failure was the 3v3 tick budget on a loaded machine (see below). Take PT5-1 as usual. If its one full verify is healthy, tick PT4-8 in `PLAN.md` in the same commit (`[~]` → `[x]`, drop the "NOT ticked" words) and delete this note. If the 3v3 tick budget fails again, run `node autobuild/run_tool.mjs perf_probe -- --team-size=3` once with PT4-8's bot files checked out from `0f2e250` and once without: if both fail, it is the machine, so log it in `BLOCKED.md`.
+
+## 2026-11-19 — PT4-8 Bots catch thieves (code done, verify not yet healthy)
+- Earlier in the same night a session wrote the bot changes and `bot_match --chase` in part commits (`0f2e250`, `3225d56`), then was cut off before writing the test. This session wrote `_test_pursuit` and the docs and ran verify.
+- **What the bots do now** (all in `sim/ai/bot_director.gd` and `utility_scorer.gd`; numbers in `BotProfileDef`, REVIEW):
+  - A DEFEND whose target carries this bot's family's cash gets `thief_bonus` 7000 (11000 total), so it beats a rescue (6000).
+  - An intruder within `alert_radius` 450 (flat) gets `alert_bonus` 2500.
+  - While carrying, the bot offers DEFEND only inside `alert_radius`, and adds `value_deposit` on top so it beats banking. It seizes with the cash in hand (the rules already allow that); DEPOSIT comes back on the next decision. No drop, no rule change.
+  - Pursuit aims at a lead point: the target's velocity × (gap / move speed), capped at `lead_max_seconds` 0.8, snapped to a stance. If that spot is not a straight walk from the target, it aims at the body.
+  - Inside `close_in_radius` 350, on the same floor with a clear walk, the bot runs straight at the lead point. While chasing it re-plans every `chase_repath_seconds` 0.3 s (otherwise 0.9 s).
+  - The brief said "our cash" should be read from the zone of `origin_position`; the code reads the carriable's `team`, which gives the same answer (DECISIONS).
+- **Staged chases**, `bot_match --chase` (real house, 3v3 seats, 8 fixed start spots each), before → after:
+  - A, bot defender vs a human-like runner going home with its cash: 4 → 8 of 8.
+  - B, the runner crossing sideways toward the gate: 4 → 8 of 8.
+  - C, a carrying bot meets an intruder on its own side: 0 → 8 of 8 (seized without dropping).
+  - R, a scripted chaser vs a bot thief: 7 of 8 (unchanged).
+  - The brief's bar (A, B ≥ 5 and ≥ R−1; C ≥ 6) is met with the brief's default numbers, so the "tune twice" step was not used.
+  - Mean catch times were not written down by the cut-off session and were not re-run.
+- **Tests:** `bot_director_test` 46 → 54 (baseline ratcheted):
+  - a thief with our cash beats a rescue, and the same runner carrying its own cash does not (the control);
+  - a carrier defends against an intruder inside `alert_radius`, banks when the intruder is outside it, and banks when the nearby body stands on that body's own ground;
+  - the lead point is about 67 ahead for a runner 180 away (measured 66, snapped), is capped at 0.8 s of the run for a slow chaser, and is the body itself when the body stands still.
+- **Full verify, run once: 1 problem.**
+  - 20 suites at their pins. Symmetry 190 of 190.
+  - Bot match 3v3: team_a, 370 s, 22 s stalls (budget 400), 38 captures. 1v1: team_a, 8 s stalls. Both deterministic.
+  - Network all OK (net_smoke 1633 ticks agree). Render counters within limits.
+  - **Tick budget: 1v1 0 of 600 over; 3v3 12 of 600 over (gate ≤ 5, p99 46.9 ms) → FAIL.** 4v4 27 (not gated).
+- **Diagnosis**, with `perf_probe --team-size=3` run in the same hour:
+
+  | Code | Ticks over (of 600) | p99 | Mean |
+  |---|---|---|---|
+  | Current code | 7 | 34.2 ms | 8.69 ms |
+  | Chase re-plan put back to 0.9 s | 7 | — | — |
+  | **Pre-PT4-8** bot files (`0f2e250`) | 6 | 37.6 ms | 8.74 ms |
+  | Current code, run again | 9 | — | 10.74 ms |
+
+  Every run fails, the old code included. Mean bot thinking is within noise of the old code. The machine was busy: Chrome had hours of CPU time, and no stray Godot was left running. The previous task's verify (PT2-8) had 2 over. So I read this as the machine's load, not the change. That is two looks at the problem, so I stopped there and left PT4-8 `[~]` (see the note at the top).
+- Left: a healthy full verify, then tick. Nobody has played against the new bots yet.
 
 ## 2026-11-18 — PT2-8 Funnier hair
 - Followed the brief. All in `godot/tools/rerig_character.gd` `_build_hair` and the args in `autobuild/rerig_family.mjs`. Re-ran `rerig_family.mjs --only=male,casual,dress,alt,tank`; dad (`shirt`) was not rebuilt and his files are unchanged in git.

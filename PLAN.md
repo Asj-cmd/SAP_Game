@@ -223,7 +223,7 @@ other task here is verified by tests and numbers. The family display names come 
   which in the brief). Dad is unchanged. Same in both families, elder and younger variants following
   the same idea (P2-6 rules: plain painted solid shapes in the figure material, colours in the
   theme). **Frames allowed: one lineup at the end, at most one redo.**
-- [ ] **PT4-8 Bots catch thieves (last).** The user easily catches bots running off with cash, but
+- [~] **PT4-8 Bots catch thieves (last).** *(Code done 2026-11-19; NOT ticked: the full verify failed only the 3v3 tick budget (12 of 600 over) on a loaded machine, and the pre-PT4-8 bot code failed it the same way (6 over) in the same hour. Left: one healthy full verify; the next task's verify covers it, then tick. A thief with the bot's family's cash outranks a rescue (`thief_bonus`), an intruder within `alert_radius` is dealt with even while carrying (a carrier may seize, so no drop), pursuit aims at a lead point and runs straight inside `close_in_radius`, re-planned every 0.3 s while chasing; all six numbers in `BotProfileDef` (REVIEW). Staged `bot_match --chase`: A 4 → 8 of 8, B 4 → 8, C 0 → 8, R 7. `bot_director_test` 46 → 54. See PROGRESS.md.)* The user easily catches bots running off with cash, but
   bot defenders cannot catch the user, and bots carrying cash home ignore an opponent who runs into
   them on their own side. Fix: defenders prioritise (1) any opponent carrying their family's cash and
   (2) any opponent close by on their side, **including while the bot itself is carrying** (it drops
@@ -641,6 +641,9 @@ the measurements and leads in P3-3d, P3-3e and P3-3f above and in PROGRESS.md:
 
 A stash on this machine holds session 7's unfinished P3-3f sweep statistics (`git stash list`:
 "session 7 leftovers").
+
+PT4-8 (bots catching thieves, the user's one exception) is done (2026-11-19). The items above stay
+deferred.
 
 ## Backlog: after the playtest — do NOT start before the user has played
 
