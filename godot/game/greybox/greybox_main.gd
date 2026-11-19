@@ -529,7 +529,7 @@ func _tear_down() -> void:
 	_tell_team = &""
 	_tell_overlay.bodies = []
 	_tell_overlay.in_match = false
-	_tell_overlay.set_level(null, Vector3.ZERO, Vector3.ZERO)
+	_tell_overlay.set_level(null)
 	_rematch_asked = false
 
 # ---- looking at the screen ----
@@ -1984,18 +1984,19 @@ func _update_tell(truth: SimWorld, mine: int) -> void:
 	var team: StringName = me.team if me != null else &""
 	if team != _tell_team and team != &"":
 		_tell_team = team
-		var own_spawn: Vector3 = Vector3.ZERO
-		var enemy_spawn: Vector3 = Vector3.ZERO
-		for each: TeamDef in level.teams:
-			var centre: Vector3 = Vector3.ZERO
-			for point: Vector3 in each.spawn_points:
-				centre += point / float(maxi(1, each.spawn_points.size()))
-			if each.id == team:
-				own_spawn = centre
-			else:
-				enemy_spawn = centre
-		_tell_overlay.set_level(MinimapOutline.build(level), own_spawn, enemy_spawn)
+		_tell_overlay.set_level(MinimapOutline.build(level))
 	_tell_overlay.own_team = team
+	# PT5-2: loose cash from the confirmed world, the family names, and the big
+	# map while the map key is held (never while a menu has the keyboard).
+	var loose: Array[Vector3] = []
+	for entity: SimEntity in truth.entities.values():
+		if entity.is_carriable() and not entity.is_held():
+			loose.append(entity.position)
+	_tell_overlay.loose_cash = loose
+	for each: TeamDef in level.teams:
+		_tell_overlay.names[each.id] = FamilyNames.name_of(each.id)
+	_tell_overlay.big = Input.is_key_pressed(PlayerSettings.current().key_for(&"map")) \
+		and (_pause == null or not _pause.is_open())
 	_tell_overlay.camera = _active_camera()
 	var bodies: Array[TeamTellOverlay.Body] = []
 	var theme: ArtTheme = ArtTheme.current()

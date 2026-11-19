@@ -10,6 +10,13 @@ extends Control
 ## nothing from the simulation itself. The minimap draws the level's outline
 ## (MinimapOutline: lot, yards, houses, fence with its gates, PT4-4), only while
 ## a match is being played.
+##
+## PT5-2: the map is shown in every match (no longer only with D3 option (b)),
+## as a cream card, north-up: the floor the player is on only ("Ground" /
+## "Upstairs"), each house's footprint in its family colour, the family names on
+## their lots, vault and jail icons, loose cash; bodies on the other floor faded.
+## D3 option (b) `tell.minimap` now means "teammates only": enemies are hidden.
+## Holding the map key (Tab) shows the same map big in the middle.
 
 ## One drawn body: feet position, drawn height, team, whether it is yours, the
 ## family member it is drawn as ("dad", "younger_girl" ...; "" if none) and the
@@ -32,9 +39,21 @@ const NOTCH_LENGTH: float = 4.0
 const MARK_LIFT: float = 30.0  # above the head, world units
 const MARK_SIZE: float = 9.0  # half-width of the mark, pixels, up close
 const MARK_FAR_SCALE: float = 0.55
-const MAP_SIZE: float = 210.0  # pixels, square
+
+## PT5-2 map card: a share of the viewport's height (Tab held: the big one),
+## top-right under the cash bar's names, never wider than MAP_MAX_WIDTH of the
+## screen. A header row carries the floor label.
+const MAP_HEIGHT_SHARE: float = 0.2
+const MAP_BIG_SHARE: float = 0.6
+const MAP_MAX_WIDTH: float = 0.3
+const MAP_BIG_MAX_WIDTH: float = 0.9
 const MAP_MARGIN: float = 16.0
-const MAP_TOP: float = 70.0  # below the status line
+const MAP_TOP: float = 130.0  # clear of the cash bar, its names and "YOU"
+const MAP_PAD: float = 8.0
+const MAP_HEADER: float = 20.0
+## A body on the other floor: faded and smaller, so it is not taken for one on yours.
+const OTHER_FLOOR_ALPHA: float = 0.35
+const OTHER_FLOOR_SCALE: float = 0.7
 
 var camera: Camera3D = null
 var own_team: StringName = &""
@@ -44,33 +63,40 @@ var colours: Dictionary[StringName, Color] = {}
 ## True only while a match is being played on this machine (GreyBoxMain sets it
 ## every frame): never on the menu, in the lobby or under the results (PT4-4).
 var in_match: bool = false
-## What the map shows (MinimapOutline, built once per level), and which world
-## direction is "up" on the map (toward the enemy house, so yours is at the bottom).
+## Bundles at rest or in flight (not carried), sim positions; GreyBoxMain sets
+## them from the confirmed world each frame (PT5-2).
+var loose_cash: Array[Vector3] = []
+## The big map while the map key is held (PT5-2).
+var big: bool = false
+## Family display names by team, for the lots (PT5-2).
+var names: Dictionary[StringName, String] = {}
+## What the map shows (MinimapOutline, built once per level). North-up and fixed
+## (PT5-2): world -z is the top of the map on every machine.
 var _outline: MinimapOutline = null
-var _up: Vector2 = Vector2(0.0, -1.0)
+const UP: Vector2 = Vector2(0.0, -1.0)
+var _up: Vector2 = UP
+var _card: StyleBoxFlat = null
 
-const MAP_BACK: Color = Color(0.06, 0.06, 0.07, 0.72)
-const MAP_LOT: Color = Color(0.22, 0.27, 0.2, 0.85)
-const MAP_YARD: Color = Color(0.28, 0.35, 0.25, 0.9)
-const MAP_HOUSE: Color = Color(0.52, 0.5, 0.46, 0.95)
-const MAP_WALL: Color = Color(0.95, 0.91, 0.82)
-const MAP_FENCE: Color = Color(0.2, 0.13, 0.08)
+const MAP_LOT: Color = Color(0.60, 0.68, 0.52)
+const MAP_YARD: Color = Color(0.66, 0.74, 0.57)
+const MAP_HOUSE_SHARE: float = 0.45  # family colour over cream
 
 func _init() -> void:
 	set_anchors_preset(Control.PRESET_FULL_RECT)
 	mouse_filter = Control.MOUSE_FILTER_IGNORE
+	_card = StyleBoxFlat.new()
+	_card.bg_color = UiTheme.CREAM
+	_card.border_color = UiTheme.CHARCOAL
+	_card.set_border_width_all(2)
+	_card.set_corner_radius_all(UiTheme.CORNER)
+	_card.anti_aliasing = true
+	_card.shadow_color = UiTheme.SHADOW_COLOUR
+	_card.shadow_size = UiTheme.SHADOW_SIZE
+	_card.shadow_offset = Vector2(0.0, UiTheme.SHADOW_OFFSET)
 
-## The map's world (null clears it), and the two teams' spawn centres (own
-## first) to turn the map so the player's house is at the bottom.
-func set_level(outline: MinimapOutline, own_spawn: Vector3, enemy_spawn: Vector3) -> void:
+## The map's world (null clears it).
+func set_level(outline: MinimapOutline) -> void:
 	_outline = outline
-	# Snapped to the nearer world axis: the houses are laid out square to the
-	# axes, and the spawn centres are not exactly opposite each other.
-	var toward: Vector2 = Vector2(enemy_spawn.x - own_spawn.x, enemy_spawn.z - own_spawn.z)
-	if absf(toward.x) >= absf(toward.y):
-		_up = Vector2(signf(toward.x) if toward.x != 0.0 else 1.0, 0.0)
-	else:
-		_up = Vector2(0.0, signf(toward.y))
 
 func _process(_delta: float) -> void:
 	queue_redraw()
@@ -80,8 +106,28 @@ func _draw() -> void:
 		return
 	if tell.marker:
 		_draw_marks()
-	if tell.minimap and in_match and _outline != null and _outline.lot.size != Vector2.ZERO:
+	if in_match and _outline != null and _outline.lot.size != Vector2.ZERO:
 		_draw_map()
+
+## The map card's rect on a `viewport`-sized screen (PT5-2): small top-right,
+## or centred and big while the map key is held. Height is a share of the
+## screen's; width follows the lot's shape, capped.
+static func card_rect(viewport: Vector2, lot: Rect2, held: bool) -> Rect2:
+	var tall: float = viewport.y * (MAP_BIG_SHARE if held else MAP_HEIGHT_SHARE)
+	var inner_h: float = tall - MAP_PAD * 2.0 - MAP_HEADER
+	var aspect: float = lot.size.x / maxf(lot.size.y, 1.0)
+	var wide: float = minf(inner_h * aspect + MAP_PAD * 2.0,
+		viewport.x * (MAP_BIG_MAX_WIDTH if held else MAP_MAX_WIDTH))
+	if held:
+		return Rect2((viewport - Vector2(wide, tall)) * 0.5, Vector2(wide, tall))
+	return Rect2(Vector2(viewport.x - wide - MAP_MARGIN, MAP_TOP), Vector2(wide, tall))
+
+## The floor this machine's body is on (0 ground, 1 upstairs), from its feet.
+func own_floor() -> int:
+	for body: Body in bodies:
+		if body.mine:
+			return MinimapOutline.floor_of(body.feet.y, _outline.upper_floor_y)
+	return 0
 
 func _draw_marks() -> void:
 	if camera == null or own_team == &"":
@@ -108,61 +154,113 @@ func _draw_marks() -> void:
 		draw_colored_polygon(tri, colours.get(own_team, Color.WHITE))
 
 func _draw_map() -> void:
-	var box: Rect2 = Rect2(Vector2(size.x - MAP_SIZE - MAP_MARGIN, MAP_TOP), Vector2(MAP_SIZE, MAP_SIZE))
-	draw_rect(box, MAP_BACK)
-	draw_rect(box, Color(1.0, 1.0, 1.0, 0.25), false, 1.0)
+	var box: Rect2 = card_rect(size, _outline.lot, big)
+	draw_style_box(_card, box)
+	var storey: int = own_floor()
+	var scale_up: float = box.size.y / (size.y * MAP_HEIGHT_SHARE)  # 1 small, 3 big
+	var font: Font = UiTheme.body_bold()
+	var label_size: int = int(round(UiTheme.SMALL_SIZE * (1.0 + (scale_up - 1.0) * 0.4)))
+	draw_string(font, box.position + Vector2(MAP_PAD + 2.0, MAP_PAD + label_size * 0.95),
+		"Upstairs" if storey == 1 else "Ground", HORIZONTAL_ALIGNMENT_LEFT, -1.0, label_size,
+		UiTheme.CHARCOAL)
+	var area: Rect2 = Rect2(box.position + Vector2(MAP_PAD, MAP_PAD + MAP_HEADER * minf(scale_up, 1.6)),
+		box.size - Vector2(MAP_PAD * 2.0, MAP_PAD * 2.0 + MAP_HEADER * minf(scale_up, 1.6)))
 	var lot: Rect2 = _outline.lot
-	var fit: float = (MAP_SIZE - 16.0) / maxf(lot.size.x, lot.size.y)
+	var fit: float = minf(area.size.x / lot.size.x, area.size.y / lot.size.y)
 	var centre: Vector2 = lot.get_center()
-	var middle: Vector2 = box.get_center()
-	# Lot, yards a shade lighter, houses lighter still with cream walls, then the
-	# fence as a dark line broken at its gates.
+	var middle: Vector2 = area.get_center()
+	# Lot, yards a shade lighter, each house's footprint on this floor in its
+	# family colour, the fence as a dark line broken at its gates.
 	draw_colored_polygon(_map_rect(lot, centre, middle, fit), MAP_LOT)
 	for yard: Rect2 in _outline.yards:
 		draw_colored_polygon(_map_rect(yard, centre, middle, fit), MAP_YARD)
-	for house: Rect2 in _outline.houses:
-		var corners: PackedVector2Array = _map_rect(house, centre, middle, fit)
-		draw_colored_polygon(corners, MAP_HOUSE)
+	for foot: MinimapOutline.Footprint in _outline.footprints_on(storey):
+		var family: Color = colours.get(foot.team, UiTheme.GREY)
+		var corners: PackedVector2Array = _map_rect(foot.rect, centre, middle, fit)
+		draw_colored_polygon(corners, UiTheme.CREAM.lerp(family, MAP_HOUSE_SHARE))
 		corners.append(corners[0])
-		draw_polyline(corners, MAP_WALL, 2.0)
+		draw_polyline(corners, family.darkened(0.35), 2.0)
 	for panel: Vector2 in _outline.fence_panels:
 		draw_line(_to_map(Vector2(_outline.fence_x, panel.x), centre, middle, fit),
-			_to_map(Vector2(_outline.fence_x, panel.y), centre, middle, fit), MAP_FENCE, 3.0)
+			_to_map(Vector2(_outline.fence_x, panel.y), centre, middle, fit), UiTheme.CHARCOAL, 2.5)
 	var lot_edge: PackedVector2Array = _map_rect(lot, centre, middle, fit)
 	lot_edge.append(lot_edge[0])
-	draw_polyline(lot_edge, Color(MAP_WALL, 0.45), 1.0)
-	# Everyone else first, your own body last so it sits on top.
+	draw_polyline(lot_edge, Color(UiTheme.CHARCOAL, 0.5), 1.0)
+	# Family names on their own lots.
+	var name_size: int = int(round(11.0 * (1.0 + (scale_up - 1.0) * 0.5)))
+	for i: int in _outline.houses.size():
+		var team: StringName = _outline.house_teams[i]
+		var text: String = names.get(team, String(team))
+		var spot: Vector2 = _to_map(_outline.name_spot(_outline.houses[i]), centre, middle, fit)
+		var width: float = font.get_string_size(text, HORIZONTAL_ALIGNMENT_LEFT, -1.0, name_size).x
+		draw_string(font, spot + Vector2(-width * 0.5, name_size * 0.35), text,
+			HORIZONTAL_ALIGNMENT_LEFT, -1.0, name_size, colours.get(team, UiTheme.CHARCOAL).darkened(0.45))
+	# Vault and jail icons on this floor.
+	var icon: float = 5.0 * (1.0 + (scale_up - 1.0) * 0.5)
+	for mark: MinimapOutline.Mark in _outline.marks_on(storey):
+		_draw_icon(_to_map(mark.at, centre, middle, fit), mark.kind, icon)
+	# Loose cash on this floor.
+	for cash: Vector3 in loose_cash:
+		if MinimapOutline.floor_of(cash.y, _outline.upper_floor_y) != storey:
+			continue
+		var at: Vector2 = _to_map(Vector2(cash.x, cash.z), centre, middle, fit)
+		draw_circle(at, icon * 0.75, UiTheme.CHARCOAL)
+		draw_circle(at, icon * 0.55, UiTheme.CASH_GREEN)
+	# Everyone else first, your own body last so it sits on top; a body on the
+	# other floor faded and smaller.
+	var body_scale: float = 1.0 + (scale_up - 1.0) * 0.4
 	for pass_mine: bool in [false, true]:
 		for body: Body in bodies:
 			if body.mine != pass_mine:
 				continue
-			if not body.mine and body.team != own_team and not MAP_SHOWS_ENEMIES:
+			if not body.mine and body.team != own_team and (not MAP_SHOWS_ENEMIES or tell.minimap):
 				continue
+			var other: bool = MinimapOutline.floor_of(body.feet.y, _outline.upper_floor_y) != storey
 			var at: Vector2 = _to_map(Vector2(body.feet.x, body.feet.z), centre, middle, fit)
 			_draw_pointer(at, pointer(body.member, body.mine, body.heading, _up),
-				colours.get(body.team, Color.WHITE))
+				colours.get(body.team, Color.WHITE),
+				body_scale * (OTHER_FLOOR_SCALE if other else 1.0),
+				OTHER_FLOOR_ALPHA if other else 1.0)
 
-## One figure's pointer on the map, `at` its map position.
-func _draw_pointer(at: Vector2, shape: Dictionary, fill: Color) -> void:
-	var rim: Color = Color(0.05, 0.05, 0.05, 0.9)
+## A vault (a dark safe with a cream slot) or a jail (a square with three bars)
+## at `at`, `half` its half-size in pixels.
+func _draw_icon(at: Vector2, kind: StringName, half: float) -> void:
+	var square: Rect2 = Rect2(at - Vector2(half, half), Vector2(half, half) * 2.0)
+	if kind == &"vault":
+		draw_rect(square.grow(1.0), UiTheme.CREAM)
+		draw_rect(square, UiTheme.CHARCOAL)
+		draw_line(at + Vector2(-half * 0.55, 0.0), at + Vector2(half * 0.55, 0.0), UiTheme.CREAM, 1.5)
+	else:
+		draw_rect(square.grow(1.0), UiTheme.CREAM)
+		draw_rect(square, UiTheme.CHARCOAL, false, 1.5)
+		for step: int in 3:
+			var x: float = at.x - half * 0.5 + half * 0.5 * step
+			draw_line(Vector2(x, at.y - half), Vector2(x, at.y + half), UiTheme.CHARCOAL, 1.5)
+
+## One figure's pointer on the map, `at` its map position, drawn `grow` times
+## its size and `alpha` opaque.
+func _draw_pointer(at: Vector2, shape: Dictionary, fill: Color, grow: float = 1.0,
+		alpha: float = 1.0) -> void:
+	var rim: Color = Color(0.05, 0.05, 0.05, 0.9 * alpha)
 	var mine: bool = shape[&"mine"]
-	var edge: Color = UiTheme.CREAM if mine else rim
+	var edge: Color = Color(UiTheme.CREAM, alpha) if mine else rim
 	var edge_width: float = 2.0 if mine else 1.5
+	fill = Color(fill, alpha)
 	var points: PackedVector2Array = shape[&"points"]
-	var radius: float = shape[&"radius"]
+	var radius: float = shape[&"radius"] * grow
 	if points.is_empty():
 		draw_circle(at, radius + edge_width, edge)
 		draw_circle(at, radius, fill)
 	else:
 		var placed: PackedVector2Array = PackedVector2Array()
 		for point: Vector2 in points:
-			placed.append(at + point)
+			placed.append(at + point * grow)
 		draw_colored_polygon(placed, fill)
 		placed.append(placed[0])
 		draw_polyline(placed, edge, edge_width, true)
 	var notch: PackedVector2Array = shape[&"notch"]
 	if notch.size() == 2:
-		draw_line(at + notch[0], at + notch[1], edge, 2.5 if mine else 2.0)
+		draw_line(at + notch[0] * grow, at + notch[1] * grow, edge, 2.5 if mine else 2.0)
 
 ## The minimap pointer for one figure (PT4-5), in map pixels about its map
 ## position: dad a square, mom a diamond, a son (any `*_boy`) a triangle whose

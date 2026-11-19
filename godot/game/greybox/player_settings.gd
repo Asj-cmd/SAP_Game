@@ -15,14 +15,16 @@ const SENSITIVITY_MIN: float = 0.25
 const SENSITIVITY_MAX: float = 3.0
 
 ## Keyboard actions, in the order the settings screen lists them, and their labels.
-const ACTIONS: Array[StringName] = [&"forward", &"back", &"left", &"right", &"jump", &"crouch", &"seize", &"free"]
+const ACTIONS: Array[StringName] = [&"forward", &"back", &"left", &"right", &"jump", &"crouch", &"seize", &"free", &"map"]
 const ACTION_LABELS: Dictionary[StringName, String] = {
 	&"forward": "Forward", &"back": "Back", &"left": "Left", &"right": "Right",
 	&"jump": "Jump", &"crouch": "Crouch (hold)", &"seize": "Seize / free", &"free": "Free",
+	&"map": "Big map (hold)",
 }
 const DEFAULT_KEYS: Dictionary[StringName, int] = {
 	&"forward": KEY_W, &"back": KEY_S, &"left": KEY_A, &"right": KEY_D,
 	&"jump": KEY_SPACE, &"crouch": KEY_SHIFT, &"seize": KEY_E, &"free": KEY_R,
+	&"map": KEY_TAB,
 }
 
 ## Multiplier on ChaseCamera.MOUSE_SENSITIVITY.

@@ -3,7 +3,7 @@ extends SceneTree
 ##
 ##   godot --headless --path godot --script res://tests/match_status_test.gd
 
-const EXPECTED_CHECKS: int = 82
+const EXPECTED_CHECKS: int = 100
 
 var _passed: int = 0
 var _failed: int = 0
@@ -26,6 +26,7 @@ func _initialize() -> void:
 	_test_bar_layout()
 	_test_map_pointers()
 	_test_player_labels()
+	_test_minimap()
 	var ran: int = _passed + _failed
 	if ran != EXPECTED_CHECKS:
 		_failed += 1
@@ -134,6 +135,74 @@ func _test_player_labels() -> void:
 		var other: Array[String] = FamilyLineup.roster(view, &"team_b", &"team_a", row[2], row[3])
 		_count(not " ".join(PackedStringArray(other)).contains("(you)"),
 			"roster, %s: the other family has a (you): %s" % [row[0], other])
+
+## PT5-2: which floor the map shows, and where its icons go on the real level.
+func _test_minimap() -> void:
+	print("=== Minimap floors and icons ===")
+	# feet y, upper floor y, expected floor (0 ground, 1 upstairs)
+	var floors: Array[Array] = [
+		[300.0, 660.0, 0], [480.0, 660.0, 0], [599.0, 660.0, 0], [600.0, 660.0, 1],
+		[660.0, 660.0, 1], [700.0, 660.0, 1], [900.0, INF, 0],
+	]
+	for row: Array in floors:
+		var got: int = MinimapOutline.floor_of(row[0], row[1])
+		_count(got == row[2], "floor_of(%s, %s): expected %d, got %d" % [row[0], row[1], row[2], got])
+	var outline: MinimapOutline = MinimapOutline.build(GreyBoxLevel.new())
+	_count(is_equal_approx(outline.upper_floor_y, 660.0), "upper floor at %s, expected 660" % outline.upper_floor_y)
+	# floor, expected vaults, expected jails, per family
+	var per_floor: Array[Array] = [[0, 0, 1], [1, 2, 0]]
+	for team: StringName in [&"team_a", &"team_b"]:
+		for row: Array in per_floor:
+			var vaults: int = 0
+			var jails: int = 0
+			for mark: MinimapOutline.Mark in outline.marks_on(row[0]):
+				if mark.team == team:
+					vaults += 1 if mark.kind == &"vault" else 0
+					jails += 1 if mark.kind == &"jail" else 0
+			_count(vaults == row[1] and jails == row[2], "%s floor %d: %d vaults %d jails, expected %d and %d"
+				% [team, row[0], vaults, jails, row[1], row[2]])
+	var outside: Array[String] = []
+	for mark: MinimapOutline.Mark in outline.marks:
+		var inside: bool = false
+		for foot: MinimapOutline.Footprint in outline.footprints_on(mark.storey):
+			inside = inside or (foot.team == mark.team and foot.rect.has_point(mark.at))
+		if not inside:
+			outside.append("%s %s at %s" % [mark.team, mark.kind, mark.at])
+	_count(outside.is_empty() and not outline.marks.is_empty(), "icons outside their own house: %s" % [outside])
+	# Mirrored: every team_a icon has a team_b twin of the same kind on the same
+	# floor, half a turn about the lot's middle.
+	var unmatched: Array[String] = []
+	var middle: Vector2 = outline.lot.get_center()
+	for mark: MinimapOutline.Mark in outline.marks:
+		if mark.team != &"team_a":
+			continue
+		var twin: bool = false
+		for other: MinimapOutline.Mark in outline.marks:
+			twin = twin or (other.team == &"team_b" and other.kind == mark.kind
+				and other.storey == mark.storey and other.at.distance_to(middle * 2.0 - mark.at) < 1.0)
+		if not twin:
+			unmatched.append("%s at %s" % [mark.kind, mark.at])
+	_count(unmatched.is_empty(), "icons without a mirrored twin: %s" % [unmatched])
+	# The card: a fifth of the screen tall, top-right, under the bar; big is centred.
+	var screen: Vector2 = Vector2(1920.0, 1080.0)
+	var small: Rect2 = TeamTellOverlay.card_rect(screen, outline.lot, false)
+	var bar: Rect2 = Rect2(screen.x * 0.22, 0.0, screen.x * 0.56, 120.0)  # bar, names, "YOU"
+	_count(is_equal_approx(small.size.y, 216.0) and is_equal_approx(small.end.x, screen.x - 16.0)
+		and not small.intersects(bar) and small.size.x > small.size.y,
+		"small card %s (bar and names in %s)" % [small, bar])
+	var held: Rect2 = TeamTellOverlay.card_rect(screen, outline.lot, true)
+	_count(is_equal_approx(held.size.y, 648.0) and held.get_center().distance_to(screen * 0.5) < 1.0,
+		"big card %s" % held)
+	# Each family's name sits on its own yard, off its house.
+	for i: int in outline.houses.size():
+		var spot: Vector2 = outline.name_spot(outline.houses[i])
+		var yard: bool = false
+		for zone: ZoneDef in GreyBoxLevel.new().zones:
+			yard = yard or (zone.outdoor and zone.owner_team == outline.house_teams[i]
+				and Rect2(zone.bounds.position.x, zone.bounds.position.z, zone.bounds.size.x,
+					zone.bounds.size.z).has_point(spot))
+		_count(yard and not outline.houses[i].has_point(spot), "%s name at %s (house %s)"
+			% [outline.house_teams[i], spot, outline.houses[i]])
 
 func _count(ok: bool, failure: String) -> void:
 	if ok:
