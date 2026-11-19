@@ -762,6 +762,9 @@ func _capture_chase(request: FrameCapture) -> void:
 		stand_in.position = feet
 		# The body faces where the camera looks, as it does in play.
 		stand_in.rotation = Vector3(0.0, yaw + PI, 0.0)
+		# The minimap shows the stand-in as this seat's body (PT5-2 frames).
+		_posing_feet = feet
+		_posing_yaw = yaw + PI
 		chase.reset()
 		chase.follow(feet, 0.0)
 		chase.pose(yaw, request.chase_pitch[i])
@@ -982,6 +985,8 @@ func _stand_in() -> Node3D:
 
 ## True while chase shots are being posed: the rig is parked on the stand-in.
 var _posing_chase: bool = false
+var _posing_feet: Vector3 = Vector3.ZERO
+var _posing_yaw: float = 0.0
 
 func _capture_frame(to_path: String) -> void:
 	# The texture only holds a finished frame after the draw, not after the
@@ -2016,6 +2021,10 @@ func _update_tell(truth: SimWorld, mine: int) -> void:
 		var member: FamilyMember = theme.member_for(entity.team, entity.slot, kid_swap)
 		body.member = member.id if member != null else &""
 		body.heading = _facings.get(entity_id, view.rotation.y)
+		if _posing_chase and body.mine:
+			# A chase capture: the map follows the stand-in, as play would.
+			body.feet = _posing_feet
+			body.heading = _posing_yaw
 		bodies.append(body)
 	bodies.append_array(_tell_extras)
 	_tell_overlay.bodies = bodies

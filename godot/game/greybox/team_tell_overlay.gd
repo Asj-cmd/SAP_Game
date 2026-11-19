@@ -77,9 +77,10 @@ const UP: Vector2 = Vector2(0.0, -1.0)
 var _up: Vector2 = UP
 var _card: StyleBoxFlat = null
 
-const MAP_LOT: Color = Color(0.60, 0.68, 0.52)
-const MAP_YARD: Color = Color(0.66, 0.74, 0.57)
-const MAP_HOUSE_SHARE: float = 0.45  # family colour over cream
+## The lawn pale and greyed, so a sage-green family pointer still stands out on it.
+const MAP_LOT: Color = Color(0.76, 0.79, 0.69)
+const MAP_YARD: Color = Color(0.80, 0.83, 0.73)
+const MAP_HOUSE_SHARE: float = 0.7  # family colour over cream
 
 func _init() -> void:
 	set_anchors_preset(Control.PRESET_FULL_RECT)
@@ -195,14 +196,26 @@ func _draw_map() -> void:
 		var width: float = font.get_string_size(text, HORIZONTAL_ALIGNMENT_LEFT, -1.0, name_size).x
 		draw_string(font, spot + Vector2(-width * 0.5, name_size * 0.35), text,
 			HORIZONTAL_ALIGNMENT_LEFT, -1.0, name_size, colours.get(team, UiTheme.CHARCOAL).darkened(0.45))
-	# Vault and jail icons on this floor.
+	# Vault and jail icons on this floor. Cash lying in a vault room is shown by
+	# that vault's icon (a green slot), not as marks on top of it.
 	var icon: float = 5.0 * (1.0 + (scale_up - 1.0) * 0.5)
-	for mark: MinimapOutline.Mark in _outline.marks_on(storey):
-		_draw_icon(_to_map(mark.at, centre, middle, fit), mark.kind, icon)
-	# Loose cash on this floor.
+	var marks: Array[MinimapOutline.Mark] = _outline.marks_on(storey)
+	var stray: Array[Vector3] = []
+	var stocked: Dictionary[int, bool] = {}
 	for cash: Vector3 in loose_cash:
 		if MinimapOutline.floor_of(cash.y, _outline.upper_floor_y) != storey:
 			continue
+		var in_vault: bool = false
+		for i: int in marks.size():
+			if marks[i].kind == &"vault" and marks[i].room.has_point(Vector2(cash.x, cash.z)):
+				stocked[i] = true
+				in_vault = true
+		if not in_vault:
+			stray.append(cash)
+	for i: int in marks.size():
+		_draw_icon(_to_map(marks[i].at, centre, middle, fit), marks[i].kind, icon, stocked.has(i))
+	# Loose cash on this floor, outside the vaults.
+	for cash: Vector3 in stray:
 		var at: Vector2 = _to_map(Vector2(cash.x, cash.z), centre, middle, fit)
 		draw_circle(at, icon * 0.75, UiTheme.CHARCOAL)
 		draw_circle(at, icon * 0.55, UiTheme.CASH_GREEN)
@@ -222,14 +235,18 @@ func _draw_map() -> void:
 				body_scale * (OTHER_FLOOR_SCALE if other else 1.0),
 				OTHER_FLOOR_ALPHA if other else 1.0)
 
-## A vault (a dark safe with a cream slot) or a jail (a square with three bars)
-## at `at`, `half` its half-size in pixels.
-func _draw_icon(at: Vector2, kind: StringName, half: float) -> void:
+## A vault (a dark safe with a slot, green when cash lies in its room) or a
+## jail (a square with three bars) at `at`, `half` its half-size in pixels.
+func _draw_icon(at: Vector2, kind: StringName, half: float, stocked: bool = false) -> void:
 	var square: Rect2 = Rect2(at - Vector2(half, half), Vector2(half, half) * 2.0)
 	if kind == &"vault":
 		draw_rect(square.grow(1.0), UiTheme.CREAM)
 		draw_rect(square, UiTheme.CHARCOAL)
-		draw_line(at + Vector2(-half * 0.55, 0.0), at + Vector2(half * 0.55, 0.0), UiTheme.CREAM, 1.5)
+		if stocked:
+			draw_rect(Rect2(at - Vector2(half * 0.6, half * 0.3), Vector2(half * 1.2, half * 0.6)),
+				UiTheme.CASH_PALE)
+		else:
+			draw_line(at + Vector2(-half * 0.55, 0.0), at + Vector2(half * 0.55, 0.0), UiTheme.CREAM, 1.5)
 	else:
 		draw_rect(square.grow(1.0), UiTheme.CREAM)
 		draw_rect(square, UiTheme.CHARCOAL, false, 1.5)
@@ -248,6 +265,9 @@ func _draw_pointer(at: Vector2, shape: Dictionary, fill: Color, grow: float = 1.
 	fill = Color(fill, alpha)
 	var points: PackedVector2Array = shape[&"points"]
 	var radius: float = shape[&"radius"] * grow
+	if mine:
+		# Your own: a dark halo behind it, so it shows on lawn and floor alike.
+		draw_circle(at, radius * 1.9, Color(UiTheme.CHARCOAL, 0.8 * alpha))
 	if points.is_empty():
 		draw_circle(at, radius + edge_width, edge)
 		draw_circle(at, radius, fill)

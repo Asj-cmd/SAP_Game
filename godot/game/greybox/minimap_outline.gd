@@ -34,6 +34,8 @@ class Mark:
 	var storey: int = 0
 	var kind: StringName = &""  # &"vault" or &"jail"
 	var at: Vector2 = Vector2.ZERO
+	## The room it stands for (x, z), so cash at rest in a vault is shown by its icon.
+	var room: Rect2 = Rect2()
 
 ## How far below the upper floor a body's feet may be and still count as
 ## upstairs, so a body halfway up a flight still reads as on the ground floor.
@@ -95,6 +97,7 @@ static func build(level: GreyBoxLevel) -> MinimapOutline:
 			mark.storey = storey
 			mark.kind = &"vault" if zone.role == ZoneDef.Role.CASH_ROOM else &"jail"
 			mark.at = flat.get_center()
+			mark.room = flat
 			outline.marks.append(mark)
 	var teams: Array[StringName] = by_team.keys()
 	teams.sort()

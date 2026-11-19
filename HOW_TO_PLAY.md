@@ -12,6 +12,17 @@ type. An empty box means "Player". If two players in one game type the same name
 " 2" (then " 3") to the later one. The name shows in the lobby, the round start lineup
 ("Dad - Sam (you)"; bots say "Bot"), the match end, the results card and the debug HUD.
 
+## The map
+
+In a match the map sits top right: both lots seen from above with north up, the fence and its gate,
+each house in its family's colour with the family name on its lawn, a safe icon for each vault and a
+barred square for each jail. Small green dots are cash lying loose; a vault whose room holds cash
+shows a green slot. It shows only the floor you are on ("Ground" or "Upstairs", top left of the
+map). Anyone on the other floor is drawn faded and smaller. Your own pointer has a dark ring round it.
+**Hold Tab** for the same map, big, in the middle of the screen. Tab can be changed in Settings
+("Big map (hold)") like the other keys. The team-tell option "minimap" now means "teammates only": with
+it on, the map hides the other family.
+
 ## Changing the family names
 
 The players name their own families. The name is shown in the score bar, the round and match
