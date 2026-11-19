@@ -237,6 +237,39 @@ other task here is verified by tests and numbers. The family display names come 
   "Finish the game, not the bots" in `PROMPT.md`); the rest of "Backlog: bots" stays deferred. Keep
   the sim deterministic and the bot tick inside its time budget. No frames.
 
+## Playtest 5 (user, 2026-11-19): after PT4-8, in this order
+
+Planner and workers are Opus; no task here is tagged. Written after the user's next playtest. PT5-2 may
+capture frames (one set at the end, at most one redo; `PROMPT.md`); PT5-1 is checked by tests and numbers.
+
+- [ ] **PT5-1 Player names.** Each player types their own name once (one "Your name" box on the main
+  menu, saved with the settings; at most 16 characters, letters, digits, spaces, hyphens and
+  apostrophes, cleaned by one shared function with a table-driven test like `FamilyNames.clean` in
+  PT3-3; an empty name falls back to "Player"). It is used for Play solo, Host and Join. Online the
+  name travels in the lobby message with the member pick (PT4-3) and the family names (PT3-3), not in
+  the sim; the host's copy is the truth and a rejoining player keeps their name. Two players with the
+  same name get " 2" added by the host. Show the typed names everywhere a player is named: **the round
+  start lineup (PT4-2) shows each body as "<ROLE> - <name>" (for example the dad is player 1, the mom
+  player 2, in seat order), with the local player's own name too (today the lineup says "You" for them
+  and "Player" for other humans; a bot says "Bot")**, the lobby seats, the results card, the end
+  sequence (PT2-7) and the debug HUD. The local player's own entry is marked (for example "(you)").
+  Bots keep "Bot". Table-driven test: cleaning, duplicates, the lineup text for solo (you + bots),
+  3v3 online (guests with names) and a rejoin. No frames.
+- [ ] **PT5-2 Minimap that is easy to read.** The user finds the current minimap confusing. Before
+  changing anything, look at it as it is (the code in `game/greybox/`: `minimap_outline.gd` and the
+  drawing in `greybox_main.gd`) and say in `PROGRESS.md` in one or two lines what makes it confusing
+  (two floors drawn on top of each other? no labels? too small? figures too similar to the walls?).
+  Then redesign it as a clean, north-up top-down map in the `UiTheme` look (cream card, family colours):
+  both lots with the fence line and the gate, the houses as simple filled footprints tinted by family,
+  the family names (PT3-3) on their lots, a clear icon for each vault and each jail, loose cash as small
+  green marks, and **only the floor the player is on** (with a small "Ground" / "Upstairs" label that
+  switches when they climb, so floors never overlap). The figure shapes from PT4-5 stay (own one
+  outlined and bigger, pointing the way it faces). Big enough to read at 1080p (about a fifth of the
+  screen height), not in the way of the cash bar, shown only in a match, optional bigger map while a key
+  is held (`Tab`, rebindable, in HOW_TO_PLAY.md). Presentation only: the sim does not change. Table-driven
+  test for the floor choice and the icon placement. **Frames allowed: one set at the end (ground floor,
+  upstairs, carrying cash, near the gate), at most one redo.**
+
 ## Where the project actually stands (measured at the start of the autobuild)
 
 Measured on branch `claude/godot-port` at merge commit `5ac27d6` (the user's 29 local commits from

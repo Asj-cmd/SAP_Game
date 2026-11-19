@@ -17,8 +17,8 @@ Milestone: a friends playtest. Prefer a working, simple version over a polished 
 - Run the full `node autobuild/verify.mjs` ONCE per task, at the end, just before committing. Never
   at the start of a session. Run `node autobuild/verify.mjs --quick` only if you suspect you broke
   something.
-- No frame captures, contact sheets, sweeps or probes, unless the task is P2-6, P4-8, P3-7, P3-8, PT2-5, PT2-6, PT2-7, PT2-8, PT4-1, PT4-6 or PT4-7.
-  For those eleven: ONE capture set, at the end, opened with the Read tool and described in
+- No frame captures, contact sheets, sweeps or probes, unless the task is P2-6, P4-8, P3-7, P3-8, PT2-5, PT2-6, PT2-7, PT2-8, PT4-1, PT4-6, PT4-7 or PT5-2.
+  For those twelve: ONE capture set, at the end, opened with the Read tool and described in
   `PROGRESS.md` as what each frame actually showed (not what it should have shown), and at most ONE
   redo of what looks wrong. Every other task is verified by tests and numbers only.
 - While working you may run the one test file for what you changed (`tests/*_test.gd`, with Godot).
