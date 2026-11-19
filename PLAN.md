@@ -255,7 +255,7 @@ capture frames (one set at the end, at most one redo; `PROMPT.md`); PT5-1 is che
   sequence (PT2-7) and the debug HUD. The local player's own entry is marked (for example "(you)").
   Bots keep "Bot". Table-driven test: cleaning, duplicates, the lineup text for solo (you + bots),
   3v3 online (guests with names) and a rejoin. No frames.
-- [ ] **PT5-2 Minimap that is easy to read.** The user finds the current minimap confusing. Before
+- [x] **PT5-2 Minimap that is easy to read.** *(Done 2026-11-19: map card in every match (D3 (b) now "teammates only"), north-up, own floor only with "Ground" / "Upstairs", family-coloured footprints, names on the lots, vault / jail icons, loose cash, other-floor bodies faded, ring round your own pointer, Tab big map (rebindable). Frames in `autobuild/frames/pt5_2/`, one redo used. Full verify green except the 3v3 tick budget (PT4-8's cost). See PROGRESS.md.)* The user finds the current minimap confusing. Before
   changing anything, look at it as it is (the code in `game/greybox/`: `minimap_outline.gd` and the
   drawing in `greybox_main.gd`) and say in `PROGRESS.md` in one or two lines what makes it confusing
   (two floors drawn on top of each other? no labels? too small? figures too similar to the walls?).

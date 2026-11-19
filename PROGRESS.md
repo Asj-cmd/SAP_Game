@@ -4,6 +4,36 @@ Newest first. One entry per task: date, task id, what changed, what the frames s
 
 > **For the planner: the full verify now fails the 3v3 tick budget on every task, and the cause is PT4-8's bot code.** PT4-8 stays `[~]`. Measured back to back on 2026-11-19 in one worktree: the pre-PT4-8 bot files score 0 of 600 over (bot thinking 5.99 ms/tick); the current code scores 5 and 11 over (7.80 and 8.70 ms). The gate is at most 5. PT4-8's brief forbade touching `sim/ai/` to save tick time and allowed no third attempt, so nobody may fix it until that is lifted. Decide one of: (a) a perf task on PT4-8's pursuit (the lead-point snap, the straight-walk check, the 0.3 s chase re-plan; re-plan alone back at 0.9 s did not help the night before); (b) accept the cost and gate 3v3 differently; (c) revert PT4-8. Until then, a task's verify that fails only this check is not that task's fault (PT5-1 was ticked on that basis).
 
+## 2026-11-19 — PT5-2 Minimap that is easy to read
+- **What made it confusing** (read before changing anything): most players never saw a map at all, because it was drawn only with D3 option (b) on, and that is off by default. When it was on, it turned so your own house was at the bottom. It was a 210 px dark box in which both floors were one grey rectangle per house: no labels, no vaults, jails or cash, and no family colour on the houses. The brief's reading was right.
+- **What it is now** (`minimap_outline.gd`, `team_tell_overlay.gd`, a few lines in `greybox_main.gd`):
+  - A cream card (UiTheme colours, soft shadow), 0.2 × screen height, top right at y 130, under the bar's names. Shown in every match.
+  - North-up and fixed. Only the floor you are on, with "Ground" / "Upstairs" top left (`MinimapOutline.floor_of`: upstairs once your feet are within 60 of the upper floor).
+  - Each house's footprint for that floor at 70 % family colour over cream, with a darker outline. Family names on their own lawns.
+  - Safe icons for the vaults (both upstairs) and barred squares for the jails (ground floor).
+  - Loose cash as green dots. Cash lying in a vault room shows as a pale green slot in that vault's icon instead.
+  - PT4-5 pointers unchanged, plus a dark ring behind your own. Bodies on the other floor drawn at 35 % and 0.7 size.
+  - Hold Tab (new rebindable `map` key, "Big map (hold)" in Settings) for the same map at 0.6 × height, centred.
+  - D3 (b) now hides the enemy pointers ("teammates only").
+- The brief said the upper floor is the lowest indoor zone "above 100". Indoor zones start at y 300, so the rule is relative: more than 100 above the lowest indoor floor, which gives 660 here.
+- Capture-only change: during a `--capture-chase` pose, the map treats the stand-in as your own body.
+- **Tests:** `match_status_test` 82 → 100 (pin ratcheted). Cases: `floor_of` at ground, mid-flight, just under and at the tolerance, landing, upstairs, single storey; the upper floor is 660; per family, 1 jail on the ground floor and 2 vaults upstairs; every icon inside its own house's footprint; every team_a icon has a team_b twin half a turn about the lot's middle; the card's size, corner and clearance from the bar, and the centred big card; each family's name lies on its own yard, off its house. PT4-5 pointer cases unchanged and passing.
+- **Frames** (1600×900, `autobuild/frames/pt5_2/`):
+  - First set `map_1..3`: the layout was right, but house A's footprint was a washed-out grey-green, and my own green pointer was nearly invisible on the green lawn. Upstairs, the cash dots sat right on the vault icons, which made a clutter.
+  - **One redo** `redo_1..3`, plus `carry.png`:
+    - `redo_1`, ground floor kitchen A: "Ground"; house A sage green, house B terracotta; one jail icon in each house, mirrored (A top left, B bottom right); my haloed square in A's south-east room; the fence broken at the middle gate; a few pointers near the gate.
+    - `redo_2`, upstairs bedroom A: "Upstairs"; the jails are gone and two vault icons per house show; no dots on them; ground-floor bodies by the gate drawn faded.
+    - `redo_3`, at the gate: my pointer right at the fence gap, two orange pointers just past it.
+    - `carry.png` (`--pilot=carry`, holding a bundle in study_a): "Upstairs"; my pointer over the study's vault icon; no dot where I stand (the carried bundle is not loose); a teammate's circle in the same house; the score bar shows 1 v 3.
+  - Not shot: the Tab big map (`--capture-press` only works during a follow).
+  - Weak spot seen, not fixed (no second redo allowed): the pale green "stocked" slot is hard to tell from the cream one at this size.
+- **Full verify, run once: 1 problem**, the same one as PT5-1's.
+  - 20 suites at their pins; symmetry 190/190.
+  - Bot match 3v3 and 1v1 identical to before.
+  - Network all OK (net_smoke 1635 ticks agree). Render counters OK.
+  - **3v3 tick budget 11 of 600 → FAIL**, which is PT4-8's bot cost (see the note at the top). PT5-2 touches no sim code.
+- Left: the stocked-vault slot could use a stronger green. Nobody has played with the new map yet.
+
 ## 2026-11-19 — PT5-1 Player names
 - The code, tests and docs were committed by the previous session (`ca8ad47`, `73f029f`), which ran out of usage before its verify finished. This session only ran the gate and did the PT4-8 step 3 comparison. No code changed.
 - **What it does:** "Your name" box on the main menu (16 characters, cleaned as typed, saved under `[player] name=`), used for solo, Host and Join. One cleaning rule, `LobbyState.clean_player` (net/). Guests send their name in the lobby request (LobbyState v3; v2 refused). The host renames the seat through `Lobby.rename`, adding " 2", " 3" to duplicates (case-insensitive), and a rejoin keeps the name. Shown as "<Role> - <name>", with " (you)" for the own body and "- Bot" for bots, in the round-start lineup, the lobby roster lines, the results card, the end sequence and the debug HUD. Decisions in DECISIONS.md (2026-11-19 PT5-1 rows).
