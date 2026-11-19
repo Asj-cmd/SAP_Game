@@ -2,10 +2,10 @@
 
 **State:** running
 
-- Doing: planner session
+- Doing: planner session ended (exit 0, new commit)
 - Task: PT4-8
 - Model: opus
 - Session: before session 2
-- Usage: 5-hour 23%, weekly 85%
-- Last commit: PT4-8 (part): code and tests done, docs and decisions; not ticked - full verify failed only the 3v3 tick budget (12 of 600) on a loaded machine, and the pre-PT4-8 bot code fails it the same way (6 of 600)
-- Updated: 2026-11-19T13:40:29.842Z (Thu, Nov 19, 8:40 AM, New York)
+- Usage: 5-hour 34%, weekly 86%
+- Last commit: Brief: PT4-8, PT5-1, PT5-2
+- Updated: 2026-11-19T13:43:00.682Z (Thu, Nov 19, 8:43 AM, New York)
