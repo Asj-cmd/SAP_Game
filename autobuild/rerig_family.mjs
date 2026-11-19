@@ -32,7 +32,8 @@ const BODIES = {
   shirt: { src: join(MEN, "Male_Shirt.fbx"), rig: "figure_male", out: "figure_lp_shirt",
     args: ["--hair=combover", "--belly=13"] },
   casual: { src: join(MEN, "Male_Casual.fbx"), rig: "figure_male", out: "figure_lp_casual",
-    args: ["--hair=mohawk", "--hair-height=13"] },
+    // PT4-8 REDO: a narrow ridge (half the elder boy's base width); 0.32 read as a dome.
+    args: ["--hair=mohawk", "--hair-height=13", "--hair-width=0.16"] },
 };
 const only = process.argv.find((a) => a.startsWith("--only="))?.slice(7);
 let failed = 0;
@@ -41,7 +42,7 @@ for (const [name, b] of Object.entries(BODIES)) {
   const r = spawnSync(process.execPath, [join(ROOT, "autobuild", "run_tool.mjs"), "rerig_character", "--",
     `--src=${b.src.replace(/\\/g, "/")}`, `--rig=res://art/characters/${b.rig}.gltf`,
     `--out=res://art/characters/${b.out}.gltf`, ...(b.kinds ? [`--kinds=${b.kinds}`] : []), ...(b.args ?? [])], { cwd: ROOT, encoding: "utf8", timeout: 300000, maxBuffer: 1 << 26 });
-  const lines = `${r.stdout ?? ""}\n${r.stderr ?? ""}`.split("\n").filter((l) => /wrote|egg:|hair:|belly:|facing:|axes:|dropped|ERROR|error/i.test(l));
+  const lines = `${r.stdout ?? ""}\n${r.stderr ?? ""}`.split("\n").filter((l) => /wrote|egg:|hair:|mohawk:|pigtail|belly:|facing:|axes:|dropped|ERROR|error/i.test(l));
   console.log(`== ${name} (exit ${r.status})\n${lines.join("\n")}`);
   if (r.status !== 0) failed++;
 }

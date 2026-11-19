@@ -711,22 +711,30 @@ func _build_hair(style: String, cm: float, height: float, shoulder_y: float) -> 
 		"mohawk":
 			# One ridge down the middle, top of the forehead to the nape, no cap.
 			# PT2-8: a wider base (0.24 -> 0.32), height from --hair-height.
+			# PT4-8 REDO: base half-width from --hair-width (egg radii), so the
+			# younger boy's can be narrower than the elder boy's.
 			_crest = height
-			_hair_arc(true, 0.0, 0.32, 52.0, -125.0, _crest_at, 0.6, 1.0, 10)
+			var half_w: float = float(_opts.get("hair-width", "0.32"))
+			_hair_arc(true, 0.0, half_w, 52.0, -125.0, _crest_at, 0.6, 1.0, 10)
+			print("mohawk: base width %.1f cm, head width %.1f cm, ratio %.2f" % [
+				2.0 * half_w * 0.95 * _hr.x / cm, 2.0 * _hr.x / cm, half_w * 0.95])
 		"pigtails_long":
 			_hair_cap(_on_top_back, 1.05)
 			# PT2-8: two shabby, uneven bunches from behind the ears. One side
-			# hangs to just above the shoulder nearly straight; the other stops
-			# 6 cm higher, thinner, and splays out. Each is two offset blobs.
+			# hangs to just above the shoulder nearly straight; the other is
+			# thinner and splays out. Each is two offset blobs.
+			# PT4-8 REDO: the short side splays 38 deg (was 22) and is 30 %
+			# shorter than the long side, so the two differ from the front.
 			# (The member's Head scale in the theme stretches them ~17 % further down.)
 			var top_y: float = _hc.y + 0.2 * _hr.y
-			# [side, cm above the shoulder, tilt deg, radius k, wobble cm]
-			for row: Array in [[-1.0, 8.0, 6.0, 1.08, 0.8], [1.0, 14.0, 22.0, 0.82, -0.9]]:
+			var full: float = top_y - (shoulder_y + 8.0 * cm)
+			# [side, length k, tilt deg, radius k, wobble cm]
+			for row: Array in [[-1.0, 1.0, 6.0, 1.08, 0.8], [1.0, 0.7, 38.0, 0.82, -0.9]]:
 				var s: float = row[0]
 				var pivot: Vector3 = _hp(Vector3(s * 0.85, 0.0, -0.45))
 				pivot.x += s * 1.0 * cm
 				pivot.y = top_y
-				var length: float = top_y - (shoulder_y + float(row[1]) * cm)
+				var length: float = full * float(row[1])
 				var tilt: float = deg_to_rad(float(row[2])) * s
 				var k: float = row[3]
 				var down: Vector3 = Basis(Vector3.BACK, tilt) * Vector3.DOWN
@@ -738,6 +746,10 @@ func _build_hair(style: String, cm: float, height: float, shoulder_y: float) -> 
 				var low: Vector3 = pivot + down * length * 0.5 + down2 * length * 0.22
 				low += Vector3(s * float(row[4]) * cm, 0.0, -0.6 * cm * _hf)
 				_hair_blob(low, Vector3(2.5 * cm * k, length * 0.27, 2.7 * cm * k), Basis(Vector3.BACK, tilt2))
+				var tip: Vector3 = low + down2 * length * 0.27
+				print("pigtail %s: length %.1f cm, tilt %.0f deg, tip %.1f cm out from the head centre, %.1f cm below it" % [
+					"L" if s < 0.0 else "R", length / cm, rad_to_deg(absf(tilt)),
+					absf(tip.x - _hc.x) / cm, (_hc.y - tip.y) / cm])
 		"pigtails_short":
 			_hair_cap(_on_top_back, 1.05)
 			# PT2-8: two short, uneven bunches set high: one sticks out 25 deg up,
