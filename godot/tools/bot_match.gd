@@ -97,6 +97,10 @@ func _initialize() -> void:
 	_stall_log = OS.get_cmdline_user_args().has("--stall-log")
 	_why_idle = OS.get_cmdline_user_args().has("--why-idle")
 	_swap_houses = OS.get_cmdline_user_args().has("--swap-houses")
+	if Array(OS.get_cmdline_user_args()).any(func(a: String) -> bool: return a.begins_with("--chase")):
+		_run_chases()
+		quit(0)
+		return
 	var first: Dictionary = _play()
 	var second: Dictionary = first if _once else _play()
 
@@ -671,3 +675,398 @@ func _report_places(label: String, places: Dictionary, total: int, bucket: float
 		print("              %5d near (%d, %d)" % [
 			places[keys[i]], int((float(keys[i].x) + 0.5) * bucket),
 			int((float(keys[i].z) + 0.5) * bucket)])
+
+# ---- staged chases (PT4-8) ----
+#
+# `--chase` plays short staged scenes on the real house instead of a match, to
+# count how often a bot catches a thief and how often a human-like chaser
+# catches a bot. 3v3 seats; the two bodies in the scene are the first of each
+# family, everybody else stands still on the neutral lot, far away. The start
+# spots are a fixed table drawn from the level (one per room of the robbed
+# family's ground, the jail excepted), never random. `--chase=AB` plays only
+# those scenes.
+#
+#   A  a scripted runner (the second family) carries the first family's cash
+#      home along the nav route; a first-family bot starts 300-500 BEHIND it.
+#   B  the same runner; the bot starts off to the SIDE of the runner's way
+#      home, about 400 ahead along it (the cut-off case).
+#   C  a first-family bot carrying the second family's cash home meets an
+#      intruder 300 ahead on its way, walking the other way. Caught = seized,
+#      kept = still holding the cash when it seized.
+#   R  the reverse of A: a second-family bot carries the first family's cash
+#      home and a scripted chaser that steers straight at it starts behind.
+#
+# A runner that reaches ground the chasing family does not own has escaped (a
+# seizure there is not legal); CHASE_SECONDS without either is a miss.
+
+const CHASE_SECONDS: float = 15.0
+const CHASE_ARRIVE: float = 30.0
+const CHASE_LOOKAHEAD: int = 8
+## A human chaser re-aims this often, and runs straight at a target this close
+## with nothing in between.
+const HUMAN_REAIM_SECONDS: float = 0.25
+const HUMAN_STRAIGHT: float = 350.0
+
+func _run_chases() -> void:
+	var level: GreyBoxLevel = GreyBoxLevel.new(GreyBoxLevel.SafeVariant.B, _level_path, 3)
+	if not level.is_loaded():
+		print("no baked level - run tools/bake_blockout.gd")
+		return
+	for field: String in _bot_overrides:
+		var current: Variant = level.bot_profile.get(field)
+		if current == null:
+			print("no bot profile field %s" % field)
+			return
+		level.bot_profile.set(field, type_convert(_bot_overrides[field], typeof(current)))
+	var probe: SimWorld = _chase_world(level)
+	if probe == null:
+		return
+	var nav: NavGraph = NavGraph.of(probe.surface)
+	var teams: Array[StringName] = probe.sorted_team_ids()
+	var robbed: StringName = teams[0]
+	var robber: StringName = teams[1]
+	var plans: Dictionary[String, Array] = {
+		"A": _plan_runs(probe, nav, robbed, robber, false),
+		"B": _plan_runs(probe, nav, robbed, robber, true),
+		"C": _plan_carries(probe, nav, robbed, robber),
+	}
+	plans["R"] = plans["A"]
+	var only: String = ""
+	for arg: String in OS.get_cmdline_user_args():
+		if arg.begins_with("--chase="):
+			only = arg.trim_prefix("--chase=")
+	print("chase: %s robbed, %s robbing; %d s a scene" % [robbed, robber, int(CHASE_SECONDS)])
+	for kind: String in ["A", "B", "C", "R"]:
+		if only != "" and not only.contains(kind):
+			continue
+		var caught: int = 0
+		var kept: int = 0
+		var took: float = 0.0
+		var scenes: Array = plans[kind]
+		for i: int in scenes.size():
+			var plan: Dictionary = scenes[i]
+			var result: Dictionary = _stage(level, nav, kind, plan, robbed, robber)
+			if result["caught"]:
+				caught += 1
+				took += float(result["seconds"])
+				if result["kept"]:
+					kept += 1
+			print("  %s%d  thief %s  chaser %s  %s" % [kind, i + 1, (plan["thief"] as Vector3).round(),
+				(plan["chaser"] as Vector3).round(), result["note"]])
+		var held: String = (", %d of them still carrying" % kept) if kind == "C" else ""
+		print("%s  caught %d of %d, mean %.1f s to catch%s" % [kind, caught, scenes.size(),
+			took / float(maxi(caught, 1)), held])
+
+## A fresh 3v3 world on `level`, played through its countdown to live play.
+func _chase_world(level: GreyBoxLevel) -> SimWorld:
+	var world: SimWorld = SimWorld.new(_seed)
+	if not world.configure(level.mode, level.tuning, level.zones, level.teams, level.collision, level.surface):
+		for failure: String in world.content_failures:
+			print("content rejected: %s" % failure)
+		return null
+	world.add_system(MovementSystem.new())
+	world.add_system(CarrySystem.new())
+	world.add_system(CaptureSystem.new())
+	world.add_system(ScoringSystem.new())
+	world.add_system(MatchFlowSystem.new())
+	world.populate_roster()
+	world.step([MatchCommand.start()])
+	var guard: int = 0
+	while not world.is_live() and guard < 600:
+		world.step([])
+		guard += 1
+	return world
+
+## The robbed family's rooms and yard, one standing place each (the jail out).
+## zone_point is a room's centre, in mid-air: the stance under it is the spot.
+func _chase_starts(world: SimWorld, nav: NavGraph, robbed: StringName) -> Array[Vector3]:
+	var starts: Array[Vector3] = []
+	for zone_id: StringName in world.zone_ids_in_resolution_order():
+		var zone: ZoneDef = world.zones[zone_id]
+		if zone.is_owned_by(robbed) and zone.role != ZoneDef.Role.JAIL:
+			starts.append(nav.surface.nodes[nav.stance_near(nav.zone_point(world, zone, Vector3.ZERO))])
+	return starts
+
+func _cash_points(world: SimWorld, nav: NavGraph, team: StringName) -> Array[Vector3]:
+	var points: Array[Vector3] = []
+	for zone_id: StringName in world.zone_ids_in_resolution_order():
+		var zone: ZoneDef = world.zones[zone_id]
+		if zone.is_owned_by(team) and zone.role == ZoneDef.Role.CASH_ROOM:
+			points.append(nav.zone_point(world, zone, Vector3.ZERO))
+	return points
+
+## The point of `homes` with the shortest route from `from`.
+func _nearest_home(nav: NavGraph, from: Vector3, homes: Array[Vector3]) -> Vector3:
+	var best: Vector3 = homes[0]
+	var best_length: float = INF
+	for home: Vector3 in homes:
+		var length: float = _route_length(nav.route(from, home))
+		if length < best_length:
+			best_length = length
+			best = home
+	return best
+
+func _route_length(route: PackedVector3Array) -> float:
+	if route.is_empty():
+		return INF
+	var total: float = 0.0
+	for i: int in range(1, route.size()):
+		total += route[i - 1].distance_to(route[i])
+	return total
+
+## [the point `along` world units down `route` (its end if shorter), the flat
+## direction of travel there].
+func _along(route: PackedVector3Array, along: float) -> Array:
+	var left: float = along
+	for i: int in range(1, route.size()):
+		var step: float = route[i - 1].distance_to(route[i])
+		var dir: Vector3 = route[i] - route[i - 1]
+		dir.y = 0.0
+		if step >= left and step > 0.0:
+			return [route[i - 1].lerp(route[i], left / step), dir.normalized()]
+		left -= step
+	var last: Vector3 = route[route.size() - 1]
+	var tail: Vector3 = last - route[maxi(0, route.size() - 2)]
+	tail.y = 0.0
+	return [last, tail.normalized()]
+
+## A stance `low`..`high` (flat) from `centre` on its floor and a short walk
+## from it, best by `rank` (higher wins; ties to the lower index).
+func _stance_by(nav: NavGraph, centre: Vector3, low: float, high: float, rank: Callable) -> Vector3:
+	var hops: PackedInt32Array = nav.hops_from(nav.node_at(centre))
+	var best: int = -1
+	var best_rank: float = -INF
+	for slack: float in [1.5, 2.5]:
+		for i: int in nav.surface.size():
+			var p: Vector3 = nav.surface.nodes[i]
+			if absf(p.y - centre.y) > 120.0:
+				continue
+			var flat: float = _flat(p, centre)
+			if flat < low or flat > high:
+				continue
+			var walk: float = nav.distance_by_hops(hops, i)
+			if walk < 0.0 or walk > flat * slack:
+				continue
+			var r: float = float(rank.call(p))
+			if r > best_rank:
+				best_rank = r
+				best = i
+		if best >= 0:
+			break
+	return nav.surface.nodes[best] if best >= 0 else centre
+
+func _flat(a: Vector3, b: Vector3) -> float:
+	return Vector2(a.x - b.x, a.z - b.z).length()
+
+## A and B: the runner starts in each of the robbed family's rooms and heads
+## for its own nearest cash room; the chaser stands behind it (A) or off to the
+## side of its way ahead (B).
+func _plan_runs(world: SimWorld, nav: NavGraph, robbed: StringName, robber: StringName,
+		side: bool) -> Array:
+	var plans: Array = []
+	var homes: Array[Vector3] = _cash_points(world, nav, robber)
+	for start: Vector3 in _chase_starts(world, nav, robbed):
+		var goal: Vector3 = _nearest_home(nav, start, homes)
+		# A route starts at its first waypoint, not at the body.
+		var route: PackedVector3Array = PackedVector3Array([start]) + nav.route(start, goal)
+		var dir: Vector3 = _along(route, 150.0)[1]
+		var chaser: Vector3
+		if side:
+			var at: Array = _along(route, 400.0)
+			var mid: Vector3 = at[0]
+			var way: Vector3 = at[1]
+			chaser = _stance_by(nav, mid, 250.0, 450.0, func(p: Vector3) -> float:
+				if _flat(p, start) < 300.0:
+					return -INF
+				var off: Vector3 = p - mid
+				off.y = 0.0
+				return -absf(off.normalized().dot(way)))
+		else:
+			chaser = _stance_by(nav, start, 300.0, 500.0, func(p: Vector3) -> float:
+				var off: Vector3 = p - start
+				off.y = 0.0
+				return -off.normalized().dot(dir))
+		plans.append({"thief": start, "chaser": chaser, "goal": goal})
+	return plans
+
+## C: the bot carries the robber's cash home along the way a raider comes back
+## (from the robber's cash room to each of its own), from four points on its own
+## ground; the intruder stands 300 further along and walks back the other way.
+func _plan_carries(world: SimWorld, nav: NavGraph, robbed: StringName, robber: StringName) -> Array:
+	var plans: Array = []
+	var raw: Vector3 = _cash_points(world, nav, robber)[0]
+	var away: Vector3 = nav.surface.nodes[nav.stance_near(raw)]
+	for home: Vector3 in _cash_points(world, nav, robbed):
+		var route: PackedVector3Array = PackedVector3Array([away]) + nav.route(away, home)
+		var total: float = _route_length(route)
+		# Where the way home first reaches the bot's own ground.
+		var entered: float = total
+		var walked: float = 0.0
+		for i: int in route.size():
+			if i > 0:
+				walked += route[i - 1].distance_to(route[i])
+			var zone: ZoneDef = world.zone_at(route[i])
+			if zone != null and zone.is_owned_by(robbed):
+				entered = walked
+				break
+		var stop: float = total - 600.0
+		for k: int in 4:
+			var at: float = lerpf(entered + 50.0, maxf(entered + 50.0, stop), float(k) / 3.0)
+			var start: Vector3 = _along(route, at)[0]
+			var meet: Vector3 = _along(route, at + 300.0)[0]
+			var carrier: Vector3 = nav.surface.nodes[nav.node_at(start)]
+			var intruder: Vector3 = nav.surface.nodes[nav.node_at(meet)]
+			plans.append({"thief": carrier, "chaser": intruder, "goal": carrier})
+	return plans
+
+## Plays one scene; {caught, seconds, kept, note}.
+func _stage(level: GreyBoxLevel, nav: NavGraph, kind: String, plan: Dictionary,
+		robbed: StringName, robber: StringName) -> Dictionary:
+	var world: SimWorld = _chase_world(level)
+	var guard: SimEntity = null # the robbed family's body in the scene
+	var raider: SimEntity = null # the robbing family's
+	var others: Array[SimEntity] = []
+	for actor_id: int in world.actor_ids():
+		var body: SimEntity = world.get_entity(actor_id)
+		if body.team == robbed and guard == null:
+			guard = body
+		elif body.team == robber and raider == null:
+			raider = body
+		else:
+			others.append(body)
+	# C: the guard is the carrier at "thief"; the raider is the intruder at "chaser".
+	var carrier: SimEntity = guard if kind == "C" else raider
+	var chaser: SimEntity = raider if kind == "C" else guard
+	_place(carrier, plan["thief"])
+	_place(chaser, plan["chaser"])
+	_park(world, nav, others, plan["thief"])
+	var cash_team: StringName = robber if kind == "C" else robbed
+	var cash: SimEntity = null
+	for entity_id: int in world.sorted_entity_ids():
+		var loot: SimEntity = world.entities[entity_id]
+		if loot.is_carriable() and loot.team == cash_team and not loot.is_held():
+			cash = loot
+			break
+	cash.position = carrier.position
+	world.step([CarryCommand.pick_up(carrier.id, cash.id, world.tick)])
+	if not carrier.is_carrying():
+		return {"caught": false, "seconds": 0.0, "kept": false, "note": "SKIPPED: the pick-up was refused"}
+
+	var crew: BotCrew = BotCrew.create(level.bot_profile, nav, world.rng.state)
+	var bot: SimEntity = raider if kind == "R" else guard
+	var scripted: SimEntity = guard if kind == "R" else raider
+	crew.take_over(world, bot.id)
+	var walk: Dictionary = {"route": PackedVector3Array(), "leg": 0, "repath": 0}
+	var limit: int = SimWorld.seconds_to_ticks(CHASE_SECONDS)
+	var began: int = world.tick
+	var closest: float = INF
+	var prey: SimEntity = bot if kind == "R" else scripted
+	var hunter: SimEntity = scripted if kind == "R" else bot
+	while world.tick - began < limit:
+		var commands: Array[SimCommand] = crew.drain(world, world.tick)
+		if kind == "R":
+			commands.append_array(_hunt(world, nav, scripted, bot, walk))
+		else:
+			commands.append_array(_walk_to(world, nav, scripted, plan["goal"], walk,
+				SimWorld.seconds_to_ticks(1.0)))
+		world.step(commands)
+		closest = minf(closest, hunter.position.distance_to(prey.position))
+		var seconds: float = float(world.tick - began) / float(SimWorld.TICKS_PER_SECOND)
+		if prey.is_captured:
+			var holding: bool = kind == "C" and guard.is_carrying()
+			var how: String = ""
+			if kind == "C":
+				how = " (still carrying)" if holding else " (cash gone)"
+			return {"caught": true, "seconds": seconds, "kept": holding,
+				"note": "CAUGHT after %.1f s%s" % [seconds, how]}
+		if kind != "C":
+			var ground: ZoneDef = world.zone_at(prey.position)
+			if ground == null or not ground.is_owned_by(robbed):
+				return {"caught": false, "seconds": seconds, "kept": false,
+					"note": "escaped after %.1f s (closest %d)" % [seconds, int(closest)]}
+		elif not guard.is_carrying():
+			var banked: ZoneDef = world.zone_at(guard.position)
+			var where: String = "banked it" if banked != null and banked.role == ZoneDef.Role.CASH_ROOM else "let go of the cash"
+			return {"caught": false, "seconds": seconds, "kept": false,
+				"note": "%s after %.1f s without a seizure (closest %d)" % [where, seconds, int(closest)]}
+	var doing: BotTask = crew.director_for(bot.id).current_task()
+	return {"caught": false, "seconds": CHASE_SECONDS, "kept": false,
+		"note": "nothing in %d s (closest %d, bot doing %s)" % [int(CHASE_SECONDS), int(closest),
+			BotTask.Kind.keys()[doing.kind]]}
+
+func _place(body: SimEntity, at: Vector3) -> void:
+	body.position = at
+	body.velocity = Vector3.ZERO
+	body.move_intent = Vector3.ZERO
+
+## Everybody not in the scene, on the neutral lot as far from it as it goes.
+func _park(world: SimWorld, nav: NavGraph, bodies: Array[SimEntity], scene: Vector3) -> void:
+	var taken: Array[Vector3] = []
+	var order: Array[int] = []
+	for i: int in nav.surface.size():
+		var zone: ZoneDef = world.zone_at(nav.surface.nodes[i])
+		if zone != null and zone.owner_team == &"":
+			order.append(i)
+	order.sort_custom(func(a: int, b: int) -> bool:
+		var da: float = _flat(nav.surface.nodes[a], scene)
+		var db: float = _flat(nav.surface.nodes[b], scene)
+		return da > db if da != db else a < b)
+	for body: SimEntity in bodies:
+		for i: int in order:
+			var p: Vector3 = nav.surface.nodes[i]
+			var clear: bool = true
+			for t: Vector3 in taken:
+				if _flat(t, p) < 200.0:
+					clear = false
+					break
+			if clear:
+				taken.append(p)
+				_place(body, p)
+				break
+
+## Follows a nav route to `goal` the way a player holding a direction would:
+## at the furthest waypoint in reach, re-routed every `repath` ticks.
+func _walk_to(world: SimWorld, nav: NavGraph, body: SimEntity, goal: Vector3, state: Dictionary,
+		repath: int) -> Array[SimCommand]:
+	if body.is_captured:
+		return []
+	if world.tick >= int(state["repath"]) or (state["route"] as PackedVector3Array).is_empty():
+		state["route"] = nav.route(body.position, goal)
+		state["leg"] = 0
+		state["repath"] = world.tick + repath
+	var route: PackedVector3Array = state["route"]
+	var leg: int = state["leg"]
+	while leg < route.size() and _flat(body.position, route[leg]) <= CHASE_ARRIVE:
+		leg += 1
+	if leg >= route.size():
+		state["leg"] = leg
+		return [MoveCommand.stop(body.id, world.tick)] as Array[SimCommand]
+	var target: int = nav.surface.furthest_reachable(body.position, route, leg,
+		mini(route.size() - 1, leg + CHASE_LOOKAHEAD))
+	if target < 0:
+		target = leg
+	state["leg"] = target
+	var heading: Vector3 = route[target] - body.position
+	heading.y = 0.0
+	if heading.length_squared() <= 0.0:
+		return []
+	return [MoveCommand.move(body.id, heading.normalized(), world.tick)] as Array[SimCommand]
+
+## A human chasing: straight at the target when it is close with nothing in
+## between, otherwise along a route to where it is now, re-aimed often; seizes
+## as soon as it is in range.
+func _hunt(world: SimWorld, nav: NavGraph, body: SimEntity, prey: SimEntity, state: Dictionary) -> Array[SimCommand]:
+	var commands: Array[SimCommand] = []
+	if body.position.distance_to(prey.position) <= world.tuning.capture_range:
+		commands.append(CaptureCommand.capture(body.id, prey.id, world.tick))
+	var lift: Vector3 = Vector3(0.0, CaptureSystem.REACH_LIFT, 0.0)
+	if _flat(body.position, prey.position) <= HUMAN_STRAIGHT and absf(body.position.y - prey.position.y) < 100.0 \
+			and not world.collision.blocks_segment(body.position + lift, prey.position + lift):
+		var heading: Vector3 = prey.position - body.position
+		heading.y = 0.0
+		if heading.length_squared() > 0.0:
+			commands.append(MoveCommand.move(body.id, heading.normalized(), world.tick))
+		return commands
+	commands.append_array(_walk_to(world, nav, body, prey.position, state,
+		SimWorld.seconds_to_ticks(HUMAN_REAIM_SECONDS)))
+	return commands
