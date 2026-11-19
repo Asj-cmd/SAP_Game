@@ -2,6 +2,8 @@
 
 Newest first. One entry per task: date, task id, what changed, what the frames showed, numbers, what is left.
 
+> **No open task left in PLAN.md (2026-11-19, after PT5-2):** everything is `[x]`, `[B]` or `[-]`, except PT4-8 `[~]`, which waits on the decision below. The planner needs to write new tasks.
+
 > **For the planner: the full verify now fails the 3v3 tick budget on every task, and the cause is PT4-8's bot code.** PT4-8 stays `[~]`. Measured back to back on 2026-11-19 in one worktree: the pre-PT4-8 bot files score 0 of 600 over (bot thinking 5.99 ms/tick); the current code scores 5 and 11 over (7.80 and 8.70 ms). The gate is at most 5. PT4-8's brief forbade touching `sim/ai/` to save tick time and allowed no third attempt, so nobody may fix it until that is lifted. Decide one of: (a) a perf task on PT4-8's pursuit (the lead-point snap, the straight-walk check, the 0.3 s chase re-plan; re-plan alone back at 0.9 s did not help the night before); (b) accept the cost and gate 3v3 differently; (c) revert PT4-8. Until then, a task's verify that fails only this check is not that task's fault (PT5-1 was ticked on that basis).
 
 ## 2026-11-19 — PT5-2 Minimap that is easy to read
